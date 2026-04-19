@@ -318,23 +318,24 @@ function rTi(mc){
 function rLB(mc){
   const yr=new Date().getFullYear();
   const yrRefs=JR.filter(r=>{const d=r.date||'';return d.startsWith(yr.toString())});
-  const byContact={};
+  const byName={};
   yrRefs.forEach(r=>{
-    const cid=+r.contactId;
-    if(!byContact[cid])byContact[cid]={name:r.contactName||'Unknown',refs:[],booked:0,total:0};
-    byContact[cid].refs.push(r);
-    byContact[cid].total++;
-    if(r.status==='booked')byContact[cid].booked++;
+    const nm=r.contactName||'';if(!nm)return;
+    if(!byName[nm])byName[nm]={name:nm,refs:[],booked:0,total:0};
+    byName[nm].refs.push(r);
+    byName[nm].total++;
+    if(r.status==='booked')byName[nm].booked++;
   });
-  const ranked=Object.entries(byContact).filter(([cid])=>D.some(x=>+x.id===+cid)).sort((a,b)=>b[1].total-a[1].total);
+  Object.values(byName).forEach(d=>{d.contact=D.find(x=>x.name&&x.name.toLowerCase()===d.name.toLowerCase())||D.find(x=>x.name&&x.name.toLowerCase().includes(d.name.split(' ')[0].toLowerCase()))||null});
+  const ranked=Object.entries(byName).filter(([nm,d])=>d.contact).sort((a,b)=>b[1].total-a[1].total);
   let h=`<div style="margin:14px 0 8px;font-size:15px;font-weight:700;color:var(--p)">🏆 Referral Leaderboard ${yr}</div>`;
   h+=`<div style="color:var(--g);font-size:12px;margin-bottom:16px">${yrRefs.length} total referrals this year · ${yrRefs.filter(r=>r.status==='booked').length} booked</div>`;
   if(!ranked.length){h+=`<div style="text-align:center;padding:40px;color:var(--g)">No referrals logged yet for ${yr}.<br>Open a contact and tap "Referral" to log one.</div>`;mc.innerHTML=h;return}
-  ranked.forEach(([cid,data],i)=>{
-    const c=D.find(x=>+x.id===+cid);
+  ranked.forEach(([nm,data],i)=>{
+    const c=data.contact;
     const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
     const pct=data.total>0?Math.round(data.booked/data.total*100):0;
-    h+=`<div class="cd" style="border-left-color:${i<3?'var(--gold)':'var(--b)'}${c?' ;cursor:pointer':''}" ${c?'onclick="oP('+cid+')"':''}>
+    h+=`<div class="cd" style="border-left-color:${i<3?'var(--gold)':'var(--b)'}${c?' ;cursor:pointer':''}" ${c?'onclick="oP('+c.id+')"':''}>
       <div class="cd-t"><div style="flex:1"><div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:20px;min-width:30px">${medal||'#'+(i+1)}</span>
         <div><span class="nm">${data.name}</span>
