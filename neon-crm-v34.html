@@ -14,7 +14,7 @@
 button{font-family:inherit;cursor:pointer}select,input,textarea{font-family:inherit}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--d2)}::-webkit-scrollbar-thumb{background:var(--d3)}
 a{color:var(--b);text-decoration:none}
-.hdr{padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--d3);position:sticky;top:0;z-index:100;background:rgba(8,8,13,.92);backdrop-filter:blur(16px)}
+.hdr{padding:10px 16px;display:flex;ahlign-items:center;justify-content:space-between;border-bottom:1px solid var(--d3);position:sticky;top:0;z-index:100;background:rgba(8,8,13,.92);backdrop-filter:blur(16px)}
 .hdr-l{display:flex;align-items:center;gap:10px}.logo{height:40px;border-radius:5px}
 .brd{font-size:17px;font-weight:800}.brd-s{font-size:9px;color:var(--g);letter-spacing:.1em;text-transform:uppercase}
 .hdr-r{display:flex;gap:6px;align-items:center}
@@ -326,7 +326,7 @@ function rLB(mc){
     byContact[cid].total++;
     if(r.status==='booked')byContact[cid].booked++;
   });
-  const ranked=Object.entries(byContact).sort((a,b)=>b[1].total-a[1].total);
+  const ranked=Object.entries(byContact).filter(([cid])=>D.some(x=>+x.id===+cid)).sort((a,b)=>b[1].total-a[1].total);
   let h=`<div style="margin:14px 0 8px;font-size:15px;font-weight:700;color:var(--p)">🏆 Referral Leaderboard ${yr}</div>`;
   h+=`<div style="color:var(--g);font-size:12px;margin-bottom:16px">${yrRefs.length} total referrals this year · ${yrRefs.filter(r=>r.status==='booked').length} booked</div>`;
   if(!ranked.length){h+=`<div style="text-align:center;padding:40px;color:var(--g)">No referrals logged yet for ${yr}.<br>Open a contact and tap "Referral" to log one.</div>`;mc.innerHTML=h;return}
