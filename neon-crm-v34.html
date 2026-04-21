@@ -10,7 +10,7 @@
 <style>
 :root{--p:#e33b93;--b:#22aee4;--d:#08080d;--d2:#10101a;--d3:#1a1a28;--d4:#24243a;--g:#8888aa;--w:#f0f0f5;--gn:#33cc66;--o:#ff9933;--r:#ff3366;--gold:#ffd700}
 *{margin:0;padding:0;box-sizing:border-box}body{background:var(--d);color:var(--w);font-family:'Outfit',system-ui,sans-serif}
-[style*="background:#fff"],[style*="background:#fde8e8"],[style*="background:#fff8e1"],[style*="background:#e8f5e9"],[style*="background:#f3e8fd"],[style*="background:#e3f2fd"]{color:#222}
+[style*="background:#fff"],[style*="background:#fde8e8"],[style*="background:#fff8e1"],[style*="background:#e8f5e9"],[style*="background:#f3e8fd"],[style*="background:#e3f2fd"],[style*="background:#e0f2fe"]{color:#222}
 button{font-family:inherit;cursor:pointer}select,input,textarea{font-family:inherit}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--d2)}::-webkit-scrollbar-thumb{background:var(--d3)}
 a{color:var(--b);text-decoration:none}
@@ -180,7 +180,7 @@ const SC=[{l:"Hot",c:"#ff3366",e:"🔥"},{l:"Warm",c:"#ff9933",e:"☀️"},{l:"C
 const TI=["—","Tier 1","Tier 2","Tier 3","Tier 4"];const TID={"Tier 1":"Core Partners","Tier 2":"Active Referrers","Tier 3":"Warm Relationships","Tier 4":"Prospects"};
 const TC={"Anacortes":[48.5126,-122.6127],"Burlington":[48.4757,-122.3254],"Oak Harbor":[48.2932,-122.6433],"Mt. Vernon":[48.4201,-122.334],"Sedro-Woolley":[48.5037,-122.2366],"Bellingham":[48.7519,-122.4787],"North of Bellingham":[48.86,-122.51],"Snohomish":[48.166,-122.22],"South Whidbey":[48.12,-122.68],"Arlington":[48.1987,-122.1254],"Stanwood":[48.2404,-122.3706],"La Conner":[48.3921,-122.4932]};
 const IC={'Self-Storage':'📦','Real Estate':'🏠','U-Haul':'🚛','Assisted':'🏥','Apartment':'🏢','Attorney':'⚖️','Home Serv':'🔧','Estate Sale':'🏷️','Property':'🏘️','Other':'📋'};
-let D=[],V=[],R=[],JR=[],TEAM=[],fRA='All',fRStatus='active',mRS={},lAvatar='',CU=JSON.parse(sessionStorage.getItem('neon_user')||'null'),tb='d',fT='All',fY='All',fS='',sr='urgency',lm=null,mM=[],ok=false;
+let D=[],V=[],R=[],JR=[],TEAM=[],fRA='All',fRStatus='active',mRS={},lAvatar='',CU=JSON.parse(sessionStorage.getItem('neon_user')||'null'),tb='d',fT='All',fY='All',fS='',sr='urgency',lm=null,mM=[],ok=false,IM=[];
 
 async function aG(a){return(await fetch(API+'?action='+a)).json()}
 async function aP(d){return(await fetch(API,{method:'POST',body:JSON.stringify(d),headers:{'Content-Type':'text/plain'}})).json()}
@@ -238,7 +238,7 @@ function updateUserUI(){
 
 async function load(){
   document.getElementById('mc').innerHTML='<div class="ld"><div class="sp"></div></div>';
-  try{const d=await aG('getAll');D=Array.isArray(d.contacts)?d.contacts:[];V=Array.isArray(d.visits)?d.visits:[];R=(Array.isArray(d.reminders)?d.reminders:[]).filter(r=>r.status==='active');JR=Array.isArray(d.referrals)?d.referrals:[];mM=Array.isArray(d.messages)?d.messages:[];ok=true;try{const jr=await aG('getReferrals');JR=Array.isArray(jr)?jr:[]}catch(e){JR=[]};ren()}
+  try{const d=await aG('getAll');D=Array.isArray(d.contacts)?d.contacts:[];V=Array.isArray(d.visits)?d.visits:[];R=(Array.isArray(d.reminders)?d.reminders:[]).filter(r=>r.status==='active');JR=Array.isArray(d.referrals)?d.referrals:[];mM=Array.isArray(d.messages)?d.messages:[];ok=true;try{const jr=await aG('getReferrals');JR=Array.isArray(jr)?jr:[]}catch(e){JR=[]};try{const ib=await aG('getInbound');IM=Array.isArray(ib)?ib:[]}catch(e){IM=[]};ren()}
   catch(e){document.getElementById('mc').innerHTML='<div class="ld"><div style="color:var(--r)">Failed</div><button class="bs" style="max-width:200px;margin:16px auto" onclick="load()">Retry</button></div>'}
 }
 
@@ -395,6 +395,106 @@ async function sendCompose(cid,channel){
     }catch(e){tt('Send failed: '+e.message,'er')}
   }
 }
+
+// ======== TERRITORY GROUP EMAIL ========
+let GC_SEL=new Set(), GC_DRAFTS=[];
+
+function showGroupCompose(){
+  const sender=(CU&&CU.name)?CU.name:'';
+  const terrs=TR.filter(t=>t!=='All');
+  let h='<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px" id="gcModal" onclick="if(event.target===this)this.remove()">';
+  h+='<div style="background:var(--d);border-radius:12px;padding:20px;width:100%;max-width:700px;max-height:90vh;overflow-y:auto;color:var(--w)">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0">\u{1F4E2} Territory Group Email</h3><button class="bc" onclick="document.getElementById(\'gcModal\').remove()">\u2715</button></div>';
+  // Territory filter
+  h+='<div style="margin-bottom:10px"><label style="font-size:12px;color:var(--g)">Filter by Territory</label><select id="gcTerrFilter" onchange="gcFilterTerr()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--d3);background:var(--d2);color:var(--w);margin-top:4px"><option value="">All Territories</option>';
+  terrs.forEach(t=>{ h+='<option value="'+t+'">'+t+'</option>'; });
+  h+='</select></div>';
+  // Contact selection list
+  const contacts=D.filter(c=>c.email);
+  h+='<div style="margin-bottom:10px;max-height:200px;overflow-y:auto;border:1px solid var(--d3);border-radius:8px;padding:8px" id="gcContactList">';
+  contacts.forEach(c=>{
+    const checked=GC_SEL.has(+c.id)?'checked':'';
+    h+='<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;cursor:pointer" data-terr="'+(c.territory||'')+'" class="gc-row"><input type="checkbox" value="'+c.id+'" '+checked+' onchange="gcToggle(this)"><span><strong>'+c.name+'</strong> <span style="color:var(--g);font-size:11px">'+(c.business||'')+' \u00b7 '+(c.territory||'')+'</span></span></label>';
+  });
+  h+='</div>';
+  h+='<div style="font-size:11px;color:var(--g);margin-bottom:8px"><span id="gcCount">'+GC_SEL.size+'</span> contacts selected</div>';
+  // Template
+  h+='<div style="margin-bottom:8px"><label style="font-size:12px;color:var(--g)">Subject</label><input id="gcSubj" value="Neon Giant Moving - In Your Area Soon!" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--d3);background:var(--d2);color:var(--w);margin-top:4px"></div>';
+  h+='<div style="margin-bottom:8px"><label style="font-size:12px;color:var(--g)">Message Template <span style="font-size:10px">(use {name}, {company}, {territory})</span></label><textarea id="gcTemplate" rows="5" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--d3);background:var(--d2);color:var(--w);font-family:inherit;margin-top:4px">Hi {name},\n\nWe wanted to let you know that Neon Giant Moving will be working in the {territory} area soon. If you have any upcoming moves or know of anyone who needs moving services, we\u2019d love to help!\n\nFeel free to reach out anytime.\n\nBest,\n'+sender+'\nNeon Giant Moving</textarea></div>';
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap">';
+  h+='<button class="bs" onclick="gcDraft()" style="flex:1">\u{1F4DD} Draft Messages</button>';
+  h+='<button class="bs" style="flex:1;background:var(--gn);opacity:0.5;pointer-events:none" id="gcSendAllBtn">\u{1F680} Send All</button>';
+  h+='</div>';
+  h+='<div id="gcDraftsArea" style="margin-top:12px"></div>';
+  h+='</div></div>';
+  document.body.insertAdjacentHTML('beforeend',h);
+}
+
+function gcToggle(el){
+  const id=+el.value;
+  if(el.checked) GC_SEL.add(id); else GC_SEL.delete(id);
+  const cnt=document.getElementById('gcCount');
+  if(cnt) cnt.textContent=GC_SEL.size;
+}
+
+function gcFilterTerr(){
+  const val=document.getElementById('gcTerrFilter').value;
+  document.querySelectorAll('.gc-row').forEach(r=>{
+    const t=r.getAttribute('data-terr')||'';
+    r.style.display=(!val||t===val)?'flex':'none';
+  });
+}
+
+function gcDraft(){
+  if(GC_SEL.size===0){tt('Select at least one contact','er');return}
+  const template=document.getElementById('gcTemplate').value;
+  const subj=document.getElementById('gcSubj').value;
+  GC_DRAFTS=[];
+  const area=document.getElementById('gcDraftsArea');
+  let h='<div style="font-weight:700;margin-bottom:8px">\u{1F4E7} Drafted Messages ('+GC_SEL.size+')</div>';
+  let idx=0;
+  GC_SEL.forEach(cid=>{
+    const c=D.find(x=>+x.id===cid);if(!c)return;
+    const firstName=(c.name||'').split(' ')[0];
+    const body=template.replace(/\{name\}/g,firstName).replace(/\{company\}/g,c.business||'').replace(/\{territory\}/g,c.territory||'');
+    GC_DRAFTS.push({cid:cid,name:c.name,email:c.email,subject:subj,body:body,sent:false});
+    h+='<div style="background:var(--d2);border-radius:8px;padding:10px;margin-bottom:6px;border-left:3px solid var(--p)" id="gcDraft'+idx+'">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center"><strong>'+c.name+'</strong><span style="font-size:10px;color:var(--g)">'+c.email+'</span></div>';
+    h+='<div style="font-size:11px;color:var(--g);margin:4px 0">'+(c.business||'')+' \u00b7 '+(c.territory||'')+'</div>';
+    h+='<textarea id="gcBody'+idx+'" rows="4" style="width:100%;padding:6px;border-radius:4px;border:1px solid var(--d3);background:var(--d);color:var(--w);font-family:inherit;font-size:12px;margin-top:4px">'+body.replace(/</g,'&lt;')+'</textarea>';
+    h+='</div>';
+    idx++;
+  });
+  area.innerHTML=h;
+  // Enable send all button
+  const btn=document.getElementById('gcSendAllBtn');
+  if(btn){btn.style.opacity='1';btn.style.pointerEvents='auto';btn.onclick=gcSendAll;}
+}
+
+async function gcSendAll(){
+  if(!GC_DRAFTS.length){tt('No drafts to send','er');return}
+  const btn=document.getElementById('gcSendAllBtn');
+  btn.textContent='\u23F3 Sending...';btn.style.pointerEvents='none';
+  const sender=(CU&&CU.name)?CU.name:'';
+  let sent=0,failed=0;
+  for(let i=0;i<GC_DRAFTS.length;i++){
+    const d=GC_DRAFTS[i];
+    if(d.sent) continue;
+    // Get possibly-edited body from textarea
+    const ta=document.getElementById('gcBody'+i);
+    const body=ta?ta.value:d.body;
+    try{
+      const r=await aP({action:'sendEmail',to:d.email,subject:d.subject,body:body,contactId:d.cid,sender:sender});
+      if(r&&r.ok){d.sent=true;sent++;const el=document.getElementById('gcDraft'+i);if(el)el.style.borderLeftColor='var(--gn)';if(el)el.querySelector('strong').innerHTML+=' \u2705';}
+      else{failed++;tt('Failed: '+d.name,'er')}
+    }catch(e){failed++;tt('Error: '+d.name+' - '+e.message,'er')}
+  }
+  btn.textContent='\u2705 Done! ('+sent+' sent'+(failed?', '+failed+' failed':'')+')';
+  tt(sent+' emails sent!','ok');
+  setTimeout(()=>{load()},2000);
+}
+// ======== END GROUP EMAIL ========
+
 
 // ─── RICH PROFILE ─────
 function oP(id){
@@ -895,7 +995,28 @@ function rIX(mc){
       if(c)h+='<button class="bsm" style="margin-top:6px;font-size:10px" onclick="oP('+c.id+')">View Contact</button>';
       h+='</div>';
     });
-    if(myMsgs.length>20)h+='<div style="font-size:11px;color:var(--g);margin-top:4px">+'+(myMsgs.length-20)+' older messages</div>';
+    if(myMsgs.length>20)
+// ---- Inbound Messages ----
+const inboundHtml = IM.length ? IM.slice(0,20).map(m=>{
+  const dt=m.date?new Date(m.date):null;
+  const ago=dt?Math.round((Date.now()-dt)/86400000):0;
+  const agoTxt=ago===0?'Today':ago===1?'Yesterday':ago+'d ago';
+  const nm=m.contactName||m.fromEmail||'Unknown';
+  const biz=m.business?' \u00b7 '+m.business:'';
+  const subj=m.subject||'(no subject)';
+  const snip=(m.snippet||'').substring(0,120);
+  const cid=m.contactId;
+  return '<div style="background:#fff;border-radius:8px;padding:10px 12px;margin-bottom:6px;border-left:4px solid #22aee4;cursor:pointer" onclick="'+(cid?'oP('+cid+')':'')+'">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center"><strong style="color:#222">'+nm+'</strong><span style="font-size:10px;color:#888">'+agoTxt+'</span></div>'
+    +'<div style="font-size:11px;color:#666;margin-top:2px">'+biz+'</div>'
+    +'<div style="font-size:12px;color:#333;margin-top:4px;font-weight:600">'+subj+'</div>'
+    +'<div style="font-size:11px;color:#888;margin-top:2px">'+snip+(snip.length>=120?'...':'')+'</div>'
+    +'</div>';
+}).join('') : '<div style="color:#888;font-size:12px;padding:8px">No inbound messages in the last 30 days</div>';
+h+='<div style="background:#e0f2fe;border-radius:10px;padding:12px;margin-bottom:12px"><div style="font-weight:700;margin-bottom:8px;color:#222">\u{1F4E8} Inbound Messages <span style="font-size:11px;font-weight:400;color:#666">(last 30 days)</span></div>'+inboundHtml+'</div>';
+// ---- Group Compose Button ----
+h+='<div style="margin-bottom:12px"><button class="bs" onclick="showGroupCompose()" style="width:100%">\u{1F4E2} Territory Group Email</button></div>';
+h+='<div style="font-size:11px;color:var(--g);margin-top:4px">+'+(myMsgs.length-20)+' older messages</div>';
   }
   h+='</div>';
 
