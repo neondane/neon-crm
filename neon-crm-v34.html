@@ -399,99 +399,172 @@ async function sendCompose(cid,channel){
 // ======== TERRITORY GROUP EMAIL ========
 let GC_SEL=new Set(), GC_DRAFTS=[];
 
+const GC_TEMPLATES = [
+  {
+    name: 'Stopping By Your Area',
+    subject: 'Neon Giant Moving - In Your Area Soon!',
+    body: 'Hi {name},\n\nThis is Dane and Valentina at Neon Giant Moving! Just wanted to let you know that we\'re going to be up in the {territory} area next Thursday and wanted to stop by and say hi.\n\nWill you be available? We\'d love to pop in for a quick hello and see if there\'s anything we can help with.\n\nTalk soon,\nNeon Giant Moving'
+  },
+  {
+    name: 'Schedule a Visit',
+    subject: 'Neon Giant Moving - Let\'s Connect!',
+    body: 'Hi {name},\n\nHope you\'re doing well! This is the Neon Giant Moving crew. We\'re scheduling visits in the {territory} area and would love to set up a time to swing by.\n\nWe find that staying connected face-to-face is the best way to keep our referral partners in the loop on what we\'re up to. Any day work better for you this week or next?\n\nLooking forward to catching up,\nNeon Giant Moving'
+  },
+  {
+    name: 'Thank You + Check In',
+    subject: 'Thanks from Neon Giant Moving!',
+    body: 'Hi {name},\n\nJust wanted to drop a quick note to say thanks for being such a great partner to Neon Giant Moving. We really appreciate you thinking of us when your clients need moving help.\n\nWe\'ll be in the {territory} area soon and would love to stop by with some business cards and materials. Anything you need from us?\n\nGratefully,\nNeon Giant Moving'
+  },
+  {
+    name: 'New In The Area',
+    subject: 'Neon Giant Moving - Nice to Meet You!',
+    body: 'Hi {name},\n\nThis is Dane and Valentina with Neon Giant Moving. We\'re a local moving company serving the {territory} area and we\'d love to introduce ourselves.\n\nWe specialize in residential moves and have built a great reputation for taking care of people\'s belongings like they\'re our own. We\'d love to stop by and tell you a bit more about what we do.\n\nWould you be open to a quick visit?\n\nBest,\nNeon Giant Moving'
+  },
+  {
+    name: 'Seasonal Push',
+    subject: 'Busy Season is Coming - Neon Giant Moving',
+    body: 'Hi {name},\n\nSummer moving season is right around the corner and we\'re gearing up at Neon Giant Moving! We wanted to reach out to our partners in the {territory} area to make sure you have everything you need to send referrals our way.\n\nWe\'d love to stop by with updated materials and chat about how we can help your clients this season.\n\nLet us know when works,\nNeon Giant Moving'
+  },
+  {
+    name: 'Custom Message',
+    subject: 'Neon Giant Moving',
+    body: ''
+  }
+];
+
 function showGroupCompose(){
-  const sender=(CU&&CU.name)?CU.name:'';
-  const terrs=TR.filter(t=>t!=='All');
-  let h='<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px" id="gcModal" onclick="if(event.target===this)this.remove()">';
-  h+='<div style="background:var(--d);border-radius:12px;padding:20px;width:100%;max-width:700px;max-height:90vh;overflow-y:auto;color:var(--w)">';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0">\u{1F4E2} Territory Group Email</h3><button class="bc" onclick="document.getElementById(\'gcModal\').remove()">\u2715</button></div>';
-  // Territory filter
-  h+='<div style="margin-bottom:10px"><label style="font-size:12px;color:var(--g)">Filter by Territory</label><select id="gcTerrFilter" onchange="gcFilterTerr()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--d3);background:var(--d2);color:var(--w);margin-top:4px"><option value="">All Territories</option>';
-  terrs.forEach(t=>{ h+='<option value="'+t+'">'+t+'</option>'; });
+  GC_SEL.clear(); GC_DRAFTS=[];
+  const terrs=[...new Set(D.map(c=>c.territory).filter(Boolean))].sort();
+  const contacts=D.filter(c=>c.email&&c.email.includes('@'));
+  let h='<div id="gcModal" style="position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.85);display:flex;justify-content:center;align-items:flex-start;padding:20px;overflow:auto">';
+  h+='<div style="background:var(--d);border:1px solid var(--d3);border-radius:12px;width:min(600px,95%);max-height:90vh;overflow:auto;padding:20px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><h3 style="margin:0">\u{1F4E2} Territory Group Email</h3><button onclick="document.getElementById(\'gcModal\').remove()" class="px">\u2715</button></div>';
+
+  // Template selector
+  h+='<div class="fg" style="margin-bottom:12px"><label>Email Template</label><select id="gcTplSelect" onchange="gcSelectTemplate()" style="width:100%;background:var(--d2);border:1px solid var(--d3);color:var(--w);padding:9px 11px;border-radius:8px;font-size:13px">';
+  GC_TEMPLATES.forEach((t,i)=>{ h+='<option value="'+i+'">'+t.name+'</option>'; });
   h+='</select></div>';
-  // Contact selection list
-  const contacts=D.filter(c=>c.email);
-  h+='<div style="margin-bottom:10px;max-height:200px;overflow-y:auto;border:1px solid var(--d3);border-radius:8px;padding:8px" id="gcContactList">';
+
+  // Territory filter
+  h+='<div class="fg" style="margin-bottom:10px"><label>Territory Filter</label><select id="gcTerrFilter" onchange="gcFilterTerr()" style="width:100%;background:var(--d2);border:1px solid var(--d3);color:var(--w);padding:9px 11px;border-radius:8px;font-size:13px"><option>All Territories</option>';
+  terrs.forEach(t=>{ h+='<option>'+t+'</option>'; });
+  h+='</select></div>';
+
+  // Contact list
+  h+='<div id="gcList" style="max-height:160px;overflow:auto;margin-bottom:12px;border:1px solid var(--d3);border-radius:8px;padding:8px">';
   contacts.forEach(c=>{
-    const checked=GC_SEL.has(+c.id)?'checked':'';
-    h+='<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;cursor:pointer" data-terr="'+(c.territory||'')+'" class="gc-row"><input type="checkbox" value="'+c.id+'" '+checked+' onchange="gcToggle(this)"><span><strong>'+c.name+'</strong> <span style="color:var(--g);font-size:11px">'+(c.business||'')+' \u00b7 '+(c.territory||'')+'</span></span></label>';
+    h+='<label data-terr="'+(c.territory||'')+'" style="display:flex;align-items:center;gap:8px;padding:4px;font-size:12px;cursor:pointer"><input type="checkbox" value="'+c.id+'" onchange="gcToggle(this)"> <span>'+c.name+'</span><span style="color:var(--g);font-size:10px">'+c.email+'</span></label>';
   });
   h+='</div>';
-  h+='<div style="font-size:11px;color:var(--g);margin-bottom:8px"><span id="gcCount">'+GC_SEL.size+'</span> contacts selected</div>';
-  // Template
-  h+='<div style="margin-bottom:8px"><label style="font-size:12px;color:var(--g)">Subject</label><input id="gcSubj" value="Neon Giant Moving - In Your Area Soon!" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--d3);background:var(--d2);color:var(--w);margin-top:4px"></div>';
-  h+='<div style="margin-bottom:8px"><label style="font-size:12px;color:var(--g)">Message Template <span style="font-size:10px">(use {name}, {company}, {territory})</span></label><textarea id="gcTemplate" rows="5" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--d3);background:var(--d2);color:var(--w);font-family:inherit;margin-top:4px">Hi {name},\n\nWe wanted to let you know that Neon Giant Moving will be working in the {territory} area soon. If you have any upcoming moves or know of anyone who needs moving services, we\u2019d love to help!\n\nFeel free to reach out anytime.\n\nBest,\n'+sender+'\nNeon Giant Moving</textarea></div>';
-  h+='<div style="display:flex;gap:8px;flex-wrap:wrap">';
+
+  // Subject
+  h+='<div class="fg"><label>Subject</label><input id="gcSubj" value="'+GC_TEMPLATES[0].subject+'" style="width:100%;background:var(--d2);border:1px solid var(--d3);color:var(--w);padding:9px 11px;border-radius:8px;font-size:13px"></div>';
+
+  // Message body
+  h+='<div class="fg"><label>Message <span style="font-size:9px;color:var(--g);text-transform:none">Use {name}, {company}, {territory}</span></label><textarea id="gcMsg" rows="7" style="width:100%;background:var(--d2);border:1px solid var(--d3);color:var(--w);padding:9px 11px;border-radius:8px;font-size:13px;resize:vertical">'+GC_TEMPLATES[0].body.replace(/\\n/g,'\n')+'</textarea></div>';
+
+  // AI Remix button
+  h+='<button onclick="gcAiRemix()" style="background:var(--d3);border:1px solid var(--d4);color:var(--w);padding:7px 14px;border-radius:8px;font-size:11px;font-weight:600;margin-bottom:10px;cursor:pointer">\u2728 AI Remix This Template</button>';
+
+  // Action buttons
+  h+='<div style="display:flex;gap:8px;margin-top:6px">';
   h+='<button class="bs" onclick="gcDraft()" style="flex:1">\u{1F4DD} Draft Messages</button>';
-  h+='<button class="bs" style="flex:1;background:var(--gn);opacity:0.5;pointer-events:none" id="gcSendAllBtn">\u{1F680} Send All</button>';
+  h+='<button id="gcSendBtn" class="bs" onclick="gcSendAll()" style="flex:1;opacity:.5;pointer-events:none">\u{1F680} Send All</button>';
   h+='</div>';
-  h+='<div id="gcDraftsArea" style="margin-top:12px"></div>';
+
+  // Draft preview area
+  h+='<div id="gcPreview" style="margin-top:12px"></div>';
   h+='</div></div>';
   document.body.insertAdjacentHTML('beforeend',h);
 }
 
-function gcToggle(el){
-  const id=+el.value;
-  if(el.checked) GC_SEL.add(id); else GC_SEL.delete(id);
-  const cnt=document.getElementById('gcCount');
-  if(cnt) cnt.textContent=GC_SEL.size;
+function gcSelectTemplate(){
+  const sel=document.getElementById('gcTplSelect');
+  const tpl=GC_TEMPLATES[+sel.value];
+  document.getElementById('gcSubj').value=tpl.subject;
+  document.getElementById('gcMsg').value=tpl.body.replace(/\\n/g,'\n');
+  // Reset drafts when template changes
+  GC_DRAFTS=[];
+  document.getElementById('gcPreview').innerHTML='';
+  const sendBtn=document.getElementById('gcSendBtn');
+  if(sendBtn){sendBtn.style.opacity='.5';sendBtn.style.pointerEvents='none';}
 }
 
+function gcAiRemix(){
+  const msg=document.getElementById('gcMsg');
+  const current=msg.value;
+  if(!current.trim()){alert('Write or select a template first');return;}
+  // Simple AI-style remixing: shuffle sentence structure, swap synonyms
+  const greetings=['Hi','Hey','Hello','Good morning','Good afternoon'];
+  const closes=['Talk soon','Looking forward to hearing from you','Hope to see you soon','Best','Cheers','Warmly'];
+  const connectors=['Just wanted to','Wanted to','Reaching out to','Dropping a note to'];
+  const g=greetings[Math.floor(Math.random()*greetings.length)];
+  const cl=closes[Math.floor(Math.random()*closes.length)];
+  const cn=connectors[Math.floor(Math.random()*connectors.length)];
+  let remixed=current;
+  remixed=remixed.replace(/^(Hi|Hey|Hello|Good morning|Good afternoon)/,g);
+  remixed=remixed.replace(/(Talk soon|Looking forward[^,\n]*|Hope to see you soon|Best|Cheers|Warmly|Gratefully)/,cl);
+  remixed=remixed.replace(/(Just wanted to|Wanted to|Reaching out to|Dropping a note to)/,cn);
+  // Small word swaps
+  const swaps=[['great','awesome'],['love to','really like to'],['stop by','swing by'],['pop in','come by'],['quick','short'],['chat','catch up']];
+  swaps.forEach(([a,b])=>{
+    if(Math.random()>.5){
+      if(remixed.includes(a))remixed=remixed.replace(a,b);
+      else if(remixed.includes(b))remixed=remixed.replace(b,a);
+    }
+  });
+  msg.value=remixed;
+}
+
+function gcToggle(el){ if(el.checked)GC_SEL.add(el.value);else GC_SEL.delete(el.value); }
 function gcFilterTerr(){
-  const val=document.getElementById('gcTerrFilter').value;
-  document.querySelectorAll('.gc-row').forEach(r=>{
-    const t=r.getAttribute('data-terr')||'';
-    r.style.display=(!val||t===val)?'flex':'none';
+  const v=document.getElementById('gcTerrFilter').value;
+  document.querySelectorAll('#gcList label').forEach(l=>{
+    l.style.display=(v==='All Territories'||l.dataset.terr===v)?'flex':'none';
   });
 }
 
 function gcDraft(){
-  if(GC_SEL.size===0){tt('Select at least one contact','er');return}
-  const template=document.getElementById('gcTemplate').value;
+  if(!GC_SEL.size){alert('Select at least one contact');return;}
   const subj=document.getElementById('gcSubj').value;
+  const tpl=document.getElementById('gcMsg').value;
   GC_DRAFTS=[];
-  const area=document.getElementById('gcDraftsArea');
-  let h='<div style="font-weight:700;margin-bottom:8px">\u{1F4E7} Drafted Messages ('+GC_SEL.size+')</div>';
-  let idx=0;
-  GC_SEL.forEach(cid=>{
-    const c=D.find(x=>+x.id===cid);if(!c)return;
-    const firstName=(c.name||'').split(' ')[0];
-    const body=template.replace(/\{name\}/g,firstName).replace(/\{company\}/g,c.business||'').replace(/\{territory\}/g,c.territory||'');
-    GC_DRAFTS.push({cid:cid,name:c.name,email:c.email,subject:subj,body:body,sent:false});
-    h+='<div style="background:var(--d2);border-radius:8px;padding:10px;margin-bottom:6px;border-left:3px solid var(--p)" id="gcDraft'+idx+'">';
-    h+='<div style="display:flex;justify-content:space-between;align-items:center"><strong>'+c.name+'</strong><span style="font-size:10px;color:var(--g)">'+c.email+'</span></div>';
-    h+='<div style="font-size:11px;color:var(--g);margin:4px 0">'+(c.business||'')+' \u00b7 '+(c.territory||'')+'</div>';
-    h+='<textarea id="gcBody'+idx+'" rows="4" style="width:100%;padding:6px;border-radius:4px;border:1px solid var(--d3);background:var(--d);color:var(--w);font-family:inherit;font-size:12px;margin-top:4px">'+body.replace(/</g,'&lt;')+'</textarea>';
-    h+='</div>';
-    idx++;
+  GC_SEL.forEach(id=>{
+    const c=D.find(x=>String(x.id)===String(id));
+    if(!c)return;
+    let msg=tpl.replace(/\{name\}/g,c.name||'').replace(/\{company\}/g,c.business||'').replace(/\{territory\}/g,c.territory||'');
+    GC_DRAFTS.push({id:c.id,name:c.name,email:c.email,subject:subj,message:msg});
   });
-  area.innerHTML=h;
-  // Enable send all button
-  const btn=document.getElementById('gcSendAllBtn');
-  if(btn){btn.style.opacity='1';btn.style.pointerEvents='auto';btn.onclick=gcSendAll;}
+  let ph='<div style="font-weight:600;margin-bottom:8px;color:var(--b)">\u{1F4E8} '+GC_DRAFTS.length+' Drafts Ready</div>';
+  GC_DRAFTS.forEach((d,i)=>{
+    ph+='<div style="background:var(--d2);border-radius:8px;padding:10px;margin-bottom:6px;border:1px solid var(--d3)">';
+    ph+='<div style="display:flex;justify-content:space-between"><strong style="font-size:12px">'+d.name+'</strong><span style="font-size:10px;color:var(--g)">'+d.email+'</span></div>';
+    ph+='<div style="font-size:11px;color:var(--b);margin-top:4px">'+d.subject+'</div>';
+    ph+='<textarea id="gcDraftMsg'+i+'" rows="3" onchange="GC_DRAFTS['+i+'].message=this.value" style="width:100%;margin-top:4px;background:var(--d);border:1px solid var(--d3);color:var(--w);padding:6px;border-radius:6px;font-size:11px;resize:vertical">'+d.message.replace(/</g,'&lt;')+'</textarea>';
+    ph+='</div>';
+  });
+  document.getElementById('gcPreview').innerHTML=ph;
+  const sendBtn=document.getElementById('gcSendBtn');
+  sendBtn.style.opacity='1';sendBtn.style.pointerEvents='auto';
 }
 
 async function gcSendAll(){
-  if(!GC_DRAFTS.length){tt('No drafts to send','er');return}
-  const btn=document.getElementById('gcSendAllBtn');
-  btn.textContent='\u23F3 Sending...';btn.style.pointerEvents='none';
-  const sender=(CU&&CU.name)?CU.name:'';
-  let sent=0,failed=0;
-  for(let i=0;i<GC_DRAFTS.length;i++){
-    const d=GC_DRAFTS[i];
-    if(d.sent) continue;
-    // Get possibly-edited body from textarea
-    const ta=document.getElementById('gcBody'+i);
-    const body=ta?ta.value:d.body;
+  if(!GC_DRAFTS.length){alert('Draft messages first');return;}
+  if(!confirm('Send '+GC_DRAFTS.length+' emails now?'))return;
+  const btn=document.getElementById('gcSendBtn');
+  btn.textContent='Sending...';btn.style.pointerEvents='none';
+  let ok=0,fail=0;
+  for(const d of GC_DRAFTS){
+    // Update message from potentially edited textarea
+    const ta=document.getElementById('gcDraftMsg'+GC_DRAFTS.indexOf(d));
+    if(ta)d.message=ta.value;
     try{
-      const r=await aP({action:'sendEmail',to:d.email,subject:d.subject,body:body,contactId:d.cid,sender:sender});
-      if(r&&r.ok){d.sent=true;sent++;const el=document.getElementById('gcDraft'+i);if(el)el.style.borderLeftColor='var(--gn)';if(el)el.querySelector('strong').innerHTML+=' \u2705';}
-      else{failed++;tt('Failed: '+d.name,'er')}
-    }catch(e){failed++;tt('Error: '+d.name+' - '+e.message,'er')}
+      await aP({action:'sendEmail',to:d.email,subject:d.subject,body:d.message,contactId:d.id});
+      ok++;
+    }catch(e){fail++;}
   }
-  btn.textContent='\u2705 Done! ('+sent+' sent'+(failed?', '+failed+' failed':'')+')';
-  tt(sent+' emails sent!','ok');
-  setTimeout(()=>{load()},2000);
+  btn.textContent='\u2705 Sent '+ok+(fail?' ('+fail+' failed)':'');
+  setTimeout(()=>{ document.getElementById('gcModal').remove(); },2000);
 }
 // ======== END GROUP EMAIL ========
 
