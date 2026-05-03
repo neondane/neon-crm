@@ -1314,7 +1314,7 @@ async function dpGenerate(){
   try{
     const r=await aP({action:'generateDayPlan',opts:opts});
     if(!r.ok){result.innerHTML='<div style="color:var(--r);padding:20px;background:#311;border-radius:8px">Error: '+r.error+'</div>';return}
-    result.innerHTML=dpRender(r);
+    window.__dpLastPlan=r; result.innerHTML=dpRender(r);
   }catch(e){result.innerHTML='<div style="color:var(--r);padding:20px;background:#311;border-radius:8px">Error: '+e.message+'</div>'}
 }
 
@@ -1344,6 +1344,7 @@ function dpRender(plan){
   const totalStopMin = stops.reduce(function(a,s){return a+s._stopMin}, 0);
   const baseCoords = [48.504, -122.236];
   const stopCoords = stops.map(function(s, i){
+    if(s.lat && s.lon) return [s.lat, s.lon];
     const c = TC[s.territory] || [48.6, -122.4];
     return [c[0] + (i*0.004-0.012), c[1] + (i*0.003-0.009)];
   });
@@ -1365,7 +1366,7 @@ function dpRender(plan){
   }).join('');
   const out = '<div id="dpPlan">'+
     '<div style="padding:20px;background:linear-gradient(135deg,#1a0033 0%,#4a0080 50%,#ff0080 100%);border-radius:10px;color:white;margin-bottom:14px">'+
-      '<div style="font-size:10px;opacity:.8;letter-spacing:2px">'+plan.person.toUpperCase()+'\\'+'S DAY • '+(plan.territories||[]).join(', ').toUpperCase()+'</div>'+
+      '<div style="font-size:10px;opacity:.8;letter-spacing:2px">'+plan.person.toUpperCase()+''+'&#39;S DAY • '+(plan.territories||[]).join(', ').toUpperCase()+'</div>'+
       '<div style="font-size:14px;margin-top:8px">'+(plan.intro||'')+'</div>'+
     '</div>'+
     '<div id="'+summaryId+'" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px"></div>'+
@@ -1373,6 +1374,7 @@ function dpRender(plan){
     '<div id="'+stopsId+'">'+stopsHtml+'</div>'+
     '<div style="padding:16px;background:linear-gradient(135deg,#ff0080,#ff8000);border-radius:8px;color:white;margin-top:14px;text-align:center;font-size:14px">'+(plan.outro||'')+'</div>'+
     '<div style="display:flex;gap:10px;margin-top:18px">'+
+      '<button class="bs" onclick="dpOpenInMaps()" style="flex:1;font-size:15px;padding:14px;background:linear-gradient(135deg,#4285F4,#34A853)">🗺️ Open Route in Google Maps</button>'+
       '<button class="bs" onclick="dpDownloadPDF()" style="flex:1;font-size:15px;padding:14px;background:linear-gradient(135deg,#1a0033,#4a0080)">📄 Download PDF</button>'+
     '</div>'+
   '</div>';
@@ -1440,6 +1442,7 @@ async function dpEnhanceWithRoute(plan, stops, baseCoords, stopCoords, summaryId
       setSummary(stops.length, totalStopMin, driveMin, miles.toFixed(1));
       const stopsEl = document.getElementById(stopsId);
       if(stopsEl){
+        window.__dpOptimalStops = optimalOrder.map(function(idx){return stops[idx]});
         stopsEl.innerHTML = optimalOrder.map(function(stopIdx, displayIdx){
           const s = stops[stopIdx];
           const tps = (s.talkingPoints||[]).map(function(t){return '<li style="margin:4px 0">'+t+'</li>'}).join('');
@@ -1467,6 +1470,31 @@ async function dpEnhanceWithRoute(plan, stops, baseCoords, stopCoords, summaryId
       }catch(e){}
     }, 100);
   }
+}
+
+
+
+async function dpOpenInMaps(){
+  const planEl = document.getElementById('dpPlan');
+  if(!planEl){tt('Generate a plan first','er');return}
+  // Reach into the rendered plan to grab stops in their displayed order
+  // Re-derive from the most recent generation: use window.__dpLastPlan
+  const plan = window.__dpLastPlan;
+  if(!plan){tt('Generate a plan first','er');return}
+  const baseLat = 48.504, baseLon = -122.236;
+  // Build waypoints in OSRM-optimized order if available, otherwise input order
+  const stops = window.__dpOptimalStops || plan.stops;
+  const wpoints = stops.map(function(s){
+    if(s.lat && s.lon) return s.lat+','+s.lon;
+    if(s.addr) return encodeURIComponent(s.addr);
+    return encodeURIComponent((s.business||s.name)+' '+s.territory+' WA');
+  }).join('|');
+  const url = 'https://www.google.com/maps/dir/?api=1'+
+    '&origin='+baseLat+','+baseLon+
+    '&destination='+baseLat+','+baseLon+
+    '&waypoints='+wpoints+
+    '&travelmode=driving';
+  window.open(url, '_blank');
 }
 
 async function dpDownloadPDF(){
