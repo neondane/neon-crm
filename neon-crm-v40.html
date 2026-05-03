@@ -1327,6 +1327,7 @@ async function dpEmail(){
   const result=document.getElementById('dpResult');
   result.innerHTML='<div style="text-align:center;padding:40px;color:var(--g)"><div style="font-size:24px;margin-bottom:10px">📧</div>Generating + emailing to '+recipients.join(', ')+'... ~15 sec</div>';
   try{
+    if(window.__dpLastPlan && window.__dpLastPlan.ok){ opts.plan = window.__dpLastPlan; }
     const r=await aP({action:'emailDayPlan',opts:opts});
     if(!r.ok){result.innerHTML='<div style="color:var(--r);padding:20px;background:#311;border-radius:8px">Error: '+r.error+'</div>';return}
     result.innerHTML='<div style="background:linear-gradient(135deg,#1a0033,#4a0080,#ff0080);padding:24px;border-radius:10px;text-align:center;color:white"><div style="font-size:32px">✅</div><b style="font-size:16px">Plan emailed</b><div style="font-size:13px;opacity:.8;margin-top:6px">'+r.stops+' stops sent to '+r.sentTo.join(', ')+'</div></div>';
@@ -1370,6 +1371,64 @@ function dpComputeStopMin(s){
   return (tn===1?35:tn===2?30:tn===3?25:20) + 5;
 }
 
+function dpRenderAddons(plan){
+  const addons = (plan && plan.suggestedAddons) || [];
+  if(!addons.length) return '';
+  const cards = addons.map(function(a, i){
+    const tierLabel = a.tier ? ' &middot; '+a.tier : '';
+    const lastVisit = a.lastVisit ? ' &middot; Last visited '+a.lastVisit : ' &middot; Never visited';
+    const dev = (typeof a.estDeviationMin==='number' ? a.estDeviationMin : 10);
+    const insertAfter = (typeof a.insertAfterIdx==='number') ? a.insertAfterIdx : (plan.stops||[]).length;
+    const insertLabel = insertAfter===0 ? 'before Stop 1' : 'after Stop '+insertAfter;
+    return '<div style="margin:10px 0;padding:14px;background:linear-gradient(135deg,#1a0033,#311a4d);border-radius:10px;border:1px dashed #7a4dd1">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">'+
+        '<div style="flex:1">'+
+          '<div style="font-size:11px;color:var(--g);letter-spacing:1.5px">SUGGESTED ADD-ON</div>'+
+          '<div style="font-size:16px;font-weight:700;margin:3px 0">'+(a.name||'')+'</div>'+
+          (a.address?'<div style="color:var(--g);font-size:11px;margin:2px 0 6px">📍 '+a.address+'</div>':'')+
+          '<div style="color:var(--g);font-size:11px;margin-bottom:6px">'+(a.type||'')+tierLabel+lastVisit+'</div>'+
+          '<div style="font-size:13px;color:#ddd;margin:6px 0">'+(a.reason||'')+'</div>'+
+          '<div style="font-size:11px;color:#a78bfa">⏱ +'+dev+' min &middot; insert '+insertLabel+'</div>'+
+        '</div>'+
+        '<button class="bs" onclick="dpAddAddon('+i+')" style="white-space:nowrap;background:linear-gradient(135deg,#33cc66,#2aa050);padding:10px 14px;font-size:13px;font-weight:700">+ Add to plan</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+  return '<div style="margin:18px 0">'+
+    '<div style="font-size:11px;color:var(--g);letter-spacing:2px;margin:6px 0 8px">💡 AI SUGGESTED ADD-ONS</div>'+
+    cards+
+  '</div>';
+}
+
+function dpAddAddon(idx){
+  const plan = window.__dpLastPlan;
+  if(!plan || !plan.suggestedAddons || !plan.suggestedAddons[idx]) return;
+  const addon = plan.suggestedAddons[idx];
+  const insertAt = Math.min((plan.stops||[]).length, (typeof addon.insertAfterIdx==='number'?addon.insertAfterIdx:(plan.stops||[]).length));
+  const newStop = {
+    id: addon.id,
+    name: addon.name || '',
+    address: addon.address || '',
+    lat: addon.lat,
+    lon: addon.lon,
+    type: addon.type || '',
+    tier: addon.tier || '',
+    territory: addon.territory || '',
+    lastVisit: addon.lastVisit || '',
+    daysSinceVisit: '',
+    contacts: addon.contacts || [],
+    briefing: addon.reason || ('Strategic add-on stop in '+(addon.territory||'territory')+'.'),
+    talkingPoints: ['Introduce or re-introduce Neon Giant Moving','Exchange contact info','Drop a leave-behind'],
+    leaveBehind: 'business card'
+  };
+  plan.stops.splice(insertAt, 0, newStop);
+  plan.suggestedAddons.splice(idx, 1);
+  // Re-render
+  const result = document.getElementById('dpResult');
+  if(result) result.innerHTML = dpRender(plan);
+  if(typeof tt==='function') tt('Added '+(addon.name||'stop')+' to plan','ok');
+}
+
 function dpRender(plan){
   const stops = plan.stops || [];
   stops.forEach(function(s){ s._stopMin = dpComputeStopMin(s); });
@@ -1395,6 +1454,7 @@ function dpRender(plan){
     '<div id="'+mapId+'" style="height:340px;border-radius:10px;margin-bottom:16px;background:var(--d2)"></div>'+
     '<div id="'+stopsId+'">'+stopsHtml+'</div>'+
     lunchBanner+
+    dpRenderAddons(plan)+
     '<div style="padding:16px;background:linear-gradient(135deg,#ff0080,#ff8000);border-radius:8px;color:white;margin-top:14px;text-align:center;font-size:14px">'+(plan.outro||'')+'</div>'+
     '<div style="display:flex;gap:10px;margin-top:18px">'+
       '<button class="bs" onclick="dpOpenInMaps()" style="flex:1;font-size:15px;padding:14px;background:linear-gradient(135deg,#4285F4,#34A853)">🗺️ Open Route in Google Maps</button>'+
