@@ -1366,8 +1366,8 @@ function dpComputeStopMin(s){
   const tierStr = String(s.tier||'');
   const m = tierStr.match(/\d/);
   const tn = m ? m[0]*1 : 5;
-  // Tier-based engagement time + 5 min parking/walk buffer
-  return (tn===1?40:tn===2?35:tn===3?30:25) + 5;
+  // Tier-based engagement time + 8 min parking/walk buffer (real-world tuning)
+  return (tn===1?45:tn===2?40:tn===3?35:35) + 8;
 }
 
 function dpRender(plan){
@@ -1408,7 +1408,7 @@ function dpRender(plan){
 async function dpEnhanceWithRoute(plan, stops, baseCoords, stopCoords, summaryId, mapId, stopsId, totalStopMin, lunchMin){
   const summaryEl = document.getElementById(summaryId);
   function setSummary(stopCount, stopMin, driveMin, miles, lunch){
-    const totalMin = stopMin + driveMin + (lunch||0);
+    const dayOverhead = 20; const totalMin = stopMin + driveMin + (lunch||0) + dayOverhead;
     const hours = Math.floor(totalMin/60);
     const mins = Math.round(totalMin) % 60;
     summaryEl.innerHTML =
@@ -1456,7 +1456,7 @@ async function dpEnhanceWithRoute(plan, stops, baseCoords, stopCoords, summaryId
       const latlngs = geom.coordinates.map(function(c){return [c[1], c[0]]});
       L.polyline(latlngs, {color:'#ff0080', weight:4, opacity:0.7}).addTo(map);
       // Apply 15% traffic padding to OSRM raw drive time
-      const driveMin = (trip.duration / 60) * 1.15;
+      const driveMin = (trip.duration / 60) * 1.20;
       const miles = trip.distance / 1609.34;
       setSummary(stops.length, totalStopMin, driveMin, miles.toFixed(1), lunchMin);
       const stopsEl = document.getElementById(stopsId);
