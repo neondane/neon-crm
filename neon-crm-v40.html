@@ -1333,15 +1333,48 @@ async function dpEmail(){
   }catch(e){result.innerHTML='<div style="color:var(--r);padding:20px;background:#311;border-radius:8px">Error: '+e.message+'</div>'}
 }
 
+function dpRenderStop(s, displayIdx){
+  const tps = (s.talkingPoints||[]).map(function(t){return '<li style="margin:4px 0">'+t+'</li>'}).join('');
+  const visitInfo = s.lastVisit?'Last visited '+s.lastVisit+(s.daysSinceVisit?' ('+s.daysSinceVisit+' days ago)':''):'First visit';
+  const tierLabel = s.tier&&String(s.tier).indexOf('Tier')>=0?' • '+s.tier:'';
+  let askFor='';
+  if(s.contacts && s.contacts.length){
+    askFor = s.contacts.map(function(c){
+      const role = c.role?' <span style="opacity:.65;font-weight:400;font-size:11px">('+c.role+')</span>':'';
+      const phone = c.phone?' <a href="tel:'+c.phone+'" style="color:#7af;font-size:11px;text-decoration:none;margin-left:4px">☎ '+c.phone+'</a>':'';
+      return '<b>'+c.name+'</b>'+role+phone;
+    }).join(' &nbsp;·&nbsp; ');
+  } else if(s.askFor){ askFor = '<b>'+s.askFor+'</b>'; }
+  else if(s.contactName){ askFor = '<b>'+s.contactName+'</b>'; }
+  const askForHtml = askFor ? '<div style="background:linear-gradient(135deg,#1a0033,#4a0080);padding:10px 12px;border-radius:6px;margin-bottom:8px;font-size:13px;color:white"><span style="font-size:10px;letter-spacing:1.5px;opacity:.7">ASK FOR</span> &nbsp;'+askFor+'</div>' : '';
+  const addrLine = s.address ? '<div style="color:var(--g);font-size:11px;margin-top:2px">📍 '+s.address+'</div>' : '';
+  const title = s.name || s.business || '';
+  const subtitle = (s.business && s.business!==title) ? ' <span style="color:var(--g);font-weight:400;font-size:13px">— '+s.business+'</span>' : '';
+  return '<div style="margin:14px 0;padding:18px;background:var(--d2);border-radius:10px;border-left:5px solid var(--p)">'+
+    '<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:10px;color:var(--g);letter-spacing:2px">STOP '+(displayIdx+1)+'</div><div style="font-size:11px;color:var(--p)">⏱ ~'+s._stopMin+' min</div></div>'+
+    '<div style="margin:4px 0 4px;font-size:18px;font-weight:700">'+title+subtitle+'</div>'+
+    addrLine+
+    '<div style="color:var(--g);font-size:11px;margin:6px 0 10px">'+s.territory+' • '+s.type+tierLabel+' • '+visitInfo+'</div>'+
+    askForHtml+
+    '<div style="background:var(--d);padding:10px;border-radius:6px;margin-bottom:8px"><b style="color:var(--p);font-size:10px;letter-spacing:1px">BRIEFING</b><div style="font-size:13px;margin-top:4px">'+(s.briefing||'')+'</div></div>'+
+    '<div style="margin-bottom:8px"><b style="color:var(--b);font-size:10px;letter-spacing:1px">TALKING POINTS</b><ul style="margin:6px 0;padding-left:20px;font-size:13px">'+tps+'</ul></div>'+
+    '<div style="font-size:13px"><b style="color:var(--b);font-size:10px;letter-spacing:1px">LEAVE-BEHIND:</b> '+(s.leaveBehind||'business card')+'</div>'+
+  '</div>';
+}
+
+function dpComputeStopMin(s){
+  const tierStr = String(s.tier||'');
+  const m = tierStr.match(/\d/);
+  const tn = m ? m[0]*1 : 5;
+  // Tier-based engagement time + 5 min parking/walk buffer
+  return (tn===1?40:tn===2?35:tn===3?30:25) + 5;
+}
+
 function dpRender(plan){
   const stops = plan.stops || [];
-  stops.forEach(function(s){
-    const tierStr = String(s.tier||'');
-    const m = tierStr.match(/\d/);
-    const tn = m ? m[0]*1 : 5;
-    s._stopMin = tn===1?40:tn===2?30:tn===3?25:20;
-  });
+  stops.forEach(function(s){ s._stopMin = dpComputeStopMin(s); });
   const totalStopMin = stops.reduce(function(a,s){return a+s._stopMin}, 0);
+  const lunchMin = stops.length >= 5 ? 30 : 0;
   const baseCoords = [48.504, -122.236];
   const stopCoords = stops.map(function(s, i){
     if(s.lat && s.lon) return [s.lat, s.lon];
@@ -1351,41 +1384,31 @@ function dpRender(plan){
   const summaryId = 'dpSummary_x';
   const mapId = 'dpMap_x';
   const stopsId = 'dpStops_x';
-  const stopsHtml = stops.map(function(s,i){
-    const tps = (s.talkingPoints||[]).map(function(t){return '<li style="margin:4px 0">'+t+'</li>'}).join('');
-    const visitInfo = s.lastVisit?'Last visited '+s.lastVisit+' ('+s.daysSinceVisit+' days ago)':'First visit';
-    const tierLabel = s.tier&&String(s.tier).indexOf('Tier')>=0?' • '+s.tier:'';
-    return '<div style="margin:14px 0;padding:18px;background:var(--d2);border-radius:10px;border-left:5px solid var(--p)">'+
-      '<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:10px;color:var(--g);letter-spacing:2px">STOP '+(i+1)+'</div><div style="font-size:11px;color:var(--p)">⏱ ~'+s._stopMin+' min</div></div>'+
-      '<div style="margin:4px 0 4px;font-size:18px;font-weight:700">'+s.name+(s.business?' <span style="color:var(--g);font-weight:400;font-size:13px">— '+s.business+'</span>':'')+'</div>'+
-      '<div style="color:var(--g);font-size:11px;margin-bottom:10px">'+s.territory+' • '+s.type+tierLabel+' • '+visitInfo+'</div>'+
-      '<div style="background:var(--d);padding:10px;border-radius:6px;margin-bottom:8px"><b style="color:var(--p);font-size:10px;letter-spacing:1px">BRIEFING</b><div style="font-size:13px;margin-top:4px">'+(s.briefing||'')+'</div></div>'+
-      '<div style="margin-bottom:8px"><b style="color:var(--b);font-size:10px;letter-spacing:1px">TALKING POINTS</b><ul style="margin:6px 0;padding-left:20px;font-size:13px">'+tps+'</ul></div>'+
-      '<div style="font-size:13px"><b style="color:var(--b);font-size:10px;letter-spacing:1px">LEAVE-BEHIND:</b> '+(s.leaveBehind||'business card')+'</div>'+
-    '</div>';
-  }).join('');
+  const stopsHtml = stops.map(function(s,i){return dpRenderStop(s,i)}).join('');
+  const lunchBanner = lunchMin ? '<div style="margin:18px 0;padding:12px 14px;background:linear-gradient(135deg,#ff8000,#ffb000);border-radius:10px;color:white;text-align:center;font-size:13px;font-weight:600">🥪 30-min lunch break baked in (long route, '+stops.length+' stops)</div>' : '';
   const out = '<div id="dpPlan">'+
     '<div style="padding:20px;background:linear-gradient(135deg,#1a0033 0%,#4a0080 50%,#ff0080 100%);border-radius:10px;color:white;margin-bottom:14px">'+
-      '<div style="font-size:10px;opacity:.8;letter-spacing:2px">'+plan.person.toUpperCase()+''+'&#39;S DAY • '+(plan.territories||[]).join(', ').toUpperCase()+'</div>'+
+      '<div style="font-size:10px;opacity:.8;letter-spacing:2px">'+plan.person.toUpperCase()+'&#39;S DAY • '+(plan.territories||[]).join(', ').toUpperCase()+'</div>'+
       '<div style="font-size:14px;margin-top:8px">'+(plan.intro||'')+'</div>'+
     '</div>'+
     '<div id="'+summaryId+'" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px"></div>'+
     '<div id="'+mapId+'" style="height:340px;border-radius:10px;margin-bottom:16px;background:var(--d2)"></div>'+
     '<div id="'+stopsId+'">'+stopsHtml+'</div>'+
+    lunchBanner+
     '<div style="padding:16px;background:linear-gradient(135deg,#ff0080,#ff8000);border-radius:8px;color:white;margin-top:14px;text-align:center;font-size:14px">'+(plan.outro||'')+'</div>'+
     '<div style="display:flex;gap:10px;margin-top:18px">'+
       '<button class="bs" onclick="dpOpenInMaps()" style="flex:1;font-size:15px;padding:14px;background:linear-gradient(135deg,#4285F4,#34A853)">🗺️ Open Route in Google Maps</button>'+
       '<button class="bs" onclick="dpDownloadPDF()" style="flex:1;font-size:15px;padding:14px;background:linear-gradient(135deg,#1a0033,#4a0080)">📄 Download PDF</button>'+
     '</div>'+
   '</div>';
-  setTimeout(function(){dpEnhanceWithRoute(plan, stops, baseCoords, stopCoords, summaryId, mapId, stopsId, totalStopMin)}, 80);
+  setTimeout(function(){dpEnhanceWithRoute(plan, stops, baseCoords, stopCoords, summaryId, mapId, stopsId, totalStopMin, lunchMin)}, 80);
   return out;
 }
 
-async function dpEnhanceWithRoute(plan, stops, baseCoords, stopCoords, summaryId, mapId, stopsId, totalStopMin){
+async function dpEnhanceWithRoute(plan, stops, baseCoords, stopCoords, summaryId, mapId, stopsId, totalStopMin, lunchMin){
   const summaryEl = document.getElementById(summaryId);
-  function setSummary(stopCount, stopMin, driveMin, miles){
-    const totalMin = stopMin + driveMin;
+  function setSummary(stopCount, stopMin, driveMin, miles, lunch){
+    const totalMin = stopMin + driveMin + (lunch||0);
     const hours = Math.floor(totalMin/60);
     const mins = Math.round(totalMin) % 60;
     summaryEl.innerHTML =
@@ -1394,8 +1417,8 @@ async function dpEnhanceWithRoute(plan, stops, baseCoords, stopCoords, summaryId
       '<div style="background:var(--d2);padding:14px;border-radius:8px;text-align:center"><div style="font-size:10px;color:var(--g);letter-spacing:1px">DRIVE TIME</div><div style="font-size:24px;font-weight:700">'+Math.round(driveMin)+' min</div></div>'+
       '<div style="background:var(--d2);padding:14px;border-radius:8px;text-align:center"><div style="font-size:10px;color:var(--g);letter-spacing:1px">DISTANCE</div><div style="font-size:24px;font-weight:700">'+miles+' mi</div></div>';
   }
-  setSummary(stops.length, totalStopMin, stops.length*15+30, Math.round(stops.length*8+30));
-
+  // Initial estimate (will be replaced once OSRM responds)
+  setSummary(stops.length, totalStopMin, Math.round((stops.length*15+30)*1.15), Math.round(stops.length*8+30), lunchMin);
   const allCoords = [baseCoords].concat(stopCoords);
   const coordStr = allCoords.map(function(c){return c[1]+','+c[0]}).join(';');
   let routeData = null;
@@ -1403,7 +1426,6 @@ async function dpEnhanceWithRoute(plan, stops, baseCoords, stopCoords, summaryId
     const resp = await fetch('https://router.project-osrm.org/trip/v1/driving/'+coordStr+'?source=first&roundtrip=true&overview=full&geometries=geojson');
     routeData = await resp.json();
   }catch(e){}
-
   const mapEl = document.getElementById(mapId);
   if(!mapEl) return;
   if(window.__dpMap){try{window.__dpMap.remove()}catch(e){}}
@@ -1411,51 +1433,37 @@ async function dpEnhanceWithRoute(plan, stops, baseCoords, stopCoords, summaryId
   window.__dpMap = map;
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'OSM', maxZoom: 18}).addTo(map);
   L.marker(baseCoords).bindPopup('<b>BASE</b><br/>23528 Old Day Creek Rd<br/>Sedro Woolley').addTo(map);
-
   let optimalOrder = stops.map(function(_, i){return i});
   if(routeData && routeData.code === 'Ok' && routeData.waypoints){
     const orderMap = routeData.waypoints.map(function(w, i){return {inputIdx: i, visitOrder: w.waypoint_index}});
     orderMap.sort(function(a,b){return a.visitOrder - b.visitOrder});
     optimalOrder = orderMap.filter(function(o){return o.inputIdx > 0}).map(function(o){return o.inputIdx - 1});
   }
-
   optimalOrder.forEach(function(stopIdx, displayIdx){
     const c = stopCoords[stopIdx];
     const s = stops[stopIdx];
     const numIcon = L.divIcon({
       className: 'dp-marker',
       html: '<div style="background:#ff0080;color:white;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.5);font-size:13px">'+(displayIdx+1)+'</div>',
-      iconSize: [30,30],
-      iconAnchor: [15,15]
+      iconSize: [30,30], iconAnchor: [15,15]
     });
-    L.marker(c, {icon:numIcon}).bindPopup('<b>STOP '+(displayIdx+1)+'</b><br/>'+s.name+(s.business?'<br/>'+s.business:'')+'<br/><i>'+s.territory+'</i>').addTo(map);
+    L.marker(c, {icon:numIcon}).bindPopup('<b>STOP '+(displayIdx+1)+'</b><br/>'+s.name+(s.business&&s.business!==s.name?'<br/>'+s.business:'')+'<br/><i>'+s.territory+'</i>').addTo(map);
   });
-
   if(routeData && routeData.code === 'Ok' && routeData.trips && routeData.trips[0]){
     const trip = routeData.trips[0];
     const geom = trip.geometry;
     if(geom && geom.coordinates){
       const latlngs = geom.coordinates.map(function(c){return [c[1], c[0]]});
       L.polyline(latlngs, {color:'#ff0080', weight:4, opacity:0.7}).addTo(map);
-      const driveMin = trip.duration / 60;
+      // Apply 15% traffic padding to OSRM raw drive time
+      const driveMin = (trip.duration / 60) * 1.15;
       const miles = trip.distance / 1609.34;
-      setSummary(stops.length, totalStopMin, driveMin, miles.toFixed(1));
+      setSummary(stops.length, totalStopMin, driveMin, miles.toFixed(1), lunchMin);
       const stopsEl = document.getElementById(stopsId);
       if(stopsEl){
         window.__dpOptimalStops = optimalOrder.map(function(idx){return stops[idx]});
         stopsEl.innerHTML = optimalOrder.map(function(stopIdx, displayIdx){
-          const s = stops[stopIdx];
-          const tps = (s.talkingPoints||[]).map(function(t){return '<li style="margin:4px 0">'+t+'</li>'}).join('');
-          const visitInfo = s.lastVisit?'Last visited '+s.lastVisit+' ('+s.daysSinceVisit+' days ago)':'First visit';
-          const tierLabel = s.tier&&String(s.tier).indexOf('Tier')>=0?' • '+s.tier:'';
-          return '<div style="margin:14px 0;padding:18px;background:var(--d2);border-radius:10px;border-left:5px solid var(--p)">'+
-            '<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:10px;color:var(--g);letter-spacing:2px">STOP '+(displayIdx+1)+'</div><div style="font-size:11px;color:var(--p)">⏱ ~'+s._stopMin+' min</div></div>'+
-            '<div style="margin:4px 0 4px;font-size:18px;font-weight:700">'+s.name+(s.business?' <span style="color:var(--g);font-weight:400;font-size:13px">— '+s.business+'</span>':'')+'</div>'+
-            '<div style="color:var(--g);font-size:11px;margin-bottom:10px">'+s.territory+' • '+s.type+tierLabel+' • '+visitInfo+'</div>'+
-            '<div style="background:var(--d);padding:10px;border-radius:6px;margin-bottom:8px"><b style="color:var(--p);font-size:10px;letter-spacing:1px">BRIEFING</b><div style="font-size:13px;margin-top:4px">'+(s.briefing||'')+'</div></div>'+
-            '<div style="margin-bottom:8px"><b style="color:var(--b);font-size:10px;letter-spacing:1px">TALKING POINTS</b><ul style="margin:6px 0;padding-left:20px;font-size:13px">'+tps+'</ul></div>'+
-            '<div style="font-size:13px"><b style="color:var(--b);font-size:10px;letter-spacing:1px">LEAVE-BEHIND:</b> '+(s.leaveBehind||'business card')+'</div>'+
-          '</div>';
+          return dpRenderStop(stops[stopIdx], displayIdx);
         }).join('');
       }
       setTimeout(function(){
@@ -1471,8 +1479,6 @@ async function dpEnhanceWithRoute(plan, stops, baseCoords, stopCoords, summaryId
     }, 100);
   }
 }
-
-
 
 async function dpOpenInMaps(){
   const planEl = document.getElementById('dpPlan');
