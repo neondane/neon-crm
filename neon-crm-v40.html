@@ -355,7 +355,7 @@ function cH(c){
   const d=ds(c.lastVisit),s=SC[+c.score||0],cr=gR(c.id);
   const rb=cr.length?`<div class="rb">${cr.length}</div>`:'';
   const dTxt=d>=999?'Not visited':d+'d';
-  const _avS=c.profilePic||c.cardImage||"";const _av=_avS?`<img src="${_avS}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;margin-right:10px;flex-shrink:0;border:1px solid var(--bd)">`:"";return`<div class="cd" style="border-left-color:${uc(d)}" onclick="oP(${c.id})"><div class="cd-t">${_av}<div style="flex:1;min-width:0"><div class="nm">${c.name||'\u2014'} <span class="bg" style="background:${s.c}22;color:${s.c}">${s.e} ${s.l}</span></div><div class="rl">${c.business||'\u2014'}${c.territory?' \u00b7 \uD83D\uDCCD'+c.territory:''}</div></div><div class="dy"><b style="color:${uc(d)}">${dTxt}</b>${rb}</div></div></div>`;
+  const _avS=c.profilePic||c.cardImage||"";const _av=_avS?`<img src="${_avS}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;margin-right:10px;flex-shrink:0;border:1px solid var(--bd)">`:"";const _hd=c.business||c.name||'\u2014';const _pn=(c.name && (c.name||'').toLowerCase()!==(c.business||'').toLowerCase())?c.name:'';const _sub=[_pn,c.role||'',c.territory?'\uD83D\uDCCD '+c.territory:''].filter(Boolean).join(' \u00b7 ');return`<div class="cd" style="border-left-color:${uc(d)}" onclick="oP(${c.id})"><div class="cd-t">${_av}<div style="flex:1;min-width:0"><div class="nm">${_hd} <span class="bg" style="background:${s.c}22;color:${s.c}">${s.e} ${s.l}</span></div><div class="rl">${_sub||'\u2014'}</div></div><div class="dy"><b style="color:${uc(d)}">${dTxt}</b>${rb}</div></div></div>`;
 }
 
 // DASHBOARD
