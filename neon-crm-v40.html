@@ -184,7 +184,7 @@ let CK=sessionStorage.getItem('neon_ck')||'';
 function setCK(){const k=prompt('Paste your Claude API key (starts with sk-ant-):');if(k&&k.startsWith('sk-ant')){CK=k;sessionStorage.setItem('neon_ck',k);tt('✅ Key saved','ok')}else if(k){tt('Invalid key','er')}}
 // API key prompt removed from auto-startup - use the 🔑 button in header instead
 
-const TR=["All","Anacortes","Burlington","Oak Harbor","Mt. Vernon","Sedro-Woolley","Bellingham","North of Bellingham","Snohomish","South Whidbey","Arlington","Stanwood","La Conner"];
+const TR=['All','Whatcom — Bellingham','Whatcom — North of Bellingham','Skagit — Mount Vernon area','Skagit — Anacortes','Snohomish County','Whidbey Island'];
 const TY=["Realtor","Self-Storage Facility","U-Haul Dealer","Assisted Living / Senior Care","Apartment Complex","Property Management","Estate Sale Company","Attorney / Law","Home Services","Other"];
 const TM=["Dane","Tyler","Valentina","Jeff","Luke","Carlos","Marshall","Samuel","Ryan","William","Charles","Michael"];
 const SC=[{l:"Hot",c:"#ff3366",e:"🔥"},{l:"Warm",c:"#ff9933",e:"☀️"},{l:"Cool",c:"#22aee4",e:"❄️"},{l:"New",c:"#8888aa",e:"🆕"}];
