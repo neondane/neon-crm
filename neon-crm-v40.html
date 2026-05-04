@@ -143,7 +143,7 @@ input[type="date"],input[type="time"]{color-scheme:dark;cursor:pointer}input[typ
 <div class="hdr-r"><button class="btn-k" onclick="setCK()">🔑</button></div></div>
 <div class="tabs">
 <button class="tab on" onclick="sT('d',this)">Dashboard</button>
-<button class="tab" onclick="sT('m',this)">Map</button><button class="tab" onclick="sT('r',this)">Reminders</button><button class="tab" onclick="sT('ix',this)">Inbox</button><button class="tab" onclick="sT('dp',this)">Day Plan</button>
+<button class="tab" onclick="sT('m',this)">Map</button><button class="tab" onclick="sT('r',this)">Reminders</button><button class="tab" onclick="sT('ix',this)">Inbox</button><button class="tab" onclick="sT('dp',this)">Day Plan</button><button class="tab" onclick="sT('tl',this)">Top Leads</button>
 </div>
 <div class="sts" id="sR"></div>
 <div class="cnt" id="mc"></div>
@@ -336,7 +336,7 @@ function uh(d){return d<=14?'#33cc66':d<=30?'#22aee4':d<=60?'#ff9933':'#ff3366'}
 function fd(d){if(!d)return'—';return new Date(d+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}
 function gR(i){return R.filter(r=>+r.contactId===+i)}
 function sT(t,el){tb=t;document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));el.classList.add('on');ren()}
-function ren(){if(!ok)return;rS();const mc=document.getElementById('mc');if(tb==='d')rD(mc);else if(tb==='m')rM(mc);else if(tb==='ix')rIX(mc);else if(tb==='dp')rDayPlan(mc);else rRm(mc)}
+function ren(){if(!ok)return;rS();const mc=document.getElementById('mc');if(tb==='d')rD(mc);else if(tb==='m')rM(mc);else if(tb==='ix')rIX(mc);else if(tb==='dp')rDayPlan(mc);else if(tb==='tl')rTopLeads(mc);else rRm(mc)}
 
 function rS(){
   const t=D.length,o=D.filter(c=>ds(c.lastVisit)>30).length,h=D.filter(c=>+c.score===0).length;
@@ -1293,6 +1293,56 @@ function rDayPlan(c){
       '<div id="dpResult" style="margin-top:24px"></div>'+
     '</div>';
 }
+
+function rTopLeads(c){
+  const territoryChips = TR.filter(function(t){return t!=='All';}).map(function(t){return '<label style="display:inline-flex;align-items:center;gap:5px;padding:7px 11px;background:var(--d3);border-radius:14px;font-size:11px;cursor:pointer"><input type="checkbox" name="tlT" value="'+t+'" style="margin:0"/> '+t+'</label>';}).join('');
+  const typeChips = TY.map(function(t){return '<label style="display:inline-flex;align-items:center;gap:5px;padding:7px 11px;background:var(--d3);border-radius:14px;font-size:11px;cursor:pointer"><input type="checkbox" name="tlY" value="'+t+'" '+((t==='Self-Storage Facility'||t==='Assisted Living / Senior Care')?'checked':'')+'/> '+t+'</label>';}).join('');
+  c.innerHTML = '<div class="st"><div class="st b" style="font-size:24px">🏆 Top Uncaptured Leads</div><div class="st small">Highest-value locations you have not visited recently, ranked by tier × capacity × newness × time-since-visit</div></div>'+
+    '<div class="cnt" style="padding:20px;max-width:880px;margin:0 auto">'+
+      '<div class="fg"><label>Territories (leave blank for all)</label><div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px;background:var(--d2);border-radius:10px">'+territoryChips+'</div></div>'+
+      '<div class="fg"><label>Types</label><div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px;background:var(--d2);border-radius:10px">'+typeChips+'</div></div>'+
+      '<button class="bs" onclick="tlLoad()" style="width:100%;font-size:15px;padding:14px;margin-top:10px">⚡ Load Top Leads</button>'+
+      '<div id="tlResult" style="margin-top:24px"></div>'+
+    '</div>';
+  setTimeout(tlLoad, 200);
+}
+
+async function tlLoad(){
+  const territories = Array.from(document.querySelectorAll('input[name=tlT]:checked')).map(function(x){return x.value;});
+  const types = Array.from(document.querySelectorAll('input[name=tlY]:checked')).map(function(x){return x.value;});
+  const result = document.getElementById('tlResult');
+  result.innerHTML = '<div style="text-align:center;padding:30px;color:var(--g)">Loading top leads...</div>';
+  try {
+    const r = await aP({action:'topUncaptured', opts:{limit: 25, territories: territories.length?territories:null, types: types}});
+    if(!r.ok) { result.innerHTML='<div style="color:var(--r);padding:20px;background:#311;border-radius:8px">Error: '+(r.error||'?')+'</div>'; return; }
+    const items = r.items||[];
+    if(!items.length){ result.innerHTML='<div style="padding:20px;color:var(--g);text-align:center">No locations match. Try clearing territory filters.</div>'; return; }
+    const rows = items.map(function(it, i){
+      const cap = it.unitCount ? it.unitCount+' units' : (it.bedCount ? it.bedCount+' beds' : '');
+      const yr = it.yearOpened ? 'opened '+it.yearOpened : '';
+      const note = it.enrichmentNotes ? '<div style="color:#aaa;font-size:11px;margin-top:4px">'+String(it.enrichmentNotes).substring(0,180)+'</div>' : '';
+      const dayBadge = it.daysSince==null ? '<span style="color:#33cc66">never visited</span>' : (it.daysSince+' days ago');
+      const tierBadge = (it.tier && String(it.tier).indexOf('Tier')>=0) ? '<span style="background:#4a0080;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">'+it.tier+'</span>' : '';
+      return '<div style="display:flex;align-items:flex-start;gap:14px;padding:14px 16px;background:var(--d2);border-radius:10px;margin:8px 0;border-left:4px solid #ff0080">'+
+        '<div style="font-size:24px;font-weight:700;color:#ff0080;min-width:36px">#'+(i+1)+'</div>'+
+        '<div style="flex:1">'+
+          '<div style="font-size:15px;font-weight:700">'+it.name+tierBadge+'</div>'+
+          '<div style="color:var(--g);font-size:11px;margin:3px 0">'+(it.territory||'?')+' · '+(it.type||'?')+(cap?' · '+cap:'')+(yr?' · '+yr:'')+'</div>'+
+          (it.address?'<div style="color:var(--g);font-size:11px">📍 '+it.address+'</div>':'')+
+          note+
+        '</div>'+
+        '<div style="text-align:right;min-width:90px">'+
+          '<div style="font-size:11px;color:var(--p);font-weight:700">SCORE '+it.score+'</div>'+
+          '<div style="font-size:10px;color:var(--g);margin-top:3px">'+dayBadge+'</div>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+    result.innerHTML = '<div style="font-size:11px;color:var(--g);margin-bottom:8px">'+items.length+' leads of '+r.totalConsidered+' considered</div>'+rows;
+  } catch(e){
+    result.innerHTML = '<div style="color:var(--r);padding:20px;background:#311;border-radius:8px">Error: '+e.message+'</div>';
+  }
+}
+
 
 function dpGetOpts(){
   const person=document.getElementById('dpPerson').value;
