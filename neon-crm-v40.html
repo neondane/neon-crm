@@ -1630,5 +1630,117 @@ async function dpDownloadPDF(){
   tt('PDF downloaded','ok');
 }
 
+
+
+// ========== V44: Plan persistence + interactive stops ==========
+(function () {
+  window.__dpStopState = window.__dpStopState || {};
+  window.__dpPlanId = window.__dpPlanId || null;
+
+  function escAttr(s) { return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+  window.dpStopControls = function (s) {
+    const id = s.id || 0;
+    const state = window.__dpStopState[id] || {};
+    const visited = !!state.visited;
+    const notes = escAttr(state.notes || "");
+    const checkColor = visited ? "#4fc97a" : "#aaa";
+    const labelText = visited ? "Visited" : "Mark visited";
+    return '<div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--bd);display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">'+
+      '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:'+checkColor+';flex-shrink:0">'+
+        '<input type="checkbox"'+(visited?' checked':'')+' onchange="dpToggleStop('+id+', this.checked)" style="width:18px;height:18px;cursor:pointer">'+
+        '<b>'+labelText+'</b>'+
+      '</label>'+
+      '<textarea placeholder="Notes (auto-saves on blur)" onblur="dpUpdateStopNotes('+id+', this.value)" style="flex:1;min-width:200px;min-height:36px;padding:6px 8px;border-radius:5px;background:var(--d3);color:var(--w);border:1px solid var(--bd);font-size:12px;font-family:inherit;resize:vertical">'+notes+'</textarea>'+
+    '</div>';
+  };
+
+  window.dpToggleStop = async function (stopId, visited) {
+    if (!window.__dpPlanId) { alert("Save the plan first to track progress (use Save & Share)"); return; }
+    window.__dpStopState[stopId] = window.__dpStopState[stopId] || {};
+    window.__dpStopState[stopId].visited = visited;
+    try { await aP({action:"updatePlanStop", planId: window.__dpPlanId, stopId: stopId, visited: visited}); } catch (e) { console.error("updatePlanStop err", e); }
+  };
+
+  window.dpUpdateStopNotes = async function (stopId, notes) {
+    if (!window.__dpPlanId) return;
+    window.__dpStopState[stopId] = window.__dpStopState[stopId] || {};
+    window.__dpStopState[stopId].notes = notes;
+    try { await aP({action:"updatePlanStop", planId: window.__dpPlanId, stopId: stopId, notes: notes}); } catch (e) { console.error("updatePlanStop err", e); }
+  };
+
+  window.dpSavePlan = async function () {
+    if (!window.__dpLastPlan || !window.__dpLastPlan.ok) { alert("Generate a plan first"); return; }
+    const opts = (typeof dpGetOpts === "function") ? dpGetOpts() : {};
+    const defaultName = "Day Plan " + new Date().toLocaleDateString();
+    const name = prompt("Name this plan:", defaultName);
+    if (!name) return;
+    try {
+      const r = await aP({action:"savePlan", name: name, territories: opts.territories || [], types: opts.types || [], owner: "Tyler", plan: window.__dpLastPlan});
+      if (r && r.id) {
+        window.__dpPlanId = r.id;
+        const url = location.origin + location.pathname + "?planId=" + r.id;
+        let copied = false;
+        try { await navigator.clipboard.writeText(url); copied = true; } catch (e) {}
+        alert("Saved! ID: " + r.id + "\n\nShareable URL:\n" + url + (copied ? "\n\n(copied to clipboard)" : ""));
+        const result = document.getElementById("dpResult");
+        if (result && window.__dpLastPlan && typeof dpRender === "function") result.innerHTML = dpRender(window.__dpLastPlan);
+      }
+    } catch (e) { alert("Save failed: " + (e && e.message || e)); }
+  };
+
+  const origRenderStop = window.dpRenderStop;
+  if (typeof origRenderStop === "function") {
+    window.dpRenderStop = function (s, idx) {
+      const html = origRenderStop(s, idx);
+      const lastClose = html.lastIndexOf("</div>");
+      if (lastClose < 0) return html;
+      return html.slice(0, lastClose) + window.dpStopControls(s) + html.slice(lastClose);
+    };
+  }
+
+  const origRender = window.dpRender;
+  if (typeof origRender === "function") {
+    window.dpRender = function (plan) {
+      const html = origRender(plan);
+      const planLabel = window.__dpPlanId ? "Plan ID: " + window.__dpPlanId : "Not yet saved";
+      const banner = '<div style="background:linear-gradient(135deg,#22113d,#3a1a5c);padding:10px 14px;border-radius:8px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'+
+        '<div style="font-size:12px;color:#cfc"><b>📌 ' + planLabel + '</b></div>'+
+        '<button class="bs" onclick="dpSavePlan()" style="padding:8px 14px;font-size:13px">💾 Save &amp; share</button>'+
+      '</div>';
+      return banner + html;
+    };
+  }
+
+  window.dpLoadFromUrl = async function () {
+    const params = new URLSearchParams(location.search);
+    const planId = params.get("planId");
+    if (!planId) return false;
+    try {
+      const r = await aP({action:"getPlan", id: planId});
+      if (r && r.ok) {
+        window.__dpPlanId = r.id;
+        window.__dpLastPlan = r.plan;
+        window.__dpStopState = r.stopState || {};
+        if (typeof sT === "function") { try { sT("dp"); } catch (e) {} }
+        setTimeout(function () {
+          const result = document.getElementById("dpResult");
+          if (result && r.plan && typeof dpRender === "function") {
+            result.innerHTML = dpRender(r.plan);
+            const top = document.createElement("div");
+            top.style.cssText = "background:linear-gradient(135deg,#1a3a1a,#3a6a3a);padding:10px;border-radius:6px;margin-bottom:12px;font-size:13px;color:#cfffd6;text-align:center";
+            top.innerHTML = "👁 Loaded saved plan: <b>" + (r.name || r.id) + "</b> · last updated " + (r.lastUpdated || "").substring(0, 16);
+            result.insertBefore(top, result.firstChild);
+          }
+        }, 600);
+        return true;
+      }
+    } catch (e) { console.error("Load plan err", e); }
+    return false;
+  };
+
+  window.addEventListener("load", function () { setTimeout(window.dpLoadFromUrl, 800); });
+})();
+
 </script></body>
 </html>
