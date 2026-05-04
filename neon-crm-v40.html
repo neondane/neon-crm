@@ -1740,6 +1740,43 @@ async function dpDownloadPDF(){
   };
 
   window.addEventListener("load", function () { setTimeout(window.dpLoadFromUrl, 800); });
+
+  // V45 compact addons + discoverNewLeads UI
+  window.dpRenderAddons = function (plan) {
+    var addons = (plan && plan.suggestedAddons) || [];
+    if (!addons.length) return "";
+    var cards = addons.map(function (a, i) {
+      var dev = (typeof a.estDeviationMin === "number") ? a.estDeviationMin : 10;
+      var insertAfter = (typeof a.insertAfterIdx === "number") ? a.insertAfterIdx : (plan.stops||[]).length;
+      var insertLabel = insertAfter === 0 ? "before #1" : "after #"+insertAfter;
+      var reason = (a.reason || "").substring(0, 90);
+      var territoryShort = (a.territory||"").replace("Whatcom \u2014 ", "").replace("Skagit \u2014 ", "");
+      return '<div style="background:linear-gradient(135deg,#1a0033,#2d164a);border:1px solid #7a4dd1;border-radius:8px;padding:10px;font-size:12px"><div style="display:flex;justify-content:space-between;gap:6px"><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;color:#fff">' + (a.name||"") + '</div><div style="color:var(--g);font-size:10px">' + (a.type||"") + ' \u00b7 ' + territoryShort + '</div></div><div style="text-align:right;color:#a78bff;font-size:10px"><b>+' + dev + 'min</b><br>' + insertLabel + '</div></div>' + (reason ? '<div style="color:var(--g);font-size:11px;margin:4px 0">' + reason + '\u2026</div>' : "") + '<button class="bs" onclick="dpAddAddon(' + i + ')" style="padding:6px 10px;font-size:11px;margin-top:4px">+ Add to plan</button></div>';
+    }).join("");
+    return '<details style="margin:14px 0" open><summary style="cursor:pointer;font-size:11px;color:var(--g);letter-spacing:1.5px;padding:6px 0">\u{1F4A1} AI SUGGESTED ADD-ONS (' + addons.length + ') \u2014 click to collapse</summary><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px">' + cards + '</div></details>';
+  };
+  window.dpFindNewLeads = async function () {
+    var opts = (typeof dpGetOpts === "function") ? dpGetOpts() : {};
+    var target = document.getElementById("dpNewLeadsResult");
+    if (target) target.innerHTML = '<div style="padding:14px;text-align:center;color:var(--g)">\u{1F50D} Searching the web (~30s) \u2026</div>';
+    try {
+      var r = await aP({action:"discoverNewLeads", opts:{territories: opts.territories||[], types: opts.types||[], limit: 5}});
+      if (!r.ok) { if (target) target.innerHTML = '<div style="color:#f88">Discovery failed: ' + (r.error||"unknown") + '</div>'; return; }
+      var leads = r.leads || [];
+      window.__dpNewLeads = leads;
+      if (!leads.length) { target.innerHTML = '<div style="color:var(--g);padding:10px">No new leads found.</div>'; return; }
+      var cards = leads.map(function (l, i) { return '<div style="background:linear-gradient(135deg,#003322,#1a4d3a);border:1px solid #4dc9a3;border-radius:8px;padding:10px;font-size:12px"><div style="font-weight:700;font-size:13px;color:#fff">' + (l.name||"") + '</div><div style="color:#9fe;font-size:10px">' + (l.type||"") + ' \u00b7 ' + (l.address||"") + '</div><div style="color:var(--g);font-size:11px;margin:4px 0">' + (l.reason||"") + '</div><button class="bs" id="dpNewLead_' + i + '" onclick="dpAddNewLead(' + i + ')" style="padding:6px 10px;font-size:11px">+ Add to CRM</button></div>'; }).join("");
+      target.innerHTML = '<div style="margin-top:14px;padding:12px;background:#0a2418;border:1px solid #4dc9a3;border-radius:8px"><div style="font-size:12px;color:#9fe;letter-spacing:1.5px;margin-bottom:8px">\u{1F31F} NET-NEW LEADS (' + leads.length + ') \u2014 not yet in your CRM</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px">' + cards + '</div></div>';
+    } catch (e) { if (target) target.innerHTML = '<div style="color:#f88">Error: ' + (e.message||e) + '</div>'; }
+  };
+  window.dpAddNewLead = async function (idx) {
+    var lead = (window.__dpNewLeads || [])[idx]; if (!lead) return;
+    var btn = document.getElementById("dpNewLead_" + idx);
+    if (btn) { btn.disabled = true; btn.textContent = "Adding\u2026"; }
+    try { var r = await aP({action:"addLocation", location: { name: lead.name, type: lead.type, address: lead.address, notes: lead.reason }}); if (btn) { btn.textContent = "\u2713 Added (id " + r.id + ")"; btn.style.background = "#4dc9a3"; } } catch (e) { if (btn) { btn.disabled = false; btn.textContent = "Failed"; } }
+  };
+  var prevRender2 = window.dpRender;
+  window.dpRender = function (plan) { var html = prevRender2(plan); return html + '<div id="dpNewLeadsResult"></div><div style="margin-top:10px;text-align:center"><button class="bs" onclick="dpFindNewLeads()" style="padding:8px 14px;font-size:12px;background:linear-gradient(135deg,#003322,#1a6b4d);color:#fff">\u{1F50D} Find net-new leads via web search</button></div>'; };
 })();
 
 </script></body>
