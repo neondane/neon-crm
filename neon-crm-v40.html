@@ -1787,6 +1787,8 @@ async function dpDownloadPDF(){
         '<b>'+labelText+'</b>'+
       '</label>'+
       '<textarea placeholder="Notes (auto-saves on blur)" onblur="dpUpdateStopNotes('+id+', this.value)" style="flex:1;min-width:200px;min-height:36px;padding:6px 8px;border-radius:5px;background:var(--d3);color:var(--w);border:1px solid var(--bd);font-size:12px;font-family:inherit;resize:vertical">'+notes+'</textarea>'+
+      '<label style="flex-shrink:0;display:inline-flex;align-items:center;gap:4px;padding:6px 10px;background:var(--d3);border:1px solid var(--bd);border-radius:5px;cursor:pointer;font-size:12px;color:var(--w)" title="Take or upload photo">\u{1F4F8} <input type="file" accept="image/*" capture="environment" onchange="dpStopPhotoFC('+id+', this)" style="display:none"></label>'+
+      (state.photo ? '<img src="'+state.photo+'" style="max-width:60px;max-height:60px;border-radius:5px;border:1px solid var(--bd)" onclick="dpStopPhotoView(this.src)">' : '')+
     '</div>';
   };
 
@@ -1797,6 +1799,24 @@ async function dpDownloadPDF(){
     try { await aP({action:"updatePlanStop", planId: window.__dpPlanId, stopId: stopId, visited: visited}); } catch (e) { console.error("updatePlanStop err", e); }
   };
 
+  window.dpStopPhotoFC = async function (stopId, inp) {
+    if (!window.__dpPlanId) { alert('Save the plan first to attach photos (use Save & Share)'); inp.value=''; return; }
+    const f = inp.files && inp.files[0];
+    if (!f) return;
+    try {
+      const fr = await new Promise(function(res, rej){ const r = new FileReader(); r.onload = function(e){res(e.target.result);}; r.onerror = rej; r.readAsDataURL(f); });
+      const small = await _resizeImg(fr, 800, 0.72);
+      window.__dpStopState[stopId] = window.__dpStopState[stopId] || {};
+      window.__dpStopState[stopId].photo = small;
+      await aP({ action: 'updatePlanStop', planId: window.__dpPlanId, stopId: stopId, photo: small });
+      tt('\u2705 Photo saved','ok');
+      // Refresh the plan view
+      const out = document.getElementById('dpOut');
+      if (out && window.__dpLastPlan && typeof dpRender === 'function') out.innerHTML = dpRender(window.__dpLastPlan);
+    } catch (err) { tt('Photo error: ' + err.message, 'er'); console.error(err); }
+    inp.value = '';
+  };
+  window.dpStopPhotoView = function(url){ window.open(url, '_blank'); };
   window.dpUpdateStopNotes = async function (stopId, notes) {
     if (!window.__dpPlanId) return;
     window.__dpStopState[stopId] = window.__dpStopState[stopId] || {};
