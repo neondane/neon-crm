@@ -1404,7 +1404,7 @@ function dpRenderStop(s, displayIdx){
   const addrLine = s.address ? '<div style="color:var(--g);font-size:11px;margin-top:2px">📍 '+s.address+'</div>' : '';
   const title = s.name || s.business || '';
   const subtitle = (s.business && s.business!==title) ? ' <span style="color:var(--g);font-weight:400;font-size:13px">— '+s.business+'</span>' : '';
-  return '<div style="margin:14px 0;padding:18px;background:var(--d2);border-radius:10px;border-left:5px solid var(--p)">'+
+  return '<div data-stop-idx="'+displayIdx+'" draggable="true" ondragstart="dpDragStart(event,'+displayIdx+')" ondragover="dpDragOver(event)" ondragleave="dpDragLeave(event)" ondrop="dpDrop(event,'+displayIdx+')" style="margin:14px 0;padding:18px;background:var(--d2);border-radius:10px;border-left:5px solid var(--p);cursor:grab;position:relative">'+'<span style="position:absolute;right:10px;top:10px;font-size:14px;color:var(--g);opacity:.55" title="Drag to reorder">\u2630</span>'+
     '<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:10px;color:var(--g);letter-spacing:2px">STOP '+(displayIdx+1)+'</div><div style="font-size:11px;color:var(--p)">⏱ ~'+s._stopMin+' min</div></div>'+
     '<div style="margin:4px 0 4px;font-size:18px;font-weight:700"><span onclick="dpOpenLocation('+s.id+')" style="cursor:pointer;text-decoration:underline;text-decoration-color:rgba(255,255,255,0.25);text-underline-offset:3px">'+title+subtitle+' <span style="font-size:11px;opacity:.55;font-weight:400">\u2197</span></span></div>'+
     addrLine+
@@ -1466,6 +1466,42 @@ function dpOpenLocation(locId){
   const div = document.createElement('div');
   div.innerHTML = h;
   document.body.appendChild(div.firstChild);
+}
+let __dpDragSrc = null;
+function dpDragStart(e, idx){
+  __dpDragSrc = idx;
+  try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(idx)); } catch(err){}
+  e.currentTarget.style.opacity = '0.5';
+}
+function dpDragOver(e){
+  e.preventDefault();
+  try { e.dataTransfer.dropEffect = 'move'; } catch(err){}
+  e.currentTarget.style.outline = '2px dashed #33cc66';
+  e.currentTarget.style.outlineOffset = '-2px';
+}
+function dpDragLeave(e){ e.currentTarget.style.outline = ''; }
+function dpDrop(e, targetIdx){
+  e.preventDefault();
+  e.currentTarget.style.outline = '';
+  e.currentTarget.style.opacity = '';
+  let srcIdx = __dpDragSrc;
+  try { const d = e.dataTransfer.getData('text/plain'); if (d !== '') srcIdx = parseInt(d, 10); } catch(err){}
+  if (typeof srcIdx !== 'number' || srcIdx === targetIdx) return;
+  const plan = window.__dpPlan;
+  if (!plan || !plan.stops) return;
+  const moved = plan.stops.splice(srcIdx, 1)[0];
+  plan.stops.splice(targetIdx, 0, moved);
+  __dpDragSrc = null;
+  // Re-render
+  const out = document.getElementById('dpOut') || document.querySelector('#dpPlan').parentElement;
+  if (typeof dpRender === 'function' && out) {
+    out.innerHTML = dpRender(plan);
+  }
+  if (typeof tt === 'function') tt('\u2705 Reordered','ok');
+  // Persist if plan has an id (savePlan/updatePlanOrder is a future improvement)
+  if (plan.planId && typeof aP === 'function') {
+    try { aP({ action: 'savePlan', plan: { planId: plan.planId, stops: plan.stops.map(function(s, i){return {id: s.id, order: i};}) } }); } catch(err){}
+  }
 }
 function dpCloseLocation(){ const o = document.getElementById('dpLocOverlay'); if(o) o.remove(); }
 async function dpEditLocationFields(locId){
