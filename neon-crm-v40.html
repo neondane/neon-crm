@@ -136,6 +136,8 @@ input[type="date"],input[type="time"]{color-scheme:dark;cursor:pointer}input[typ
 .vb{flex:1;padding:8px;border:none;background:transparent;color:var(--g);font-size:12px;font-weight:600;border-radius:6px;cursor:pointer}
 .vb.on{background:var(--p);color:#fff}
 .fab{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:var(--p);color:#fff;font-size:28px;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(227,59,147,0.4);z-index:50;display:flex;align-items:center;justify-content:center}
+
+@media (max-width: 600px) { #dpStickyNext { position: sticky; top: 0; z-index: 100; background: linear-gradient(135deg,#33cc66,#2aa050); color:#fff; padding: 12px 14px; margin: -10px -10px 14px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.4); display:block; } .dp-mobile-actionbar a, .dp-mobile-actionbar button { font-size: 16px !important; min-height: 50px; } } @media (min-width: 601px) { #dpStickyNext { display: none; } }
 </style>
 </head>
 <body>
@@ -1609,6 +1611,8 @@ function dpAddAddon(idx){
   if(typeof tt==='function') tt('Added '+(addon.name||'stop')+' to plan','ok');
 }
 
+function dpUpdateStickyNext(){var b=document.getElementById('dpStickyNext');if(!b)return;var p=window.__dpPlan;if(!p||!p.stops||!p.stops.length){b.style.display='none';return;}var nxt=p.stops.find(function(s){return !s.done && !s._done;});if(!nxt){b.innerHTML='<div style="font-size:14px;font-weight:700">All stops complete!</div>';return;}var idx=p.stops.indexOf(nxt);var href=nxt.address?('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(nxt.address)):(nxt.lat?('https://www.google.com/maps/dir/?api=1&destination='+nxt.lat+','+nxt.lon):'#');b.innerHTML='<div style="font-size:10px;letter-spacing:2px;opacity:.85">NEXT STOP \u00B7 '+(idx+1)+' of '+p.stops.length+'</div><div style="font-size:15px;font-weight:700;margin-top:2px">'+(nxt.name||'')+'</div>'+(nxt.address?'<div style="font-size:11px;opacity:.85;margin-top:1px">'+nxt.address+'</div>':'')+'<div style="display:flex;gap:8px;margin-top:8px" class="dp-mobile-actionbar"><a href="'+href+'" target="_blank" style="flex:1;text-align:center;background:rgba(255,255,255,0.25);color:#fff;padding:10px;border-radius:8px;font-weight:600;text-decoration:none">Directions</a><button onclick="dpOpenLocation('+nxt.id+')" style="flex:1;background:rgba(255,255,255,0.18);color:#fff;border:none;padding:10px;border-radius:8px;font-weight:600;cursor:pointer">Open Card</button></div>';}
+(function(){var t=null;function s(){clearTimeout(t);t=setTimeout(dpUpdateStickyNext,250);}window.addEventListener('load',s);if(document.body)new MutationObserver(s).observe(document.body,{childList:true,subtree:true});})();
 function dpRender(plan){
   const stops = plan.stops || [];
   stops.forEach(function(s){ s._stopMin = dpComputeStopMin(s); });
@@ -1625,7 +1629,7 @@ function dpRender(plan){
   const stopsId = 'dpStops_x';
   const stopsHtml = stops.map(function(s,i){return dpRenderStop(s,i)}).join('');
   const lunchBanner = lunchMin ? '<div style="margin:18px 0;padding:12px 14px;background:linear-gradient(135deg,#ff8000,#ffb000);border-radius:10px;color:white;text-align:center;font-size:13px;font-weight:600">🥪 30-min lunch break baked in (long route, '+stops.length+' stops)</div>' : '';
-  const out = '<div id="dpPlan">'+
+  const out = '<div id="dpPlan">'+'<div id="dpStickyNext"></div>'+
     '<div style="padding:20px;background:linear-gradient(135deg,#1a0033 0%,#4a0080 50%,#ff0080 100%);border-radius:10px;color:white;margin-bottom:14px">'+
       '<div style="font-size:10px;opacity:.8;letter-spacing:2px">'+plan.person.toUpperCase()+'&#39;S DAY • '+(plan.territories||[]).join(', ').toUpperCase()+'</div>'+
       '<div style="font-size:14px;margin-top:8px">'+(plan.intro||'')+'</div>'+
