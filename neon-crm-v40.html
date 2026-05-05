@@ -1403,7 +1403,7 @@ function dpRenderStop(s, displayIdx){
   const subtitle = (s.business && s.business!==title) ? ' <span style="color:var(--g);font-weight:400;font-size:13px">— '+s.business+'</span>' : '';
   return '<div style="margin:14px 0;padding:18px;background:var(--d2);border-radius:10px;border-left:5px solid var(--p)">'+
     '<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:10px;color:var(--g);letter-spacing:2px">STOP '+(displayIdx+1)+'</div><div style="font-size:11px;color:var(--p)">⏱ ~'+s._stopMin+' min</div></div>'+
-    '<div style="margin:4px 0 4px;font-size:18px;font-weight:700">'+title+subtitle+'</div>'+
+    '<div style="margin:4px 0 4px;font-size:18px;font-weight:700"><span onclick="dpOpenLocation('+s.id+')" style="cursor:pointer;text-decoration:underline;text-decoration-color:rgba(255,255,255,0.25);text-underline-offset:3px">'+title+subtitle+' <span style="font-size:11px;opacity:.55;font-weight:400">\u2197</span></span></div>'+
     addrLine+
     '<div style="color:var(--g);font-size:11px;margin:6px 0 10px">'+s.territory+' • '+s.type+tierLabel+' • '+visitInfo+'</div>'+
     askForHtml+
@@ -1413,6 +1413,95 @@ function dpRenderStop(s, displayIdx){
   '</div>';
 }
 
+function dpOpenLocation(locId){
+  const stops = (window.__dpPlan && window.__dpPlan.stops) || [];
+  const addons = (window.__dpPlan && window.__dpPlan.suggestedAddons) || [];
+  const stop = stops.find(function(s){return +s.id === +locId;}) || addons.find(function(s){return +s.id === +locId;});
+  const cs = (typeof D !== 'undefined' ? D : []).filter(function(c){return +c.locationId === +locId;});
+  const name = (stop && stop.name) || 'Location';
+  const addr = (stop && stop.address) || '';
+  const territory = (stop && stop.territory) || '';
+  const type = (stop && stop.type) || '';
+  const tier = (stop && stop.tier) || '';
+  const lastVisit = (stop && stop.lastVisit) || '';
+  const units = (stop && stop.unitCount) || '';
+  const beds = (stop && stop.bedCount) || '';
+  const yr = (stop && stop.yearOpened) || '';
+  let h = '<div id="dpLocOverlay" onclick="if(event.target===this)dpCloseLocation()" style="position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto">';
+  h += '<div style="background:var(--d2);border:1px solid var(--p);border-radius:12px;max-width:640px;width:100%;padding:22px;color:#fff;max-height:90vh;overflow-y:auto">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px"><div style="flex:1">';
+  h += '<div style="font-size:10px;letter-spacing:2px;color:var(--p);margin-bottom:4px">LOCATION</div>';
+  h += '<div style="font-size:20px;font-weight:700;line-height:1.2">'+name+'</div>';
+  if(addr) h += '<div style="color:var(--g);font-size:12px;margin-top:4px">\u{1F4CD} '+addr+'</div>';
+  h += '</div>';
+  h += '<button onclick="dpCloseLocation()" style="background:transparent;border:1px solid #555;color:#aaa;border-radius:6px;width:32px;height:32px;cursor:pointer;font-size:18px">\u00D7</button>';
+  h += '</div>';
+  const meta = [territory, type, tier, units?units+' units':'', beds?beds+' beds':'', yr?'opened '+yr:'', lastVisit?'last visited '+lastVisit:'never visited'].filter(Boolean).join(' \u00B7 ');
+  if(meta) h += '<div style="color:var(--g);font-size:12px;margin-bottom:14px">'+meta+'</div>';
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">';
+  if(addr) h += '<a class="bs" target="_blank" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(addr)+'" style="flex:1;min-width:120px;text-align:center;text-decoration:none">\u{1F5FA} Open in Maps</a>';
+  h += '<button class="bs" onclick="dpEditLocationFields('+locId+')" style="flex:1;min-width:120px;background:linear-gradient(135deg,#5a3aaf,#3d8bcf)">\u270F\uFE0F Edit Location</button>';
+  h += '</div>';
+  h += '<div style="font-size:11px;letter-spacing:1.5px;color:var(--g);margin:14px 0 8px">CONTACTS AT THIS LOCATION ('+cs.length+')</div>';
+  if(!cs.length){
+    h += '<div style="background:var(--d);padding:14px;border-radius:8px;color:var(--g);font-size:13px;text-align:center">No contacts on file yet for this location.</div>';
+  } else {
+    cs.forEach(function(c){
+      h += '<div style="background:var(--d);padding:12px;border-radius:8px;margin-bottom:8px;border-left:3px solid var(--p)">';
+      h += '<div style="font-weight:600;font-size:14px">'+(c.name||'(no name)')+(c.role?'<span style="color:var(--g);font-weight:400;font-size:12px"> \u00B7 '+c.role+'</span>':'')+'</div>';
+      const meta2 = [c.phone?'\u260E '+c.phone:'', c.email?'\u2709 '+c.email:''].filter(Boolean).join(' \u00B7 ');
+      if(meta2) h += '<div style="color:var(--g);font-size:11px;margin-top:3px">'+meta2+'</div>';
+      h += '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">';
+      h += '<button class="bsm" onclick="dpCloseLocation();showQV('+c.id+')" style="background:var(--gn);color:#fff;border:none;cursor:pointer">\u{1F4DD} Check-In</button>';
+      h += '<button class="bsm" onclick="dpCloseLocation();showAddRef('+c.id+',\''+String(c.name||'').replace(/\x27/g,"\\\x27")+'\')" style="background:var(--p);color:#fff;border:none;cursor:pointer">\u{1F381} Referral</button>';
+      h += '<button class="bsm" onclick="dpCloseLocation();showAddRem('+c.id+')" style="background:var(--b);color:#fff;border:none;cursor:pointer">\u23F0 Reminder</button>';
+      h += '<button class="bsm" onclick="dpCloseLocation();showEdit('+c.id+')" style="background:#555;color:#fff;border:none;cursor:pointer">\u270F Edit</button>';
+      h += '</div></div>';
+    });
+  }
+  h += '</div></div>';
+  const div = document.createElement('div');
+  div.innerHTML = h;
+  document.body.appendChild(div.firstChild);
+}
+function dpCloseLocation(){ const o = document.getElementById('dpLocOverlay'); if(o) o.remove(); }
+async function dpEditLocationFields(locId){
+  const cur = (window.__dpPlan && window.__dpPlan.stops || []).find(function(s){return +s.id===+locId;}) || (window.__dpPlan && window.__dpPlan.suggestedAddons || []).find(function(s){return +s.id===+locId;}) || {};
+  const newName = prompt('Location name:', cur.name||''); if(newName === null) return;
+  const newAddr = prompt('Address:', cur.address||''); if(newAddr === null) return;
+  const newTier = prompt('Tier (1, 2, 3, or empty):', cur.tier||''); if(newTier === null) return;
+  try { tt('Saving...','ok'); await aP({action:'updateLocation', loc:{id:locId, name:newName, address:newAddr, tier:newTier}}); tt('\u2705 Saved','ok'); dpCloseLocation(); } catch(e){ tt('Error: '+e.message,'er'); }
+}
+async function dpOptimizeRoute(){
+  const plan = window.__dpPlan;
+  if (!plan || !plan.stops || plan.stops.length < 3) { tt('Need at least 3 stops to optimize','er'); return; }
+  const stops = plan.stops.filter(function(s){return s.lat && s.lon;});
+  if (stops.length < 3) { tt('Not enough stops with coords','er'); return; }
+  tt('Optimizing route...','ok');
+  try {
+    const coords = stops.map(function(s){return s.lon + ',' + s.lat;}).join(';');
+    const url = 'https://router.project-osrm.org/trip/v1/driving/' + coords + '?source=first&destination=last&roundtrip=false&overview=full&geometries=geojson';
+    const r = await fetch(url);
+    const j = await r.json();
+    if (j.code !== 'Ok' || !j.trips || !j.trips.length) { tt('OSRM error: ' + (j.code || 'unknown'),'er'); return; }
+    const trip = j.trips[0];
+    const waypoints = (j.waypoints || []).slice().sort(function(a,b){return a.waypoint_index - b.waypoint_index;});
+    const newOrder = waypoints.map(function(w){ return stops[w.input_index]; });
+    const driveMin = Math.round(trip.duration / 60);
+    plan.stops = newOrder.concat(plan.stops.filter(function(s){return !s.lat || !s.lon;}));
+    plan.optimized = true;
+    plan.optimizedDriveMin = driveMin;
+    plan.optimizedRouteGeoJSON = trip.geometry;
+    if (typeof dpRender === 'function') dpRender(plan);
+    if (typeof L !== 'undefined' && window.__dpMap && trip.geometry) {
+      try {
+        if (window.__dpRouteLayer) window.__dpMap.removeLayer(window.__dpRouteLayer);
+        window.__dpRouteLayer = L.geoJSON(trip.geometry, { style: { color: '#33cc66', weight: 5, opacity: 0.85 } }).addTo(window.__dpMap);
+      } catch(e) { console.warn('route polyline draw failed', e); }
+    }
+    tt('\u2705 Optimized: ' + driveMin + ' min driving','ok');
+  } catch (e) { tt('Optimize failed: ' + e.message,'er'); }
+}
 function dpComputeStopMin(s){
   const tierStr = String(s.tier||'');
   const m = tierStr.match(/\d/);
@@ -1422,6 +1511,8 @@ function dpComputeStopMin(s){
 }
 
 function dpRenderAddons(plan){
+  window.__dpPlan = plan; // V53e: stash for dpOpenLocation lookups
+
   const addons = (plan && plan.suggestedAddons) || [];
   if(!addons.length) return '';
   const cards = addons.map(function(a, i){
@@ -1506,7 +1597,8 @@ function dpRender(plan){
     lunchBanner+
     dpRenderAddons(plan)+
     '<div style="padding:16px;background:linear-gradient(135deg,#ff0080,#ff8000);border-radius:8px;color:white;margin-top:14px;text-align:center;font-size:14px">'+(plan.outro||'')+'</div>'+
-    '<div style="display:flex;gap:10px;margin-top:18px">'+
+    '<div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">'+
+      '<button class="bs" onclick="dpOptimizeRoute()" style="flex:1;min-width:160px;font-size:15px;padding:14px;background:linear-gradient(135deg,#33cc66,#2aa050)">\u{1F9ED} Optimize Route</button>'+
       '<button class="bs" onclick="dpOpenInMaps()" style="flex:1;font-size:15px;padding:14px;background:linear-gradient(135deg,#4285F4,#34A853)">🗺️ Open Route in Google Maps</button>'+
       '<button class="bs" onclick="dpDownloadPDF()" style="flex:1;font-size:15px;padding:14px;background:linear-gradient(135deg,#1a0033,#4a0080)">📄 Download PDF</button>'+
     '</div>'+
