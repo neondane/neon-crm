@@ -1896,7 +1896,7 @@ async function dpDownloadPDF(){
     if (btn) { btn.disabled = true; btn.textContent = "Searching\u2026"; }
     if (body) body.innerHTML = '<div style="padding:14px;text-align:center;color:#9fe">\u{1F50D} Web-searching for net-new leads in ' + ((f.territories||[]).join(", ")||"all territories") + ' \u2026 (~30s)</div>';
     try {
-      const r = await aP({ action: "discoverNewLeads", opts: { territories: f.territories || [], types: f.types || [], limit: 6 } });
+      const r = await aP({ action: "discoverNewLeads", opts: { territories: f.territories || [], types: f.types || [], limit: 12 } });
       if (!r.ok) { if (body) body.innerHTML = '<div style="color:#f88">Discovery failed: ' + (r.error || "unknown") + '</div>'; return; }
       const leads = r.leads || [];
       window.__tlNewLeads = leads;
@@ -1999,7 +1999,7 @@ async function dpDownloadPDF(){
       }
     } catch (e) { console.error("searchPlaces err", e); }
     if (!leads.length) {
-      try { const r2 = await aP({ action: "discoverNewLeads", opts: { territories: f.territories || [], types: f.types || [], limit: 6 } }); if (r2.ok && r2.leads) { leads = r2.leads; source = "claude"; } } catch (e2) {}
+      try { const r2 = await aP({ action: "discoverNewLeads", opts: { territories: f.territories || [], types: f.types || [], limit: 12 } }); if (r2.ok && r2.leads) { leads = r2.leads; source = "claude"; } } catch (e2) {}
     }
     if (!leads.length) { if (body) body.innerHTML = '<div style="color:var(--g);padding:10px">No net-new leads returned for this filter combo.</div>'; if (btn) { btn.disabled = false; btn.textContent = "\u{1F50D} Search again"; } return; }
     window.__tlNewLeads = leads;
