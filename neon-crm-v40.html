@@ -1943,6 +1943,54 @@ async function dpDownloadPDF(){
     for (let i = 0; i < leads.length; i++) { const l = leads[i]; if (l.isKnownLocation || l.isKnownProspect) continue; try { const r = await aP({ action: "addProspect", prospect: { name: l.name, type: l.type, address: l.address, lat: l.lat, lon: l.lon, googleRating: l.googleRating, reviewCount: l.reviewCount, websiteUrl: l.websiteUrl, phone: l.phone, placeId: l.placeId, source: "places", status: "new", notes: l.reason } }); if (r && r.ok) saved++; else fails.push(l.name); } catch (e) { fails.push(l.name); } }
     alert("Saved " + saved + " to outreach list" + (fails.length ? "\nFailures: " + fails.join(", ") : ""));
   };
+
+  // V51 — Unified in-territory add-ons + map markers
+  window.dpRenderAddons = function (plan) {
+    return '<div id="dpUnifiedAddonsHost" style="margin:14px 0;padding:14px;background:#0a1428;border:1px solid #1f3a5c;border-radius:10px"><div style="font-size:11px;color:#9cf;letter-spacing:1.5px;margin-bottom:8px">\u{1F4CD} ADD TO THIS ROUTE</div><div id="dpUnifiedAddonsBody" style="color:var(--g);font-size:12px;padding:8px">Loading in-territory candidates\u2026</div></div>';
+  };
+  window.dpFetchUnifiedAddons = async function (plan) {
+    const territories = plan.territories || (plan.opts && plan.opts.territories) || [];
+    const types = plan.types || (plan.opts && plan.opts.types) || [];
+    const stops = plan.stops || [];
+    const stopIds = {}; stops.forEach(function (s) { if (s && s.id) stopIds[s.id] = true; });
+    const stopNames = {}; stops.forEach(function (s) { if (s && s.name) stopNames[(s.name||'').toLowerCase().trim()] = true; });
+    const candidates = [];
+    const fetches = [];
+    fetches.push(aP({ action: "topUncaptured", opts: { territories: territories, types: types, limit: 30 } }).then(function (r) { const items = (r && r.items) || []; items.forEach(function (it) { if (stopIds[it.id]) return; if (territories.length && territories.indexOf(it.territory) < 0) return; candidates.push({ source: "location", id: it.id, name: it.name, type: it.type, territory: it.territory, address: it.address, lat: it.lat, lon: it.lon, score: it.score, unitCount: it.unitCount, bedCount: it.bedCount, daysSince: it.daysSince, enrichmentNotes: it.enrichmentNotes }); }); }).catch(function () {}));
+    fetches.push(aP({ action: "searchPlaces", opts: { territories: territories, types: types, limit: 12 } }).then(function (r) { const places = (r && r.places) || []; places.forEach(function (p) { if (p.isKnownLocation) return; const lname = (p.name||'').toLowerCase().trim(); if (stopNames[lname]) return; candidates.push({ source: p.isKnownProspect ? "prospect" : "places", name: p.name, type: types[0] || "", territory: territories[0] || "", address: p.address, lat: p.lat, lon: p.lon, score: p.score, googleRating: p.googleRating, reviewCount: p.reviewCount, placeId: p.placeId, phone: p.phone, websiteUrl: p.websiteUrl }); }); }).catch(function () {}));
+    await Promise.all(fetches);
+    candidates.sort(function (a, b) { return (b.score || 0) - (a.score || 0); });
+    return candidates.slice(0, 12);
+  };
+  window.dpRenderUnifiedAddons = function (candidates) {
+    const body = document.getElementById("dpUnifiedAddonsBody");
+    if (!body) return;
+    if (!candidates.length) { body.innerHTML = '<div style="padding:8px;color:var(--g)">No in-territory candidates to suggest. Try broadening your filter.</div>'; return; }
+    const cards = candidates.map(function (c, i) { const isLoc = c.source === "location"; const isPlaces = c.source === "places"; const sourceTag = isLoc ? '<span style="background:#1a3a5c;color:#9cf;padding:2px 6px;border-radius:4px;font-size:9px;letter-spacing:1px">CRM</span>' : (isPlaces ? '<span style="background:#1a4d3a;color:#9fe;padding:2px 6px;border-radius:4px;font-size:9px;letter-spacing:1px">NEW</span>' : '<span style="background:#4d3a1a;color:#fec;padding:2px 6px;border-radius:4px;font-size:9px;letter-spacing:1px">PROSPECT</span>'); const ratingChip = (c.googleRating != null) ? '<span style="font-size:10px;color:#fc6">\u2B50 ' + c.googleRating + (c.reviewCount ? ' (' + c.reviewCount + ')' : '') + '</span>' : ''; const capChip = c.unitCount ? '<span style="font-size:10px;color:#9cf">\u{1F3E2} ' + c.unitCount + ' units</span>' : (c.bedCount ? '<span style="font-size:10px;color:#9cf">\u{1F6CF} ' + c.bedCount + ' beds</span>' : ''); const visitChip = (c.daysSince != null) ? '<span style="font-size:10px;color:#aaa">\u{1F551} ' + c.daysSince + 'd ago</span>' : (isLoc ? '<span style="font-size:10px;color:#5c5">never visited</span>' : ''); const numberBadge = '<span style="display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center;background:' + (isLoc ? '#3b82f6' : '#10b981') + ';color:#fff;border-radius:50%;font-size:10px;font-weight:700;flex-shrink:0">' + (i+1) + '</span>'; return '<div style="background:' + (isLoc ? '#0d1f33' : '#0d2b22') + ';border:1px solid ' + (isLoc ? '#3b82f6' : '#10b981') + ';border-radius:8px;padding:10px;font-size:12px;display:flex;flex-direction:column;gap:4px">' + '<div style="display:flex;align-items:center;gap:6px">' + numberBadge + '<div style="font-weight:700;font-size:13px;color:#fff;flex:1;line-height:1.2">' + (c.name||"") + '</div>' + sourceTag + '</div>' + '<div style="color:#9fc;font-size:10px">' + (c.address||"") + '</div>' + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:2px">' + capChip + ratingChip + visitChip + '<span style="font-size:10px;color:#a78bff;font-weight:700">score ' + (c.score != null ? c.score : '?') + '</span></div>' + '<button class="bs" onclick="dpAddUnified(' + i + ')" style="padding:6px 10px;font-size:11px;align-self:flex-start;margin-top:4px">+ Add to plan</button>' + '</div>'; }).join('');
+    body.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px">' + cards + '</div>';
+    window.__dpUnifiedCandidates = candidates;
+    setTimeout(function () { dpAddCandidateMapMarkers(candidates); }, 200);
+  };
+  window.dpAddCandidateMapMarkers = function (candidates) {
+    if (!window.__dpMap || typeof L === 'undefined') return;
+    if (window.__dpCandidateMarkers) { window.__dpCandidateMarkers.forEach(function (m) { try { window.__dpMap.removeLayer(m); } catch (e) {} }); }
+    window.__dpCandidateMarkers = [];
+    candidates.forEach(function (c, i) { if (c.lat == null || c.lon == null) return; const isLoc = c.source === 'location'; const color = isLoc ? '#3b82f6' : '#10b981'; const marker = L.circleMarker([c.lat, c.lon], { radius: 10, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9 }).addTo(window.__dpMap); marker.bindPopup('<b>#' + (i+1) + ' ' + (c.name||'') + '</b><br>' + (c.address||'') + '<br>' + (isLoc ? 'In CRM' : 'Net-new from Places') + '<br>Score: ' + (c.score != null ? c.score : '?')); window.__dpCandidateMarkers.push(marker); });
+  };
+  window.dpAddUnified = async function (idx) {
+    const c = (window.__dpUnifiedCandidates || [])[idx];
+    if (!c) return;
+    if (!window.__dpLastPlan) { alert('Generate a plan first'); return; }
+    let stopObj;
+    if (c.source === 'location') { stopObj = { id: c.id, name: c.name, type: c.type, territory: c.territory, address: c.address, lat: c.lat, lon: c.lon, _stopMin: 25, briefing: c.enrichmentNotes || 'Existing CRM record - never visited', talkingPoints: ['First visit - introduce Neon Giant services', 'Find decision maker', 'Leave business card + flyer'], leaveBehind: 'business card + flyer' }; }
+    else { try { const r = await aP({ action: 'addLocation', location: { name: c.name, type: c.type, territory: c.territory, address: c.address, lat: c.lat, lon: c.lon, notes: 'Discovered via Places' } }); if (!r || !r.ok) { alert('Failed to add to CRM: ' + (r && r.error || '')); return; } stopObj = { id: r.id, name: c.name, type: c.type, territory: c.territory, address: c.address, lat: c.lat, lon: c.lon, _stopMin: 25, briefing: 'Net-new lead just added to CRM. First contact attempt.', talkingPoints: ['Cold intro - explain Neon Giant moving + junk removal', 'Find a contact name to follow up with', 'Leave a flyer'], leaveBehind: 'flyer + business card' }; } catch (e) { alert('Error adding net-new: ' + e.message); return; } }
+    window.__dpLastPlan.stops = window.__dpLastPlan.stops || [];
+    window.__dpLastPlan.stops.push(stopObj);
+    const result = document.getElementById('dpResult');
+    if (result && typeof dpRender === 'function') { result.innerHTML = dpRender(window.__dpLastPlan); setTimeout(function () { dpFetchUnifiedAddons(window.__dpLastPlan).then(dpRenderUnifiedAddons); }, 300); }
+  };
+  const __origDpRender = window.dpRender;
+  if (typeof __origDpRender === 'function') { window.dpRender = function (plan) { const html = __origDpRender(plan); setTimeout(function () { try { dpFetchUnifiedAddons(plan).then(dpRenderUnifiedAddons); } catch (e) { console.error('unified addons err', e); } }, 1000); return html; }; }
 })();
 
 </script></body>
