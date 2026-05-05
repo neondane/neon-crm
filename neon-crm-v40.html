@@ -185,12 +185,12 @@ function setCK(){const k=prompt('Paste your Claude API key (starts with sk-ant-)
 // API key prompt removed from auto-startup - use the 🔑 button in header instead
 
 const TR=['All','Whatcom — Bellingham','Whatcom — North of Bellingham','Skagit — Mount Vernon area','Skagit — Anacortes','Snohomish County','Whidbey Island'];
-const TY=["Realtor","Self-Storage Facility","U-Haul Dealer","Assisted Living / Senior Care","Apartment Complex","Property Management","Estate Sale Company","Attorney / Law","Home Services","Other"];
+const TY=["Realtor","Self-Storage Facility","Assisted Living","Senior Living","Apartment Complex","Property Management","Other"];
 const TM=["Dane","Tyler","Valentina","Jeff","Luke","Carlos","Marshall","Samuel","Ryan","William","Charles","Michael"];
 const SC=[{l:"Hot",c:"#ff3366",e:"🔥"},{l:"Warm",c:"#ff9933",e:"☀️"},{l:"Cool",c:"#22aee4",e:"❄️"},{l:"New",c:"#8888aa",e:"🆕"}];
 const TI=["—","Tier 1","Tier 2","Tier 3","Tier 4"];const TID={"Tier 1":"Core Partners","Tier 2":"Active Referrers","Tier 3":"Warm Relationships","Tier 4":"Prospects"};
 const TC={"Anacortes":[48.5126,-122.6127],"Burlington":[48.4757,-122.3254],"Oak Harbor":[48.2932,-122.6433],"Mt. Vernon":[48.4201,-122.334],"Sedro-Woolley":[48.5037,-122.2366],"Bellingham":[48.7519,-122.4787],"North of Bellingham":[48.86,-122.51],"Snohomish":[48.166,-122.22],"South Whidbey":[48.12,-122.68],"Arlington":[48.1987,-122.1254],"Stanwood":[48.2404,-122.3706],"La Conner":[48.3921,-122.4932]};
-const IC={'Self-Storage':'📦','Real Estate':'🏠','U-Haul':'🚛','Assisted':'🏥','Apartment':'🏢','Attorney':'⚖️','Home Serv':'🔧','Estate Sale':'🏷️','Property':'🏘️','Other':'📋'};
+const IC={'Self-Storage':'📦','Realtor':'🏠','Assisted':'🏥','Senior':'🧓','Apartment':'🏢','Property':'🏘️','Other':'📋'};
 let D=[],V=[],R=[],JR=[],TEAM=[],fRA='All',fRStatus='active',mRS={},lAvatar='',CU=JSON.parse(sessionStorage.getItem('neon_user')||'null'),tb='d',dV='contacts',fT='All',fY='All',fS='',sr='visited',lm=null,mM=[],ok=false,IM=[],pOpen=null,lbSort='total';
 
 async function aG(a){return(await fetch(API+'?action='+a)).json()}
