@@ -1777,6 +1777,58 @@ async function dpDownloadPDF(){
   };
   var prevRender2 = window.dpRender;
   window.dpRender = function (plan) { var html = prevRender2(plan); return html + '<div id="dpNewLeadsResult"></div><div style="margin-top:10px;text-align:center"><button class="bs" onclick="dpFindNewLeads()" style="padding:8px 14px;font-size:12px;background:linear-gradient(135deg,#003322,#1a6b4d);color:#fff">\u{1F50D} Find net-new leads via web search</button></div>'; };
+
+  // V46: Top Leads dual-section (existing + net-new web search)
+  window.__topLeadsLastFilters = null;
+  const origTlLoad = window.tlLoad;
+  window.tlLoad = async function () {
+    const territories = Array.from(document.querySelectorAll('input[name=tlT]:checked')).map(function (x) { return x.value; });
+    const types = Array.from(document.querySelectorAll('input[name=tlY]:checked')).map(function (x) { return x.value; });
+    window.__topLeadsLastFilters = { territories: territories, types: types };
+    if (typeof origTlLoad === "function") await origTlLoad();
+    setTimeout(function () { tlAddNetNewSection(); }, 400);
+  };
+  window.tlAddNetNewSection = function () {
+    const result = document.getElementById("tlResult");
+    if (!result) return;
+    if (document.getElementById("tlNetNewSection")) return;
+    const headerHtml = '<div id="tlNetNewSection" style="margin-top:20px;padding:14px;background:#0a2418;border:1px solid #4dc9a3;border-radius:10px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px"><div style="font-size:12px;color:#9fe;letter-spacing:1.5px"><b>\u{1F31F} NET-NEW LEADS</b> \u2014 not yet in your CRM</div><button class="bs" onclick="tlDiscoverNetNew()" id="tlDiscoverBtn" style="padding:6px 12px;font-size:11px;background:linear-gradient(135deg,#003322,#1a6b4d);color:#fff">\u{1F50D} Search the web</button></div><div id="tlNetNewBody" style="color:var(--g);font-size:12px">Click \u201CSearch the web\u201D to discover real businesses in this filter combo that aren\u2019t in your CRM yet.</div></div>';
+    result.insertAdjacentHTML("beforeend", headerHtml);
+    const visibleCards = result.querySelectorAll('.cd, [data-id]').length;
+    if (visibleCards < 5) { setTimeout(function () { tlDiscoverNetNew(); }, 200); }
+  };
+  window.tlDiscoverNetNew = async function () {
+    const f = window.__topLeadsLastFilters || {};
+    const body = document.getElementById("tlNetNewBody");
+    const btn = document.getElementById("tlDiscoverBtn");
+    if (btn) { btn.disabled = true; btn.textContent = "Searching\u2026"; }
+    if (body) body.innerHTML = '<div style="padding:14px;text-align:center;color:#9fe">\u{1F50D} Web-searching for net-new leads in ' + ((f.territories||[]).join(", ")||"all territories") + ' \u2026 (~30s)</div>';
+    try {
+      const r = await aP({ action: "discoverNewLeads", opts: { territories: f.territories || [], types: f.types || [], limit: 6 } });
+      if (!r.ok) { if (body) body.innerHTML = '<div style="color:#f88">Discovery failed: ' + (r.error || "unknown") + '</div>'; return; }
+      const leads = r.leads || [];
+      window.__tlNewLeads = leads;
+      if (!leads.length) { if (body) body.innerHTML = '<div style="color:var(--g)">No net-new leads returned.</div>'; return; }
+      const cards = leads.map(function (l, i) {
+        return '<div style="background:#0e3327;border:1px solid #4dc9a3;border-radius:8px;padding:10px;font-size:12px"><div style="font-weight:700;font-size:13px;color:#fff">' + (l.name||"") + '</div><div style="color:#9fe;font-size:10px;margin:2px 0">' + (l.type||"") + ' \u00b7 ' + (l.address||"") + '</div><div style="color:var(--g);font-size:11px;margin:4px 0">' + (l.reason||"") + '</div><button class="bs" id="tlNetNew_' + i + '" onclick="tlAddNetNew(' + i + ')" style="padding:6px 10px;font-size:11px">+ Add to CRM</button></div>';
+      }).join("");
+      if (body) body.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;margin-top:6px">' + cards + '</div><div style="margin-top:10px;text-align:center"><button class="bs" onclick="tlBulkAddNetNew()" style="padding:8px 14px;font-size:12px;background:#1a6b4d;color:#fff">\u2795 Add ALL ' + leads.length + ' to CRM</button></div>';
+      if (btn) { btn.textContent = "\u{1F504} Search again"; btn.disabled = false; }
+    } catch (e) { if (body) body.innerHTML = '<div style="color:#f88">Error: ' + (e.message||e) + '</div>'; if (btn) { btn.disabled = false; btn.textContent = "\u{1F50D} Search the web"; } }
+  };
+  window.tlAddNetNew = async function (idx) {
+    const lead = (window.__tlNewLeads || [])[idx]; if (!lead) return;
+    const btn = document.getElementById("tlNetNew_" + idx);
+    if (btn) { btn.disabled = true; btn.textContent = "Adding\u2026"; }
+    try { const r = await aP({ action: "addLocation", location: { name: lead.name, type: lead.type, address: lead.address, notes: lead.reason } }); if (btn) { btn.textContent = "\u2713 Added (id " + r.id + ")"; btn.style.background = "#4dc9a3"; } } catch (e) { if (btn) { btn.disabled = false; btn.textContent = "Failed"; } }
+  };
+  window.tlBulkAddNetNew = async function () {
+    const leads = window.__tlNewLeads || [];
+    let added = 0; const fails = [];
+    for (let i = 0; i < leads.length; i++) { try { const r = await aP({ action: "addLocation", location: { name: leads[i].name, type: leads[i].type, address: leads[i].address, notes: leads[i].reason } }); if (r && r.ok) added++; else fails.push(leads[i].name); } catch (e) { fails.push(leads[i].name); } }
+    alert("Added " + added + " of " + leads.length + " new leads to CRM" + (fails.length ? "\nFailures: " + fails.join(", ") : ""));
+    if (typeof tlLoad === "function") tlLoad();
+  };
 })();
 
 </script></body>
