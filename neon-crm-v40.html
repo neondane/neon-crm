@@ -1890,6 +1890,59 @@ async function dpDownloadPDF(){
     w.document.close();
     setTimeout(function () { try { w.print(); } catch (e) {} }, 600);
   };
+
+  // V49 frontend — Places API powered Top Leads net-new section
+  window.tlDiscoverNetNew = async function () {
+    const f = window.__topLeadsLastFilters || {};
+    const body = document.getElementById("tlNetNewBody");
+    const btn = document.getElementById("tlDiscoverBtn");
+    if (btn) { btn.disabled = true; btn.textContent = "Searching\u2026"; }
+    if (body) body.innerHTML = '<div style="padding:14px;text-align:center;color:#9fe">\u{1F50D} Querying Google Places for ' + ((f.territories||[]).join(", ")||"all territories") + ' \u2026</div>';
+    let leads = [];
+    let source = "places";
+    try {
+      const r = await aP({ action: "searchPlaces", opts: { territories: f.territories || [], types: f.types || [], limit: 12 } });
+      if (r.ok && r.places && r.places.length) {
+        leads = r.places.map(function (p) { return { name: p.name, type: (f.types && f.types[0]) || "", address: p.address, placeId: p.placeId, lat: p.lat, lon: p.lon, googleRating: p.googleRating, reviewCount: p.reviewCount, websiteUrl: p.websiteUrl, phone: p.phone, score: p.score, isKnownLocation: p.isKnownLocation, isKnownProspect: p.isKnownProspect, reason: "Google rating " + (p.googleRating || "?") + " (" + (p.reviewCount || 0) + " reviews)" }; });
+      }
+    } catch (e) { console.error("searchPlaces err", e); }
+    if (!leads.length) {
+      try { const r2 = await aP({ action: "discoverNewLeads", opts: { territories: f.territories || [], types: f.types || [], limit: 6 } }); if (r2.ok && r2.leads) { leads = r2.leads; source = "claude"; } } catch (e2) {}
+    }
+    if (!leads.length) { if (body) body.innerHTML = '<div style="color:var(--g);padding:10px">No net-new leads returned for this filter combo.</div>'; if (btn) { btn.disabled = false; btn.textContent = "\u{1F50D} Search again"; } return; }
+    window.__tlNewLeads = leads;
+    const cards = leads.map(function (l, i) {
+      const known = !!(l.isKnownLocation || l.isKnownProspect);
+      const knownTag = known ? '<div style="background:#665;color:#fff;font-size:9px;padding:2px 6px;border-radius:4px;display:inline-block;margin-top:4px">\u2713 Already in CRM</div>' : '';
+      const ratingChip = (l.googleRating != null) ? '<span style="background:#1a4d3a;color:#9fe;padding:2px 6px;border-radius:4px;font-size:10px">\u2B50 ' + l.googleRating + '</span>' : '';
+      const reviewChip = (l.reviewCount > 0) ? '<span style="background:#1a4d3a;color:#9fe;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:4px">\u{1F4DD} ' + l.reviewCount + '</span>' : '';
+      const scoreChip = (l.score != null) ? '<span style="background:#4a0080;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:4px;font-weight:700">' + l.score + '</span>' : '';
+      const btnLabel = known ? '\u2713 In CRM' : '+ Save to outreach list';
+      const btnDisabled = known ? ' disabled' : '';
+      const btnStyle = known ? 'padding:6px 10px;font-size:11px;background:#444;color:#aaa;cursor:not-allowed' : 'padding:6px 10px;font-size:11px';
+      return '<div style="background:' + (known ? '#0a0a14' : '#0e3327') + ';border:1px solid ' + (known ? '#444' : '#4dc9a3') + ';border-radius:8px;padding:10px;font-size:12px;display:flex;flex-direction:column;gap:6px;opacity:' + (known ? '0.65' : '1') + '">' + '<div style="font-weight:700;font-size:13px;color:#fff;line-height:1.2">' + (l.name||"") + '</div>' + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px">' + ratingChip + reviewChip + scoreChip + '</div>' + knownTag + '<div style="color:#9fe;font-size:10px;margin-top:2px">' + (l.address||"") + '</div>' + (l.reason ? '<div style="color:var(--g);font-size:11px;line-height:1.3">' + l.reason + '</div>' : "") + '<button class="bs"' + btnDisabled + ' id="tlNetNew_' + i + '" onclick="tlSaveProspect(' + i + ')" style="' + btnStyle + ';align-self:flex-start;margin-top:4px">' + btnLabel + '</button>' + '</div>';
+    }).join("");
+    const sourceBadge = source === "places" ? '\u{1F30E} Google Places (authoritative)' : '\u{1F916} Claude + web search';
+    if (body) body.innerHTML = '<div style="font-size:10px;color:#9fe;margin-bottom:8px;letter-spacing:1px">SOURCE: ' + sourceBadge + '</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px">' + cards + '</div>';
+    if (btn) { btn.textContent = "\u{1F504} Search again"; btn.disabled = false; }
+  };
+  window.tlSaveProspect = async function (idx) {
+    const lead = (window.__tlNewLeads || [])[idx]; if (!lead) return;
+    if (lead.isKnownLocation || lead.isKnownProspect) return;
+    const btn = document.getElementById("tlNetNew_" + idx);
+    if (btn) { btn.disabled = true; btn.textContent = "Saving\u2026"; }
+    try {
+      const r = await aP({ action: "addProspect", prospect: { name: lead.name, type: lead.type, address: lead.address, lat: lead.lat, lon: lead.lon, googleRating: lead.googleRating, reviewCount: lead.reviewCount, websiteUrl: lead.websiteUrl, phone: lead.phone, placeId: lead.placeId, source: "places", status: "new", notes: lead.reason } });
+      if (btn) { if (r.deduped) { btn.textContent = "\u2713 Already saved"; btn.style.background = "#666"; } else { btn.textContent = "\u2713 Saved (id " + r.id + ")"; btn.style.background = "#4dc9a3"; } }
+    } catch (e) { if (btn) { btn.disabled = false; btn.textContent = "Failed"; } }
+  };
+  window.tlBulkAddNetNew = async function () {
+    const leads = window.__tlNewLeads || [];
+    if (!leads.length) return;
+    let saved = 0; const fails = [];
+    for (let i = 0; i < leads.length; i++) { const l = leads[i]; if (l.isKnownLocation || l.isKnownProspect) continue; try { const r = await aP({ action: "addProspect", prospect: { name: l.name, type: l.type, address: l.address, lat: l.lat, lon: l.lon, googleRating: l.googleRating, reviewCount: l.reviewCount, websiteUrl: l.websiteUrl, phone: l.phone, placeId: l.placeId, source: "places", status: "new", notes: l.reason } }); if (r && r.ok) saved++; else fails.push(l.name); } catch (e) { fails.push(l.name); } }
+    alert("Saved " + saved + " to outreach list" + (fails.length ? "\nFailures: " + fails.join(", ") : ""));
+  };
 })();
 
 </script></body>
