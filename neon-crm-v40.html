@@ -1406,13 +1406,13 @@ function dpRenderStop(s, displayIdx){
   const addrLine = s.address ? '<div style="color:var(--g);font-size:11px;margin-top:2px">📍 '+s.address+'</div>' : '';
   const title = s.name || s.business || '';
   const subtitle = (s.business && s.business!==title) ? ' <span style="color:var(--g);font-weight:400;font-size:13px">— '+s.business+'</span>' : '';
-  return '<div data-stop-idx="'+displayIdx+'" draggable="true" ondragstart="dpDragStart(event,'+displayIdx+')" ondragover="dpDragOver(event)" ondragleave="dpDragLeave(event)" ondrop="dpDrop(event,'+displayIdx+')" style="margin:14px 0;padding:18px;background:var(--d2);border-radius:10px;border-left:5px solid var(--p);cursor:grab;position:relative">'+'<span style="position:absolute;right:10px;top:10px;font-size:14px;color:var(--g);opacity:.55" title="Drag to reorder">\u2630</span>'+
+  return '<div data-stop-idx="'+displayIdx+'" draggable="true" ondragstart="dpDragStart(event,'+displayIdx+')" ondragover="dpDragOver(event)" ondragleave="dpDragLeave(event)" ondrop="dpDrop(event,'+displayIdx+')" style="margin:14px 0;padding:18px;background:var(--d2);border-radius:10px;border-left:5px solid var(--p);cursor:grab;position:relative">'+'<div style="position:absolute;left:0;right:0;top:0;height:18px;background:linear-gradient(180deg,rgba(167,139,250,0.18),transparent);cursor:grab;display:flex;align-items:center;justify-content:center;color:#a78bfa;font-size:13px;letter-spacing:6px" title="Drag to reorder">\u22EE\u22EE\u22EE</div>'+
     '<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:10px;color:var(--g);letter-spacing:2px">STOP '+(displayIdx+1)+'</div><div style="font-size:11px;color:var(--p)">⏱ ~'+s._stopMin+' min</div></div>'+
     '<div style="margin:4px 0 4px;font-size:18px;font-weight:700"><span onclick="dpOpenLocation('+s.id+')" style="cursor:pointer;text-decoration:underline;text-decoration-color:rgba(255,255,255,0.25);text-underline-offset:3px">'+title+subtitle+' <span style="font-size:11px;opacity:.55;font-weight:400">\u2197</span></span></div>'+
     addrLine+
     '<div style="color:var(--g);font-size:11px;margin:6px 0 10px">'+s.territory+' • '+s.type+tierLabel+' • '+visitInfo+'</div>'+
     askForHtml+
-    '<div style="background:var(--d);padding:10px;border-radius:6px;margin-bottom:8px"><b style="color:var(--p);font-size:10px;letter-spacing:1px">BRIEFING</b><div style="font-size:13px;margin-top:4px">'+(s.briefing||'')+'</div></div>'+
+    (s.recentVisits && s.recentVisits.length ? '<div style="background:#0a1f33;padding:10px;border-radius:6px;margin-bottom:8px;border-left:3px solid #4dc9a3"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="color:#4dc9a3;font-size:10px;letter-spacing:1px">RECENT VISITS</b><a onclick="dpJumpToFirstContact('+s.id+',\'profile\')" style="font-size:10px;color:#9cf;cursor:pointer;text-decoration:underline">See all \u2197</a></div>' + s.recentVisits.slice(0,2).map(function(v){return '<div style="font-size:11px;color:#ccc;padding:4px 0;border-top:1px dashed #224"><b style="color:#9fc">'+v.date+(v.handler?' \u00b7 '+v.handler:'')+'</b><br>'+(v.notes||'(no note)').substring(0,180)+'</div>';}).join('')+'</div>' : '')+'<div style="background:var(--d);padding:10px;border-radius:6px;margin-bottom:8px"><b style="color:var(--p);font-size:10px;letter-spacing:1px">BRIEFING</b><div style="font-size:13px;margin-top:4px">'+(s.briefing||'')+'</div></div>'+
     '<div style="margin-bottom:8px"><b style="color:var(--b);font-size:10px;letter-spacing:1px">TALKING POINTS</b><ul style="margin:6px 0;padding-left:20px;font-size:13px">'+tps+'</ul></div>'+
     '<div style="font-size:13px"><b style="color:var(--b);font-size:10px;letter-spacing:1px">LEAVE-BEHIND:</b> '+(s.leaveBehind||'business card')+'</div>'+
   '</div>';
@@ -1457,10 +1457,10 @@ function dpOpenLocation(locId){
       const meta2 = [c.phone?'\u260E '+c.phone:'', c.email?'\u2709 '+c.email:''].filter(Boolean).join(' \u00B7 ');
       if(meta2) h += '<div style="color:var(--g);font-size:11px;margin-top:3px">'+meta2+'</div>';
       h += '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">';
-      h += '<button class="bsm" onclick="dpCloseLocation();showQV('+c.id+')" style="background:var(--gn);color:#fff;border:none;cursor:pointer">\u{1F4DD} Check-In</button>';
-      h += '<button class="bsm" onclick="dpCloseLocation();showAddRef('+c.id+',\''+String(c.name||'').replace(/\x27/g,"\\\x27")+'\')" style="background:var(--p);color:#fff;border:none;cursor:pointer">\u{1F381} Referral</button>';
-      h += '<button class="bsm" onclick="dpCloseLocation();showAddRem('+c.id+')" style="background:var(--b);color:#fff;border:none;cursor:pointer">\u23F0 Reminder</button>';
-      h += '<button class="bsm" onclick="dpCloseLocation();showEdit('+c.id+')" style="background:#555;color:#fff;border:none;cursor:pointer">\u270F Edit</button>';
+      h += '<button class="bsm" onclick="dpJumpToContact('+c.id+', "qv")" style="background:var(--gn);color:#fff;border:none;cursor:pointer">\u{1F4DD} Check-In</button>';
+      h += '<button class="bsm" onclick="dpJumpToContact('+c.id+', "ref").replace(/\x27/g,"\\\x27")+'\')" style="background:var(--p);color:#fff;border:none;cursor:pointer">\u{1F381} Referral</button>';
+      h += '<button class="bsm" onclick="dpJumpToContact('+c.id+', "rem")" style="background:var(--b);color:#fff;border:none;cursor:pointer">\u23F0 Reminder</button>';
+      h += '<button class="bsm" onclick="dpJumpToContact('+c.id+', "edit")" style="background:#555;color:#fff;border:none;cursor:pointer">\u270F Edit</button>';
       h += '</div></div>';
     });
   }
@@ -1505,14 +1505,49 @@ function dpDrop(e, targetIdx){
     try { aP({ action: 'savePlan', plan: { planId: plan.planId, stops: plan.stops.map(function(s, i){return {id: s.id, order: i};}) } }); } catch(err){}
   }
 }
+function dpJumpToContact(contactId, action){
+  dpCloseLocation();
+  // Switch to Dashboard tab
+  const dashboardTab = Array.from(document.querySelectorAll('.tab')).find(function(t){return (t.textContent||'').trim()==='Dashboard';});
+  if (dashboardTab && typeof sT === 'function') sT('d', dashboardTab);
+  setTimeout(function(){
+    // Find the contact card by id
+    const card = document.querySelector('[data-contact-id="'+contactId+'"]') || (function(){
+      // Fallback: find element whose onclick references this id
+      const all = document.querySelectorAll('[onclick*="showEdit('+contactId+')"], [onclick*="showQV('+contactId+')"]');
+      return all[0] && all[0].closest('.cd, .pi, .pf, .card') || all[0];
+    })();
+    if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Trigger the requested action
+    setTimeout(function(){
+      if (action === 'qv' && typeof showQV === 'function') showQV(contactId);
+      else if (action === 'ref' && typeof showAddRef === 'function') {
+        const c = (typeof D !== 'undefined' ? D : []).find(function(x){return +x.id === +contactId;});
+        showAddRef(contactId, c && c.name || '');
+      }
+      else if (action === 'rem' && typeof showAddRem === 'function') showAddRem(contactId);
+      else if (action === 'edit' && typeof showEdit === 'function') showEdit(contactId);
+      else if (action === 'profile' && card && card.scrollIntoView) card.scrollIntoView({behavior:'smooth'});
+    }, 250);
+  }, 200);
+}
+function dpJumpToFirstContact(locId, action){
+  const cs = (typeof D !== 'undefined' ? D : []).filter(function(c){return +c.locationId === +locId;});
+  if (!cs.length) { if (typeof tt==='function') tt('No contacts at this location yet. Add one first via Dashboard.','er'); return; }
+  dpJumpToContact(cs[0].id, action || 'profile');
+}
 function dpCloseLocation(){ const o = document.getElementById('dpLocOverlay'); if(o) o.remove(); }
 async function dpEditLocationFields(locId){
+  // V57: redirect to first contact's profile for editing
+  dpJumpToFirstContact(locId, 'edit');
+  return;
+  /* old prompt-based:
   const cur = (window.__dpPlan && window.__dpPlan.stops || []).find(function(s){return +s.id===+locId;}) || (window.__dpPlan && window.__dpPlan.suggestedAddons || []).find(function(s){return +s.id===+locId;}) || {};
   const newName = prompt('Location name:', cur.name||''); if(newName === null) return;
   const newAddr = prompt('Address:', cur.address||''); if(newAddr === null) return;
   const newTier = prompt('Tier (1, 2, 3, or empty):', cur.tier||''); if(newTier === null) return;
   try { tt('Saving...','ok'); await aP({action:'updateLocation', loc:{id:locId, name:newName, address:newAddr, tier:newTier}}); tt('\u2705 Saved','ok'); dpCloseLocation(); } catch(e){ tt('Error: '+e.message,'er'); }
-}
+*/}
 async function dpOptimizeRoute(){
   const plan = window.__dpPlan;
   if (!plan || !plan.stops || plan.stops.length < 3) { tt('Need at least 3 stops to optimize','er'); return; }
@@ -1774,7 +1809,8 @@ async function dpDownloadPDF(){
 
   function escAttr(s) { return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
-  window.dpStopControls = function (s) {
+  window.dpStopControls = function (s) { return ''; };
+  window.__deprecated_dpStopControls = function (s) {
     const id = s.id || 0;
     const state = window.__dpStopState[id] || {};
     const visited = !!state.visited;
@@ -2121,7 +2157,11 @@ async function dpDownloadPDF(){
     const body = document.getElementById("dpUnifiedAddonsBody");
     if (!body) return;
     if (!candidates.length) { body.innerHTML = '<div style="padding:8px;color:var(--g)">No in-territory candidates to suggest. Try broadening your filter.</div>'; return; }
-    const cards = candidates.map(function (c, i) { const isLoc = c.source === "location"; const isPlaces = c.source === "places"; const sourceTag = isLoc ? '<span style="background:#1a3a5c;color:#9cf;padding:2px 6px;border-radius:4px;font-size:9px;letter-spacing:1px">CRM</span>' : (isPlaces ? '<span style="background:#1a4d3a;color:#9fe;padding:2px 6px;border-radius:4px;font-size:9px;letter-spacing:1px">NEW</span>' : '<span style="background:#4d3a1a;color:#fec;padding:2px 6px;border-radius:4px;font-size:9px;letter-spacing:1px">PROSPECT</span>'); const ratingChip = (c.googleRating != null) ? '<span style="font-size:10px;color:#fc6">\u2B50 ' + c.googleRating + (c.reviewCount ? ' (' + c.reviewCount + ')' : '') + '</span>' : ''; const capChip = c.unitCount ? '<span style="font-size:10px;color:#9cf">\u{1F3E2} ' + c.unitCount + ' units</span>' : (c.bedCount ? '<span style="font-size:10px;color:#9cf">\u{1F6CF} ' + c.bedCount + ' beds</span>' : ''); const visitChip = (c.daysSince != null) ? '<span style="font-size:10px;color:#aaa">\u{1F551} ' + c.daysSince + 'd ago</span>' : (isLoc ? '<span style="font-size:10px;color:#5c5">never visited</span>' : ''); const numberBadge = '<span style="display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center;background:' + (isLoc ? '#3b82f6' : '#10b981') + ';color:#fff;border-radius:50%;font-size:10px;font-weight:700;flex-shrink:0">' + (i+1) + '</span>'; return '<div style="background:' + (isLoc ? '#0d1f33' : '#0d2b22') + ';border:1px solid ' + (isLoc ? '#3b82f6' : '#10b981') + ';border-radius:8px;padding:10px;font-size:12px;display:flex;flex-direction:column;gap:4px">' + '<div style="display:flex;align-items:center;gap:6px">' + numberBadge + '<div style="font-weight:700;font-size:13px;color:#fff;flex:1;line-height:1.2">' + (c.name||"") + '</div>' + sourceTag + '</div>' + '<div style="color:#9fc;font-size:10px">' + (c.address||"") + '</div>' + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:2px">' + capChip + ratingChip + visitChip + '<span style="font-size:10px;color:#a78bff;font-weight:700">score ' + (c.score != null ? c.score : '?') + '</span></div>' + '<button class="bs" onclick="dpAddUnified(' + i + ')" style="padding:6px 10px;font-size:11px;align-self:flex-start;margin-top:4px">+ Add to plan</button>' + '</div>'; }).join('');
+    // V57: compute approximate added minutes per candidate
+    const planForDev = window.__dpLastPlan || {};
+    const baseStops = (planForDev.stops || []).filter(function(s){return s.lat && s.lon;});
+    function devMinForCand(c){ if(c.lat==null || c.lon==null || !baseStops.length) return 25; let minDist=Infinity; baseStops.forEach(function(b){ const R=6371,dLat=(c.lat-b.lat)*Math.PI/180,dLon=(c.lon-b.lon)*Math.PI/180,a=Math.sin(dLat/2)**2+Math.cos(b.lat*Math.PI/180)*Math.cos(c.lat*Math.PI/180)*Math.sin(dLon/2)**2,d=2*R*Math.asin(Math.sqrt(a)); if(d<minDist) minDist=d; }); const detourMin = Math.round((minDist*2)/45*60); return Math.max(15, Math.min(75, 25 + detourMin)); }
+    const cards = candidates.map(function (c, i) { const isLoc = c.source === "location"; const devMin = devMinForCand(c); const devChip = '<span style="font-size:10px;color:#fc6;font-weight:700">\u23F1 +' + devMin + ' min</span>'; const isPlaces = c.source === "places"; const sourceTag = isLoc ? '<span style="background:#1a3a5c;color:#9cf;padding:2px 6px;border-radius:4px;font-size:9px;letter-spacing:1px">CRM</span>' : (isPlaces ? '<span style="background:#1a4d3a;color:#9fe;padding:2px 6px;border-radius:4px;font-size:9px;letter-spacing:1px">NEW</span>' : '<span style="background:#4d3a1a;color:#fec;padding:2px 6px;border-radius:4px;font-size:9px;letter-spacing:1px">PROSPECT</span>'); const ratingChip = (c.googleRating != null) ? '<span style="font-size:10px;color:#fc6">\u2B50 ' + c.googleRating + (c.reviewCount ? ' (' + c.reviewCount + ')' : '') + '</span>' : ''; const capChip = c.unitCount ? '<span style="font-size:10px;color:#9cf">\u{1F3E2} ' + c.unitCount + ' units</span>' : (c.bedCount ? '<span style="font-size:10px;color:#9cf">\u{1F6CF} ' + c.bedCount + ' beds</span>' : ''); const visitChip = (c.daysSince != null) ? '<span style="font-size:10px;color:#aaa">\u{1F551} ' + c.daysSince + 'd ago</span>' : (isLoc ? '<span style="font-size:10px;color:#5c5">never visited</span>' : ''); const numberBadge = '<span style="display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center;background:' + (isLoc ? '#3b82f6' : '#10b981') + ';color:#fff;border-radius:50%;font-size:10px;font-weight:700;flex-shrink:0">' + (i+1) + '</span>'; return '<div style="background:' + (isLoc ? '#0d1f33' : '#0d2b22') + ';border:1px solid ' + (isLoc ? '#3b82f6' : '#10b981') + ';border-radius:8px;padding:10px;font-size:12px;display:flex;flex-direction:column;gap:4px">' + '<div style="display:flex;align-items:center;gap:6px">' + numberBadge + '<div style="font-weight:700;font-size:13px;color:#fff;flex:1;line-height:1.2">' + (c.name||"") + '</div>' + sourceTag + '</div>' + '<div style="color:#9fc;font-size:10px">' + (c.address||"") + '</div>' + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:2px">' + devChip + capChip + ratingChip + visitChip + '<span style="font-size:10px;color:#a78bff;font-weight:700">score ' + (c.score != null ? c.score : '?') + '</span></div>' + '<button class="bs" onclick="dpAddUnified(' + i + ')" style="padding:6px 10px;font-size:11px;align-self:flex-start;margin-top:4px">+ Add to plan</button>' + '</div>'; }).join('');
     body.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px">' + cards + '</div>';
     window.__dpUnifiedCandidates = candidates;
     setTimeout(function () { dpAddCandidateMapMarkers(candidates); }, 200);
