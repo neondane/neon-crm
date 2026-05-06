@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Neon Giant CRM</title>
-<meta name="build" content="v59-2026-05-05-full-profile-nav">
+<meta name="build" content="v60-2026-05-06-modal-profile">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
@@ -1531,51 +1531,111 @@ function dpDrop(e, targetIdx){
   }
 }
 function dpJumpToContact(contactId, action){
+  const c = (typeof D !== 'undefined' ? D : []).find(function(x){return +x.id === +contactId;});
+  if (!c) { alert('Contact not found'); return; }
   dpCloseLocation();
-  // Switch to Dashboard tab — plan persistence will restore Day Plan when user comes back
-  const dashTab = Array.from(document.querySelectorAll('.tab')).find(function(t){return (t.textContent||'').trim() === 'Dashboard';});
-  if (dashTab && typeof sT === 'function') sT('d', dashTab);
-  // Wait for dashboard to render, then find the contact card and trigger the action
+  dpCloseFullProfile();
+  const overlay = document.createElement('div');
+  overlay.id = 'dpFullProfileOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto';
+  overlay.onclick = function(e){ if(e.target === overlay) dpCloseFullProfile(); };
+  const cVisits = (typeof V !== 'undefined' ? V.filter(function(v){return +v.contactId === +c.id;}).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}) : []);
+  const visitsHtml = cVisits.length ? cVisits.slice(0, 10).map(function(v){return '<div style="background:#0a1f33;padding:8px 10px;border-radius:6px;margin-bottom:6px;font-size:12px;border-left:3px solid #4dc9a3"><div style="display:flex;justify-content:space-between;color:#9fc;font-size:11px;margin-bottom:3px"><b>' + (v.date||'') + '</b><span>' + (v.handler||'') + '</span></div><div style="color:#ddd">' + (v.notes||'(no note)') + '</div></div>';}).join('') : '<div style="color:#888;font-size:12px;padding:10px;text-align:center">No visits logged yet</div>';
+  const profilePic = c.profilePic || c.cardImage || '';
+  const avatarHtml = profilePic ? '<img src="' + profilePic + '" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid #4dc9a3">' : '<div style="width:64px;height:64px;border-radius:50%;background:#1f3a5c;display:flex;align-items:center;justify-content:center;font-size:24px;color:#9cf">' + (c.name||'?').charAt(0) + '</div>';
+  const safeName = (c.name||'').replace(/\x27/g,"\\\x27");
+  overlay.innerHTML = '<div style="background:var(--d2);border:1px solid var(--p);border-radius:12px;max-width:680px;width:100%;padding:22px;color:#fff;max-height:90vh;overflow-y:auto;margin-top:20px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px">' +
+      '<div style="display:flex;gap:12px;align-items:flex-start;flex:1">' + avatarHtml + '<div><div style="font-size:10px;letter-spacing:2px;color:var(--p)">CONTACT</div><div style="font-size:20px;font-weight:700">' + (c.name || '') + '</div>' + (c.role ? '<div style="color:#9fc;font-size:13px">' + c.role + '</div>' : '') + (c.business ? '<div style="color:#9cf;font-size:12px">\u{1F3E2} ' + c.business + '</div>' : '') + '</div></div>' +
+      '<button onclick="dpCloseFullProfile()" style="background:transparent;border:1px solid #555;color:#aaa;border-radius:6px;width:34px;height:34px;cursor:pointer;font-size:20px;flex-shrink:0">\u00D7</button>' +
+    '</div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;font-size:12px;color:#aaa">' +
+      (c.phone ? '<a href="tel:' + c.phone + '" style="color:#7af;text-decoration:none">\u260E ' + c.phone + '</a>' : '') +
+      (c.email ? '<a href="mailto:' + c.email + '" style="color:#7af;text-decoration:none">\u2709 ' + c.email + '</a>' : '') +
+      (c.territory ? '<span>\u{1F4CD} ' + c.territory + '</span>' : '') +
+    '</div>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">' +
+      '<button class="bs" onclick="showQV(' + c.id + ')" style="padding:8px 14px;font-size:12px;background:linear-gradient(135deg,#33cc66,#2aa050)">\u{1F4DD} Check-In</button>' +
+      '<button class="bs" onclick=\'showAddRef(' + c.id + ', "' + safeName + '")\' style="padding:8px 14px;font-size:12px;background:linear-gradient(135deg,#a855f7,#7c3aed)">\u{1F381} Referral</button>' +
+      '<button class="bs" onclick="showAddRem(' + c.id + ')" style="padding:8px 14px;font-size:12px;background:linear-gradient(135deg,#3b82f6,#2563eb)">\u23F0 Reminder</button>' +
+      '<button class="bs" onclick="showEdit(' + c.id + ')" style="padding:8px 14px;font-size:12px;background:#555">\u270F Edit</button>' +
+    '</div>' +
+    '<div id="qvArea"></div><div id="editArea"></div><div id="refArea"></div><div id="remArea"></div>' +
+    '<div style="font-size:11px;letter-spacing:1.5px;color:#9fc;margin:18px 0 6px">VISIT HISTORY (' + cVisits.length + ')</div>' +
+    '<div>' + visitsHtml + '</div>' +
+  '</div>';
+  document.body.prepend(overlay);
   setTimeout(function(){
-    const c = (typeof D !== 'undefined' ? D : []).find(function(x){return +x.id === +contactId;});
-    // Find the contact card on the dashboard
-    let btn = document.querySelector('[onclick*="showQV(' + contactId + ')"]');
-    let card = btn ? btn.closest('.cd, .pi, .pf, [class*="card"]') : null;
-    if (!card) {
-      // Fallback: find by text containing the contact's name or business
-      const all = document.querySelectorAll('.cd, .pi, .pf, [class*="card"]');
-      for (let i = 0; i < all.length; i++) {
-        if (c && c.name && (all[i].textContent||'').includes(c.name)) { card = all[i]; break; }
-      }
-    }
-    if (card && card.scrollIntoView) card.scrollIntoView({behavior:'smooth', block:'start'});
-    // Trigger the requested action — these will write to qvArea/refArea/remArea/editArea inside the contact card
-    setTimeout(function(){
-      if (action === 'qv' && typeof showQV === 'function') showQV(contactId);
-      else if (action === 'ref' && typeof showAddRef === 'function') showAddRef(contactId, c && c.name || '');
-      else if (action === 'rem' && typeof showAddRem === 'function') showAddRem(contactId);
-      else if (action === 'edit' && typeof showEdit === 'function') showEdit(contactId);
-      // 'profile' just scrolls (already done above)
-    }, 350);
-  }, 350);
+    if (action === 'qv' && typeof showQV === 'function') showQV(contactId);
+    else if (action === 'ref' && typeof showAddRef === 'function') showAddRef(contactId, c.name || '');
+    else if (action === 'rem' && typeof showAddRem === 'function') showAddRem(contactId);
+    else if (action === 'edit' && typeof showEdit === 'function') showEdit(contactId);
+  }, 80);
 }
+function dpCloseFullProfile(){ const o = document.getElementById('dpFullProfileOverlay'); if(o) o.remove(); }
 function dpJumpToFirstContact(locId, action){
   const cs = (typeof D !== 'undefined' ? D : []).filter(function(c){return +c.locationId === +locId;});
-  if (!cs.length) { if (typeof tt==='function') tt('No contacts at this location yet. Add one first via Dashboard.','er'); return; }
+  if (!cs.length) { dpShowAddContactForLocation(locId); return; }
   dpJumpToContact(cs[0].id, action || 'profile');
 }
-function dpCloseLocation(){ const o = document.getElementById('dpLocOverlay'); if(o) o.remove(); }
+function dpShowAddContactForLocation(locId){
+  const stop = (window.__dpLastPlan && window.__dpLastPlan.stops || []).find(function(s){return +s.id === +locId;}) || (window.__dpLastPlan && window.__dpLastPlan.suggestedAddons || []).find(function(s){return +s.id === +locId;}) || {};
+  dpCloseLocation();
+  dpCloseFullProfile();
+  const overlay = document.createElement('div');
+  overlay.id = 'dpFullProfileOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto';
+  overlay.onclick = function(e){ if(e.target === overlay) dpCloseFullProfile(); };
+  const stopName = (stop.name || '').replace(/"/g,'&quot;');
+  const stopType = (stop.type || '').replace(/"/g,'&quot;');
+  const stopTerr = (stop.territory || '').replace(/"/g,'&quot;');
+  overlay.innerHTML = '<div style="background:var(--d2);border:1px solid #4dc9a3;border-radius:12px;max-width:560px;width:100%;padding:22px;color:#fff;margin-top:20px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">' +
+      '<div><div style="font-size:10px;letter-spacing:2px;color:#4dc9a3">NEW PROSPECT</div><div style="font-size:18px;font-weight:700">' + (stop.name || 'Add a contact here') + '</div>' + (stop.address ? '<div style="color:#9fc;font-size:11px;margin-top:2px">\u{1F4CD} ' + stop.address + '</div>' : '') + '</div>' +
+      '<button onclick="dpCloseFullProfile()" style="background:transparent;border:1px solid #555;color:#aaa;border-radius:6px;width:34px;height:34px;cursor:pointer;font-size:20px">\u00D7</button>' +
+    '</div>' +
+    '<div style="font-size:13px;color:#aaa;margin-bottom:14px">No contacts on file here yet. Add the first one to start tracking visits.</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">' +
+      '<input id="dpAddCName" placeholder="Name *" style="padding:9px;border-radius:6px;background:var(--d3);color:#fff;border:1px solid var(--bd)">' +
+      '<input id="dpAddCRole" placeholder="Role (Manager, Owner, etc)" style="padding:9px;border-radius:6px;background:var(--d3);color:#fff;border:1px solid var(--bd)">' +
+      '<input id="dpAddCPhone" placeholder="Phone" style="padding:9px;border-radius:6px;background:var(--d3);color:#fff;border:1px solid var(--bd)">' +
+      '<input id="dpAddCEmail" placeholder="Email" style="padding:9px;border-radius:6px;background:var(--d3);color:#fff;border:1px solid var(--bd)">' +
+    '</div>' +
+    '<input id="dpAddCBiz" placeholder="Business name" value="' + stopName + '" style="width:100%;padding:9px;border-radius:6px;background:var(--d3);color:#fff;border:1px solid var(--bd);margin-bottom:6px">' +
+    '<input id="dpAddCType" placeholder="Type" value="' + stopType + '" style="width:100%;padding:9px;border-radius:6px;background:var(--d3);color:#fff;border:1px solid var(--bd);margin-bottom:6px">' +
+    '<input id="dpAddCTerritory" placeholder="Territory" value="' + stopTerr + '" style="width:100%;padding:9px;border-radius:6px;background:var(--d3);color:#fff;border:1px solid var(--bd);margin-bottom:14px">' +
+    '<button class="bs" onclick="dpSaveNewContact(' + locId + ')" style="padding:10px 18px;font-size:13px;background:linear-gradient(135deg,#33cc66,#2aa050)">\u2713 Add Contact</button> ' +
+    '<button class="bc" onclick="dpCloseFullProfile()" style="padding:10px 18px;font-size:13px;background:#555;color:#fff;border:none;border-radius:6px;cursor:pointer">Cancel</button>' +
+  '</div>';
+  document.body.prepend(overlay);
+}
+async function dpSaveNewContact(locId){
+  const name = document.getElementById('dpAddCName').value.trim();
+  if (!name) { tt && tt('Name is required','er'); return; }
+  const contact = {
+    name: name,
+    role: document.getElementById('dpAddCRole').value,
+    phone: document.getElementById('dpAddCPhone').value,
+    email: document.getElementById('dpAddCEmail').value,
+    business: document.getElementById('dpAddCBiz').value,
+    type: document.getElementById('dpAddCType').value,
+    territory: document.getElementById('dpAddCTerritory').value,
+    locationId: locId
+  };
+  try {
+    tt && tt('Adding to CRM...','ok');
+    const r = await aP({ action: 'addContact', contact: contact });
+    tt && tt('\u2705 Contact added','ok');
+    dpCloseFullProfile();
+    if (typeof load === 'function') await load();
+    if (r && r.id) setTimeout(function(){ dpJumpToContact(r.id, 'qv'); }, 600);
+  } catch(e) { tt && tt('Error: '+e.message,'er'); }
+}
 async function dpEditLocationFields(locId){
-  // V57: redirect to first contact's profile for editing
-  dpJumpToFirstContact(locId, 'edit');
+  // V60: redirect to first contact's profile, or Add Contact form if no contacts
+  dpJumpToFirstContact(locId, 'profile');
   return;
-  /* old prompt-based:
-  const cur = (window.__dpPlan && window.__dpPlan.stops || []).find(function(s){return +s.id===+locId;}) || (window.__dpPlan && window.__dpPlan.suggestedAddons || []).find(function(s){return +s.id===+locId;}) || {};
-  const newName = prompt('Location name:', cur.name||''); if(newName === null) return;
-  const newAddr = prompt('Address:', cur.address||''); if(newAddr === null) return;
-  const newTier = prompt('Tier (1, 2, 3, or empty):', cur.tier||''); if(newTier === null) return;
-  try { tt('Saving...','ok'); await aP({action:'updateLocation', loc:{id:locId, name:newName, address:newAddr, tier:newTier}}); tt('\u2705 Saved','ok'); dpCloseLocation(); } catch(e){ tt('Error: '+e.message,'er'); }
-*/}
+}
 async function dpOptimizeRoute(){
   const plan = window.__dpPlan;
   if (!plan || !plan.stops || plan.stops.length < 3) { tt('Need at least 3 stops to optimize','er'); return; }
