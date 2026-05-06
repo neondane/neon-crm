@@ -1406,7 +1406,7 @@ function dpRenderStop(s, displayIdx){
   const addrLine = s.address ? '<div style="color:var(--g);font-size:11px;margin-top:2px">📍 '+s.address+'</div>' : '';
   const title = s.name || s.business || '';
   const subtitle = (s.business && s.business!==title) ? ' <span style="color:var(--g);font-weight:400;font-size:13px">— '+s.business+'</span>' : '';
-  return '<div data-stop-idx="'+displayIdx+'" draggable="true" ondragstart="dpDragStart(event,'+displayIdx+')" ondragover="dpDragOver(event)" ondragleave="dpDragLeave(event)" ondrop="dpDrop(event,'+displayIdx+')" style="margin:14px 0;padding:18px;background:var(--d2);border-radius:10px;border-left:5px solid var(--p);cursor:grab;position:relative">'+'<div style="position:absolute;left:0;right:0;top:0;height:18px;background:linear-gradient(180deg,rgba(167,139,250,0.18),transparent);cursor:grab;display:flex;align-items:center;justify-content:center;color:#a78bfa;font-size:13px;letter-spacing:6px" title="Drag to reorder">\u22EE\u22EE\u22EE</div>'+
+  return '<div data-stop-idx="'+displayIdx+'" draggable="true" ondragstart="dpDragStart(event,'+displayIdx+')" ondragover="dpDragOver(event)" ondragleave="dpDragLeave(event)" ondrop="dpDrop(event,'+displayIdx+')" style="margin:14px 0;padding:18px;background:var(--d2);border-radius:10px;border-left:5px solid var(--p);cursor:move;position:relative;user-select:none">'+'<div style="position:absolute;left:0;right:0;top:0;height:18px;background:linear-gradient(180deg,rgba(167,139,250,0.18),transparent);cursor:grab;display:flex;align-items:center;justify-content:center;color:#a78bfa;font-size:13px;letter-spacing:6px" title="Drag to reorder">\u22EE\u22EE\u22EE</div>'+
     '<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:10px;color:var(--g);letter-spacing:2px">STOP '+(displayIdx+1)+'</div><div style="font-size:11px;color:var(--p)">⏱ ~'+s._stopMin+' min</div></div>'+
     '<div style="margin:4px 0 4px;font-size:18px;font-weight:700"><span onclick="dpOpenLocation('+s.id+')" style="cursor:pointer;text-decoration:underline;text-decoration-color:rgba(255,255,255,0.25);text-underline-offset:3px">'+title+subtitle+' <span style="font-size:11px;opacity:.55;font-weight:400">\u2197</span></span></div>'+
     addrLine+
@@ -1495,7 +1495,7 @@ function dpDrop(e, targetIdx){
   plan.stops.splice(targetIdx, 0, moved);
   __dpDragSrc = null;
   // Re-render
-  const out = document.getElementById('dpOut') || document.querySelector('#dpPlan').parentElement;
+  const out = document.getElementById('dpResult') || document.getElementById('dpOut') || (document.querySelector('#dpPlan') && document.querySelector('#dpPlan').parentElement);
   if (typeof dpRender === 'function' && out) {
     out.innerHTML = dpRender(plan);
   }
@@ -1506,30 +1506,91 @@ function dpDrop(e, targetIdx){
   }
 }
 function dpJumpToContact(contactId, action){
-  dpCloseLocation();
-  // Switch to Dashboard tab
-  const dashboardTab = Array.from(document.querySelectorAll('.tab')).find(function(t){return (t.textContent||'').trim()==='Dashboard';});
-  if (dashboardTab && typeof sT === 'function') sT('d', dashboardTab);
-  setTimeout(function(){
-    // Find the contact card by id
-    const card = document.querySelector('[data-contact-id="'+contactId+'"]') || (function(){
-      // Fallback: find element whose onclick references this id
-      const all = document.querySelectorAll('[onclick*="showEdit('+contactId+')"], [onclick*="showQV('+contactId+')"]');
-      return all[0] && all[0].closest('.cd, .pi, .pf, .card') || all[0];
-    })();
-    if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    // Trigger the requested action
-    setTimeout(function(){
-      if (action === 'qv' && typeof showQV === 'function') showQV(contactId);
-      else if (action === 'ref' && typeof showAddRef === 'function') {
-        const c = (typeof D !== 'undefined' ? D : []).find(function(x){return +x.id === +contactId;});
-        showAddRef(contactId, c && c.name || '');
-      }
-      else if (action === 'rem' && typeof showAddRem === 'function') showAddRem(contactId);
-      else if (action === 'edit' && typeof showEdit === 'function') showEdit(contactId);
-      else if (action === 'profile' && card && card.scrollIntoView) card.scrollIntoView({behavior:'smooth'});
-    }, 250);
-  }, 200);
+  const c = (typeof D !== 'undefined' ? D : []).find(function(x){return +x.id === +contactId;});
+  if (!c) { alert('Contact not found in dashboard data'); return; }
+  const overlay = document.getElementById('dpLocOverlay');
+  if (!overlay) return;
+  const dialog = overlay.querySelector('div');
+  let panel = document.getElementById('dpInlineActionPanel');
+  if (panel) panel.remove();
+  panel = document.createElement('div');
+  panel.id = 'dpInlineActionPanel';
+  panel.style.cssText = 'background:#1a0033;border:2px solid var(--p);border-radius:10px;padding:14px;margin-top:14px';
+  let h = '';
+  if (action === 'qv') {
+    const today = new Date().toISOString().split('T')[0];
+    const handlers = (typeof TEAM !== 'undefined' && TEAM.length ? TEAM : [{name:'Dane'},{name:'Tyler'},{name:'Jeff'}]).map(function(t){return '<option>'+t.name+'</option>';}).join('');
+    h = '<div style="font-size:13px;color:var(--p);margin-bottom:8px"><b>\u{1F4DD} Check-In with '+(c.name||'')+'</b></div>'+
+        '<textarea id="dpInQvNotes" placeholder="Visit notes..." rows="3" style="width:100%;padding:8px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd);font-family:inherit;font-size:13px;margin-bottom:8px"></textarea>'+
+        '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">'+
+          '<input id="dpInQvDate" type="date" value="'+today+'" style="padding:6px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd)">'+
+          '<select id="dpInQvBy" style="padding:6px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd)">'+handlers+'</select>'+
+        '</div>'+
+        '<button class="bs" onclick="dpInlineSaveCheckIn('+contactId+')" style="padding:8px 14px;font-size:13px">\u2713 Save Check-In</button> '+
+        '<button class="bc" onclick="dpClosePanel()" style="padding:8px 14px;font-size:13px;background:#555;color:#fff;border:none;border-radius:5px;cursor:pointer">Cancel</button>';
+  } else if (action === 'ref') {
+    const today = new Date().toISOString().split('T')[0];
+    h = '<div style="font-size:13px;color:var(--p);margin-bottom:8px"><b>\u{1F381} Log Referral from '+(c.name||'')+'</b></div>'+
+        '<input id="dpInRefJob" placeholder="Job name / customer" style="width:100%;padding:8px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd);margin-bottom:6px">'+
+        '<div style="display:flex;gap:6px;margin-bottom:8px">'+
+          '<select id="dpInRefSt" style="padding:6px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd);flex:1"><option value="referred">Referred</option><option value="booked">Booked</option><option value="completed">Completed</option></select>'+
+          '<input id="dpInRefDt" type="date" value="'+today+'" style="padding:6px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd)">'+
+          '<input id="dpInRefAmt" type="number" placeholder="$0" style="padding:6px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd);width:90px">'+
+        '</div>'+
+        '<button class="bs" onclick="dpInlineSaveRef('+contactId+')" style="padding:8px 14px;font-size:13px">\u2713 Save Referral</button> '+
+        '<button class="bc" onclick="dpClosePanel()" style="padding:8px 14px;font-size:13px;background:#555;color:#fff;border:none;border-radius:5px;cursor:pointer">Cancel</button>';
+  } else if (action === 'rem') {
+    h = '<div style="font-size:13px;color:var(--b);margin-bottom:8px"><b>\u23F0 Add Reminder for '+(c.name||'')+'</b></div>'+
+        '<input id="dpInRemTxt" placeholder="e.g. Drop off flyers next Tuesday" style="width:100%;padding:8px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd);margin-bottom:6px">'+
+        '<input id="dpInRemDue" type="date" style="padding:6px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd);margin-bottom:8px">'+
+        '<div><button class="bs" onclick="dpInlineSaveRem('+contactId+')" style="padding:8px 14px;font-size:13px">\u2713 Save Reminder</button> '+
+        '<button class="bc" onclick="dpClosePanel()" style="padding:8px 14px;font-size:13px;background:#555;color:#fff;border:none;border-radius:5px;cursor:pointer">Cancel</button></div>';
+  } else if (action === 'edit' || action === 'profile') {
+    h = '<div style="font-size:13px;color:var(--p);margin-bottom:8px"><b>\u270F Edit '+(c.name||'')+'</b></div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+
+          '<input id="dpInEdName" placeholder="Name" value="'+(c.name||'').replace(/"/g,'&quot;')+'" style="padding:8px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd)">'+
+          '<input id="dpInEdRole" placeholder="Role" value="'+(c.role||'').replace(/"/g,'&quot;')+'" style="padding:8px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd)">'+
+          '<input id="dpInEdPhone" placeholder="Phone" value="'+(c.phone||'').replace(/"/g,'&quot;')+'" style="padding:8px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd)">'+
+          '<input id="dpInEdEmail" placeholder="Email" value="'+(c.email||'').replace(/"/g,'&quot;')+'" style="padding:8px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd)">'+
+        '</div>'+
+        '<button class="bs" onclick="dpInlineSaveEdit('+contactId+')" style="padding:8px 14px;font-size:13px">\u2713 Save Changes</button> '+
+        '<button class="bc" onclick="dpClosePanel()" style="padding:8px 14px;font-size:13px;background:#555;color:#fff;border:none;border-radius:5px;cursor:pointer">Cancel</button>';
+  }
+  panel.innerHTML = h;
+  dialog.appendChild(panel);
+  panel.scrollIntoView({behavior:'smooth', block:'center'});
+}
+function dpClosePanel(){ const p = document.getElementById('dpInlineActionPanel'); if(p) p.remove(); }
+async function dpInlineSaveCheckIn(cid){
+  const notes = document.getElementById('dpInQvNotes').value;
+  if (!notes) { tt && tt('Add notes','er'); return; }
+  const date = document.getElementById('dpInQvDate').value;
+  const by = document.getElementById('dpInQvBy').value;
+  try { tt && tt('Saving...','ok'); await aP({action:'addVisit', visit:{contactId:+cid, handler:by, date:date, notes:notes}}); tt && tt('\u2705 Check-in saved','ok'); dpClosePanel(); if (typeof load === 'function') load(); } catch(e){ tt && tt('Error: '+e.message,'er'); }
+}
+async function dpInlineSaveRef(cid){
+  const job = document.getElementById('dpInRefJob').value;
+  if (!job) { tt && tt('Enter job name','er'); return; }
+  const c = (typeof D !== 'undefined' ? D : []).find(function(x){return +x.id === +cid;});
+  const status = document.getElementById('dpInRefSt').value;
+  const date = document.getElementById('dpInRefDt').value;
+  const amt = +document.getElementById('dpInRefAmt').value || 0;
+  try { tt && tt('Saving...','ok'); await aP({action:'addReferral', referral:{contactId:cid, contactName: c && c.name || '', jobName:job, status:status, date:date, amount:amt}}); tt && tt('\u2705 Referral saved','ok'); dpClosePanel(); if (typeof load === 'function') load(); } catch(e){ tt && tt('Error: '+e.message,'er'); }
+}
+async function dpInlineSaveRem(cid){
+  const text = document.getElementById('dpInRemTxt').value;
+  if (!text) { tt && tt('Enter reminder text','er'); return; }
+  const due = document.getElementById('dpInRemDue').value;
+  try { tt && tt('Saving...','ok'); await aP({action:'addReminder', reminder:{contactId:+cid, text:text, dueDate:due}}); tt && tt('\u2705 Reminder saved','ok'); dpClosePanel(); if (typeof load === 'function') load(); } catch(e){ tt && tt('Error: '+e.message,'er'); }
+}
+async function dpInlineSaveEdit(cid){
+  const patch = { id: cid,
+    name: document.getElementById('dpInEdName').value,
+    role: document.getElementById('dpInEdRole').value,
+    phone: document.getElementById('dpInEdPhone').value,
+    email: document.getElementById('dpInEdEmail').value
+  };
+  try { tt && tt('Saving...','ok'); await aP({action:'updateContact', contact:patch}); tt && tt('\u2705 Saved','ok'); dpClosePanel(); if (typeof load === 'function') load(); } catch(e){ tt && tt('Error: '+e.message,'er'); }
 }
 function dpJumpToFirstContact(locId, action){
   const cs = (typeof D !== 'undefined' ? D : []).filter(function(c){return +c.locationId === +locId;});
@@ -2184,6 +2245,22 @@ async function dpDownloadPDF(){
     const result = document.getElementById('dpResult');
     if (result && typeof dpRender === 'function') { result.innerHTML = dpRender(window.__dpLastPlan); setTimeout(function () { dpFetchUnifiedAddons(window.__dpLastPlan).then(dpRenderUnifiedAddons); }, 300); }
   };
+  window.__dpRenderedHtml = window.__dpRenderedHtml || null;
+  const __preCacheOrigRen = window.ren;
+  if (typeof __preCacheOrigRen === 'function') {
+    window.ren = function() {
+      const ret = __preCacheOrigRen.apply(this, arguments);
+      if (typeof tb !== 'undefined' && tb === 'dp' && window.__dpLastPlan) {
+        setTimeout(function() {
+          const result = document.getElementById('dpResult');
+          if (result && (!result.innerHTML.includes('id="dpPlan"'))) {
+            try { result.innerHTML = window.dpRender(window.__dpLastPlan); } catch(e) { console.warn('plan restore failed', e); }
+          }
+        }, 250);
+      }
+      return ret;
+    };
+  }
   const __origDpRender = window.dpRender;
   if (typeof __origDpRender === 'function') { window.dpRender = function (plan) { const html = __origDpRender(plan); setTimeout(function () { try { dpFetchUnifiedAddons(plan).then(dpRenderUnifiedAddons); } catch (e) { console.error('unified addons err', e); } }, 1000); return html; }; }
 
