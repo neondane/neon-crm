@@ -1457,10 +1457,10 @@ function dpOpenLocation(locId){
       const meta2 = [c.phone?'\u260E '+c.phone:'', c.email?'\u2709 '+c.email:''].filter(Boolean).join(' \u00B7 ');
       if(meta2) h += '<div style="color:var(--g);font-size:11px;margin-top:3px">'+meta2+'</div>';
       h += '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">';
-      h += '<button class="bsm" onclick="dpJumpToContact('+c.id+', "qv")" style="background:var(--gn);color:#fff;border:none;cursor:pointer">\u{1F4DD} Check-In</button>';
-      h += '<button class="bsm" onclick="dpJumpToContact('+c.id+', "ref").replace(/\x27/g,"\\\x27")+'\')" style="background:var(--p);color:#fff;border:none;cursor:pointer">\u{1F381} Referral</button>';
-      h += '<button class="bsm" onclick="dpJumpToContact('+c.id+', "rem")" style="background:var(--b);color:#fff;border:none;cursor:pointer">\u23F0 Reminder</button>';
-      h += '<button class="bsm" onclick="dpJumpToContact('+c.id+', "edit")" style="background:#555;color:#fff;border:none;cursor:pointer">\u270F Edit</button>';
+      h += '<button class="bsm" onclick="dpJumpToContact('+c.id+', \'qv\')" style="background:var(--gn);color:#fff;border:none;cursor:pointer">📝 Check-In</button>';
+      h += '<button class="bsm" onclick="dpJumpToContact('+c.id+', \'ref\')" style="background:var(--p);color:#fff;border:none;cursor:pointer">🎁 Referral</button>';
+      h += '<button class="bsm" onclick="dpJumpToContact('+c.id+', \'rem\')" style="background:var(--b);color:#fff;border:none;cursor:pointer">⏰ Reminder</button>';
+      h += '<button class="bsm" onclick="dpJumpToContact('+c.id+', \'edit\')" style="background:#555;color:#fff;border:none;cursor:pointer">✏ Edit</button>';
       h += '</div></div>';
     });
   }
