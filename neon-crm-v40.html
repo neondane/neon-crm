@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Neon Giant CRM</title>
+<meta name="build" content="v59-2026-05-05-full-profile-nav">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
@@ -677,7 +678,7 @@ function oP(id){
   const smsLink=c.phone?`<a href="sms:${c.phone}">Text</a>`:'';
   let rs='';if(cr.length)rs=`<div class="rs"><h5>📌 Active Reminders</h5>${cr.map(r=>`<div class="ri"><div style="display:flex;align-items:center;gap:7px;flex:1"><span class="rdot"></span><div><div>${r.text}</div>${r.dueDate?`<div style="font-size:10px;color:var(--g)">${r.assignedTo?'👤 '+r.assignedTo+' · ':''}📅 Due: ${r.dueDate}</div>`:''}</div></div><span style="display:flex;gap:3px"><button class="ri-x" style="color:var(--gn)" onclick="event.stopPropagation();compRem(${r.id})" title="Complete">✓</button><button class="ri-x" onclick="event.stopPropagation();delRem(${r.id})" title="Delete">✕</button></span></div>`).join('')}</div>`;
   const _avSrc=c.profilePic||c.cardImage||"";let avatarHtml=_avSrc?`<img src="${_avSrc}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid var(--gn);margin-right:12px;vertical-align:middle">`:'';
-  let cs='';if(c.cardImage)cs=`<div class="cis"><h5>📇 Business Card</h5><img src="${c.cardImage}" alt="card" style="max-width:100%;border-radius:8px"></div>`;
+  let cs='';if(c.cardImage)cs=`<div class="cis"><h5 style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">📇 Business Card<span style="display:flex;gap:4px"><button onclick="dpReplacePic(${c.id},'card')" title="Replace" style="background:transparent;border:1px solid #555;color:#aaa;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px">✏ Replace</button><button onclick="dpDeletePic(${c.id},'card')" title="Remove" style="background:transparent;border:1px solid #c44;color:#f88;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px">🗑 Remove</button></span></h5><img src="${c.cardImage}" alt="card" style="max-width:100%;border-radius:8px"></div>`;
   if(avatarHtml)cs=`<div style="display:flex;align-items:center;margin-bottom:12px">${avatarHtml}<div style="font-size:11px;color:var(--g)">Avatar from card</div></div>`+cs;
   const ti=(c.type==='Realtor')?`<div class="pr"><span class="k">Realtor Tier</span><span style="color:var(--gold);font-weight:700">${c.tier||'—'}</span></div>`:'';
   let vh=cv.map(v=>`<div class="vi" id="vi_${v.id}"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span class="vd">${fd(v.date)}</span><span style="display:flex;gap:4px;align-items:center"><span class="vh">${v.handler}</span><button onclick="editVisit(${v.id})" style="background:none;border:none;color:var(--b);cursor:pointer;font-size:13px;padding:2px 4px" title="Edit visit">✏️</button><button onclick="delVisit(${v.id},${v.contactId})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:13px;padding:2px 4px" title="Delete visit">🗑️</button></span></div><div class="vn" id="vn_${v.id}">${v.notes||''}</div></div>`).join('');
@@ -801,6 +802,29 @@ async function delContact(id){tt('Deleting...','ok');try{await aP({action:'delet
 let qvPhotoData=undefined;
 function qvPhotoFC(inp){const f=inp.files&&inp.files[0];if(!f)return;const r=new FileReader();r.onload=async e=>{try{qvPhotoData=await _resizeImg(e.target.result,800,0.72);const p=document.getElementById('qvPhotoPrev');if(p){p.src=qvPhotoData;p.style.display='block'}}catch(er){tt('Photo read error','er')}};r.readAsDataURL(f)}
 function qvPhotoClear(){qvPhotoData=undefined;const p=document.getElementById('qvPhotoPrev');if(p){p.src='';p.style.display='none'}const i=document.getElementById('qvPhotoFile');if(i)i.value=''}
+async function dpReplacePic(cid, kind) {
+  let inp = document.getElementById('__dpPicInp');
+  if (!inp) { inp = document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.id='__dpPicInp'; inp.style.display='none'; document.body.appendChild(inp); }
+  inp.onchange = async function() {
+    const f = inp.files && inp.files[0]; if (!f) return;
+    try {
+      const dataUrl = await new Promise(function(res,rej){ const r = new FileReader(); r.onload = function(e){res(e.target.result);}; r.onerror=rej; r.readAsDataURL(f); });
+      const small = await _resizeImg(dataUrl, kind === 'card' ? 900 : 700, 0.72);
+      const patch = { id: cid }; patch[kind === 'card' ? 'cardImage' : 'profilePic'] = small;
+      tt && tt('Saving...','ok');
+      await aP({ action: 'updateContact', contact: patch });
+      tt && tt('\u2705 Updated','ok');
+      if (typeof load === 'function') load();
+    } catch(e) { tt && tt('Error: '+e.message,'er'); }
+    inp.value = '';
+  };
+  inp.click();
+}
+async function dpDeletePic(cid, kind) {
+  if (!confirm('Remove this ' + (kind === 'card' ? 'business card image' : 'profile photo') + '?')) return;
+  const patch = { id: cid }; patch[kind === 'card' ? 'cardImage' : 'profilePic'] = '';
+  try { tt && tt('Removing...','ok'); await aP({ action: 'updateContact', contact: patch }); tt && tt('\u2705 Removed','ok'); if (typeof load === 'function') load(); } catch(e) { tt && tt('Error: '+e.message,'er'); }
+}
 function _resizeImg(dataUrl,maxDim,q){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{const orig={w:img.width,h:img.height};let curMax=maxDim||900,curQ=q||0.75;const LIMIT=47000;function attempt(){let w=orig.w,h=orig.h;if(w>curMax||h>curMax){if(w>=h){h=Math.round(h*curMax/w);w=curMax}else{w=Math.round(w*curMax/h);h=curMax}}const cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(img,0,0,w,h);return cv.toDataURL('image/jpeg',curQ)}let out=attempt();let tries=0;while(out.length>LIMIT&&tries<8){if(curQ>0.4)curQ=Math.max(0.4,curQ-0.1);else curMax=Math.round(curMax*0.85);out=attempt();tries++}res(out)};img.onerror=rej;img.src=dataUrl})}
 function ePFC(inp){const f=inp.files&&inp.files[0];if(!f)return;const r=new FileReader();r.onload=async e=>{try{eProfileData=await _resizeImg(e.target.result,700,0.72);const p=document.getElementById('eProfilePrev');if(p){p.src=eProfileData;p.style.display='block'}}catch(er){tt('Photo read error','er')}};r.readAsDataURL(f)}
 function eCFC(inp){const f=inp.files&&inp.files[0];if(!f)return;const r=new FileReader();r.onload=async e=>{try{eCardData=await _resizeImg(e.target.result,900,0.72);const p=document.getElementById('eCardPrev');if(p){p.src=eCardData;p.style.display='block'}}catch(er){tt('Card read error','er')}};r.readAsDataURL(f)}
@@ -1414,7 +1438,8 @@ function dpRenderStop(s, displayIdx){
     askForHtml+
     (s.recentVisits && s.recentVisits.length ? '<div style="background:#0a1f33;padding:10px;border-radius:6px;margin-bottom:8px;border-left:3px solid #4dc9a3"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="color:#4dc9a3;font-size:10px;letter-spacing:1px">RECENT VISITS</b><a onclick="dpJumpToFirstContact('+s.id+',\'profile\')" style="font-size:10px;color:#9cf;cursor:pointer;text-decoration:underline">See all \u2197</a></div>' + s.recentVisits.slice(0,2).map(function(v){return '<div style="font-size:11px;color:#ccc;padding:4px 0;border-top:1px dashed #224"><b style="color:#9fc">'+v.date+(v.handler?' \u00b7 '+v.handler:'')+'</b><br>'+(v.notes||'(no note)').substring(0,180)+'</div>';}).join('')+'</div>' : '')+'<div style="background:var(--d);padding:10px;border-radius:6px;margin-bottom:8px"><b style="color:var(--p);font-size:10px;letter-spacing:1px">BRIEFING</b><div style="font-size:13px;margin-top:4px">'+(s.briefing||'')+'</div></div>'+
     '<div style="margin-bottom:8px"><b style="color:var(--b);font-size:10px;letter-spacing:1px">TALKING POINTS</b><ul style="margin:6px 0;padding-left:20px;font-size:13px">'+tps+'</ul></div>'+
-    '<div style="font-size:13px"><b style="color:var(--b);font-size:10px;letter-spacing:1px">LEAVE-BEHIND:</b> '+(s.leaveBehind||'business card')+'</div>'+
+    '<div style="font-size:13px;margin-bottom:10px"><b style="color:var(--b);font-size:10px;letter-spacing:1px">LEAVE-BEHIND:</b> '+(s.leaveBehind||'business card')+'</div>'+
+    (function(){ const navHref = s.address ? 'https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(s.address) : (s.lat ? 'https://www.google.com/maps/dir/?api=1&destination='+s.lat+','+s.lon : ''); return navHref ? '<a href="'+navHref+'" target="_blank" style="display:block;background:linear-gradient(135deg,#4285F4,#34A853);color:#fff;text-align:center;padding:10px;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;margin-top:6px">\u{1F9ED} Navigate to this stop</a>' : ''; })()+
   '</div>';
 }
 
@@ -1506,91 +1531,33 @@ function dpDrop(e, targetIdx){
   }
 }
 function dpJumpToContact(contactId, action){
-  const c = (typeof D !== 'undefined' ? D : []).find(function(x){return +x.id === +contactId;});
-  if (!c) { alert('Contact not found in dashboard data'); return; }
-  const overlay = document.getElementById('dpLocOverlay');
-  if (!overlay) return;
-  const dialog = overlay.querySelector('div');
-  let panel = document.getElementById('dpInlineActionPanel');
-  if (panel) panel.remove();
-  panel = document.createElement('div');
-  panel.id = 'dpInlineActionPanel';
-  panel.style.cssText = 'background:#1a0033;border:2px solid var(--p);border-radius:10px;padding:14px;margin-top:14px';
-  let h = '';
-  if (action === 'qv') {
-    const today = new Date().toISOString().split('T')[0];
-    const handlers = (typeof TEAM !== 'undefined' && TEAM.length ? TEAM : [{name:'Dane'},{name:'Tyler'},{name:'Jeff'}]).map(function(t){return '<option>'+t.name+'</option>';}).join('');
-    h = '<div style="font-size:13px;color:var(--p);margin-bottom:8px"><b>\u{1F4DD} Check-In with '+(c.name||'')+'</b></div>'+
-        '<textarea id="dpInQvNotes" placeholder="Visit notes..." rows="3" style="width:100%;padding:8px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd);font-family:inherit;font-size:13px;margin-bottom:8px"></textarea>'+
-        '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">'+
-          '<input id="dpInQvDate" type="date" value="'+today+'" style="padding:6px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd)">'+
-          '<select id="dpInQvBy" style="padding:6px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd)">'+handlers+'</select>'+
-        '</div>'+
-        '<button class="bs" onclick="dpInlineSaveCheckIn('+contactId+')" style="padding:8px 14px;font-size:13px">\u2713 Save Check-In</button> '+
-        '<button class="bc" onclick="dpClosePanel()" style="padding:8px 14px;font-size:13px;background:#555;color:#fff;border:none;border-radius:5px;cursor:pointer">Cancel</button>';
-  } else if (action === 'ref') {
-    const today = new Date().toISOString().split('T')[0];
-    h = '<div style="font-size:13px;color:var(--p);margin-bottom:8px"><b>\u{1F381} Log Referral from '+(c.name||'')+'</b></div>'+
-        '<input id="dpInRefJob" placeholder="Job name / customer" style="width:100%;padding:8px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd);margin-bottom:6px">'+
-        '<div style="display:flex;gap:6px;margin-bottom:8px">'+
-          '<select id="dpInRefSt" style="padding:6px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd);flex:1"><option value="referred">Referred</option><option value="booked">Booked</option><option value="completed">Completed</option></select>'+
-          '<input id="dpInRefDt" type="date" value="'+today+'" style="padding:6px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd)">'+
-          '<input id="dpInRefAmt" type="number" placeholder="$0" style="padding:6px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd);width:90px">'+
-        '</div>'+
-        '<button class="bs" onclick="dpInlineSaveRef('+contactId+')" style="padding:8px 14px;font-size:13px">\u2713 Save Referral</button> '+
-        '<button class="bc" onclick="dpClosePanel()" style="padding:8px 14px;font-size:13px;background:#555;color:#fff;border:none;border-radius:5px;cursor:pointer">Cancel</button>';
-  } else if (action === 'rem') {
-    h = '<div style="font-size:13px;color:var(--b);margin-bottom:8px"><b>\u23F0 Add Reminder for '+(c.name||'')+'</b></div>'+
-        '<input id="dpInRemTxt" placeholder="e.g. Drop off flyers next Tuesday" style="width:100%;padding:8px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd);margin-bottom:6px">'+
-        '<input id="dpInRemDue" type="date" style="padding:6px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd);margin-bottom:8px">'+
-        '<div><button class="bs" onclick="dpInlineSaveRem('+contactId+')" style="padding:8px 14px;font-size:13px">\u2713 Save Reminder</button> '+
-        '<button class="bc" onclick="dpClosePanel()" style="padding:8px 14px;font-size:13px;background:#555;color:#fff;border:none;border-radius:5px;cursor:pointer">Cancel</button></div>';
-  } else if (action === 'edit' || action === 'profile') {
-    h = '<div style="font-size:13px;color:var(--p);margin-bottom:8px"><b>\u270F Edit '+(c.name||'')+'</b></div>'+
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+
-          '<input id="dpInEdName" placeholder="Name" value="'+(c.name||'').replace(/"/g,'&quot;')+'" style="padding:8px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd)">'+
-          '<input id="dpInEdRole" placeholder="Role" value="'+(c.role||'').replace(/"/g,'&quot;')+'" style="padding:8px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd)">'+
-          '<input id="dpInEdPhone" placeholder="Phone" value="'+(c.phone||'').replace(/"/g,'&quot;')+'" style="padding:8px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd)">'+
-          '<input id="dpInEdEmail" placeholder="Email" value="'+(c.email||'').replace(/"/g,'&quot;')+'" style="padding:8px;border-radius:5px;background:var(--d3);color:#fff;border:1px solid var(--bd)">'+
-        '</div>'+
-        '<button class="bs" onclick="dpInlineSaveEdit('+contactId+')" style="padding:8px 14px;font-size:13px">\u2713 Save Changes</button> '+
-        '<button class="bc" onclick="dpClosePanel()" style="padding:8px 14px;font-size:13px;background:#555;color:#fff;border:none;border-radius:5px;cursor:pointer">Cancel</button>';
-  }
-  panel.innerHTML = h;
-  dialog.appendChild(panel);
-  panel.scrollIntoView({behavior:'smooth', block:'center'});
-}
-function dpClosePanel(){ const p = document.getElementById('dpInlineActionPanel'); if(p) p.remove(); }
-async function dpInlineSaveCheckIn(cid){
-  const notes = document.getElementById('dpInQvNotes').value;
-  if (!notes) { tt && tt('Add notes','er'); return; }
-  const date = document.getElementById('dpInQvDate').value;
-  const by = document.getElementById('dpInQvBy').value;
-  try { tt && tt('Saving...','ok'); await aP({action:'addVisit', visit:{contactId:+cid, handler:by, date:date, notes:notes}}); tt && tt('\u2705 Check-in saved','ok'); dpClosePanel(); if (typeof load === 'function') load(); } catch(e){ tt && tt('Error: '+e.message,'er'); }
-}
-async function dpInlineSaveRef(cid){
-  const job = document.getElementById('dpInRefJob').value;
-  if (!job) { tt && tt('Enter job name','er'); return; }
-  const c = (typeof D !== 'undefined' ? D : []).find(function(x){return +x.id === +cid;});
-  const status = document.getElementById('dpInRefSt').value;
-  const date = document.getElementById('dpInRefDt').value;
-  const amt = +document.getElementById('dpInRefAmt').value || 0;
-  try { tt && tt('Saving...','ok'); await aP({action:'addReferral', referral:{contactId:cid, contactName: c && c.name || '', jobName:job, status:status, date:date, amount:amt}}); tt && tt('\u2705 Referral saved','ok'); dpClosePanel(); if (typeof load === 'function') load(); } catch(e){ tt && tt('Error: '+e.message,'er'); }
-}
-async function dpInlineSaveRem(cid){
-  const text = document.getElementById('dpInRemTxt').value;
-  if (!text) { tt && tt('Enter reminder text','er'); return; }
-  const due = document.getElementById('dpInRemDue').value;
-  try { tt && tt('Saving...','ok'); await aP({action:'addReminder', reminder:{contactId:+cid, text:text, dueDate:due}}); tt && tt('\u2705 Reminder saved','ok'); dpClosePanel(); if (typeof load === 'function') load(); } catch(e){ tt && tt('Error: '+e.message,'er'); }
-}
-async function dpInlineSaveEdit(cid){
-  const patch = { id: cid,
-    name: document.getElementById('dpInEdName').value,
-    role: document.getElementById('dpInEdRole').value,
-    phone: document.getElementById('dpInEdPhone').value,
-    email: document.getElementById('dpInEdEmail').value
-  };
-  try { tt && tt('Saving...','ok'); await aP({action:'updateContact', contact:patch}); tt && tt('\u2705 Saved','ok'); dpClosePanel(); if (typeof load === 'function') load(); } catch(e){ tt && tt('Error: '+e.message,'er'); }
+  dpCloseLocation();
+  // Switch to Dashboard tab — plan persistence will restore Day Plan when user comes back
+  const dashTab = Array.from(document.querySelectorAll('.tab')).find(function(t){return (t.textContent||'').trim() === 'Dashboard';});
+  if (dashTab && typeof sT === 'function') sT('d', dashTab);
+  // Wait for dashboard to render, then find the contact card and trigger the action
+  setTimeout(function(){
+    const c = (typeof D !== 'undefined' ? D : []).find(function(x){return +x.id === +contactId;});
+    // Find the contact card on the dashboard
+    let btn = document.querySelector('[onclick*="showQV(' + contactId + ')"]');
+    let card = btn ? btn.closest('.cd, .pi, .pf, [class*="card"]') : null;
+    if (!card) {
+      // Fallback: find by text containing the contact's name or business
+      const all = document.querySelectorAll('.cd, .pi, .pf, [class*="card"]');
+      for (let i = 0; i < all.length; i++) {
+        if (c && c.name && (all[i].textContent||'').includes(c.name)) { card = all[i]; break; }
+      }
+    }
+    if (card && card.scrollIntoView) card.scrollIntoView({behavior:'smooth', block:'start'});
+    // Trigger the requested action — these will write to qvArea/refArea/remArea/editArea inside the contact card
+    setTimeout(function(){
+      if (action === 'qv' && typeof showQV === 'function') showQV(contactId);
+      else if (action === 'ref' && typeof showAddRef === 'function') showAddRef(contactId, c && c.name || '');
+      else if (action === 'rem' && typeof showAddRem === 'function') showAddRem(contactId);
+      else if (action === 'edit' && typeof showEdit === 'function') showEdit(contactId);
+      // 'profile' just scrolls (already done above)
+    }, 350);
+  }, 350);
 }
 function dpJumpToFirstContact(locId, action){
   const cs = (typeof D !== 'undefined' ? D : []).filter(function(c){return +c.locationId === +locId;});
