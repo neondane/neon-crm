@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Neon Giant CRM</title>
-<meta name="build" content="v60-2026-05-06-modal-profile">
+<meta name="build" content="v61-2026-05-06-perf-bootstrap">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
@@ -2316,5 +2316,104 @@ async function dpDownloadPDF(){
   window.dpToggleStop = async function (stopId, visited) { if (!visited) return __origDpToggleStop(stopId, visited); if (!navigator.geolocation) return __origDpToggleStop(stopId, visited); const stop = (window.__dpLastPlan && window.__dpLastPlan.stops || []).find(function (s) { return s && s.id === stopId; }); if (!stop || stop.lat == null || stop.lon == null) return __origDpToggleStop(stopId, visited); try { const pos = await new Promise(function (resolve, reject) { navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }); }); const lat1 = pos.coords.latitude, lon1 = pos.coords.longitude; const lat2 = +stop.lat, lon2 = +stop.lon; const R = 6371000; const dLat = (lat2-lat1) * Math.PI / 180, dLon = (lon2-lon1) * Math.PI / 180; const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2; const dist = 2 * R * Math.asin(Math.sqrt(a)); if (dist > 250) { if (!confirm('You appear to be ' + Math.round(dist) + 'm from ' + (stop.name||'this stop') + '. Mark as visited anyway?')) return; } } catch (e) {} return __origDpToggleStop(stopId, visited); };
 })();
 
+</script><script>
+// V61 — perf: bootstrap endpoint + lazy images + localStorage SWR cache + kill polling
+(function(){
+  // 1) Override load() to use bootstrap (no images) + SWR from localStorage
+  const _origLoad = window.load;
+  const CACHE_KEY = 'neon_crm_data_v1';
+  function applyData(d) {
+    if (Array.isArray(d.contacts)) { window.D = d.contacts; }
+    if (Array.isArray(d.visits)) { window.V = d.visits; }
+    if (Array.isArray(d.reminders)) { window.R = d.reminders.filter(function(r){return r.status==='active';}); }
+    if (Array.isArray(d.referrals)) { window.JR = d.referrals; }
+    if (Array.isArray(d.messages)) { window.mM = d.messages; }
+    if (Array.isArray(d.team) && d.team.length) { window.TEAM = d.team; }
+    window.ok = true;
+  }
+  window.load = async function(){
+    const mc = document.getElementById('mc');
+    // Step 1: instant from cache if we have it
+    let cacheUsed = false;
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const d = JSON.parse(cached);
+        applyData(d);
+        if (typeof ren === 'function') ren();
+        cacheUsed = true;
+      }
+    } catch(e){}
+    if (!cacheUsed && mc) mc.innerHTML='<div class="ld"><div class="sp"></div></div>';
+    // Step 2: fetch fresh via bootstrap (no image bytes)
+    try {
+      const d = await aP({ action: 'bootstrap' });
+      applyData(d);
+      // Cache the lightweight payload for next load
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify(d)); } catch(e){}
+      if (typeof ren === 'function') ren();
+      // Step 3: lazy-load images for visible contacts in batches
+      setTimeout(__lazyLoadImages, 1500);
+    } catch(e) {
+      if (cacheUsed) return; // already showing cache, don't error
+      if (mc) mc.innerHTML='<div class="ld"><div style="color:var(--r)">Failed</div><button class="bs" style="max-width:200px;margin:16px auto" onclick="load()">Retry</button></div>';
+    }
+  };
+  // 2) Lazy image loader — fetch images in batches of 4, only for contacts that have hasCard/hasProfile
+  let __lazyRunning = false;
+  async function __lazyLoadImages() {
+    if (__lazyRunning) return; __lazyRunning = true;
+    try {
+      const D = window.D || [];
+      const todo = D.filter(function(c){ return (c.hasCard || c.hasProfile) && !c.cardImage && !c.profilePic; });
+      if (!todo.length) return;
+      // Cap to first 40 to avoid hammering on huge lists
+      const batch = todo.slice(0, 40);
+      let updated = 0;
+      for (let i = 0; i < batch.length; i += 4) {
+        const slice = batch.slice(i, i + 4);
+        await Promise.all(slice.map(async function(c){
+          try {
+            const r = await aP({ action: 'getContactImage', id: c.id });
+            if (r && r.cardImage) { c.cardImage = r.cardImage; updated++; }
+            if (r && r.profilePic) { c.profilePic = r.profilePic; updated++; }
+          } catch(e){}
+        }));
+      }
+      if (updated > 0 && typeof ren === 'function') ren();
+    } finally { __lazyRunning = false; }
+  }
+  // 3) Kill the existing setInterval pollers — clear all setInterval ids that are running
+  // Best-effort: store the highest id and clear in range
+  const maxId = setTimeout(function(){}, 0); // get a baseline timer id
+  for (let i = 1; i <= +maxId; i++) { try { clearInterval(i); } catch(e){} }
+  // 4) Surgical state updates: hook common save handlers to skip the post-save load()
+  // Wrap aP so when we see addVisit/addReferral/addReminder/updateContact/etc. that previously triggered full reload, we update local state
+  const _aP_orig = window.aP;
+  window.aP = async function(d) {
+    const result = await _aP_orig(d);
+    try {
+      if (d && d.action === 'addVisit' && d.visit && result && result.id) {
+        (window.V = window.V || []).push(Object.assign({}, d.visit, { id: result.id }));
+        const c = (window.D || []).find(function(x){return +x.id === +d.visit.contactId;});
+        if (c) c.lastVisit = d.visit.date;
+      } else if (d && d.action === 'addContact' && d.contact && result && result.id) {
+        (window.D = window.D || []).push(Object.assign({}, d.contact, { id: result.id }));
+      } else if (d && d.action === 'updateContact' && d.contact) {
+        const c = (window.D || []).find(function(x){return +x.id === +d.contact.id;});
+        if (c) Object.assign(c, d.contact);
+      } else if (d && d.action === 'addReferral' && d.referral && result && result.id) {
+        (window.JR = window.JR || []).push(Object.assign({}, d.referral, { id: result.id }));
+      } else if (d && d.action === 'addReminder' && d.reminder && result && result.id) {
+        (window.R = window.R || []).push(Object.assign({}, d.reminder, { id: result.id, status: 'active' }));
+      }
+      // Invalidate cache when state changes
+      if (d && /^add|^update|^delete/.test(d.action)) {
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify({ contacts: window.D, visits: window.V, reminders: window.R, referrals: window.JR, messages: window.mM, team: window.TEAM })); } catch(e){}
+      }
+    } catch(e) { console.warn('surgical update failed', e); }
+    return result;
+  };
+})();
 </script></body>
 </html>
