@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Neon Giant CRM</title>
-<meta name="build" content="v61-2026-05-06-perf-bootstrap">
+<meta name="build" content="v62-2026-05-07-search-debounce">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
@@ -368,7 +368,7 @@ function rD(mc){
   if(dV==='refs'){mc.innerHTML=vw+'<div id="subV"></div>';rLB(document.getElementById('subV'));return}
   const f=gF();
   const types=['All',...new Set(D.map(c=>c.type||'Other'))];
-  mc.innerHTML=vw+`<div class="flt"><input placeholder="Search..." value="${fS}" oninput="fS=this.value;ren()"><select onchange="fT=this.value;ren()">${TR.map(t=>`<option${fT===t?' selected':''}>${t}</option>`).join('')}</select><select onchange="fY=this.value;ren()">${types.map(t=>`<option${fY===t?' selected':''}>${t}</option>`).join('')}</select><select onchange="sr=this.value;ren()"><option value="urgency"${sr==='urgency'?' selected':''}>Most Overdue</option><option value="referrals"${sr==='referrals'?' selected':''}>Most Referrals</option><option value="name"${sr==='name'?' selected':''}>Name A-Z</option><option value="recent"${sr==='recent'?' selected':''}>Recently Added</option><option value="visited"${sr==='visited'?' selected':''}>Recently Visited</option></select></div><div style="color:var(--g);font-size:11px;margin-bottom:8px">${f.length} contacts</div>${D.length===0?'<div style="text-align:center;padding:40px;color:var(--g)"><div style="font-size:16px;margin-bottom:8px">No contacts yet</div><div>Tap <b>+</b> to log a visit</div></div>':''}${f.map(c=>cH(c)).join('')}`;
+  mc.innerHTML=vw+`<div class="flt"><input placeholder="Search..." value="${fS}" oninput="__searchDebounce(this)"><select onchange="fT=this.value;ren()">${TR.map(t=>`<option${fT===t?' selected':''}>${t}</option>`).join('')}</select><select onchange="fY=this.value;ren()">${types.map(t=>`<option${fY===t?' selected':''}>${t}</option>`).join('')}</select><select onchange="sr=this.value;ren()"><option value="urgency"${sr==='urgency'?' selected':''}>Most Overdue</option><option value="referrals"${sr==='referrals'?' selected':''}>Most Referrals</option><option value="name"${sr==='name'?' selected':''}>Name A-Z</option><option value="recent"${sr==='recent'?' selected':''}>Recently Added</option><option value="visited"${sr==='visited'?' selected':''}>Recently Visited</option></select></div><div style="color:var(--g);font-size:11px;margin-bottom:8px">${f.length} contacts</div>${D.length===0?'<div style="text-align:center;padding:40px;color:var(--g)"><div style="font-size:16px;margin-bottom:8px">No contacts yet</div><div>Tap <b>+</b> to log a visit</div></div>':''}${f.map(c=>cH(c)).join('')}`;
 }
 
 // MAP
@@ -2414,6 +2414,43 @@ async function dpDownloadPDF(){
     } catch(e) { console.warn('surgical update failed', e); }
     return result;
   };
+})();
+</script><script>
+// V62 — search debounce + focus preservation
+window.__searchDebounce = (function(){
+  let timer = null;
+  return function(inp){
+    window.fS = inp.value;
+    // Preserve focus marker so we can restore after ren()
+    window.__searchFocusVal = inp.value;
+    window.__searchCaret = inp.selectionStart;
+    clearTimeout(timer);
+    timer = setTimeout(function(){ if (typeof ren === 'function') ren(); }, 180);
+  };
+})();
+// Hook ren() to restore search focus + caret after re-render
+(function(){
+  const _origRen = window.ren;
+  if (typeof _origRen === 'function') {
+    window.ren = function(){
+      const r = _origRen.apply(this, arguments);
+      // Restore focus to search input if a search debounce was active
+      if (window.__searchFocusVal !== undefined) {
+        const inp = document.querySelector('.flt input[placeholder="Search..."]');
+        if (inp) {
+          inp.focus();
+          try {
+            const caret = window.__searchCaret != null ? window.__searchCaret : inp.value.length;
+            inp.setSelectionRange(caret, caret);
+          } catch(e){}
+        }
+        // Clear flag after one restore
+        window.__searchFocusVal = undefined;
+        window.__searchCaret = undefined;
+      }
+      return r;
+    };
+  }
 })();
 </script></body>
 </html>
