@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Neon Giant CRM</title>
-<meta name="build" content="v63-2026-05-08-ai-proxy">
+<meta name="build" content="v64-2026-05-08-fix-timer-kill">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
@@ -2387,8 +2387,8 @@ async function dpDownloadPDF(){
   }
   // 3) Kill the existing setInterval pollers — clear all setInterval ids that are running
   // Best-effort: store the highest id and clear in range
-  const maxId = setTimeout(function(){}, 0); // get a baseline timer id
-  for (let i = 1; i <= +maxId; i++) { try { clearInterval(i); } catch(e){} }
+
+  /* dangerous clearInterval loop removed */
   // 4) Surgical state updates: hook common save handlers to skip the post-save load()
   // Wrap aP so when we see addVisit/addReferral/addReminder/updateContact/etc. that previously triggered full reload, we update local state
   const _aP_orig = window.aP;
