@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Neon Giant CRM</title>
-<meta name="build" content="v65-2026-05-08-NUCLEAR-REVERT">
+<meta name="build" content="v66-2026-05-09-realtor-flip-search-debounce">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
@@ -341,6 +341,7 @@ function uh(d){return d<=14?'#33cc66':d<=30?'#22aee4':d<=60?'#ff9933':'#ff3366'}
 function fd(d){if(!d)return'—';return new Date(d+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}
 function gR(i){return R.filter(r=>+r.contactId===+i)}
 function sT(t,el){tb=t;document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));el.classList.add('on');ren()}
+let __srT;function __srInput(v){fS=v;clearTimeout(__srT);__srT=setTimeout(()=>{ren();setTimeout(()=>{const inp=document.querySelector('.flt input');if(inp){inp.focus();try{inp.setSelectionRange(v.length,v.length)}catch(e){}}},10);},150);}
 function ren(){if(!ok)return;rS();const mc=document.getElementById('mc');if(tb==='d')rD(mc);else if(tb==='m')rM(mc);else if(tb==='ix')rIX(mc);else if(tb==='dp')rDayPlan(mc);else if(tb==='tl')rTopLeads(mc);else rRm(mc)}
 
 function rS(){
@@ -360,7 +361,7 @@ function cH(c){
   const d=ds(c.lastVisit),s=SC[+c.score||0],cr=gR(c.id);
   const rb=cr.length?`<div class="rb">${cr.length}</div>`:'';
   const dTxt=d>=999?'Not visited':d+'d';
-  const _avS=c.profilePic||c.cardImage||"";const _av=_avS?`<img src="${_avS}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;margin-right:10px;flex-shrink:0;border:1px solid var(--bd)">`:"";const _hd=c.business||c.name||'\u2014';const _pn=(c.name && (c.name||'').toLowerCase()!==(c.business||'').toLowerCase())?c.name:'';const _sub=[_pn,c.role||'',c.territory?'\uD83D\uDCCD '+c.territory:''].filter(Boolean).join(' \u00b7 ');return`<div class="cd" style="border-left-color:${uc(d)}" onclick="oP(${c.id})"><div class="cd-t">${_av}<div style="flex:1;min-width:0"><div class="nm">${_hd} <span class="bg" style="background:${s.c}22;color:${s.c}">${s.e} ${s.l}</span></div><div class="rl">${_sub||'\u2014'}</div></div><div class="dy"><b style="color:${uc(d)}">${dTxt}</b>${rb}</div></div></div>`;
+  const _avS=c.profilePic||c.cardImage||"";const _av=_avS?`<img src="${_avS}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;margin-right:10px;flex-shrink:0;border:1px solid var(--bd)">`:"";const _isR=(c.type||'').toLowerCase()==='realtor';const _hd=_isR?(c.name||c.business||'\u2014'):(c.business||c.name||'\u2014');const _pn=_isR?((c.business && (c.business||'').toLowerCase()!==(c.name||'').toLowerCase())?c.business:''):((c.name && (c.name||'').toLowerCase()!==(c.business||'').toLowerCase())?c.name:'');const _sub=[_pn,c.role||'',c.territory?'\uD83D\uDCCD '+c.territory:''].filter(Boolean).join(' \u00b7 ');return`<div class="cd" style="border-left-color:${uc(d)}" onclick="oP(${c.id})"><div class="cd-t">${_av}<div style="flex:1;min-width:0"><div class="nm">${_hd} <span class="bg" style="background:${s.c}22;color:${s.c}">${s.e} ${s.l}</span></div><div class="rl">${_sub||'\u2014'}</div></div><div class="dy"><b style="color:${uc(d)}">${dTxt}</b>${rb}</div></div></div>`;
 }
 
 // DASHBOARD
@@ -370,7 +371,7 @@ function rD(mc){
   if(dV==='refs'){mc.innerHTML=vw+'<div id="subV"></div>';rLB(document.getElementById('subV'));return}
   const f=gF();
   const types=['All',...new Set(D.map(c=>c.type||'Other'))];
-  mc.innerHTML=vw+`<div class="flt"><input placeholder="Search..." value="${fS}" oninput="fS=this.value;ren()"><select onchange="fT=this.value;ren()">${TR.map(t=>`<option${fT===t?' selected':''}>${t}</option>`).join('')}</select><select onchange="fY=this.value;ren()">${types.map(t=>`<option${fY===t?' selected':''}>${t}</option>`).join('')}</select><select onchange="sr=this.value;ren()"><option value="urgency"${sr==='urgency'?' selected':''}>Most Overdue</option><option value="referrals"${sr==='referrals'?' selected':''}>Most Referrals</option><option value="name"${sr==='name'?' selected':''}>Name A-Z</option><option value="recent"${sr==='recent'?' selected':''}>Recently Added</option><option value="visited"${sr==='visited'?' selected':''}>Recently Visited</option></select></div><div style="color:var(--g);font-size:11px;margin-bottom:8px">${f.length} contacts</div>${D.length===0?'<div style="text-align:center;padding:40px;color:var(--g)"><div style="font-size:16px;margin-bottom:8px">No contacts yet</div><div>Tap <b>+</b> to log a visit</div></div>':''}${f.map(c=>cH(c)).join('')}`;
+  mc.innerHTML=vw+`<div class="flt"><input placeholder="Search..." value="${fS}" oninput="__srInput(this.value)"><select onchange="fT=this.value;ren()">${TR.map(t=>`<option${fT===t?' selected':''}>${t}</option>`).join('')}</select><select onchange="fY=this.value;ren()">${types.map(t=>`<option${fY===t?' selected':''}>${t}</option>`).join('')}</select><select onchange="sr=this.value;ren()"><option value="urgency"${sr==='urgency'?' selected':''}>Most Overdue</option><option value="referrals"${sr==='referrals'?' selected':''}>Most Referrals</option><option value="name"${sr==='name'?' selected':''}>Name A-Z</option><option value="recent"${sr==='recent'?' selected':''}>Recently Added</option><option value="visited"${sr==='visited'?' selected':''}>Recently Visited</option></select></div><div style="color:var(--g);font-size:11px;margin-bottom:8px">${f.length} contacts</div>${D.length===0?'<div style="text-align:center;padding:40px;color:var(--g)"><div style="font-size:16px;margin-bottom:8px">No contacts yet</div><div>Tap <b>+</b> to log a visit</div></div>':''}${f.map(c=>cH(c)).join('')}`;
 }
 
 // MAP
