@@ -176,11 +176,6 @@ async function submitForm(e){
   e.preventDefault();
   const err = document.getElementById('err');
   err.style.display = 'none';
-  if(!realtor){
-    err.textContent = 'No realtor link found — please open the link your Neon Giant contact sent you.';
-    err.style.display = 'block';
-    return false;
-  }
   const btn = document.getElementById('submitBtn');
   btn.disabled = true;
   btn.textContent = 'Sending…';
@@ -195,14 +190,14 @@ async function submitForm(e){
       moveSize: document.getElementById('fSize').value,
       notes: document.getElementById('fNotes').value.trim()
     };
-    const r = await api('submitReferralLead', { realtorId: realtor.id, customer });
+    const r = await api('submitReferralLead', { realtorId: realtor ? realtor.id : 0, customer });
     if(r.ok){
       document.getElementById('body').innerHTML =
         '<div class="thank-you">' +
           '<div class="check">✅</div>' +
-          '<h2>Got it, ' + realtor.firstName + '!</h2>' +
+          '<h2>Got it' + (realtor ? ', ' + realtor.firstName : '') + '!</h2>' +
           '<p>We received your referral for <b>' + customer.name + '</b>. The Neon Giant team will reach out within 24 hours.</p>' +
-          '<p>Your <b>$50 gift card</b> will be sent at the end of the month after the move completes.</p>' +
+          (realtor ? '<p>Your <b>$50 gift card</b> will be sent at the end of the month after the move completes.</p>' : '<p>A team member will reach out within 24 hours.</p>') +
           '<button class="submit" onclick="location.reload()" style="margin-top:20px;max-width:280px">Send another referral</button>' +
         '</div>';
     } else {
