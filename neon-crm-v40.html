@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Neon Giant CRM</title>
-<meta name="build" content="v70-2026-05-12-tier-classifier-inbox-cleanup">
+<meta name="build" content="v71-2026-05-12-swr-cache-parallel-fetch">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
@@ -330,9 +330,19 @@ function updateUserUI(){
 }
 
 async function load(){
-  document.getElementById('mc').innerHTML='<div class="ld"><div class="sp"></div></div>';
-  try{const d=await aG('getAll');D=Array.isArray(d.contacts)?d.contacts:[];V=Array.isArray(d.visits)?d.visits:[];R=(Array.isArray(d.reminders)?d.reminders:[]).filter(r=>r.status==='active');JR=Array.isArray(d.referrals)?d.referrals:[];mM=Array.isArray(d.messages)?d.messages:[];ok=true;try{const jr=await aG('getReferrals');JR=Array.isArray(jr)?jr:[]}catch(e){JR=[]};try{const ib=await aG('getInbound');IM=Array.isArray(ib)?ib:[]}catch(e){IM=[]};ren()}
-  catch(e){document.getElementById('mc').innerHTML='<div class="ld"><div style="color:var(--r)">Failed</div><button class="bs" style="max-width:200px;margin:16px auto" onclick="load()">Retry</button></div>'}
+  // v71 SWR: hydrate from cache instantly, refresh in background
+  let _cached=false;
+  try{const _c=localStorage.getItem('neon_cache_v1');if(_c){const _d=JSON.parse(_c);if(_d&&Array.isArray(_d.contacts)){D=_d.contacts;V=_d.visits||[];R=(_d.reminders||[]).filter(r=>r.status==='active');JR=_d.referrals||[];mM=_d.messages||[];ok=true;_cached=true;ren();}}}catch(e){}
+  if(!_cached)document.getElementById('mc').innerHTML='<div class="ld"><div class="sp"></div></div>';
+  try{
+    const [d,ib]=await Promise.all([aG('getAll'),aG('getInbound').catch(()=>null)]);
+    D=Array.isArray(d.contacts)?d.contacts:[];V=Array.isArray(d.visits)?d.visits:[];R=(Array.isArray(d.reminders)?d.reminders:[]).filter(r=>r.status==='active');JR=Array.isArray(d.referrals)?d.referrals:[];mM=Array.isArray(d.messages)?d.messages:[];ok=true;
+    if(Array.isArray(ib))IM=ib;
+    try{localStorage.setItem('neon_cache_v1',JSON.stringify({contacts:D,visits:V,reminders:d.reminders||[],referrals:JR,messages:mM}));}catch(e){}
+    ren();
+  }catch(e){
+    if(!_cached)document.getElementById('mc').innerHTML='<div class="ld"><div style="color:var(--r)">Failed</div><button class="bs" style="max-width:200px;margin:16px auto" onclick="load()">Retry</button></div>';
+  }
 }
 
 function ds(d){const FLOOR=new Date('2026-01-01T00:00:00');let dt=d?new Date(d):null;if(!dt||isNaN(dt)||dt<FLOOR)dt=FLOOR;return Math.floor((new Date()-dt)/864e5)}
