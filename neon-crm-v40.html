@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Neon Giant CRM</title>
-<meta name="build" content="v68-2026-05-09-utf8-fix">
+<meta name="build" content="v69-2026-05-12-referral-report-picker">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
@@ -194,7 +194,7 @@ const SC=[{l:"Hot",c:"#ff3366",e:"🔥"},{l:"Warm",c:"#ff9933",e:"☀️"},{l:"C
 const TI=["—","Tier 1","Tier 2","Tier 3","Tier 4"];const TID={"Tier 1":"Core Partners","Tier 2":"Active Referrers","Tier 3":"Warm Relationships","Tier 4":"Prospects"};
 const TC={"Anacortes":[48.5126,-122.6127],"Burlington":[48.4757,-122.3254],"Oak Harbor":[48.2932,-122.6433],"Mt. Vernon":[48.4201,-122.334],"Sedro-Woolley":[48.5037,-122.2366],"Bellingham":[48.7519,-122.4787],"North of Bellingham":[48.86,-122.51],"Snohomish":[48.166,-122.22],"South Whidbey":[48.12,-122.68],"Arlington":[48.1987,-122.1254],"Stanwood":[48.2404,-122.3706],"La Conner":[48.3921,-122.4932]};
 const IC={'Self-Storage':'📦','Realtor':'🏠','Assisted':'🏥','Senior':'🧓','Apartment':'🏢','Property':'🏘️','Other':'📋'};
-let D=[],V=[],R=[],JR=[],TEAM=[],fRA='All',fRStatus='active',mRS={},lAvatar='',CU=JSON.parse(sessionStorage.getItem('neon_user')||'null'),tb='d',dV='contacts',fT='All',fY='All',fS='',sr='visited',lm=null,mM=[],ok=false,IM=[],pOpen=null,lbSort='total';
+let D=[],V=[],R=[],JR=[],TEAM=[],fRA='All',fRStatus='active',mRS={},lAvatar='',CU=JSON.parse(sessionStorage.getItem('neon_user')||'null'),tb='d',dV='contacts',fT='All',fY='All',fS='',sr='visited',lm=null,mM=[],ok=false,IM=[],pOpen=null,lbSort='total',lbFrom='',lbTo='';
 
 async function aG(a){return(await fetch(API+'?action='+a)).json()}
 async function aP(d){const r=await(await fetch(API,{method:'POST',body:JSON.stringify(d),headers:{'Content-Type':'text/plain'}})).json();if(r&&r.error){throw new Error(r.error)}return r}
@@ -411,8 +411,10 @@ function rTi(mc){
 
 // REFERRAL LEADERBOARD
 function rLB(mc){
-  const yr=new Date().getFullYear();
-  const yrRefs=JR.filter(r=>{const d=r.date||'';return d.startsWith(yr.toString())});
+  if(!lbFrom){const _y=new Date().getFullYear();lbFrom=_y+'-01-01';}
+  if(!lbTo){const _d=new Date();lbTo=_d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');}
+  const _inRange=(d)=>{const ds=(d||'').slice(0,10);return ds>=lbFrom && ds<=lbTo;};
+  const yrRefs=JR.filter(r=>_inRange(r.date));
   const byName={};
   yrRefs.forEach(r=>{
     const nm=r.contactName||'';if(!nm)return;
@@ -429,10 +431,14 @@ function rLB(mc){
   const totalRev=Object.values(byName).reduce((a,d)=>a+d.revenue,0);
   const totalBooked=yrRefs.filter(r=>r.status==='booked').length;
   const totalCompleted=yrRefs.filter(r=>r.status==='completed').length;
-  let h=`<div style="margin:14px 0 8px;font-size:15px;font-weight:700;color:var(--p)">🏆 Referral Leaderboard ${yr}</div>`;
+  const _fmtRng=(s)=>{const p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2]).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});};
+  const _rangeLabel=_fmtRng(lbFrom)+' – '+_fmtRng(lbTo);
+  let h=`<div style="margin:14px 0 8px;font-size:15px;font-weight:700;color:var(--p)">🏆 Referral Leaderboard</div>`;
+  h+=`<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;font-size:12px"><label style="color:var(--g)">From</label><input type="date" value="${lbFrom}" onchange="lbFrom=this.value;ren()" style="padding:5px;border-radius:5px;background:var(--d);color:#fff;border:1px solid var(--bd)"><label style="color:var(--g)">To</label><input type="date" value="${lbTo}" onchange="lbTo=this.value;ren()" style="padding:5px;border-radius:5px;background:var(--d);color:#fff;border:1px solid var(--bd)"><button onclick="setLbRange('thisMonth')" style="background:var(--d3);color:#fff;border:1px solid var(--bd);border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer">This Month</button><button onclick="setLbRange('lastMonth')" style="background:var(--d3);color:#fff;border:1px solid var(--bd);border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer">Last Month</button><button onclick="setLbRange('last7')" style="background:var(--d3);color:#fff;border:1px solid var(--bd);border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer">Last 7 Days</button><button onclick="setLbRange('thisYear')" style="background:var(--d3);color:#fff;border:1px solid var(--bd);border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer">This Year</button><button onclick="setLbRange('lastYear')" style="background:var(--d3);color:#fff;border:1px solid var(--bd);border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer">Last Year</button><button onclick="setLbRange('all')" style="background:var(--d3);color:#fff;border:1px solid var(--bd);border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer">All Time</button><button onclick="emailReferralReport()" style="background:linear-gradient(135deg,var(--p),var(--b));color:#fff;border:none;border-radius:5px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;margin-left:auto">📧 Email me this report</button></div>`;
+  h+=`<div style="color:var(--g);font-size:11px;margin-bottom:8px">${_rangeLabel}</div>`;
   h+=`<div style="margin-bottom:10px"><select onchange="lbSort=this.value;ren()" style="padding:6px 10px;border-radius:6px;font-size:12px"><option value="total"${lbSort==='total'?' selected':''}>Sort: Total jobs referred</option><option value="booked"${lbSort==='booked'?' selected':''}>Sort: Jobs booked</option><option value="completed"${lbSort==='completed'?' selected':''}>Sort: Jobs completed</option><option value="revenue"${lbSort==='revenue'?' selected':''}>Sort: Total revenue</option></select></div>`;
   h+=`<div style="color:var(--g);font-size:12px;margin-bottom:16px">${yrRefs.length} referred · ${totalBooked} booked · ${totalCompleted} completed · $${totalRev.toLocaleString('en-US')} revenue</div>`;
-  if(!ranked.length){h+=`<div style="text-align:center;padding:40px;color:var(--g)">No referrals logged yet for ${yr}.<br>Open a contact and tap "Referral" to log one.</div>`;mc.innerHTML=h;return}
+  if(!ranked.length){h+=`<div style="text-align:center;padding:40px;color:var(--g)">No referrals logged in this range.<br>Open a contact and tap "Referral" to log one.</div>`;mc.innerHTML=h;return}
   ranked.forEach(([nm,data],i)=>{
     const c=data.contact;
     const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
@@ -450,6 +456,26 @@ function rLB(mc){
     </div></div>`;
   });
   mc.innerHTML=h;
+}
+
+function setLbRange(preset){
+  const now=new Date();const y=now.getFullYear();const m=now.getMonth();
+  const fmt=(d)=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  if(preset==='thisMonth'){lbFrom=fmt(new Date(y,m,1));lbTo=fmt(now);}
+  else if(preset==='lastMonth'){lbFrom=fmt(new Date(y,m-1,1));lbTo=fmt(new Date(y,m,0));}
+  else if(preset==='last7'){const a=new Date(now.getTime()-7*86400000);lbFrom=fmt(a);lbTo=fmt(now);}
+  else if(preset==='thisYear'){lbFrom=y+'-01-01';lbTo=fmt(now);}
+  else if(preset==='lastYear'){lbFrom=(y-1)+'-01-01';lbTo=(y-1)+'-12-31';}
+  else if(preset==='all'){lbFrom='2020-01-01';lbTo=fmt(now);}
+  ren();
+}
+async function emailReferralReport(){
+  if(!confirm('Send referral report for '+lbFrom+' to '+lbTo+' to your inbox?'))return;
+  if(typeof tt==='function')tt('Sending report...','ok');
+  try{
+    const r=await aP({action:'sendReferralReport',startDate:lbFrom,endDate:lbTo});
+    if(r&&r.ok){if(typeof tt==='function')tt('✅ Sent! Check your inbox.','ok');}else{if(typeof tt==='function')tt('Error: '+(r&&r.error||'unknown'),'er');}
+  }catch(e){if(typeof tt==='function')tt('Error: '+e.message,'er');}
 }
 
 // REMINDERS
