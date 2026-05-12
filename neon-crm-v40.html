@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Neon Giant CRM</title>
-<meta name="build" content="v69-2026-05-12-referral-report-picker">
+<meta name="build" content="v70-2026-05-12-tier-classifier-inbox-cleanup">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
@@ -194,7 +194,7 @@ const SC=[{l:"Hot",c:"#ff3366",e:"🔥"},{l:"Warm",c:"#ff9933",e:"☀️"},{l:"C
 const TI=["—","Tier 1","Tier 2","Tier 3","Tier 4"];const TID={"Tier 1":"Core Partners","Tier 2":"Active Referrers","Tier 3":"Warm Relationships","Tier 4":"Prospects"};
 const TC={"Anacortes":[48.5126,-122.6127],"Burlington":[48.4757,-122.3254],"Oak Harbor":[48.2932,-122.6433],"Mt. Vernon":[48.4201,-122.334],"Sedro-Woolley":[48.5037,-122.2366],"Bellingham":[48.7519,-122.4787],"North of Bellingham":[48.86,-122.51],"Snohomish":[48.166,-122.22],"South Whidbey":[48.12,-122.68],"Arlington":[48.1987,-122.1254],"Stanwood":[48.2404,-122.3706],"La Conner":[48.3921,-122.4932]};
 const IC={'Self-Storage':'📦','Realtor':'🏠','Assisted':'🏥','Senior':'🧓','Apartment':'🏢','Property':'🏘️','Other':'📋'};
-let D=[],V=[],R=[],JR=[],TEAM=[],fRA='All',fRStatus='active',mRS={},lAvatar='',CU=JSON.parse(sessionStorage.getItem('neon_user')||'null'),tb='d',dV='contacts',fT='All',fY='All',fS='',sr='visited',lm=null,mM=[],ok=false,IM=[],pOpen=null,lbSort='total',lbFrom='',lbTo='';
+let D=[],V=[],R=[],JR=[],TEAM=[],fRA='All',fRStatus='active',mRS={},lAvatar='',CU=JSON.parse(sessionStorage.getItem('neon_user')||'null'),tb='d',dV='contacts',fT='All',fY='All',fS='',sr='visited',lm=null,mM=[],ok=false,IM=[],pOpen=null,lbSort='total',lbFrom='',lbTo='',ixHidden=JSON.parse(localStorage.getItem('neon_ix_hidden')||'{}'),ixShowHidden=false,ixFilter='';
 
 async function aG(a){return(await fetch(API+'?action='+a)).json()}
 async function aP(d){const r=await(await fetch(API,{method:'POST',body:JSON.stringify(d),headers:{'Content-Type':'text/plain'}})).json();if(r&&r.error){throw new Error(r.error)}return r}
@@ -381,7 +381,8 @@ function iM(){if(lm){lm.remove();lm=null}mM=[];const el=document.getElementById(
 // TIERS TAB
 function rTi(mc){
   const realtors=D.filter(c=>c.type==='Realtor');
-  let h='<div style="margin:14px 0 8px;font-size:15px;font-weight:700;color:var(--p)">🏠 Realtor Tier Program</div><div style="color:var(--g);font-size:12px;margin-bottom:16px">'+realtors.length+' realtors across your network</div>';
+  let h='<div style="margin:14px 0 8px;font-size:15px;font-weight:700;color:var(--p)">🏠 Realtor Tier Program</div><div style="color:var(--g);font-size:12px;margin-bottom:8px">'+realtors.length+' realtors across your network</div>';
+  h+='<div style="background:var(--d);border:1px solid var(--bd);border-radius:8px;padding:10px;margin-bottom:14px"><div style="font-size:12px;color:var(--g);margin-bottom:6px">⚙️ Auto-classifier — runs against the Referrals sheet (last 12 months by default)</div><div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:11px"><label style="color:var(--g)">T1 min refs <input id="tcMinRefs" type="number" value="3" min="1" max="20" style="width:50px;padding:3px 5px;background:var(--d3);color:#fff;border:1px solid var(--bd);border-radius:4px"></label><label style="color:var(--g)">T1 min $ <input id="tcMinRev" type="number" value="1500" min="0" step="500" style="width:80px;padding:3px 5px;background:var(--d3);color:#fff;border:1px solid var(--bd);border-radius:4px"></label><label style="color:var(--g)">Lookback days <input id="tcDays" type="number" value="365" min="30" max="730" step="30" style="width:60px;padding:3px 5px;background:var(--d3);color:#fff;border:1px solid var(--bd);border-radius:4px"></label><button onclick="runTierClassifier()" style="background:linear-gradient(135deg,var(--p),var(--b));color:#fff;border:none;border-radius:5px;padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer;margin-left:auto">🤖 Auto-classify now</button></div><div id="tcResult" style="margin-top:6px;font-size:11px;color:var(--g)"></div></div>';
   const tierData=[
     {t:'Tier 1',name:'Core Partners',desc:'Strongest referral relationships. Consistently send business.',color:'var(--gold)',stars:'⭐⭐⭐⭐'},
     {t:'Tier 2',name:'Active Referrers',desc:'Have referred before. Growing relationships.',color:'var(--p)',stars:'⭐⭐⭐'},
@@ -408,6 +409,32 @@ function rTi(mc){
   mc.innerHTML=h;
 }
 
+
+async function runTierClassifier(){
+  const minRefs=+document.getElementById('tcMinRefs').value||3;
+  const minRev=+document.getElementById('tcMinRev').value||1500;
+  const days=+document.getElementById('tcDays').value||365;
+  if(!confirm('Reclassify all realtor tiers? Existing Tier 4 (never-met) entries are preserved.'))return;
+  const out=document.getElementById('tcResult');
+  if(out)out.textContent='Running...';
+  if(typeof tt==='function')tt('Reclassifying...','ok');
+  try{
+    const r=await aP({action:'reclassifyRealtorTiers',opts:{t1MinRefs:minRefs,t1MinRev:minRev,lookbackDays:days}});
+    if(r&&r.ok){
+      const msg='Updated '+r.updateCount+' realtors → T1: '+(r.byTier.tier1||0)+' · T2: '+(r.byTier.tier2||0)+' · T3: '+(r.byTier.tier3||0);
+      if(out)out.textContent=msg;
+      if(typeof tt==='function')tt('✅ '+msg,'ok');
+      await load();
+    }else{
+      if(out)out.textContent='Error: '+(r&&r.error||'unknown');
+    }
+  }catch(e){if(out)out.textContent='Error: '+e.message;}
+}
+function ixHide(id){if(!confirm('Hide this email from your inbox?'))return;ixHidden[id]=true;localStorage.setItem('neon_ix_hidden',JSON.stringify(ixHidden));ren();}
+function ixUnhide(id){delete ixHidden[id];localStorage.setItem('neon_ix_hidden',JSON.stringify(ixHidden));ren();}
+function ixClearAll(){if(!confirm('Hide all current inbound messages? (You can show them again later.)'))return;IM.forEach(m=>{ixHidden[m.id||m.threadId||m.messageId||(m.fromEmail+'|'+m.date)]=true;});localStorage.setItem('neon_ix_hidden',JSON.stringify(ixHidden));ren();}
+function ixToggleHidden(){ixShowHidden=!ixShowHidden;ren();}
+function ixSetFilter(v){ixFilter=v;ren();}
 
 // REFERRAL LEADERBOARD
 function rLB(mc){
@@ -1287,7 +1314,11 @@ function rIX(mc){
   h+='</div>';
 
   // ---- Inbound Messages ----
-  const inboundHtml = IM.length ? IM.slice(0,20).map(m=>{
+  const _ixKey=(m)=>m.id||m.threadId||m.messageId||(m.fromEmail+'|'+m.date);
+  const _q=(ixFilter||'').toLowerCase();
+  const visibleIM = IM.filter(m=>{const isHidden=ixHidden[_ixKey(m)];if(isHidden && !ixShowHidden)return false;if(!isHidden && ixShowHidden)return false;if(_q){const blob=((m.contactName||'')+' '+(m.fromEmail||'')+' '+(m.subject||'')+' '+(m.snippet||'')+' '+(m.business||'')).toLowerCase();if(blob.indexOf(_q)===-1)return false;}return true;});
+  const hiddenCount = IM.filter(m=>ixHidden[_ixKey(m)]).length;
+  const inboundHtml = visibleIM.length ? visibleIM.slice(0,50).map(m=>{
     const dt=m.date?new Date(m.date):null;
     const ago=dt?Math.round((Date.now()-dt)/86400000):0;
     const agoTxt=ago===0?'Today':ago===1?'Yesterday':ago+'d ago';
@@ -1296,14 +1327,23 @@ function rIX(mc){
     const subj=m.subject||'(no subject)';
     const snip=(m.snippet||'').substring(0,120);
     const cid=m.contactId;
-    return '<div style="background:#fff;border-radius:8px;padding:10px 12px;margin-bottom:6px;border-left:4px solid #22aee4;cursor:pointer" onclick="'+(cid?'oP('+cid+')':'')+'">'
-      +'<div style="display:flex;justify-content:space-between;align-items:center"><strong style="color:#222">'+nm+'</strong><span style="font-size:10px;color:#888">'+agoTxt+'</span></div>'
-      +'<div style="font-size:11px;color:#666;margin-top:2px">'+biz+'</div>'
-      +'<div style="font-size:12px;color:#333;margin-top:4px;font-weight:600">'+subj+'</div>'
-      +'<div style="font-size:11px;color:#888;margin-top:2px">'+snip+(snip.length>=120?'...':'')+'</div>'
+    const key=_ixKey(m);
+    const hideBtn=ixShowHidden
+      ? '<button onclick="event.stopPropagation();ixUnhide(\''+String(key).replace(/'/g,"\\'")+'\')" style="background:transparent;border:1px solid var(--gn);color:var(--gn);border-radius:5px;padding:2px 8px;font-size:10px;cursor:pointer;margin-left:6px">↩ Restore</button>'
+      : '<button onclick="event.stopPropagation();ixHide(\''+String(key).replace(/'/g,"\\'")+'\')" style="background:transparent;border:1px solid #888;color:#888;border-radius:5px;padding:2px 8px;font-size:10px;cursor:pointer;margin-left:6px">✕</button>';
+    return '<div style="background:#fff;border-radius:8px;padding:10px 12px;margin-bottom:6px;border-left:4px solid #22aee4">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center"><div style="cursor:pointer;flex:1" onclick="'+(cid?'oP('+cid+')':'')+'"><strong style="color:#222">'+nm+'</strong></div><div style="display:flex;align-items:center;gap:4px"><span style="font-size:10px;color:#888">'+agoTxt+'</span>'+hideBtn+'</div></div>'
+      +'<div style="font-size:11px;color:#666;margin-top:2px;cursor:pointer" onclick="'+(cid?'oP('+cid+')':'')+'">'+biz+'</div>'
+      +'<div style="font-size:12px;color:#333;margin-top:4px;font-weight:600;cursor:pointer" onclick="'+(cid?'oP('+cid+')':'')+'">'+subj+'</div>'
+      +'<div style="font-size:11px;color:#888;margin-top:2px;cursor:pointer" onclick="'+(cid?'oP('+cid+')':'')+'">'+snip+(snip.length>=120?'...':'')+'</div>'
       +'</div>';
-  }).join('') : '<div style="color:#888;font-size:12px;padding:8px">No inbound messages in the last 30 days</div>';
-  h+='<div style="background:#e0f2fe;border-radius:10px;padding:12px;margin-bottom:12px"><div style="font-weight:700;margin-bottom:8px;color:#222">\u{1F4E8} Inbound Messages <span style="font-size:11px;font-weight:400;color:#666">(last 30 days)</span></div>'+inboundHtml+'</div>';
+  }).join('') : '<div style="color:#888;font-size:12px;padding:8px">'+(ixShowHidden?'No hidden messages':(ixFilter?'No messages match filter':'Inbox clear \u2014 no inbound messages'))+'</div>';
+  const ixToolbar='<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px">'
+    +'<input value="'+(ixFilter||'').replace(/"/g,"&quot;")+'" placeholder="Filter inbox..." oninput="ixSetFilter(this.value)" style="flex:1;min-width:120px;padding:5px 8px;border:1px solid #bbd;border-radius:5px;font-size:12px">'
+    +'<button onclick="ixToggleHidden()" style="background:'+(ixShowHidden?'var(--gn)':'#fff')+';color:'+(ixShowHidden?'#fff':'#333')+';border:1px solid #bbd;border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer">'+(ixShowHidden?'← Back to Inbox':('Show Hidden ('+hiddenCount+')'))+'</button>'
+    +(IM.length>0&&!ixShowHidden?'<button onclick="ixClearAll()" style="background:#fff;color:#c44;border:1px solid #c44;border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer">🗑 Hide All</button>':'')
+    +'</div>';
+  h+='<div style="background:#e0f2fe;border-radius:10px;padding:12px;margin-bottom:12px"><div style="font-weight:700;margin-bottom:8px;color:#222">\u{1F4E8} Inbound Messages <span style="font-size:11px;font-weight:400;color:#666">(last 30 days)</span></div>'+ixToolbar+inboundHtml+'</div>';
   // ---- Group Compose Button ----
   h+='<div style="margin-bottom:12px"><button class="bs" onclick="showGroupCompose()" style="width:100%">\u{1F4E2} Territory Group Email</button></div>';
 
