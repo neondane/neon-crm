@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Neon Giant CRM</title>
-<meta name="build" content="v71-2026-05-12-swr-cache-parallel-fetch">
+<meta name="build" content="v73-2026-05-12-portal-links-leads-tab">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
@@ -146,7 +146,7 @@ input[type="date"],input[type="time"]{color-scheme:dark;cursor:pointer}input[typ
 <div class="hdr-r"></div></div>
 <div class="tabs">
 <button class="tab on" onclick="sT('d',this)">Dashboard</button>
-<button class="tab" onclick="sT('m',this)">Map</button><button class="tab" onclick="sT('r',this)">Reminders</button><button class="tab" onclick="sT('ix',this)">Inbox</button><button class="tab" onclick="sT('dp',this)">Day Plan</button><button class="tab" onclick="sT('tl',this)">Top Leads</button>
+<button class="tab" onclick="sT('m',this)">Map</button><button class="tab" onclick="sT('r',this)">Reminders</button><button class="tab" onclick="sT('ix',this)">Inbox</button><button class="tab" onclick="sT('dp',this)">Day Plan</button><button class="tab" onclick="sT('tl',this)">Top Leads</button><button class="tab" onclick="sT('pl',this);plLoaded=false;plLoad()">Portal</button>
 </div>
 <div class="sts" id="sR"></div>
 <div class="cnt" id="mc"></div>
@@ -194,7 +194,7 @@ const SC=[{l:"Hot",c:"#ff3366",e:"🔥"},{l:"Warm",c:"#ff9933",e:"☀️"},{l:"C
 const TI=["—","Tier 1","Tier 2","Tier 3","Tier 4"];const TID={"Tier 1":"Core Partners","Tier 2":"Active Referrers","Tier 3":"Warm Relationships","Tier 4":"Prospects"};
 const TC={"Anacortes":[48.5126,-122.6127],"Burlington":[48.4757,-122.3254],"Oak Harbor":[48.2932,-122.6433],"Mt. Vernon":[48.4201,-122.334],"Sedro-Woolley":[48.5037,-122.2366],"Bellingham":[48.7519,-122.4787],"North of Bellingham":[48.86,-122.51],"Snohomish":[48.166,-122.22],"South Whidbey":[48.12,-122.68],"Arlington":[48.1987,-122.1254],"Stanwood":[48.2404,-122.3706],"La Conner":[48.3921,-122.4932]};
 const IC={'Self-Storage':'📦','Realtor':'🏠','Assisted':'🏥','Senior':'🧓','Apartment':'🏢','Property':'🏘️','Other':'📋'};
-let D=[],V=[],R=[],JR=[],TEAM=[],fRA='All',fRStatus='active',mRS={},lAvatar='',CU=JSON.parse(sessionStorage.getItem('neon_user')||'null'),tb='d',dV='contacts',fT='All',fY='All',fS='',sr='visited',lm=null,mM=[],ok=false,IM=[],pOpen=null,lbSort='total',lbFrom='',lbTo='',ixHidden=JSON.parse(localStorage.getItem('neon_ix_hidden')||'{}'),ixShowHidden=false,ixFilter='';
+let D=[],V=[],R=[],JR=[],TEAM=[],fRA='All',fRStatus='active',mRS={},lAvatar='',CU=JSON.parse(sessionStorage.getItem('neon_user')||'null'),tb='d',dV='contacts',fT='All',fY='All',fS='',sr='visited',lm=null,mM=[],ok=false,IM=[],pOpen=null,lbSort='total',lbFrom='',lbTo='',ixHidden=JSON.parse(localStorage.getItem('neon_ix_hidden')||'{}'),ixShowHidden=false,ixFilter='',plLeads=[],plLoaded=false;
 
 async function aG(a){return(await fetch(API+'?action='+a)).json()}
 async function aP(d){const r=await(await fetch(API,{method:'POST',body:JSON.stringify(d),headers:{'Content-Type':'text/plain'}})).json();if(r&&r.error){throw new Error(r.error)}return r}
@@ -352,7 +352,7 @@ function fd(d){if(!d)return'—';return new Date(d+'T00:00:00').toLocaleDateStri
 function gR(i){return R.filter(r=>+r.contactId===+i)}
 function sT(t,el){tb=t;document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));el.classList.add('on');ren()}
 let __srT;function __srInput(v){fS=v;clearTimeout(__srT);__srT=setTimeout(()=>{ren();setTimeout(()=>{const inp=document.querySelector('.flt input');if(inp){inp.focus();try{inp.setSelectionRange(v.length,v.length)}catch(e){}}},10);},150);}
-function ren(){if(!ok)return;rS();const mc=document.getElementById('mc');if(tb==='d')rD(mc);else if(tb==='m')rM(mc);else if(tb==='ix')rIX(mc);else if(tb==='dp')rDayPlan(mc);else if(tb==='tl')rTopLeads(mc);else rRm(mc)}
+function ren(){if(!ok)return;rS();const mc=document.getElementById('mc');if(tb==='d')rD(mc);else if(tb==='m')rM(mc);else if(tb==='ix')rIX(mc);else if(tb==='dp')rDayPlan(mc);else if(tb==='tl')rTopLeads(mc);else if(tb==='pl')rPL(mc);else rRm(mc)}
 
 function rS(){
   const t=D.length,o=D.filter(c=>ds(c.lastVisit)>30).length,h=D.filter(c=>+c.score===0).length;
@@ -513,6 +513,56 @@ async function emailReferralReport(){
     const r=await aP({action:'sendReferralReport',startDate:lbFrom,endDate:lbTo});
     if(r&&r.ok){if(typeof tt==='function')tt('✅ Sent! Check your inbox.','ok');}else{if(typeof tt==='function')tt('Error: '+(r&&r.error||'unknown'),'er');}
   }catch(e){if(typeof tt==='function')tt('Error: '+e.message,'er');}
+}
+
+function copyPortalLink(url){
+  navigator.clipboard.writeText(url).then(function(){if(typeof tt==="function")tt("\u2705 Link copied","ok");}).catch(function(){if(typeof tt==="function")tt("Copy failed","er");});
+}
+async function plLoad(){
+  const mc=document.getElementById("mc");
+  if(mc)mc.innerHTML='<div class="ld"><div class="sp"></div></div>';
+  try{
+    const r=await aP({action:"listPortalLeads"});
+    plLeads=(r&&r.leads)||[];
+    plLoaded=true;
+    rPL(mc);
+  }catch(e){
+    if(mc)mc.innerHTML='<div style="color:var(--r);padding:20px">Error: '+e.message+'</div>';
+  }
+}
+function rPL(mc){
+  if(!plLoaded){plLoad();return;}
+  const total=plLeads.length;
+  const now=Date.now();
+  const new24=plLeads.filter(function(l){var t=new Date(l.submittedAt||0).getTime();return now-t<86400000;}).length;
+  const new7d=plLeads.filter(function(l){var t=new Date(l.submittedAt||0).getTime();return now-t<7*86400000;}).length;
+  var h='<div style="margin:14px 0 8px;font-size:15px;font-weight:700;color:var(--p)">\u{1F4E5} Referral Portal Leads</div>';
+  h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">';
+  h+='<div style="background:var(--d2);padding:12px;border-radius:8px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--p)">'+total+'</div><div style="font-size:10px;color:var(--g);letter-spacing:1px">ALL TIME</div></div>';
+  h+='<div style="background:var(--d2);padding:12px;border-radius:8px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--b)">'+new7d+'</div><div style="font-size:10px;color:var(--g);letter-spacing:1px">LAST 7 DAYS</div></div>';
+  h+='<div style="background:var(--d2);padding:12px;border-radius:8px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--gn)">'+new24+'</div><div style="font-size:10px;color:var(--g);letter-spacing:1px">LAST 24 HOURS</div></div></div>';
+  h+='<button onclick="plLoaded=false;plLoad()" style="background:var(--d3);color:#fff;border:1px solid var(--bd);border-radius:6px;padding:6px 12px;font-size:11px;cursor:pointer;margin-bottom:10px">\u{1F504} Refresh</button>';
+  if(!total){
+    h+='<div style="text-align:center;padding:40px;color:var(--g)">No portal leads yet. Send a realtor their link to get started.</div>';
+    mc.innerHTML=h;return;
+  }
+  plLeads.forEach(function(l){
+    var dt=new Date(l.submittedAt||0);
+    var ago=Math.round((now-dt.getTime())/3600000);
+    var agoTxt=ago<24?ago+"h ago":Math.round(ago/24)+"d ago";
+    var statusColors={"new":"#22aee4","contacted":"#ff9933","booked":"#33cc66","completed":"#ffaa00","lost":"#888"};
+    var statusColor=statusColors[l.status||"new"]||"#22aee4";
+    h+='<div style="background:var(--d2);border-radius:10px;padding:14px;margin-bottom:8px;border-left:4px solid '+statusColor+'">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-weight:700;font-size:15px">'+l.customerName+'</div><div style="font-size:10px;color:var(--g)">'+agoTxt+'</div></div>';
+    h+='<div style="font-size:12px;color:var(--g);margin-bottom:6px">From '+(l.realtorName||"?")+' \u00b7 <span style="color:var(--p)">'+(l.sourceTag||"")+'</span></div>';
+    h+='<div style="font-size:12px;color:#aaa">\u260E '+(l.customerPhone||"-")+(l.customerEmail?" \u00b7 \u2709 "+l.customerEmail:"")+'</div>';
+    if(l.moveSize||l.moveDate)h+='<div style="font-size:11px;color:#aaa;margin-top:3px">'+(l.moveSize||"")+(l.moveSize&&l.moveDate?" \u00b7 ":"")+(l.moveDate?"Target: "+l.moveDate:"")+'</div>';
+    if(l.fromAddress||l.toAddress)h+='<div style="font-size:11px;color:#aaa;margin-top:3px">\u{1F4CD} '+(l.fromAddress||"?")+' \u2192 '+(l.toAddress||"?")+'</div>';
+    if(l.notes)h+='<div style="font-size:11px;color:#888;margin-top:6px;font-style:italic">\u201C'+l.notes+'\u201D</div>';
+    h+='<div style="margin-top:8px"><span style="background:'+statusColor+'33;color:'+statusColor+';padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600">'+(l.status||"new").toUpperCase()+'</span></div>';
+    h+='</div>';
+  });
+  mc.innerHTML=h;
 }
 
 // REMINDERS
@@ -747,7 +797,11 @@ function oP(id){
   const _avSrc=c.profilePic||c.cardImage||"";let avatarHtml=_avSrc?`<img src="${_avSrc}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid var(--gn);margin-right:12px;vertical-align:middle">`:'';
   let cs='';if(c.cardImage)cs=`<div class="cis"><h5 style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">📇 Business Card<span style="display:flex;gap:4px"><button onclick="dpReplacePic(${c.id},'card')" title="Replace" style="background:transparent;border:1px solid #555;color:#aaa;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px">✏ Replace</button><button onclick="dpDeletePic(${c.id},'card')" title="Remove" style="background:transparent;border:1px solid #c44;color:#f88;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px">🗑 Remove</button></span></h5><img src="${c.cardImage}" alt="card" style="max-width:100%;border-radius:8px"></div>`;
   if(avatarHtml)cs=`<div style="display:flex;align-items:center;margin-bottom:12px">${avatarHtml}<div style="font-size:11px;color:var(--g)">Avatar from card</div></div>`+cs;
+  cs = cs + portalLinkSection;
   const ti=(c.type==='Realtor')?`<div class="pr"><span class="k">Realtor Tier</span><span style="color:var(--gold);font-weight:700">${c.tier||'—'}</span></div>`:'';
+  const _refSlug=(c.type==='Realtor')?(String(c.name||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').substring(0,40)+'-'+c.id):'';
+  const _refUrl=_refSlug?('https://neondane.github.io/neon-crm/refer.html?r='+_refSlug):'';
+  const portalLinkSection=_refUrl?('<div class="rs" style="border:1px solid var(--p);border-radius:8px;padding:12px;margin-top:12px;background:linear-gradient(135deg,rgba(74,0,128,0.15),rgba(255,0,128,0.10))"><h5 style="color:var(--p);margin:0 0 8px;display:flex;align-items:center;justify-content:space-between"><span>\u{1F517} Referral Portal Link</span><button onclick="copyPortalLink(\''+_refUrl+'\')" style="background:linear-gradient(135deg,var(--p),var(--b));color:#fff;border:none;border-radius:5px;padding:5px 12px;font-size:11px;cursor:pointer">\u{1F4CB} Copy</button></h5><div style="font-family:monospace;font-size:11px;color:#9cf;word-break:break-all;background:rgba(0,0,0,0.25);padding:8px;border-radius:5px">'+_refUrl+'</div><div style="font-size:11px;color:var(--g);margin-top:6px">Send to '+(c.name?String(c.name).split(" ")[0]:'this realtor')+' so they can submit referrals \u2192 you get an email, they earn $50/move</div></div>'):'';
   let vh=cv.map(v=>`<div class="vi" id="vi_${v.id}"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span class="vd">${fd(v.date)}</span><span style="display:flex;gap:4px;align-items:center"><span class="vh">${v.handler}</span><button onclick="editVisit(${v.id})" style="background:none;border:none;color:var(--b);cursor:pointer;font-size:13px;padding:2px 4px" title="Edit visit">✏️</button><button onclick="delVisit(${v.id},${v.contactId})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:13px;padding:2px 4px" title="Delete visit">🗑️</button></span></div><div class="vn" id="vn_${v.id}">${v.notes||''}</div></div>`).join('');
 
   document.getElementById('pc').innerHTML=`<div class="ph"><div><div style="font-size:20px;font-weight:800">${c.name||'—'}</div><div style="color:var(--g);font-size:12px;margin-top:2px">${c.role||''} at <span style="color:var(--p)">${c.business||''}</span></div><div style="margin-top:4px;font-size:11px;color:var(--g)">📍 ${c.territory||'—'} · Added ${fd(c.dateAdded)}</div></div><button class="px" onclick="cP()">✕</button></div><div class="pb">
