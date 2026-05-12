@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Neon Giant CRM</title>
-<meta name="build" content="v67-2026-05-09-lazy-card-images">
+<meta name="build" content="v68-2026-05-09-utf8-fix">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
@@ -152,7 +152,7 @@ input[type="date"],input[type="time"]{color-scheme:dark;cursor:pointer}input[typ
 <div class="cnt" id="mc"></div>
 <button class="fab" onclick="openLog()">+</button>
 <div class="ov" id="ov" onclick="cP()"><div class="pn" onclick="event.stopPropagation()" id="pc"></div></div>
-<div class="fs" id="lO"><div class="fsh"><button class="fsx" onclick="cL()">â Cancel</button><span style="color:var(--w);font-weight:700">Log It</span><div style="width:60px"></div></div><div class="fsb" id="lB"></div></div>
+<div class="fs" id="lO"><div class="fsh"><button class="fsx" onclick="cL()">✕ Cancel</button><span style="color:var(--w);font-weight:700">Log It</span><div style="width:60px"></div></div><div class="fsb" id="lB"></div></div>
 <div class="tt" id="tt"></div>
 
 <!-- LOGIN SCREEN -->
@@ -168,10 +168,10 @@ input[type="date"],input[type="time"]{color-scheme:dark;cursor:pointer}input[typ
         <div id="pinToggle" style="text-align:center;margin-bottom:12px"><a href="#" onclick="event.preventDefault();document.getElementById('pinForm').style.display='block';this.parentElement.style.display='none'" style="color:var(--g);font-size:11px;text-decoration:underline">Use PIN instead (admin fallback)</a></div><div id="pinForm" style="display:none">
         <div class="fg"><label>Who are you?</label><select id="loginName" style="text-align:center;font-size:15px;padding:12px">
       <option value="">Select your name...</option>
-      <option value="Dane">Dane â Owner</option>
-      <option value="Jeff">Jeff â Co-Owner</option>
-      <option value="Tyler">Tyler â Sales</option>
-      <option value="Valentina">Valentina â Sales</option>
+      <option value="Dane">Dane — Owner</option>
+      <option value="Jeff">Jeff — Co-Owner</option>
+      <option value="Tyler">Tyler — Sales</option>
+      <option value="Valentina">Valentina — Sales</option>
     </select></div>
     <div class="fg"><label>PIN</label><input id="loginPin" type="password" maxlength="4" placeholder="4-digit PIN" style="text-align:center;font-size:20px;letter-spacing:8px;padding:12px"></div>
     <button class="bs" onclick="doLogin()" style="font-size:16px;padding:14px">Sign In</button>
@@ -184,22 +184,22 @@ input[type="date"],input[type="time"]{color-scheme:dark;cursor:pointer}input[typ
 <script>
 const API='https://script.google.com/macros/s/AKfycbxh1ecAF9yWN91w04SHROy5T9N-PehvpF29LTFu8M6vjnp1PRyhgxUYf7bfU5DKzbq_nA/exec';
 let CK=sessionStorage.getItem('neon_ck')||'';
-function setCK(){ tt && tt('Key is now stored on the server â no browser key needed','ok'); }
-// API key prompt removed from auto-startup - use the ð button in header instead
+function setCK(){ tt && tt('Key is now stored on the server — no browser key needed','ok'); }
+// API key prompt removed from auto-startup - use the 🔑 button in header instead
 
-const TR=['All','Whatcom â Bellingham','Whatcom â North of Bellingham','Skagit â Mount Vernon area','Skagit â Anacortes','Snohomish County','Whidbey Island'];
+const TR=['All','Whatcom — Bellingham','Whatcom — North of Bellingham','Skagit — Mount Vernon area','Skagit — Anacortes','Snohomish County','Whidbey Island'];
 const TY=["Realtor","Self-Storage Facility","Assisted Living","Senior Living","Apartment Complex","Property Management","Other"];
 const TM=["Dane","Tyler","Valentina","Jeff","Luke","Carlos","Marshall","Samuel","Ryan","William","Charles","Michael"];
-const SC=[{l:"Hot",c:"#ff3366",e:"ð¥"},{l:"Warm",c:"#ff9933",e:"âï¸"},{l:"Cool",c:"#22aee4",e:"âï¸"},{l:"New",c:"#8888aa",e:"ð"}];
-const TI=["â","Tier 1","Tier 2","Tier 3","Tier 4"];const TID={"Tier 1":"Core Partners","Tier 2":"Active Referrers","Tier 3":"Warm Relationships","Tier 4":"Prospects"};
+const SC=[{l:"Hot",c:"#ff3366",e:"🔥"},{l:"Warm",c:"#ff9933",e:"☀️"},{l:"Cool",c:"#22aee4",e:"❄️"},{l:"New",c:"#8888aa",e:"🆕"}];
+const TI=["—","Tier 1","Tier 2","Tier 3","Tier 4"];const TID={"Tier 1":"Core Partners","Tier 2":"Active Referrers","Tier 3":"Warm Relationships","Tier 4":"Prospects"};
 const TC={"Anacortes":[48.5126,-122.6127],"Burlington":[48.4757,-122.3254],"Oak Harbor":[48.2932,-122.6433],"Mt. Vernon":[48.4201,-122.334],"Sedro-Woolley":[48.5037,-122.2366],"Bellingham":[48.7519,-122.4787],"North of Bellingham":[48.86,-122.51],"Snohomish":[48.166,-122.22],"South Whidbey":[48.12,-122.68],"Arlington":[48.1987,-122.1254],"Stanwood":[48.2404,-122.3706],"La Conner":[48.3921,-122.4932]};
-const IC={'Self-Storage':'ð¦','Realtor':'ð ','Assisted':'ð¥','Senior':'ð§','Apartment':'ð¢','Property':'ðï¸','Other':'ð'};
+const IC={'Self-Storage':'📦','Realtor':'🏠','Assisted':'🏥','Senior':'🧓','Apartment':'🏢','Property':'🏘️','Other':'📋'};
 let D=[],V=[],R=[],JR=[],TEAM=[],fRA='All',fRStatus='active',mRS={},lAvatar='',CU=JSON.parse(sessionStorage.getItem('neon_user')||'null'),tb='d',dV='contacts',fT='All',fY='All',fS='',sr='visited',lm=null,mM=[],ok=false,IM=[],pOpen=null,lbSort='total';
 
 async function aG(a){return(await fetch(API+'?action='+a)).json()}
 async function aP(d){const r=await(await fetch(API,{method:'POST',body:JSON.stringify(d),headers:{'Content-Type':'text/plain'}})).json();if(r&&r.error){throw new Error(r.error)}return r}
 async function ai(p, img) {
-  // V63: route through Apps Script aiCall â server holds the key, browser never sees it
+  // V63: route through Apps Script aiCall — server holds the key, browser never sees it
   const payload = { action: 'aiCall', prompt: p };
   if (img) payload.image = img;
   const r = await aP(payload);
@@ -211,7 +211,7 @@ async function ai(p, img) {
 function tt(m,t='ok'){const e=document.getElementById('tt');e.textContent=m;e.className='tt '+t;e.style.display='block';setTimeout(()=>e.style.display='none',3500)}
 
 // ============================================================
-// Google OAuth â Sign in with Google + per-user Gmail sender
+// Google OAuth — Sign in with Google + per-user Gmail sender
 // ============================================================
 const GOOGLE_CLIENT_ID='275867918182-o5eu6mthngrgegkesvm68rlsrotvu1qv.apps.googleusercontent.com';
 let GMAIL_TOKEN=sessionStorage.getItem('neon_gmail_tok')||'';
@@ -261,7 +261,7 @@ window.aP=async function(d){
     catch(e){
       if(String(e).indexOf('401')>=0||String(e).toLowerCase().indexOf('expired')>=0){
         sessionStorage.removeItem('neon_gmail_tok');GMAIL_TOKEN='';
-        tt('Gmail token expired â sign in again','er');
+        tt('Gmail token expired — sign in again','er');
       }
       throw e;
     }
@@ -322,7 +322,7 @@ function updateUserUI(){
     const badge=document.createElement('span');
     badge.id='userBadge';
     badge.style.cssText='color:var(--gn);font-size:11px;font-weight:600;cursor:pointer';
-    badge.textContent='ð¤ '+CU.name;
+    badge.textContent='👤 '+CU.name;
     badge.title='Click to logout';
     badge.onclick=()=>{if(confirm('Log out?'))logout()};
     hdr.insertBefore(badge,hdr.firstChild);
@@ -338,7 +338,7 @@ async function load(){
 function ds(d){const FLOOR=new Date('2026-01-01T00:00:00');let dt=d?new Date(d):null;if(!dt||isNaN(dt)||dt<FLOOR)dt=FLOOR;return Math.floor((new Date()-dt)/864e5)}
 function uc(d){return d<=14?'var(--gn)':d<=30?'var(--b)':d<=60?'var(--o)':'var(--r)'}
 function uh(d){return d<=14?'#33cc66':d<=30?'#22aee4':d<=60?'#ff9933':'#ff3366'}
-function fd(d){if(!d)return'â';return new Date(d+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+function fd(d){if(!d)return'—';return new Date(d+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}
 function gR(i){return R.filter(r=>+r.contactId===+i)}
 function sT(t,el){tb=t;document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));el.classList.add('on');ren()}
 let __srT;function __srInput(v){fS=v;clearTimeout(__srT);__srT=setTimeout(()=>{ren();setTimeout(()=>{const inp=document.querySelector('.flt input');if(inp){inp.focus();try{inp.setSelectionRange(v.length,v.length)}catch(e){}}},10);},150);}
@@ -381,12 +381,12 @@ function iM(){if(lm){lm.remove();lm=null}mM=[];const el=document.getElementById(
 // TIERS TAB
 function rTi(mc){
   const realtors=D.filter(c=>c.type==='Realtor');
-  let h='<div style="margin:14px 0 8px;font-size:15px;font-weight:700;color:var(--p)">ð  Realtor Tier Program</div><div style="color:var(--g);font-size:12px;margin-bottom:16px">'+realtors.length+' realtors across your network</div>';
+  let h='<div style="margin:14px 0 8px;font-size:15px;font-weight:700;color:var(--p)">🏠 Realtor Tier Program</div><div style="color:var(--g);font-size:12px;margin-bottom:16px">'+realtors.length+' realtors across your network</div>';
   const tierData=[
-    {t:'Tier 1',name:'Core Partners',desc:'Strongest referral relationships. Consistently send business.',color:'var(--gold)',stars:'â­â­â­â­'},
-    {t:'Tier 2',name:'Active Referrers',desc:'Have referred before. Growing relationships.',color:'var(--p)',stars:'â­â­â­'},
-    {t:'Tier 3',name:'Warm Relationships',desc:'Know them, have met. Earning trust and first referral.',color:'var(--b)',stars:'â­â­'},
-    {t:'Tier 4',name:'Prospects',desc:'Want to build relationships with. New contacts to recruit.',color:'var(--g)',stars:'â­'}
+    {t:'Tier 1',name:'Core Partners',desc:'Strongest referral relationships. Consistently send business.',color:'var(--gold)',stars:'⭐⭐⭐⭐'},
+    {t:'Tier 2',name:'Active Referrers',desc:'Have referred before. Growing relationships.',color:'var(--p)',stars:'⭐⭐⭐'},
+    {t:'Tier 3',name:'Warm Relationships',desc:'Know them, have met. Earning trust and first referral.',color:'var(--b)',stars:'⭐⭐'},
+    {t:'Tier 4',name:'Prospects',desc:'Want to build relationships with. New contacts to recruit.',color:'var(--g)',stars:'⭐'}
   ];
   tierData.forEach(({t,name,desc,color,stars})=>{
     const inTier=realtors.filter(c=>c.tier===t);
@@ -394,17 +394,17 @@ function rTi(mc){
     if(inTier.length){
       const byTerr={};inTier.forEach(c=>{const t2=c.territory||'Unknown';if(!byTerr[t2])byTerr[t2]=[];byTerr[t2].push(c)});
       Object.entries(byTerr).sort().forEach(([terr,cs])=>{
-        h+=`<div style="font-size:11px;color:var(--b);margin:8px 0 4px;padding-left:8px">ð ${terr}</div>`;
+        h+=`<div style="font-size:11px;color:var(--b);margin:8px 0 4px;padding-left:8px">📍 ${terr}</div>`;
         h+=cs.map(c=>cH(c)).join('');
       });
     } else h+=`<div style="color:var(--d4);font-size:12px;padding:12px 8px;font-style:italic">No realtors in ${t} yet</div>`;
     h+=`</div>`;
   });
-  const untiered=realtors.filter(c=>!c.tier||c.tier==='â'||c.tier==='');
+  const untiered=realtors.filter(c=>!c.tier||c.tier==='—'||c.tier==='');
   if(untiered.length){
-    h+=`<div class="tier-sec"><div class="tier-hdr"><b style="color:var(--g)">Untiered</b><small style="color:var(--g)">${untiered.length} â assign tiers by editing contacts</small></div>${untiered.map(c=>cH(c)).join('')}</div>`;
+    h+=`<div class="tier-sec"><div class="tier-hdr"><b style="color:var(--g)">Untiered</b><small style="color:var(--g)">${untiered.length} — assign tiers by editing contacts</small></div>${untiered.map(c=>cH(c)).join('')}</div>`;
   }
-  if(!realtors.length)h+='<div style="text-align:center;padding:40px;color:var(--g)">No realtors yet â add them via Log It</div>';
+  if(!realtors.length)h+='<div style="text-align:center;padding:40px;color:var(--g)">No realtors yet — add them via Log It</div>';
   mc.innerHTML=h;
 }
 
@@ -429,22 +429,22 @@ function rLB(mc){
   const totalRev=Object.values(byName).reduce((a,d)=>a+d.revenue,0);
   const totalBooked=yrRefs.filter(r=>r.status==='booked').length;
   const totalCompleted=yrRefs.filter(r=>r.status==='completed').length;
-  let h=`<div style="margin:14px 0 8px;font-size:15px;font-weight:700;color:var(--p)">ð Referral Leaderboard ${yr}</div>`;
+  let h=`<div style="margin:14px 0 8px;font-size:15px;font-weight:700;color:var(--p)">🏆 Referral Leaderboard ${yr}</div>`;
   h+=`<div style="margin-bottom:10px"><select onchange="lbSort=this.value;ren()" style="padding:6px 10px;border-radius:6px;font-size:12px"><option value="total"${lbSort==='total'?' selected':''}>Sort: Total jobs referred</option><option value="booked"${lbSort==='booked'?' selected':''}>Sort: Jobs booked</option><option value="completed"${lbSort==='completed'?' selected':''}>Sort: Jobs completed</option><option value="revenue"${lbSort==='revenue'?' selected':''}>Sort: Total revenue</option></select></div>`;
-  h+=`<div style="color:var(--g);font-size:12px;margin-bottom:16px">${yrRefs.length} referred Â· ${totalBooked} booked Â· ${totalCompleted} completed Â· $${totalRev.toLocaleString('en-US')} revenue</div>`;
+  h+=`<div style="color:var(--g);font-size:12px;margin-bottom:16px">${yrRefs.length} referred · ${totalBooked} booked · ${totalCompleted} completed · $${totalRev.toLocaleString('en-US')} revenue</div>`;
   if(!ranked.length){h+=`<div style="text-align:center;padding:40px;color:var(--g)">No referrals logged yet for ${yr}.<br>Open a contact and tap "Referral" to log one.</div>`;mc.innerHTML=h;return}
   ranked.forEach(([nm,data],i)=>{
     const c=data.contact;
-    const medal=i===0?'ð¥':i===1?'ð¥':i===2?'ð¥':'';
+    const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
     const pct=data.total>0?Math.round(data.booked/data.total*100):0;
     h+=`<div class="cd" style="border-left-color:${i<3?'var(--gold)':'var(--b)'}${c?' ;cursor:pointer':''}" ${c?'onclick="oP('+c.id+')"':''}>
       <div class="cd-t"><div style="flex:1"><div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:20px;min-width:30px">${medal||'#'+(i+1)}</span>
         <div><span class="nm">${data.name}</span>
-        ${c?'<span class="rl"> Â· <span class="bz">'+( c.business||'')+'</span></span>':''}
+        ${c?'<span class="rl"> · <span class="bz">'+( c.business||'')+'</span></span>':''}
         </div></div>
-        <div class="mt" style="margin-top:4px;flex-wrap:wrap"><span>ð ${data.total} referred</span><span style="color:var(--gn)">â ${data.booked} booked</span><span style="color:#ffcc66">ð ${data.completed} done</span><span style="color:var(--p)">$${(data.revenue||0).toLocaleString('en-US')}</span></div>
-        <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${data.refs.map(r=>`<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${r.status==='completed'?'#ffaa0033;color:#ffcc66;border:1px solid #ffaa0066':r.status==='booked'?'#33cc6622;color:var(--gn);border:1px solid #33cc6644':'var(--d3);color:var(--g);border:1px solid var(--d4)'}">${r.jobName||'Unnamed'}${r.status==='completed'?' ð':r.status==='booked'?' â':''}</span>`).join('')}</div>
+        <div class="mt" style="margin-top:4px;flex-wrap:wrap"><span>📊 ${data.total} referred</span><span style="color:var(--gn)">✅ ${data.booked} booked</span><span style="color:#ffcc66">🎉 ${data.completed} done</span><span style="color:var(--p)">$${(data.revenue||0).toLocaleString('en-US')}</span></div>
+        <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${data.refs.map(r=>`<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${r.status==='completed'?'#ffaa0033;color:#ffcc66;border:1px solid #ffaa0066':r.status==='booked'?'#33cc6622;color:var(--gn);border:1px solid #33cc6644':'var(--d3);color:var(--g);border:1px solid var(--d4)'}">${r.jobName||'Unnamed'}${r.status==='completed'?' 🎉':r.status==='booked'?' ✓':''}</span>`).join('')}</div>
       </div>
       <div class="dy"><b style="color:${i<3?'var(--gold)':'var(--b)'}">${lbSort==='revenue'?'$'+(data.revenue||0).toLocaleString('en-US'):data[sortKey]}</b><small>${lbSort==='revenue'?'revenue':lbSort==='completed'?'completed':lbSort==='booked'?'booked':'referrals'}</small></div>
     </div></div>`;
@@ -453,22 +453,22 @@ function rLB(mc){
 }
 
 // REMINDERS
-function rRm(mc){const assignees=['All',...new Set(R.map(r=>r.assignedTo).filter(a=>a))];const fr=R.filter(r=>{if(fRA!=='All'&&r.assignedTo!==fRA)return false;if(fRStatus==='active'&&r.status!=='active')return false;if(fRStatus==='completed'&&r.status!=='completed')return false;return true});const g={};fr.forEach(r=>{const i=+r.contactId;if(!g[i])g[i]=[];g[i].push(r)});const en=Object.entries(g).map(([i,rs])=>({c:D.find(x=>+x.id===+i),rs})).filter(x=>x.c).sort((a,b)=>ds(b.c.lastVisit)-ds(a.c.lastVisit));const selCount=Object.keys(mRS).filter(k=>mRS[k]).length;const isCompleted=fRStatus==='completed';let h=`<div style="margin:12px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label style="font-size:12px;color:var(--g)">Who:</label><select onchange="fRA=this.value;mRS={};ren()" style="padding:6px 10px;border-radius:6px">${assignees.map(a=>`<option${fRA===a?' selected':''}>${a}</option>`).join('')}</select><label style="font-size:12px;color:var(--g);margin-left:8px">Status:</label><select onchange="fRStatus=this.value;mRS={};ren()" style="padding:6px 10px;border-radius:6px"><option value="active"${fRStatus==='active'?' selected':''}>Active</option><option value="completed"${fRStatus==='completed'?' selected':''}>Completed</option><option value="all"${fRStatus==='all'?' selected':''}>All</option></select>${selCount>0&&!isCompleted?`<button onclick="bulkCompleteRem()" style="background:#33cc66;color:white;padding:6px 12px;border:none;border-radius:6px;font-weight:600;cursor:pointer">â Complete ${selCount}</button>`:''}${selCount>0?`<button onclick="mRS={};ren()" style="background:transparent;color:var(--g);padding:6px 12px;border:1px solid var(--g);border-radius:6px;cursor:pointer">Clear</button>`:''}</div><div style="margin:8px 0 12px;font-size:13px;color:var(--g)">${fr.length} ${fRStatus==='all'?'total':fRStatus} reminder${fr.length!==1?'s':''}${fRA!=='All'?' for '+fRA:''}</div>`;en.forEach(({c,rs})=>{h+=`<div class="cd" style="border-left-color:${isCompleted?'var(--gn)':'var(--o)'};margin-bottom:10px"><div class="cd-t"><div style="flex:1;cursor:pointer" onclick="oP(${c.id})"><div class="nm">${c.name} <span style="color:var(--g);font-size:11px;font-weight:400">at ${c.business||''}</span></div><div class="rl">ð ${c.territory||''} Â· ${ds(c.lastVisit)}d ago</div></div></div><div style="margin-top:7px">${rs.map(r=>{const done=r.status==='completed';return `<div style="display:flex;align-items:center;gap:8px;padding:8px;background:rgba(255,255,255,${done?'0.02':'0.04'});border-radius:6px;margin-bottom:4px;${done?'opacity:0.7':''}"><input type="checkbox" ${mRS[r.id]?'checked':''} ${done?'disabled':''} onclick="event.stopPropagation();mRS[${r.id}]=this.checked;ren()" style="width:18px;height:18px;cursor:pointer;accent-color:#22aee4"><div style="flex:1"><div style="${done?'text-decoration:line-through':''}">${done?'â':'ð'} ${r.text}</div>${(r.dueDate||r.assignedTo)?`<div style="font-size:10px;color:var(--g);margin-top:2px">${r.assignedTo?'ð¤ '+r.assignedTo:''}${r.assignedTo&&r.dueDate?' Â· ':''}${r.dueDate?'ð '+r.dueDate:''}${r.dueTime?' '+r.dueTime:''}</div>`:''}</div>${done?`<button style="color:#22aee4;background:none;border:none;font-size:14px;cursor:pointer;padding:4px 8px" onclick="event.stopPropagation();uncompRem(${r.id})" title="Restore">â© Undo</button>`:`<button style="color:#33cc66;background:none;border:none;font-size:18px;cursor:pointer;padding:4px 8px" onclick="event.stopPropagation();compRem(${r.id})" title="Complete">â</button>`}<button style="background:none;border:none;font-size:16px;cursor:pointer;padding:4px 8px;color:var(--r)" onclick="event.stopPropagation();delRem(${r.id})" title="Delete">â</button></div>`}).join('')}</div></div>`});if(!fr.length)h+='<div style="text-align:center;padding:50px;color:var(--g)">No '+(fRStatus==='all'?'':fRStatus+' ')+'reminders'+(fRA!=='All'?' for '+fRA:'')+'</div>';mc.innerHTML=h}
-async function bulkCompleteRem(){const ids=Object.keys(mRS).filter(k=>mRS[k]).map(Number);if(!ids.length)return;if(!confirm('Mark '+ids.length+' reminder(s) complete?'))return;tt('Completing '+ids.length+'...','ok');for(const id of ids){try{await aP({action:'updateReminder',reminder:{id:id,status:'completed'}})}catch(e){}}mRS={};tt('â Done!','ok');await load()}
-async function uncompRem(rid){tt('Restoring...','ok');try{await aP({action:'updateReminder',reminder:{id:rid,status:'active',sent:''}});tt('â Restored','ok');await load()}catch(e){tt('Error','er')}}
+function rRm(mc){const assignees=['All',...new Set(R.map(r=>r.assignedTo).filter(a=>a))];const fr=R.filter(r=>{if(fRA!=='All'&&r.assignedTo!==fRA)return false;if(fRStatus==='active'&&r.status!=='active')return false;if(fRStatus==='completed'&&r.status!=='completed')return false;return true});const g={};fr.forEach(r=>{const i=+r.contactId;if(!g[i])g[i]=[];g[i].push(r)});const en=Object.entries(g).map(([i,rs])=>({c:D.find(x=>+x.id===+i),rs})).filter(x=>x.c).sort((a,b)=>ds(b.c.lastVisit)-ds(a.c.lastVisit));const selCount=Object.keys(mRS).filter(k=>mRS[k]).length;const isCompleted=fRStatus==='completed';let h=`<div style="margin:12px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label style="font-size:12px;color:var(--g)">Who:</label><select onchange="fRA=this.value;mRS={};ren()" style="padding:6px 10px;border-radius:6px">${assignees.map(a=>`<option${fRA===a?' selected':''}>${a}</option>`).join('')}</select><label style="font-size:12px;color:var(--g);margin-left:8px">Status:</label><select onchange="fRStatus=this.value;mRS={};ren()" style="padding:6px 10px;border-radius:6px"><option value="active"${fRStatus==='active'?' selected':''}>Active</option><option value="completed"${fRStatus==='completed'?' selected':''}>Completed</option><option value="all"${fRStatus==='all'?' selected':''}>All</option></select>${selCount>0&&!isCompleted?`<button onclick="bulkCompleteRem()" style="background:#33cc66;color:white;padding:6px 12px;border:none;border-radius:6px;font-weight:600;cursor:pointer">✓ Complete ${selCount}</button>`:''}${selCount>0?`<button onclick="mRS={};ren()" style="background:transparent;color:var(--g);padding:6px 12px;border:1px solid var(--g);border-radius:6px;cursor:pointer">Clear</button>`:''}</div><div style="margin:8px 0 12px;font-size:13px;color:var(--g)">${fr.length} ${fRStatus==='all'?'total':fRStatus} reminder${fr.length!==1?'s':''}${fRA!=='All'?' for '+fRA:''}</div>`;en.forEach(({c,rs})=>{h+=`<div class="cd" style="border-left-color:${isCompleted?'var(--gn)':'var(--o)'};margin-bottom:10px"><div class="cd-t"><div style="flex:1;cursor:pointer" onclick="oP(${c.id})"><div class="nm">${c.name} <span style="color:var(--g);font-size:11px;font-weight:400">at ${c.business||''}</span></div><div class="rl">📍 ${c.territory||''} · ${ds(c.lastVisit)}d ago</div></div></div><div style="margin-top:7px">${rs.map(r=>{const done=r.status==='completed';return `<div style="display:flex;align-items:center;gap:8px;padding:8px;background:rgba(255,255,255,${done?'0.02':'0.04'});border-radius:6px;margin-bottom:4px;${done?'opacity:0.7':''}"><input type="checkbox" ${mRS[r.id]?'checked':''} ${done?'disabled':''} onclick="event.stopPropagation();mRS[${r.id}]=this.checked;ren()" style="width:18px;height:18px;cursor:pointer;accent-color:#22aee4"><div style="flex:1"><div style="${done?'text-decoration:line-through':''}">${done?'✅':'📌'} ${r.text}</div>${(r.dueDate||r.assignedTo)?`<div style="font-size:10px;color:var(--g);margin-top:2px">${r.assignedTo?'👤 '+r.assignedTo:''}${r.assignedTo&&r.dueDate?' · ':''}${r.dueDate?'📅 '+r.dueDate:''}${r.dueTime?' '+r.dueTime:''}</div>`:''}</div>${done?`<button style="color:#22aee4;background:none;border:none;font-size:14px;cursor:pointer;padding:4px 8px" onclick="event.stopPropagation();uncompRem(${r.id})" title="Restore">↩ Undo</button>`:`<button style="color:#33cc66;background:none;border:none;font-size:18px;cursor:pointer;padding:4px 8px" onclick="event.stopPropagation();compRem(${r.id})" title="Complete">✓</button>`}<button style="background:none;border:none;font-size:16px;cursor:pointer;padding:4px 8px;color:var(--r)" onclick="event.stopPropagation();delRem(${r.id})" title="Delete">✕</button></div>`}).join('')}</div></div>`});if(!fr.length)h+='<div style="text-align:center;padding:50px;color:var(--g)">No '+(fRStatus==='all'?'':fRStatus+' ')+'reminders'+(fRA!=='All'?' for '+fRA:'')+'</div>';mc.innerHTML=h}
+async function bulkCompleteRem(){const ids=Object.keys(mRS).filter(k=>mRS[k]).map(Number);if(!ids.length)return;if(!confirm('Mark '+ids.length+' reminder(s) complete?'))return;tt('Completing '+ids.length+'...','ok');for(const id of ids){try{await aP({action:'updateReminder',reminder:{id:id,status:'completed'}})}catch(e){}}mRS={};tt('✅ Done!','ok');await load()}
+async function uncompRem(rid){tt('Restoring...','ok');try{await aP({action:'updateReminder',reminder:{id:rid,status:'active',sent:''}});tt('✅ Restored','ok');await load()}catch(e){tt('Error','er')}}
 function showCompose(cid){
   const c=D.find(x=>+x.id===+cid);if(!c)return;
   const sender=(CU&&CU.name)?CU.name:'';
   const greeting='Hi '+(c.name?c.name.split(' ')[0]:'')+',\n\n';
   const sig='\n\nThanks,\n'+sender+'\nNeon Giant Moving';
   const hasEmail=!!c.email;const hasPhone=!!c.phone;
-  document.getElementById('composeArea').innerHTML=`<div class="rs" style="border:1px solid var(--p);border-radius:8px;padding:12px;margin-top:10px"><h5 style="color:var(--p);margin:0 0 10px">ð¬ Compose Message to ${c.name}</h5>
-    <div style="font-size:11px;color:var(--g);margin-bottom:8px">${hasEmail?'ð§ '+c.email:''}${hasEmail&&hasPhone?' Â· ':''}${hasPhone?'ð± '+c.phone:''}</div>
+  document.getElementById('composeArea').innerHTML=`<div class="rs" style="border:1px solid var(--p);border-radius:8px;padding:12px;margin-top:10px"><h5 style="color:var(--p);margin:0 0 10px">💬 Compose Message to ${c.name}</h5>
+    <div style="font-size:11px;color:var(--g);margin-bottom:8px">${hasEmail?'📧 '+c.email:''}${hasEmail&&hasPhone?' · ':''}${hasPhone?'📱 '+c.phone:''}</div>
     ${hasEmail?`<div class="fg"><label>Subject (email only)</label><input id="cmpSubj" placeholder="Quick question / Following up..." value="Following up - Neon Giant Moving"></div>`:''}
     <div class="fg"><label>Message</label><textarea id="cmpBody" rows="6" style="width:100%;font-family:inherit">${greeting}${sig}</textarea></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-      ${hasEmail?`<button class="bs" onclick="sendCompose(${cid},'email')" style="flex:1;min-width:140px">ð§ Send Email</button>`:''}
-      ${hasPhone?`<button class="bs" onclick="sendCompose(${cid},'sms')" style="flex:1;min-width:140px;background:var(--b)">ð± Send Text</button>`:''}
+      ${hasEmail?`<button class="bs" onclick="sendCompose(${cid},'email')" style="flex:1;min-width:140px">📧 Send Email</button>`:''}
+      ${hasPhone?`<button class="bs" onclick="sendCompose(${cid},'sms')" style="flex:1;min-width:140px;background:var(--b)">📱 Send Text</button>`:''}
       <button class="bc" onclick="document.getElementById('composeArea').innerHTML=''">Cancel</button>
     </div>
     <div style="font-size:10px;color:var(--g);margin-top:6px">Email sends from your Google account via the CRM. Text opens your phone's messages app.</div>
@@ -492,7 +492,7 @@ async function sendCompose(cid,channel){
     tt('Sending email...','ok');
     try{
       const r=await aP({action:'sendEmail',to:c.email,subject:subj,body:body,contactId:+cid,sender:sender});
-      if(r&&r.ok){tt('â Email sent!','ok');document.getElementById('composeArea').innerHTML='';await load()}
+      if(r&&r.ok){tt('✅ Email sent!','ok');document.getElementById('composeArea').innerHTML='';await load()}
       else{tt('Send failed: '+(r&&r.error?r.error:'unknown'),'er')}
     }catch(e){tt('Send failed: '+e.message,'er')}
   }
@@ -671,23 +671,23 @@ async function gcSendAll(){
 // ======== END GROUP EMAIL ========
 
 
-// âââ RICH PROFILE âââââ
+// ─── RICH PROFILE ─────
 function oP(id){
   const c=D.find(x=>+x.id===+id);if(!c)return;
   pOpen=+id;
   if(c.id && !c.__imgChecked){c.__imgChecked=true;aP({action:'getContactImage',id:c.id}).then(res=>{if(!res)return;let chg=false;if(res.cardImage&&!c.cardImage){c.cardImage=res.cardImage;chg=true}if(res.profilePic&&!c.profilePic){c.profilePic=res.profilePic;chg=true}if(chg&&pOpen===+c.id&&document.getElementById('pc'))oP(c.id);}).catch(()=>{});}
   const d=ds(c.lastVisit),s=SC[+c.score||0],cv=V.filter(v=>+v.contactId===+id).sort((a,b)=>b.date>a.date?1:-1),cr=gR(id);
-  const phoneLink=c.phone?`<a href="tel:${c.phone}">${c.phone}</a>`:'â';
-  const emailLink=c.email?`<a href="mailto:${c.email}">${c.email}</a>`:'â';
+  const phoneLink=c.phone?`<a href="tel:${c.phone}">${c.phone}</a>`:'—';
+  const emailLink=c.email?`<a href="mailto:${c.email}">${c.email}</a>`:'—';
   const smsLink=c.phone?`<a href="sms:${c.phone}">Text</a>`:'';
-  let rs='';if(cr.length)rs=`<div class="rs"><h5>ð Active Reminders</h5>${cr.map(r=>`<div class="ri"><div style="display:flex;align-items:center;gap:7px;flex:1"><span class="rdot"></span><div><div>${r.text}</div>${r.dueDate?`<div style="font-size:10px;color:var(--g)">${r.assignedTo?'ð¤ '+r.assignedTo+' Â· ':''}ð Due: ${r.dueDate}</div>`:''}</div></div><span style="display:flex;gap:3px"><button class="ri-x" style="color:var(--gn)" onclick="event.stopPropagation();compRem(${r.id})" title="Complete">â</button><button class="ri-x" onclick="event.stopPropagation();delRem(${r.id})" title="Delete">â</button></span></div>`).join('')}</div>`;
+  let rs='';if(cr.length)rs=`<div class="rs"><h5>📌 Active Reminders</h5>${cr.map(r=>`<div class="ri"><div style="display:flex;align-items:center;gap:7px;flex:1"><span class="rdot"></span><div><div>${r.text}</div>${r.dueDate?`<div style="font-size:10px;color:var(--g)">${r.assignedTo?'👤 '+r.assignedTo+' · ':''}📅 Due: ${r.dueDate}</div>`:''}</div></div><span style="display:flex;gap:3px"><button class="ri-x" style="color:var(--gn)" onclick="event.stopPropagation();compRem(${r.id})" title="Complete">✓</button><button class="ri-x" onclick="event.stopPropagation();delRem(${r.id})" title="Delete">✕</button></span></div>`).join('')}</div>`;
   const _avSrc=c.profilePic||c.cardImage||"";let avatarHtml=_avSrc?`<img src="${_avSrc}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid var(--gn);margin-right:12px;vertical-align:middle">`:'';
-  let cs='';if(c.cardImage)cs=`<div class="cis"><h5 style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">ð Business Card<span style="display:flex;gap:4px"><button onclick="dpReplacePic(${c.id},'card')" title="Replace" style="background:transparent;border:1px solid #555;color:#aaa;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px">â Replace</button><button onclick="dpDeletePic(${c.id},'card')" title="Remove" style="background:transparent;border:1px solid #c44;color:#f88;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px">ð Remove</button></span></h5><img src="${c.cardImage}" alt="card" style="max-width:100%;border-radius:8px"></div>`;
+  let cs='';if(c.cardImage)cs=`<div class="cis"><h5 style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">📇 Business Card<span style="display:flex;gap:4px"><button onclick="dpReplacePic(${c.id},'card')" title="Replace" style="background:transparent;border:1px solid #555;color:#aaa;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px">✏ Replace</button><button onclick="dpDeletePic(${c.id},'card')" title="Remove" style="background:transparent;border:1px solid #c44;color:#f88;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px">🗑 Remove</button></span></h5><img src="${c.cardImage}" alt="card" style="max-width:100%;border-radius:8px"></div>`;
   if(avatarHtml)cs=`<div style="display:flex;align-items:center;margin-bottom:12px">${avatarHtml}<div style="font-size:11px;color:var(--g)">Avatar from card</div></div>`+cs;
-  const ti=(c.type==='Realtor')?`<div class="pr"><span class="k">Realtor Tier</span><span style="color:var(--gold);font-weight:700">${c.tier||'â'}</span></div>`:'';
-  let vh=cv.map(v=>`<div class="vi" id="vi_${v.id}"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span class="vd">${fd(v.date)}</span><span style="display:flex;gap:4px;align-items:center"><span class="vh">${v.handler}</span><button onclick="editVisit(${v.id})" style="background:none;border:none;color:var(--b);cursor:pointer;font-size:13px;padding:2px 4px" title="Edit visit">âï¸</button><button onclick="delVisit(${v.id},${v.contactId})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:13px;padding:2px 4px" title="Delete visit">ðï¸</button></span></div><div class="vn" id="vn_${v.id}">${v.notes||''}</div></div>`).join('');
+  const ti=(c.type==='Realtor')?`<div class="pr"><span class="k">Realtor Tier</span><span style="color:var(--gold);font-weight:700">${c.tier||'—'}</span></div>`:'';
+  let vh=cv.map(v=>`<div class="vi" id="vi_${v.id}"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span class="vd">${fd(v.date)}</span><span style="display:flex;gap:4px;align-items:center"><span class="vh">${v.handler}</span><button onclick="editVisit(${v.id})" style="background:none;border:none;color:var(--b);cursor:pointer;font-size:13px;padding:2px 4px" title="Edit visit">✏️</button><button onclick="delVisit(${v.id},${v.contactId})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:13px;padding:2px 4px" title="Delete visit">🗑️</button></span></div><div class="vn" id="vn_${v.id}">${v.notes||''}</div></div>`).join('');
 
-  document.getElementById('pc').innerHTML=`<div class="ph"><div><div style="font-size:20px;font-weight:800">${c.name||'â'}</div><div style="color:var(--g);font-size:12px;margin-top:2px">${c.role||''} at <span style="color:var(--p)">${c.business||''}</span></div><div style="margin-top:4px;font-size:11px;color:var(--g)">ð ${c.territory||'â'} Â· Added ${fd(c.dateAdded)}</div></div><button class="px" onclick="cP()">â</button></div><div class="pb">
+  document.getElementById('pc').innerHTML=`<div class="ph"><div><div style="font-size:20px;font-weight:800">${c.name||'—'}</div><div style="color:var(--g);font-size:12px;margin-top:2px">${c.role||''} at <span style="color:var(--p)">${c.business||''}</span></div><div style="margin-top:4px;font-size:11px;color:var(--g)">📍 ${c.territory||'—'} · Added ${fd(c.dateAdded)}</div></div><button class="px" onclick="cP()">✕</button></div><div class="pb">
     <div class="ps">
       <div class="pst"><b style="color:${s.c}">${s.e}</b><small style="color:${s.c}">${s.l}</small></div>
       <div class="pst"><b style="color:${uc(d)}">${d}d</b><small>Since Visit</small></div>
@@ -706,9 +706,9 @@ function oP(id){
 
     <!-- Contact buttons -->
     <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
-      ${c.phone?`<a href="tel:${c.phone}" class="bsm" style="background:var(--gn);text-decoration:none;color:#fff">ð Call</a><a href="sms:${c.phone}" class="bsm" style="background:var(--b);text-decoration:none;color:#fff">ð¬ Text</a>`:''} 
-      ${c.email?`<button class="bsm" onclick="showCompose(${c.id})" style="background:var(--o);color:#fff;border:none;cursor:pointer">âï¸ Email</button>`:''}
-      ${c.phone?`<button class="bsm" onclick="showCompose(${c.id})" style="background:var(--p);color:#fff;border:none;cursor:pointer">ð¬ Compose</button>`:''}
+      ${c.phone?`<a href="tel:${c.phone}" class="bsm" style="background:var(--gn);text-decoration:none;color:#fff">📞 Call</a><a href="sms:${c.phone}" class="bsm" style="background:var(--b);text-decoration:none;color:#fff">💬 Text</a>`:''} 
+      ${c.email?`<button class="bsm" onclick="showCompose(${c.id})" style="background:var(--o);color:#fff;border:none;cursor:pointer">✉️ Email</button>`:''}
+      ${c.phone?`<button class="bsm" onclick="showCompose(${c.id})" style="background:var(--p);color:#fff;border:none;cursor:pointer">💬 Compose</button>`:''}
     </div>
     <div id="composeArea"></div>
 
@@ -718,18 +718,18 @@ function oP(id){
     <div id="refArea"></div>
     <div id="editArea"></div>
     ${cs}
-    ${(()=>{const cRefs=JR.filter(r=>+r.contactId===+c.id);if(!cRefs.length)return'';return`<div class="pi"><h5 style="color:var(--p)">ð Referral History (${cRefs.length})</h5>${cRefs.map(r=>`<div id="refrow_${r.id}" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--d3);font-size:12px;gap:6px"><div style="flex:1;min-width:0"><span style="font-weight:600">${r.jobName||'Unnamed'}</span><span style="color:var(--g);margin-left:8px">${r.date||''}</span>${r.notes?`<div style=\"color:var(--g);margin-top:2px;font-size:11px\">${r.notes}</div>`:''}</div><span style="padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;${r.status==='completed'?'background:#ffaa0033;color:#ffcc66':r.status==='booked'?'background:#33cc6622;color:var(--gn)':'background:var(--d3);color:var(--g)'}">${r.status==='completed'?'ð Completed':r.status==='booked'?'â Booked':'Referred'}</span><span style="display:flex;gap:2px;align-items:center"><button onclick="editRef(${r.id})" style="background:none;border:none;color:var(--b);cursor:pointer;font-size:13px;padding:2px 4px" title="Edit referral">âï¸</button><button onclick="delRef(${r.id})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:13px;padding:2px 4px" title="Delete referral">ðï¸</button></span></div>`).join('')}</div>`})()}
+    ${(()=>{const cRefs=JR.filter(r=>+r.contactId===+c.id);if(!cRefs.length)return'';return`<div class="pi"><h5 style="color:var(--p)">🎁 Referral History (${cRefs.length})</h5>${cRefs.map(r=>`<div id="refrow_${r.id}" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--d3);font-size:12px;gap:6px"><div style="flex:1;min-width:0"><span style="font-weight:600">${r.jobName||'Unnamed'}</span><span style="color:var(--g);margin-left:8px">${r.date||''}</span>${r.notes?`<div style=\"color:var(--g);margin-top:2px;font-size:11px\">${r.notes}</div>`:''}</div><span style="padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;${r.status==='completed'?'background:#ffaa0033;color:#ffcc66':r.status==='booked'?'background:#33cc6622;color:var(--gn)':'background:var(--d3);color:var(--g)'}">${r.status==='completed'?'🎉 Completed':r.status==='booked'?'✅ Booked':'Referred'}</span><span style="display:flex;gap:2px;align-items:center"><button onclick="editRef(${r.id})" style="background:none;border:none;color:var(--b);cursor:pointer;font-size:13px;padding:2px 4px" title="Edit referral">✏️</button><button onclick="delRef(${r.id})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:13px;padding:2px 4px" title="Delete referral">🗑️</button></span></div>`).join('')}</div>`})()}
     <div class="pi"><h5>Contact Details</h5>
       <div class="pr"><span class="k">Phone</span><span>${phoneLink}</span></div>
       <div class="pr"><span class="k">Email</span><span>${emailLink}</span></div>
-      <div class="pr"><span class="k">Territory</span><span>${c.territory||'â'}</span></div>
-      <div class="pr"><span class="k">Type</span><span>${c.type||'â'}</span></div>
+      <div class="pr"><span class="k">Territory</span><span>${c.territory||'—'}</span></div>
+      <div class="pr"><span class="k">Type</span><span>${c.type||'—'}</span></div>
       ${ti}
-      <div class="pr"><span class="k">Handler</span><span>${(()=>{const h=c.handler||'';const m=String(h).match(/^\{\s*name=([^,}]+)/);return m?m[1].trim():(h||'â')})()}</span></div>
+      <div class="pr"><span class="k">Handler</span><span>${(()=>{const h=c.handler||'';const m=String(h).match(/^\{\s*name=([^,}]+)/);return m?m[1].trim():(h||'—')})()}</span></div>
       <div class="pr"><span class="k">Score</span><span style="color:${s.c}">${s.e} ${s.l}</span></div>
     </div>
     <div style="font-size:12px;font-weight:600;color:var(--b);margin-bottom:9px">Visit History (${cv.length})</div>
-    ${vh||'<div style="color:var(--g);font-size:12px">No visits yet â tap Check-In above</div>'}
+    ${vh||'<div style="color:var(--g);font-size:12px">No visits yet — tap Check-In above</div>'}
   </div>`;
   document.getElementById('ov').classList.add('op');
 }
@@ -737,34 +737,34 @@ function cP(){document.getElementById('ov').classList.remove('op');sQVx();pOpen=
 
 // Quick check-in
 function showQV(id){
-  const today=new Date().toISOString().split('T')[0];document.getElementById('qvArea').innerHTML=`<div class="qf"><h5>ð Quick Check-In</h5><div style="text-align:center;margin-bottom:8px"><button class="mic" id="qM" onclick="tQV()"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="9" y="1" width="6" height="13" rx="3"/><path d="M5 10a7 7 0 0014 0"/><line x1="12" y1="17" x2="12" y2="22"/></svg></button><div id="qVS" style="margin-top:4px;font-size:11px;color:var(--g)">Tap to talk</div></div><div class="fg" style="position:relative"><textarea id="qN" rows="3" placeholder="Visit notes..."></textarea><button type="button" id="qAI" onclick="iQV()" title="Clean up grammar & clarity with AI" style="position:absolute;right:6px;bottom:6px;background:var(--b);color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:11px;font-weight:600;cursor:pointer">â¨ Improve</button></div><div class="fr"><div class="fg"><label>Date</label><input id="qDt" type="date" value="${today}"></div><div class="fg"><label>By</label><select id="qBy">${tmOpts()}</select></div><div class="fg"><label>Reminder</label><input id="qRm" placeholder="Optional"></div></div><div class="fg" style="margin-top:6px"><label style="font-size:12px;color:var(--g)">\u{1F4F8} Photo (optional)</label><input id="qvPhotoFile" type="file" accept="image/*" capture="environment" onchange="qvPhotoFC(this)" style="font-size:12px"><img id="qvPhotoPrev" style="display:none;max-width:200px;max-height:160px;margin-top:6px;border-radius:6px;border:1px solid #444"></div><button class="bs" onclick="sQV(${id})">Save Check-In</button><button class="bc" onclick="document.getElementById('qvArea').innerHTML=''">Cancel</button></div>`;
+  const today=new Date().toISOString().split('T')[0];document.getElementById('qvArea').innerHTML=`<div class="qf"><h5>📝 Quick Check-In</h5><div style="text-align:center;margin-bottom:8px"><button class="mic" id="qM" onclick="tQV()"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="9" y="1" width="6" height="13" rx="3"/><path d="M5 10a7 7 0 0014 0"/><line x1="12" y1="17" x2="12" y2="22"/></svg></button><div id="qVS" style="margin-top:4px;font-size:11px;color:var(--g)">Tap to talk</div></div><div class="fg" style="position:relative"><textarea id="qN" rows="3" placeholder="Visit notes..."></textarea><button type="button" id="qAI" onclick="iQV()" title="Clean up grammar & clarity with AI" style="position:absolute;right:6px;bottom:6px;background:var(--b);color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:11px;font-weight:600;cursor:pointer">✨ Improve</button></div><div class="fr"><div class="fg"><label>Date</label><input id="qDt" type="date" value="${today}"></div><div class="fg"><label>By</label><select id="qBy">${tmOpts()}</select></div><div class="fg"><label>Reminder</label><input id="qRm" placeholder="Optional"></div></div><div class="fg" style="margin-top:6px"><label style="font-size:12px;color:var(--g)">\u{1F4F8} Photo (optional)</label><input id="qvPhotoFile" type="file" accept="image/*" capture="environment" onchange="qvPhotoFC(this)" style="font-size:12px"><img id="qvPhotoPrev" style="display:none;max-width:200px;max-height:160px;margin-top:6px;border-radius:6px;border:1px solid #444"></div><button class="bs" onclick="sQV(${id})">Save Check-In</button><button class="bc" onclick="document.getElementById('qvArea').innerHTML=''">Cancel</button></div>`;
 }
 let qR=null,qO=false;
 function tQV(){if(qO)sQVx();else{const S=window.SpeechRecognition||window.webkitSpeechRecognition;if(!S){tt('Voice not supported','er');return}qR=new S();qR.continuous=true;qR.interimResults=false;qR.lang='en-US';qO=true;document.getElementById('qM').classList.add('rc');document.getElementById('qVS').innerHTML='<div class="lb"><span class="ld2"></span><span style="color:var(--p);font-weight:600">Listening...</span></div>';qR.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal){document.getElementById('qN').value+=e.results[i][0].transcript+' '}}};qR.onerror=ev=>{if(ev.error==='no-speech'||ev.error==='aborted')return;if(qO){try{qR.start()}catch(x){sQVx()}}};qR.onend=()=>{if(qO){try{qR.start()}catch(x){sQVx()}}};qR.start()}}
-function sQVx(){qO=false;if(qR)try{qR.stop()}catch(e){}const m=document.getElementById('qM');if(m)m.classList.remove('rc');const s=document.getElementById('qVS');if(s)s.innerHTML='<span style="color:var(--gn)">â Done</span>'}
-async function sQV(cid){const n=document.getElementById('qN').value,by=document.getElementById('qBy').value,rm=document.getElementById('qRm').value;if(!n){tt('Add notes','er');return}tt('Saving...','ok');try{await aP({action:'addVisit',visit:{contactId:+cid,handler:by,date:(document.getElementById('qDt')?document.getElementById('qDt').value:null)||new Date().toISOString().split('T')[0],notes:n,photo:qvPhotoData||''}});qvPhotoClear();if(rm)await aP({action:'addReminder',reminder:{contactId:+cid,text:rm}});tt('â Saved!','ok');cP();await load()}catch(e){tt('Error','er')}}
-async function iQV(){const ta=document.getElementById('qN');const btn=document.getElementById('qAI');const raw=(ta&&ta.value||'').trim();if(!raw){tt('Add notes first','er');return}const original=raw;const origLabel=btn.innerHTML;btn.disabled=true;btn.innerHTML='â¦ thinking';try{const r=await aP({action:'improveNotes',text:raw});if(r&&r.improved){ta.value=r.improved;tt('â¨ Improved (Ctrl+Z to undo)','ok')}else if(r&&r.error){tt('AI error','er');console.warn(r.error)}else{tt('No change','er')}}catch(e){tt('AI error','er');console.warn(e);ta.value=original}finally{btn.disabled=false;btn.innerHTML=origLabel}}
+function sQVx(){qO=false;if(qR)try{qR.stop()}catch(e){}const m=document.getElementById('qM');if(m)m.classList.remove('rc');const s=document.getElementById('qVS');if(s)s.innerHTML='<span style="color:var(--gn)">✓ Done</span>'}
+async function sQV(cid){const n=document.getElementById('qN').value,by=document.getElementById('qBy').value,rm=document.getElementById('qRm').value;if(!n){tt('Add notes','er');return}tt('Saving...','ok');try{await aP({action:'addVisit',visit:{contactId:+cid,handler:by,date:(document.getElementById('qDt')?document.getElementById('qDt').value:null)||new Date().toISOString().split('T')[0],notes:n,photo:qvPhotoData||''}});qvPhotoClear();if(rm)await aP({action:'addReminder',reminder:{contactId:+cid,text:rm}});tt('✅ Saved!','ok');cP();await load()}catch(e){tt('Error','er')}}
+async function iQV(){const ta=document.getElementById('qN');const btn=document.getElementById('qAI');const raw=(ta&&ta.value||'').trim();if(!raw){tt('Add notes first','er');return}const original=raw;const origLabel=btn.innerHTML;btn.disabled=true;btn.innerHTML='… thinking';try{const r=await aP({action:'improveNotes',text:raw});if(r&&r.improved){ta.value=r.improved;tt('✨ Improved (Ctrl+Z to undo)','ok')}else if(r&&r.error){tt('AI error','er');console.warn(r.error)}else{tt('No change','er')}}catch(e){tt('AI error','er');console.warn(e);ta.value=original}finally{btn.disabled=false;btn.innerHTML=origLabel}}
 
 
 // Add reminder from profile
 function showAddRem(id){
-  document.getElementById('remArea').innerHTML=`<div class="rs" style="border-style:solid;border-color:var(--b)"><h5 style="color:var(--b)">ð Add Reminder</h5><div class="fg" style="display:flex;gap:6px;align-items:stretch"><input id="newRem" placeholder="e.g. Drop off flyers next Tuesday at 3pm" style="flex:1"><button id="remMicB" type="button" onclick="tRV()" style="padding:0 14px;background:var(--p);color:white;border:none;border-radius:6px;cursor:pointer;font-size:18px" title="Dictate">ð¤</button></div><button id="remAiB" type="button" onclick="aiR(${id})" style="width:100%;padding:8px;background:transparent;color:var(--b);border:1px solid var(--b);border-radius:6px;cursor:pointer;margin-bottom:8px;font-size:13px">ð¤ AI Fill Date/Time/Assignee from text</button><div class="fr"><div class="fg"><label>Due Date</label><input id="remDue" type="date"><div style="margin-top:4px"><label>Time (optional)</label><input id="remTime" type="time" placeholder="3:00 PM"></div></div><div class="fg"><label>Assign To</label><select id="remAssign">${tmOpts()}</select></div></div><div class="fr"><div class="fg"><label>Email Notify?</label><select id="remNotify"><option value="yes">Yes â on due date</option><option value="no">No</option></select></div><div class="fg"><label>Type</label><select id="remType"><option>Follow-up</option><option>Drop-off</option><option>Call back</option><option>Send info</option><option>Gift/Reward</option><option>Other</option></select></div></div><button class="bs" onclick="saveRem(${id})">Save Reminder</button><button class="bc" onclick="document.getElementById('remArea').innerHTML=''">Cancel</button></div>`;
+  document.getElementById('remArea').innerHTML=`<div class="rs" style="border-style:solid;border-color:var(--b)"><h5 style="color:var(--b)">📌 Add Reminder</h5><div class="fg" style="display:flex;gap:6px;align-items:stretch"><input id="newRem" placeholder="e.g. Drop off flyers next Tuesday at 3pm" style="flex:1"><button id="remMicB" type="button" onclick="tRV()" style="padding:0 14px;background:var(--p);color:white;border:none;border-radius:6px;cursor:pointer;font-size:18px" title="Dictate">🎤</button></div><button id="remAiB" type="button" onclick="aiR(${id})" style="width:100%;padding:8px;background:transparent;color:var(--b);border:1px solid var(--b);border-radius:6px;cursor:pointer;margin-bottom:8px;font-size:13px">🤖 AI Fill Date/Time/Assignee from text</button><div class="fr"><div class="fg"><label>Due Date</label><input id="remDue" type="date"><div style="margin-top:4px"><label>Time (optional)</label><input id="remTime" type="time" placeholder="3:00 PM"></div></div><div class="fg"><label>Assign To</label><select id="remAssign">${tmOpts()}</select></div></div><div class="fr"><div class="fg"><label>Email Notify?</label><select id="remNotify"><option value="yes">Yes — on due date</option><option value="no">No</option></select></div><div class="fg"><label>Type</label><select id="remType"><option>Follow-up</option><option>Drop-off</option><option>Call back</option><option>Send info</option><option>Gift/Reward</option><option>Other</option></select></div></div><button class="bs" onclick="saveRem(${id})">Save Reminder</button><button class="bc" onclick="document.getElementById('remArea').innerHTML=''">Cancel</button></div>`;
 }
 let rRR=null,rRO=false;
 function tRV(){if(rRO){rRO=false;if(rRR)try{rRR.stop()}catch(e){}return}const S=window.SpeechRecognition||window.webkitSpeechRecognition;if(!S){tt('Voice not supported','er');return}rRR=new S();rRR.continuous=true;rRR.interimResults=false;rRR.lang='en-US';rRO=true;const mb=document.getElementById('remMicB');if(mb)mb.style.background='#ff3366';rRR.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal){const inp=document.getElementById('newRem');if(inp)inp.value+=(inp.value?' ':'')+e.results[i][0].transcript}}};rRR.onerror=ev=>{if(ev.error==='no-speech'||ev.error==='aborted')return;rRO=false;const m=document.getElementById('remMicB');if(m)m.style.background='var(--p)'};rRR.onend=()=>{if(rRO){try{rRR.start()}catch(e){rRO=false;const m=document.getElementById('remMicB');if(m)m.style.background='var(--p)'}}else{const m=document.getElementById('remMicB');if(m)m.style.background='var(--p)'}};rRR.start()}
-async function aiR(cid){const t=(document.getElementById('newRem')||{}).value;if(!t||t.length<3){tt('Type or dictate first','er');return}const b=document.getElementById('remAiB');b.textContent='ð¤ Parsing...';b.disabled=true;const today=new Date().toISOString().split('T')[0];const team=(TEAM&&TEAM.length?TEAM.map(x=>x.name):['Dane','Jeff','Tyler','Valentina']).join(', ');try{const prompt='Today is '+today+'. Extract reminder details from this note. Return ONLY valid JSON with these keys: text (short task description), dueDate (YYYY-MM-DD or empty), dueTime (HH:MM 24-hour or empty), assignedTo (one of: '+team+' or empty), type (one of: Follow-up, Drop-off, Call back, Send info, Gift/Reward, Other). Resolve relative dates like "next Tuesday" or "tomorrow" relative to today. Note: "'+t+'"';const r=await ai(prompt);const cleaned=r.replace(/```json|```/g,'').trim();const j=JSON.parse(cleaned);if(j.text)document.getElementById('newRem').value=j.text;if(j.dueDate)document.getElementById('remDue').value=j.dueDate;if(j.dueTime)document.getElementById('remTime').value=j.dueTime;if(j.assignedTo){const s=document.getElementById('remAssign');for(let i=0;i<s.options.length;i++)if(s.options[i].value===j.assignedTo||s.options[i].text===j.assignedTo)s.selectedIndex=i}if(j.type){const s=document.getElementById('remType');for(let i=0;i<s.options.length;i++)if(s.options[i].text===j.type)s.selectedIndex=i}tt('â Reminder filled!','ok')}catch(e){tt('AI failed: '+e.message,'er')}b.textContent='ð¤ AI Fill Date/Time/Assignee from text';b.disabled=false}
+async function aiR(cid){const t=(document.getElementById('newRem')||{}).value;if(!t||t.length<3){tt('Type or dictate first','er');return}const b=document.getElementById('remAiB');b.textContent='🤖 Parsing...';b.disabled=true;const today=new Date().toISOString().split('T')[0];const team=(TEAM&&TEAM.length?TEAM.map(x=>x.name):['Dane','Jeff','Tyler','Valentina']).join(', ');try{const prompt='Today is '+today+'. Extract reminder details from this note. Return ONLY valid JSON with these keys: text (short task description), dueDate (YYYY-MM-DD or empty), dueTime (HH:MM 24-hour or empty), assignedTo (one of: '+team+' or empty), type (one of: Follow-up, Drop-off, Call back, Send info, Gift/Reward, Other). Resolve relative dates like "next Tuesday" or "tomorrow" relative to today. Note: "'+t+'"';const r=await ai(prompt);const cleaned=r.replace(/```json|```/g,'').trim();const j=JSON.parse(cleaned);if(j.text)document.getElementById('newRem').value=j.text;if(j.dueDate)document.getElementById('remDue').value=j.dueDate;if(j.dueTime)document.getElementById('remTime').value=j.dueTime;if(j.assignedTo){const s=document.getElementById('remAssign');for(let i=0;i<s.options.length;i++)if(s.options[i].value===j.assignedTo||s.options[i].text===j.assignedTo)s.selectedIndex=i}if(j.type){const s=document.getElementById('remType');for(let i=0;i<s.options.length;i++)if(s.options[i].text===j.type)s.selectedIndex=i}tt('✅ Reminder filled!','ok')}catch(e){tt('AI failed: '+e.message,'er')}b.textContent='🤖 AI Fill Date/Time/Assignee from text';b.disabled=false}
 async function saveRem(cid){const t=document.getElementById('newRem').value;if(!t){tt('Enter reminder','er');return}const due=document.getElementById('remDue')?document.getElementById('remDue').value:'';const remTime=document.getElementById('remTime')?document.getElementById('remTime').value:'';const assign=document.getElementById('remAssign')?document.getElementById('remAssign').value:'';const notify=document.getElementById('remNotify')?document.getElementById('remNotify').value:'no';const dueWithTime=due&&remTime?due+'T'+remTime:due;tt('Saving...','ok');
   // Create calendar event if due date is set
   // Google Calendar popup removed in v28
-  try{await aP({action:'addReminder',reminder:{contactId:+cid,text:t+(remTime?' @ '+remTime:''),dueDate:due,assignedTo:assign,notifyEmail:notify}});tt('â Reminder saved','ok');cP();await load()}catch(e){tt('Error','er')}}
-async function compRem(rid){tt('Completing...','ok');try{await aP({action:'updateReminder',reminder:{id:rid,status:'completed'}});tt('â Done!','ok');cP();await load()}catch(e){tt('Error','er')}}
+  try{await aP({action:'addReminder',reminder:{contactId:+cid,text:t+(remTime?' @ '+remTime:''),dueDate:due,assignedTo:assign,notifyEmail:notify}});tt('✅ Reminder saved','ok');cP();await load()}catch(e){tt('Error','er')}}
+async function compRem(rid){tt('Completing...','ok');try{await aP({action:'updateReminder',reminder:{id:rid,status:'completed'}});tt('✅ Done!','ok');cP();await load()}catch(e){tt('Error','er')}}
 
 // Add referral from profile
 function showAddRef(id,name){
   const today=new Date().toISOString().split('T')[0];
-  document.getElementById('refArea').innerHTML=`<div class="pi" style="border:1px solid var(--p)"><h5 style="color:var(--p)">ð Log Referral from ${name}</h5>
+  document.getElementById('refArea').innerHTML=`<div class="pi" style="border:1px solid var(--p)"><h5 style="color:var(--p)">🎁 Log Referral from ${name}</h5>
     <div class="fg"><label>Job Name / Customer</label><input id="refJob" placeholder="e.g. Smith Family Move, Johnson Junk Removal"></div>
-    <div class="fr"><div class="fg"><label>Status</label><select id="refSt"><option value="referred">Referred</option><option value="booked">Booked</option><option value="completed">Completed â</option></select></div><div class="fg"><label>Date</label><input id="refDt" type="date" value="${today}"></div></div>
+    <div class="fr"><div class="fg"><label>Status</label><select id="refSt"><option value="referred">Referred</option><option value="booked">Booked</option><option value="completed">Completed ✅</option></select></div><div class="fg"><label>Date</label><input id="refDt" type="date" value="${today}"></div></div>
     <div class="fr"><div class="fg"><label>Revenue ($)</label><input id="refAmt" type="number" step="0.01" placeholder="0.00"></div><div class="fg"><label>Entered By</label><select id="refBy">${tmOpts()}</select></div></div>
     <div class="fg"><label>Notes</label><input id="refNt" placeholder="Optional"></div>
     <button class="bs" onclick="saveRef(${id},'${name.replace(/'/g,"\\'")}')">Save Referral</button><button class="bc" onclick="document.getElementById('refArea').innerHTML=''">Cancel</button></div>`;
@@ -773,17 +773,17 @@ async function saveRef(cid,name){
   const job=document.getElementById('refJob').value;
   if(!job){tt('Enter job name','er');return}
   tt('Saving...','ok');
-  try{await aP({action:'addReferral',referral:{contactId:cid,contactName:name,jobName:job,status:document.getElementById('refSt').value,date:document.getElementById('refDt').value,amount:+document.getElementById('refAmt').value||0,enteredBy:document.getElementById('refBy').value,notes:document.getElementById('refNt').value}});tt('â Referral logged!','ok');cP();await load()}catch(e){tt('Error: '+e.message,'er')}
+  try{await aP({action:'addReferral',referral:{contactId:cid,contactName:name,jobName:job,status:document.getElementById('refSt').value,date:document.getElementById('refDt').value,amount:+document.getElementById('refAmt').value||0,enteredBy:document.getElementById('refBy').value,notes:document.getElementById('refNt').value}});tt('✅ Referral logged!','ok');cP();await load()}catch(e){tt('Error: '+e.message,'er')}
 }
 
-async function delRem(rid){tt('Removing...','ok');try{await aP({action:'deleteReminder',id:rid});tt('â Removed','ok');cP();await load()}catch(e){tt('Error','er')}}
+async function delRem(rid){tt('Removing...','ok');try{await aP({action:'deleteReminder',id:rid});tt('✅ Removed','ok');cP();await load()}catch(e){tt('Error','er')}}
 
 // Edit contact
 let eProfileData=undefined,eCardData=undefined;
 function showEdit(id){
   const c=D.find(x=>+x.id===+id);if(!c)return;
   eProfileData=undefined;eCardData=undefined;
-  document.getElementById('editArea').innerHTML=`<div class="ef"><h5>âï¸ Edit Contact</h5>
+  document.getElementById('editArea').innerHTML=`<div class="ef"><h5>✏️ Edit Contact</h5>
     <div class="fr"><div class="fg"><label>Name</label><input id="eNm" value="${c.name||''}"></div><div class="fg"><label>Role</label><input id="eRl" value="${c.role||''}"></div></div>
     <div class="fg"><label>Business</label><input id="eBz" value="${c.business||''}"></div>
     <div class="fr"><div class="fg"><label>Phone</label><input id="ePh" value="${c.phone||''}"></div><div class="fg"><label>Email</label><input id="eEm" value="${c.email||''}"></div></div>
@@ -799,9 +799,9 @@ async function saveEdit(id){
   const patch={id,name:document.getElementById('eNm').value,role:document.getElementById('eRl').value,business:document.getElementById('eBz').value,phone:document.getElementById('ePh').value,email:document.getElementById('eEm').value,territory:document.getElementById('eTr').value,type:document.getElementById('eTy').value,handler:document.getElementById('eBy').value,score:+document.getElementById('eSc').value,tier:document.getElementById('eTi').value,referrals:+document.getElementById('eRef').value,notes:document.getElementById('eNt').value};
   if(eProfileData!==undefined)patch.profilePic=eProfileData;
   if(eCardData!==undefined)patch.cardImage=eCardData;
-  try{await aP({action:'updateContact',contact:patch});tt('â Updated!','ok');cP();await load()}catch(e){tt('Error','er')}
+  try{await aP({action:'updateContact',contact:patch});tt('✅ Updated!','ok');cP();await load()}catch(e){tt('Error','er')}
 }
-async function delContact(id){tt('Deleting...','ok');try{await aP({action:'deleteContact',id});tt('â Deleted','ok');cP();await load()}catch(e){tt('Error','er')}}
+async function delContact(id){tt('Deleting...','ok');try{await aP({action:'deleteContact',id});tt('✅ Deleted','ok');cP();await load()}catch(e){tt('Error','er')}}
 // Edit form photo readers
 let qvPhotoData=undefined;
 function qvPhotoFC(inp){const f=inp.files&&inp.files[0];if(!f)return;const r=new FileReader();r.onload=async e=>{try{qvPhotoData=await _resizeImg(e.target.result,800,0.72);const p=document.getElementById('qvPhotoPrev');if(p){p.src=qvPhotoData;p.style.display='block'}}catch(er){tt('Photo read error','er')}};r.readAsDataURL(f)}
@@ -846,12 +846,12 @@ async function saveVisitEdit(id){
   const date=document.getElementById('veDt_'+id).value;
   const handler=document.getElementById('veBy_'+id).value;
   tt('Saving...','ok');
-  try{await aP({action:'updateVisit',visit:{id,notes,date,handler}});const idx=V.findIndex(x=>+x.id===+id);if(idx>=0)Object.assign(V[idx],{notes,date,handler});tt('â Visit updated','ok');if(pOpen)oP(pOpen);else ren()}catch(e){tt('Error: '+e.message,'er')}
+  try{await aP({action:'updateVisit',visit:{id,notes,date,handler}});const idx=V.findIndex(x=>+x.id===+id);if(idx>=0)Object.assign(V[idx],{notes,date,handler});tt('✅ Visit updated','ok');if(pOpen)oP(pOpen);else ren()}catch(e){tt('Error: '+e.message,'er')}
 }
 async function delVisit(id,cid){
   if(!confirm('Delete this visit? This cannot be undone.'))return;
   tt('Deleting...','ok');
-  try{await aP({action:'deleteVisit',id});const idx=V.findIndex(x=>+x.id===+id);if(idx>=0)V.splice(idx,1);tt('â Visit deleted','ok');if(pOpen)oP(pOpen);else ren()}catch(e){tt('Error: '+e.message,'er')}
+  try{await aP({action:'deleteVisit',id});const idx=V.findIndex(x=>+x.id===+id);if(idx>=0)V.splice(idx,1);tt('✅ Visit deleted','ok');if(pOpen)oP(pOpen);else ren()}catch(e){tt('Error: '+e.message,'er')}
 }
 // Referral edit / delete
 function editRef(id){
@@ -869,16 +869,16 @@ async function saveRefEdit(id){
   const status=document.getElementById('reSt_'+id).value;
   const notes=document.getElementById('reN_'+id).value;
   tt('Saving...','ok');
-  try{const amount=+document.getElementById('reA_'+id).value||0;await aP({action:'updateReferral',referral:{id,jobName,date,status,notes,amount}});const idx=JR.findIndex(x=>+x.id===+id);if(idx>=0)Object.assign(JR[idx],{jobName,date,status,notes,amount});tt('â Referral updated','ok');if(pOpen)oP(pOpen);else ren()}catch(e){tt('Error: '+e.message,'er')}
+  try{const amount=+document.getElementById('reA_'+id).value||0;await aP({action:'updateReferral',referral:{id,jobName,date,status,notes,amount}});const idx=JR.findIndex(x=>+x.id===+id);if(idx>=0)Object.assign(JR[idx],{jobName,date,status,notes,amount});tt('✅ Referral updated','ok');if(pOpen)oP(pOpen);else ren()}catch(e){tt('Error: '+e.message,'er')}
 }
 async function delRef(id){
   if(!confirm('Delete this referral? This cannot be undone.'))return;
   tt('Deleting...','ok');
-  try{await aP({action:'deleteReferral',id});const idx=JR.findIndex(x=>+x.id===+id);if(idx>=0)JR.splice(idx,1);tt('â Referral deleted','ok');if(pOpen)oP(pOpen);else ren()}catch(e){tt('Error: '+e.message,'er')}
+  try{await aP({action:'deleteReferral',id});const idx=JR.findIndex(x=>+x.id===+id);if(idx>=0)JR.splice(idx,1);tt('✅ Referral deleted','ok');if(pOpen)oP(pOpen);else ren()}catch(e){tt('Error: '+e.message,'er')}
 }
 
 
-// âââ LOG IT âââââ
+// ─── LOG IT ─────
 let lR=null,lO2=false,lI=null,lCS=null,lMI=null;
 function openLog(){document.getElementById('lO').classList.add('op');lMI=null;lI=null;rL()}
 function cL(){document.getElementById('lO').classList.remove('op');sLVx();sLC()}
@@ -888,18 +888,18 @@ function rL(){
     <div style="text-align:center;margin-bottom:4px;color:var(--g);font-size:13px">Talk, snap a card, or type</div>
     <div style="text-align:center;margin:12px 0 4px"><button class="mic" id="lM" onclick="tLV()"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="9" y="1" width="6" height="13" rx="3"/><path d="M5 10a7 7 0 0014 0"/><line x1="12" y1="17" x2="12" y2="22"/></svg></button><div id="lVS" style="margin-top:5px;font-size:11px;color:var(--g)">Tap to talk</div></div>
     <div class="fg"><label>Notes / Transcript</label><textarea id="lN" rows="3" placeholder="Tap mic or type..."></textarea></div>
-    <div style="display:flex;gap:8px;margin-bottom:4px"><button class="bsm" style="background:var(--b)" id="aiPB" onclick="aiP()">ð¤ AI Fill Form</button><span style="font-size:10px;color:var(--g);align-self:center">Reads notes â fills fields</span></div>
-    <div style="margin:10px 0"><label style="font-size:11px;color:var(--g);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:6px">ð· Business Card</label>
-      <div id="lCA"><div style="display:flex;gap:8px"><button class="bsm" onclick="sLCam()">ð· Photo</button><button class="bsm" onclick="document.getElementById('lFI').click()">ð Upload</button><input type="file" id="lFI" accept="image/*" style="display:none" onchange="hLU(event)"></div></div>
+    <div style="display:flex;gap:8px;margin-bottom:4px"><button class="bsm" style="background:var(--b)" id="aiPB" onclick="aiP()">🤖 AI Fill Form</button><span style="font-size:10px;color:var(--g);align-self:center">Reads notes → fills fields</span></div>
+    <div style="margin:10px 0"><label style="font-size:11px;color:var(--g);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:6px">📷 Business Card</label>
+      <div id="lCA"><div style="display:flex;gap:8px"><button class="bsm" onclick="sLCam()">📷 Photo</button><button class="bsm" onclick="document.getElementById('lFI').click()">📁 Upload</button><input type="file" id="lFI" accept="image/*" style="display:none" onchange="hLU(event)"></div></div>
       <div id="lCP"></div>
-      <div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap"><button class="bsm" style="background:var(--b);display:none" id="aiCB" onclick="aiC()">ð¤ AI Read Card</button><button class="bsm" style="background:#22aee4;display:none" id="aiCropB" onclick="aiCrop()">âï¸ Auto-Crop</button><div id="lAvatarPrev" style="display:none;width:48px;height:48px;border-radius:50%;background-size:cover;background-position:center;border:2px solid var(--gn)" title="Avatar from card"></div></div>
+      <div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap"><button class="bsm" style="background:var(--b);display:none" id="aiCB" onclick="aiC()">🤖 AI Read Card</button><button class="bsm" style="background:#22aee4;display:none" id="aiCropB" onclick="aiCrop()">✂️ Auto-Crop</button><div id="lAvatarPrev" style="display:none;width:48px;height:48px;border-radius:50%;background-size:cover;background-position:center;border:2px solid var(--gn)" title="Avatar from card"></div></div>
     </div>
     <div class="fg"><label>Contact Name</label><input id="lNm" placeholder="e.g. Steve" oninput="chk()"></div>
     <div id="mA"></div>
     <div class="fg"><label>Business</label><input id="lBz" placeholder="e.g. Money Saver"></div>
     <div class="fr"><div class="fg"><label>Role</label><input id="lRl" placeholder="e.g. Manager"></div><div class="fg"><label>Phone</label><input id="lPh" placeholder="360-555-0000"></div></div>
     <div class="fr"><div class="fg"><label>Email</label><input id="lEm" placeholder="email"></div><div class="fg"><label>Territory</label><select id="lTr">${TR.slice(1).map(t=>`<option>${t}</option>`).join('')}</select></div></div>
-    <div class="fr"><div class="fg"><label>Type</label><select id="lTy">${TY.map(t=>`<option>${t}</option>`).join('')}</select></div><div class="fg"><label>Score</label><select id="lSc"><option value="3">ð New</option><option value="2">âï¸ Cool</option><option value="1">âï¸ Warm</option><option value="0">ð¥ Hot</option></select></div></div>
+    <div class="fr"><div class="fg"><label>Type</label><select id="lTy">${TY.map(t=>`<option>${t}</option>`).join('')}</select></div><div class="fg"><label>Score</label><select id="lSc"><option value="3">🆕 New</option><option value="2">❄️ Cool</option><option value="1">☀️ Warm</option><option value="0">🔥 Hot</option></select></div></div>
     <div class="fr"><div class="fg"><label>Visit Date</label><input id="lDt" type="date" value="${lTd}"></div><div class="fg"><label>By</label><select id="lBy">${tmOpts()}</select></div><div class="fg"><label>Tier</label><select id="lTi">${TI.map(t=>`<option>${t}</option>`).join('')}</select></div></div>
     <div class="fg"><label>Reminder</label><input id="lRm" placeholder="Optional" oninput="document.getElementById('lRmExtra').style.display=this.value?'block':'none'"></div><div id="lRmExtra" style="display:none"><div class="fr"><div class="fg"><label>Remind Date</label><input id="lRmDate" type="date"></div><div class="fg"><label>Time</label><input id="lRmTime" type="time"></div></div></div>
     <button class="bs" id="lSB" onclick="sL()">Save New Contact + Visit</button>
@@ -908,21 +908,21 @@ function rL(){
 
 // Voice
 function tLV(){if(lO2)sLVx();else{const S=window.SpeechRecognition||window.webkitSpeechRecognition;if(!S){tt('Not supported','er');return}lR=new S();lR.continuous=true;lR.interimResults=false;lR.lang='en-US';lO2=true;document.getElementById('lM').classList.add('rc');document.getElementById('lVS').innerHTML='<div class="lb"><span class="ld2"></span><span style="color:var(--p);font-weight:600">Listening...</span></div>';lR.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal){document.getElementById('lN').value+=e.results[i][0].transcript+' '}}};lR.onerror=ev=>{if(ev.error==='no-speech'||ev.error==='aborted')return;if(lO2){try{lR.start()}catch(x){sLVx()}}};lR.onend=()=>{if(lO2){try{lR.start()}catch(x){sLVx()}}};lR.start()}}
-function sLVx(){lO2=false;if(lR)try{lR.stop()}catch(e){}const m=document.getElementById('lM');if(m)m.classList.remove('rc');const s=document.getElementById('lVS');if(s)s.innerHTML='<span style="color:var(--gn)">â Tap AI Fill Form</span>'}
+function sLVx(){lO2=false;if(lR)try{lR.stop()}catch(e){}const m=document.getElementById('lM');if(m)m.classList.remove('rc');const s=document.getElementById('lVS');if(s)s.innerHTML='<span style="color:var(--gn)">✓ Tap AI Fill Form</span>'}
 
 // AI Parse
-async function aiP(){const n=document.getElementById('lN').value;if(!n||n.length<5){tt('Talk or type more','er');return}const b=document.getElementById('aiPB');b.textContent='ð¤ Parsing...';b.disabled=true;try{const r=await ai(`Extract contact info from this moving company sales rep note. Return ONLY valid JSON: {"name":"","business":"","role":"","phone":"","email":"","territory":"","type":"","score":"","notes":"","reminder":"","tier":""}
+async function aiP(){const n=document.getElementById('lN').value;if(!n||n.length<5){tt('Talk or type more','er');return}const b=document.getElementById('aiPB');b.textContent='🤖 Parsing...';b.disabled=true;try{const r=await ai(`Extract contact info from this moving company sales rep note. Return ONLY valid JSON: {"name":"","business":"","role":"","phone":"","email":"","territory":"","type":"","score":"","notes":"","reminder":"","tier":""}
 Territory: ${TR.slice(1).join(', ')}
 Type: ${TY.join(', ')}
 Score: Hot, Warm, Cool, or New.
-Tier: â, Tier 1, Tier 2, Tier 3, or Tier 4.
-Note: "${n}"`);const j=JSON.parse(r.replace(/```json|```/g,'').trim());if(j.name)document.getElementById('lNm').value=j.name;if(j.business)document.getElementById('lBz').value=j.business;if(j.role)document.getElementById('lRl').value=j.role;if(j.phone)document.getElementById('lPh').value=j.phone;if(j.email)document.getElementById('lEm').value=j.email;if(j.territory){const s=document.getElementById('lTr');for(let i=0;i<s.options.length;i++)if(s.options[i].value===j.territory)s.selectedIndex=i}if(j.type){const s=document.getElementById('lTy');for(let i=0;i<s.options.length;i++)if(s.options[i].value===j.type)s.selectedIndex=i}if(j.score){const m2={'Hot':'0','Warm':'1','Cool':'2','New':'3'},v=m2[j.score];if(v){const s=document.getElementById('lSc');for(let i=0;i<s.options.length;i++)if(s.options[i].value===v)s.selectedIndex=i}}if(j.reminder)document.getElementById('lRm').value=j.reminder;if(j.tier){const s=document.getElementById('lTi');for(let i=0;i<s.options.length;i++)if(s.options[i].text===j.tier||s.options[i].value===j.tier)s.selectedIndex=i}chk();tt('â Form filled!','ok')}catch(e){tt('AI failed: '+e.message,'er')}b.textContent='ð¤ AI Fill Form';b.disabled=false}
+Tier: —, Tier 1, Tier 2, Tier 3, or Tier 4.
+Note: "${n}"`);const j=JSON.parse(r.replace(/```json|```/g,'').trim());if(j.name)document.getElementById('lNm').value=j.name;if(j.business)document.getElementById('lBz').value=j.business;if(j.role)document.getElementById('lRl').value=j.role;if(j.phone)document.getElementById('lPh').value=j.phone;if(j.email)document.getElementById('lEm').value=j.email;if(j.territory){const s=document.getElementById('lTr');for(let i=0;i<s.options.length;i++)if(s.options[i].value===j.territory)s.selectedIndex=i}if(j.type){const s=document.getElementById('lTy');for(let i=0;i<s.options.length;i++)if(s.options[i].value===j.type)s.selectedIndex=i}if(j.score){const m2={'Hot':'0','Warm':'1','Cool':'2','New':'3'},v=m2[j.score];if(v){const s=document.getElementById('lSc');for(let i=0;i<s.options.length;i++)if(s.options[i].value===v)s.selectedIndex=i}}if(j.reminder)document.getElementById('lRm').value=j.reminder;if(j.tier){const s=document.getElementById('lTi');for(let i=0;i<s.options.length;i++)if(s.options[i].text===j.tier||s.options[i].value===j.tier)s.selectedIndex=i}chk();tt('✅ Form filled!','ok')}catch(e){tt('AI failed: '+e.message,'er')}b.textContent='🤖 AI Fill Form';b.disabled=false}
 
 // Camera
 function sLC(){if(lCS){lCS.getTracks().forEach(t=>t.stop());lCS=null}}
-async function sLCam(){document.getElementById('lCA').innerHTML=`<div style="position:relative"><video id="lVd" autoplay playsinline style="width:100%;border-radius:8px;background:#000;cursor:pointer;display:block" onclick="cLP()"></video><canvas id="lCn" style="display:none"></canvas><div id="lAS" style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.7);color:#fff;padding:6px 10px;border-radius:6px;font-size:12px;pointer-events:none">ð· Hold steady â tap to capture</div><div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,0.85));padding:30px 16px 16px;border-radius:0 0 8px 8px;pointer-events:none"><button onclick="cLP()" style="width:100%;padding:14px;background:#22aee4;color:white;border:none;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;pointer-events:auto">ð¸ Capture</button></div></div>`;try{lCS=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080}}});document.getElementById('lVd').srcObject=lCS;startAutoCapture()}catch(e){tt('Camera unavailable','er');rLCB()}}
+async function sLCam(){document.getElementById('lCA').innerHTML=`<div style="position:relative"><video id="lVd" autoplay playsinline style="width:100%;border-radius:8px;background:#000;cursor:pointer;display:block" onclick="cLP()"></video><canvas id="lCn" style="display:none"></canvas><div id="lAS" style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.7);color:#fff;padding:6px 10px;border-radius:6px;font-size:12px;pointer-events:none">📷 Hold steady — tap to capture</div><div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,0.85));padding:30px 16px 16px;border-radius:0 0 8px 8px;pointer-events:none"><button onclick="cLP()" style="width:100%;padding:14px;background:#22aee4;color:white;border:none;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;pointer-events:auto">📸 Capture</button></div></div>`;try{lCS=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080}}});document.getElementById('lVd').srcObject=lCS;startAutoCapture()}catch(e){tt('Camera unavailable','er');rLCB()}}
 let _acTimer=null,_acPrev=null,_acStill=0;
-function startAutoCapture(){stopAutoCapture();const v=document.getElementById('lVd');const tmp=document.createElement('canvas');tmp.width=64;tmp.height=48;const ctx=tmp.getContext('2d');_acStill=0;_acPrev=null;_acTimer=setInterval(()=>{if(!v||!v.videoWidth)return;try{ctx.drawImage(v,0,0,64,48);const data=ctx.getImageData(0,0,64,48).data;if(_acPrev){let diff=0;for(let i=0;i<data.length;i+=16){diff+=Math.abs(data[i]-_acPrev[i])}const avg=diff/(data.length/16);const status=document.getElementById('lAS');if(avg<6){_acStill++;if(status)status.textContent='ð· Holding still... '+_acStill+'/5';if(_acStill>=5){stopAutoCapture();if(status)status.textContent='â¨ Auto-capturing!';cLP()}}else{_acStill=0;if(status)status.textContent='ð· Hold steady â tap to capture'}}_acPrev=new Uint8ClampedArray(data)}catch(e){}},200)}
+function startAutoCapture(){stopAutoCapture();const v=document.getElementById('lVd');const tmp=document.createElement('canvas');tmp.width=64;tmp.height=48;const ctx=tmp.getContext('2d');_acStill=0;_acPrev=null;_acTimer=setInterval(()=>{if(!v||!v.videoWidth)return;try{ctx.drawImage(v,0,0,64,48);const data=ctx.getImageData(0,0,64,48).data;if(_acPrev){let diff=0;for(let i=0;i<data.length;i+=16){diff+=Math.abs(data[i]-_acPrev[i])}const avg=diff/(data.length/16);const status=document.getElementById('lAS');if(avg<6){_acStill++;if(status)status.textContent='📷 Holding still... '+_acStill+'/5';if(_acStill>=5){stopAutoCapture();if(status)status.textContent='✨ Auto-capturing!';cLP()}}else{_acStill=0;if(status)status.textContent='📷 Hold steady — tap to capture'}}_acPrev=new Uint8ClampedArray(data)}catch(e){}},200)}
 function stopAutoCapture(){if(_acTimer){clearInterval(_acTimer);_acTimer=null}_acPrev=null;_acStill=0}
 function cLP(){if(typeof stopAutoCapture==='function')stopAutoCapture();const v=document.getElementById('lVd'),c=document.getElementById('lCn');if(!v||!v.videoWidth){tt('Camera not ready','er');return}c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);lI=c.toDataURL('image/jpeg',.8);sLC();rLCB();document.getElementById('lCP').innerHTML=`<img src="${lI}" style="width:100%;max-width:280px;border-radius:8px;border:2px solid var(--b);margin-top:8px">`;document.getElementById('aiCB').style.display='inline-block';const _cb=document.getElementById('aiCropB');if(_cb)_cb.style.display='inline-block';lAvatar='';const _av=document.getElementById('lAvatarPrev');if(_av)_av.style.display='none'}
 let cvReady=false;
@@ -978,7 +978,7 @@ function _showCropAdjustUI(img,corners){
   const maxW=Math.min(window.innerWidth-40,500);
   const scale=Math.min(maxW/img.width,1);
   const dw=img.width*scale,dh=img.height*scale;
-  container.innerHTML='<div style="position:relative;display:inline-block;max-width:100%"><canvas id="cropCv" width="'+dw+'" height="'+dh+'" style="border:2px solid var(--b);border-radius:8px;display:block;touch-action:none;max-width:100%"></canvas></div><div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="bsm" style="background:var(--gn);color:white" onclick="applyCrop()">â Apply Crop</button><button class="bsm" onclick="resetCropCorners()">âº Reset</button><button class="bsm" style="background:var(--r);color:white" onclick="cancelCrop()">â Cancel</button></div><div style="font-size:11px;color:var(--g);margin-top:6px">Drag the 4 blue corners to fit the card edges, then tap Apply.</div>';
+  container.innerHTML='<div style="position:relative;display:inline-block;max-width:100%"><canvas id="cropCv" width="'+dw+'" height="'+dh+'" style="border:2px solid var(--b);border-radius:8px;display:block;touch-action:none;max-width:100%"></canvas></div><div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="bsm" style="background:var(--gn);color:white" onclick="applyCrop()">✓ Apply Crop</button><button class="bsm" onclick="resetCropCorners()">↺ Reset</button><button class="bsm" style="background:var(--r);color:white" onclick="cancelCrop()">✕ Cancel</button></div><div style="font-size:11px;color:var(--g);margin-top:6px">Drag the 4 blue corners to fit the card edges, then tap Apply.</div>';
   const canvas=document.getElementById('cropCv');const ctx=canvas.getContext('2d');
   _adj={img:img,canvas:canvas,ctx:ctx,scale:scale,corners:corners.map(c=>[c[0]*scale,c[1]*scale]),originalCorners:corners.map(c=>[c[0],c[1]]),dragging:-1};
   _drawCropOverlay();
@@ -1033,8 +1033,8 @@ async function applyCrop(){
       const fv=document.createElement('canvas');fv.width=fw;fv.height=fh;fv.getContext('2d').drawImage(fimg,fx,fy,fw,fh,0,0,fw,fh);
       lAvatar=fv.toDataURL('image/jpeg',0.85);
       const av=document.getElementById('lAvatarPrev');if(av){av.style.display='inline-block';av.style.backgroundImage='url('+lAvatar+')'}
-      tt('â Crop + avatar saved!','ok');
-    }else{tt('â Crop applied (no face on card)','ok')}
+      tt('✅ Crop + avatar saved!','ok');
+    }else{tt('✅ Crop applied (no face on card)','ok')}
   }catch(e){tt('Crop applied. Face skipped: '+e.message,'er')}
 }
 function hLU(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=v=>{lI=v.target.result;rLCB();document.getElementById('lCP').innerHTML=`<img src="${lI}" style="width:100%;max-width:280px;border-radius:8px;border:2px solid var(--b);margin-top:8px">`;document.getElementById('aiCB').style.display='inline-block';const _cb=document.getElementById('aiCropB');if(_cb)_cb.style.display='inline-block';lAvatar='';const _av=document.getElementById('lAvatarPrev');if(_av)_av.style.display='none'}
@@ -1091,7 +1091,7 @@ function _showCropAdjustUI(img,corners){
   const maxW=Math.min(window.innerWidth-40,500);
   const scale=Math.min(maxW/img.width,1);
   const dw=img.width*scale,dh=img.height*scale;
-  container.innerHTML='<div style="position:relative;display:inline-block;max-width:100%"><canvas id="cropCv" width="'+dw+'" height="'+dh+'" style="border:2px solid var(--b);border-radius:8px;display:block;touch-action:none;max-width:100%"></canvas></div><div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="bsm" style="background:var(--gn);color:white" onclick="applyCrop()">â Apply Crop</button><button class="bsm" onclick="resetCropCorners()">âº Reset</button><button class="bsm" style="background:var(--r);color:white" onclick="cancelCrop()">â Cancel</button></div><div style="font-size:11px;color:var(--g);margin-top:6px">Drag the 4 blue corners to fit the card edges, then tap Apply.</div>';
+  container.innerHTML='<div style="position:relative;display:inline-block;max-width:100%"><canvas id="cropCv" width="'+dw+'" height="'+dh+'" style="border:2px solid var(--b);border-radius:8px;display:block;touch-action:none;max-width:100%"></canvas></div><div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="bsm" style="background:var(--gn);color:white" onclick="applyCrop()">✓ Apply Crop</button><button class="bsm" onclick="resetCropCorners()">↺ Reset</button><button class="bsm" style="background:var(--r);color:white" onclick="cancelCrop()">✕ Cancel</button></div><div style="font-size:11px;color:var(--g);margin-top:6px">Drag the 4 blue corners to fit the card edges, then tap Apply.</div>';
   const canvas=document.getElementById('cropCv');const ctx=canvas.getContext('2d');
   _adj={img:img,canvas:canvas,ctx:ctx,scale:scale,corners:corners.map(c=>[c[0]*scale,c[1]*scale]),originalCorners:corners.map(c=>[c[0],c[1]]),dragging:-1};
   _drawCropOverlay();
@@ -1146,23 +1146,23 @@ async function applyCrop(){
       const fv=document.createElement('canvas');fv.width=fw;fv.height=fh;fv.getContext('2d').drawImage(fimg,fx,fy,fw,fh,0,0,fw,fh);
       lAvatar=fv.toDataURL('image/jpeg',0.85);
       const av=document.getElementById('lAvatarPrev');if(av){av.style.display='inline-block';av.style.backgroundImage='url('+lAvatar+')'}
-      tt('â Crop + avatar saved!','ok');
-    }else{tt('â Crop applied (no face on card)','ok')}
+      tt('✅ Crop + avatar saved!','ok');
+    }else{tt('✅ Crop applied (no face on card)','ok')}
   }catch(e){tt('Crop applied. Face skipped: '+e.message,'er')}
 };r.readAsDataURL(f)}
-function rLCB(){document.getElementById('lCA').innerHTML=`<div style="display:flex;gap:8px"><button class="bsm" onclick="sLCam()">ð· Photo</button><button class="bsm" onclick="document.getElementById('lFI').click()">ð Upload</button><button class="bsm" style="background:var(--r)" onclick="lI=null;document.getElementById('lCP').innerHTML='';document.getElementById('aiCB').style.display='none';const _cb3=document.getElementById('aiCropB');if(_cb3)_cb3.style.display='none';lAvatar='';const _av3=document.getElementById('lAvatarPrev');if(_av3)_av3.style.display='none';rLCB()">â</button><input type="file" id="lFI" accept="image/*" style="display:none" onchange="hLU(event)"></div>`}
-async function aiC(){if(!lI){tt('Photo first','er');return}const b=document.getElementById('aiCB');b.textContent='ð¤ Reading...';b.disabled=true;try{const r=await ai(`Read this business card. Return ONLY valid JSON: {"name":"","business":"","role":"","phone":"","email":"","territory":"","type":""}
+function rLCB(){document.getElementById('lCA').innerHTML=`<div style="display:flex;gap:8px"><button class="bsm" onclick="sLCam()">📷 Photo</button><button class="bsm" onclick="document.getElementById('lFI').click()">📁 Upload</button><button class="bsm" style="background:var(--r)" onclick="lI=null;document.getElementById('lCP').innerHTML='';document.getElementById('aiCB').style.display='none';const _cb3=document.getElementById('aiCropB');if(_cb3)_cb3.style.display='none';lAvatar='';const _av3=document.getElementById('lAvatarPrev');if(_av3)_av3.style.display='none';rLCB()">✕</button><input type="file" id="lFI" accept="image/*" style="display:none" onchange="hLU(event)"></div>`}
+async function aiC(){if(!lI){tt('Photo first','er');return}const b=document.getElementById('aiCB');b.textContent='🤖 Reading...';b.disabled=true;try{const r=await ai(`Read this business card. Return ONLY valid JSON: {"name":"","business":"","role":"","phone":"","email":"","territory":"","type":""}
 Territory: ${TR.slice(1).join(', ')}
-Type: ${TY.join(', ')}`,lI);const j=JSON.parse(r.replace(/```json|```/g,'').trim());if(j.name)document.getElementById('lNm').value=j.name;if(j.business)document.getElementById('lBz').value=j.business;if(j.role)document.getElementById('lRl').value=j.role;if(j.phone)document.getElementById('lPh').value=j.phone;if(j.email)document.getElementById('lEm').value=j.email;if(j.territory){const s=document.getElementById('lTr');for(let i=0;i<s.options.length;i++)if(s.options[i].value===j.territory)s.selectedIndex=i}if(j.type){const s=document.getElementById('lTy');for(let i=0;i<s.options.length;i++)if(s.options[i].value===j.type)s.selectedIndex=i}chk();tt('â Card read!','ok')}catch(e){tt('Failed: '+e.message,'er')}b.textContent='ð¤ AI Read Card';b.disabled=false}
+Type: ${TY.join(', ')}`,lI);const j=JSON.parse(r.replace(/```json|```/g,'').trim());if(j.name)document.getElementById('lNm').value=j.name;if(j.business)document.getElementById('lBz').value=j.business;if(j.role)document.getElementById('lRl').value=j.role;if(j.phone)document.getElementById('lPh').value=j.phone;if(j.email)document.getElementById('lEm').value=j.email;if(j.territory){const s=document.getElementById('lTr');for(let i=0;i<s.options.length;i++)if(s.options[i].value===j.territory)s.selectedIndex=i}if(j.type){const s=document.getElementById('lTy');for(let i=0;i<s.options.length;i++)if(s.options[i].value===j.type)s.selectedIndex=i}chk();tt('✅ Card read!','ok')}catch(e){tt('Failed: '+e.message,'er')}b.textContent='🤖 AI Read Card';b.disabled=false}
 
 // Duplicate check
-function chk(){const nm=(document.getElementById('lNm').value||'').toLowerCase().trim(),bz=(document.getElementById('lBz').value||'').toLowerCase().trim(),a=document.getElementById('mA');if(nm.length<2&&bz.length<2){a.innerHTML='';lMI=null;document.getElementById('lSB').textContent='Save New Contact + Visit';return}const mt=D.filter(c=>{const cn=(c.name||'').toLowerCase(),cb=(c.business||'').toLowerCase();return(nm.length>=2&&cn.includes(nm))||(bz.length>=2&&cb.includes(bz))});if(!mt.length){a.innerHTML='';lMI=null;document.getElementById('lSB').textContent='Save New Contact + Visit';return}let h='<div style="font-size:11px;color:var(--b);margin-bottom:6px">Existing match â tap to log visit:</div>';mt.slice(0,5).forEach(c=>{h+=`<div class="mc${lMI===c.id?' sl':''}" onclick="sM(${c.id})"><div style="font-weight:700">${c.name}</div><div style="color:var(--g);font-size:11px">${c.role||''} at ${c.business||''} Â· ${c.territory||''}</div></div>`});a.innerHTML=h}
+function chk(){const nm=(document.getElementById('lNm').value||'').toLowerCase().trim(),bz=(document.getElementById('lBz').value||'').toLowerCase().trim(),a=document.getElementById('mA');if(nm.length<2&&bz.length<2){a.innerHTML='';lMI=null;document.getElementById('lSB').textContent='Save New Contact + Visit';return}const mt=D.filter(c=>{const cn=(c.name||'').toLowerCase(),cb=(c.business||'').toLowerCase();return(nm.length>=2&&cn.includes(nm))||(bz.length>=2&&cb.includes(bz))});if(!mt.length){a.innerHTML='';lMI=null;document.getElementById('lSB').textContent='Save New Contact + Visit';return}let h='<div style="font-size:11px;color:var(--b);margin-bottom:6px">Existing match — tap to log visit:</div>';mt.slice(0,5).forEach(c=>{h+=`<div class="mc${lMI===c.id?' sl':''}" onclick="sM(${c.id})"><div style="font-weight:700">${c.name}</div><div style="color:var(--g);font-size:11px">${c.role||''} at ${c.business||''} · ${c.territory||''}</div></div>`});a.innerHTML=h}
 function sM(id){lMI=lMI===id?null:id;document.getElementById('lSB').textContent=lMI?'Save Visit to Existing':'Save New Contact + Visit';chk()}
 
 // Submit
-async function sL(){const n=document.getElementById('lN').value,rm=document.getElementById('lRm').value,by=document.getElementById('lBy').value;if(lMI){if(!n){tt('Add notes','er');return}tt('Saving...','ok');try{await aP({action:'addVisit',visit:{contactId:lMI,handler:by,date:(document.getElementById('lDt')?document.getElementById('lDt').value:null)||new Date().toISOString().split('T')[0],notes:n}});if(rm)await aP({action:'addReminder',reminder:{contactId:lMI,text:rm}});tt('â Visit saved!','ok');cL();await load()}catch(e){tt('Error','er')}}else{const nm=document.getElementById('lNm').value;if(!nm){tt('Enter name','er');return}const c={name:nm,business:document.getElementById('lBz').value,role:document.getElementById('lRl').value,phone:document.getElementById('lPh').value,email:document.getElementById('lEm').value,territory:document.getElementById('lTr').value,type:document.getElementById('lTy').value,score:+document.getElementById('lSc').value,handler:by,referrals:0,notes:'',cardImage:lI||'',profilePic:lAvatar||'',tier:document.getElementById('lTi').value};tt('Saving...','ok');try{const r=await aP({action:'addContact',contact:c});if(n&&r.id)await aP({action:'addVisit',visit:{contactId:r.id,handler:by,date:(document.getElementById('lDt')?document.getElementById('lDt').value:null)||new Date().toISOString().split('T')[0],notes:n}});if(rm&&r.id)await aP({action:'addReminder',reminder:{contactId:r.id,text:rm}});tt('â Saved!','ok');cL();await load()}catch(e){tt('Error','er')}}
+async function sL(){const n=document.getElementById('lN').value,rm=document.getElementById('lRm').value,by=document.getElementById('lBy').value;if(lMI){if(!n){tt('Add notes','er');return}tt('Saving...','ok');try{await aP({action:'addVisit',visit:{contactId:lMI,handler:by,date:(document.getElementById('lDt')?document.getElementById('lDt').value:null)||new Date().toISOString().split('T')[0],notes:n}});if(rm)await aP({action:'addReminder',reminder:{contactId:lMI,text:rm}});tt('✅ Visit saved!','ok');cL();await load()}catch(e){tt('Error','er')}}else{const nm=document.getElementById('lNm').value;if(!nm){tt('Enter name','er');return}const c={name:nm,business:document.getElementById('lBz').value,role:document.getElementById('lRl').value,phone:document.getElementById('lPh').value,email:document.getElementById('lEm').value,territory:document.getElementById('lTr').value,type:document.getElementById('lTy').value,score:+document.getElementById('lSc').value,handler:by,referrals:0,notes:'',cardImage:lI||'',profilePic:lAvatar||'',tier:document.getElementById('lTi').value};tt('Saving...','ok');try{const r=await aP({action:'addContact',contact:c});if(n&&r.id)await aP({action:'addVisit',visit:{contactId:r.id,handler:by,date:(document.getElementById('lDt')?document.getElementById('lDt').value:null)||new Date().toISOString().split('T')[0],notes:n}});if(rm&&r.id)await aP({action:'addReminder',reminder:{contactId:r.id,text:rm}});tt('✅ Saved!','ok');cL();await load()}catch(e){tt('Error','er')}}
 }
-// âââ INBOX / USER PORTAL âââââ
+// ─── INBOX / USER PORTAL ─────
 function rIX(mc){
   const me=(CU&&CU.name)?CU.name:'';
   // My reminders: due/overdue assigned to me
@@ -1180,7 +1180,7 @@ function rIX(mc){
   const myMsgs=mM.filter(m=>(m.sender||'').toLowerCase()===me.toLowerCase()).sort((a,b)=>(b.sentAt||'')>(a.sentAt||'')?1:-1);
 
   let h='<div style="padding:4px">';
-  h+='<div style="font-size:18px;font-weight:800;margin-bottom:12px">'+String.fromCodePoint(0x1F4EC)+' Inbox â '+(me||'All')+'</div>';
+  h+='<div style="font-size:18px;font-weight:800;margin-bottom:12px">'+String.fromCodePoint(0x1F4EC)+' Inbox — '+(me||'All')+'</div>';
 
   // Overdue section
   if(overdue.length){
@@ -1301,7 +1301,7 @@ initLogin();
 <script>document.addEventListener('click',function(e){var t=e.target;if(t.tagName==='INPUT'&&(t.type==='date'||t.type==='time')){if(typeof t.showPicker==='function'){try{t.showPicker()}catch(err){}}}},true);
 
 // ============================================================
-// Day Plan UI â Plan My Referral Day v1
+// Day Plan UI — Plan My Referral Day v1
 // ============================================================
 function rDayPlan(c){
   const personOpts = TM.map(function(n){return '<option>'+n+'</option>'}).join('');
@@ -1310,7 +1310,7 @@ function rDayPlan(c){
   const typeChips = TY.map(function(t){return '<label style="display:inline-flex;align-items:center;gap:5px;padding:7px 11px;background:var(--d3);border-radius:14px;font-size:11px;cursor:pointer"><input type="checkbox" name="dpY" value="'+t+'" style="margin:0"/> '+t+'</label>'}).join('');
   const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate()+1);
   const dateStr = tomorrow.toISOString().substring(0,10);
-  c.innerHTML = '<div class="st"><div class="st b" style="font-size:24px">â¡ Plan My Day</div><div class="st small">AI-built route + per-stop briefings, talking points, and leave-behinds</div></div>'+
+  c.innerHTML = '<div class="st"><div class="st b" style="font-size:24px">⚡ Plan My Day</div><div class="st small">AI-built route + per-stop briefings, talking points, and leave-behinds</div></div>'+
     '<div class="cnt" style="padding:20px;max-width:880px;margin:0 auto">'+
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">'+
         '<div class="fg"><label>Who is going out?</label><select id="dpPerson">'+personOpts+'</select></div>'+
@@ -1320,8 +1320,8 @@ function rDayPlan(c){
       '<div class="fg"><label>Territories to cover</label><div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px;background:var(--d2);border-radius:10px">'+territoryChips+'</div></div>'+
       '<div class="fg"><label>Affiliate types to visit</label><div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px;background:var(--d2);border-radius:10px">'+typeChips+'</div></div>'+
       '<div style="display:flex;gap:10px;margin-top:18px">'+
-        '<button class="bs" onclick="dpGenerate()" style="flex:1;font-size:15px;padding:14px">â¡ Generate Plan</button>'+
-        '<button class="bs" onclick="dpEmail()" style="flex:1;font-size:15px;padding:14px;background:linear-gradient(135deg,#1a0033,#4a0080)">ð§ Email Plan</button>'+
+        '<button class="bs" onclick="dpGenerate()" style="flex:1;font-size:15px;padding:14px">⚡ Generate Plan</button>'+
+        '<button class="bs" onclick="dpEmail()" style="flex:1;font-size:15px;padding:14px;background:linear-gradient(135deg,#1a0033,#4a0080)">📧 Email Plan</button>'+
       '</div>'+
       '<div id="dpResult" style="margin-top:24px"></div>'+
     '</div>';
@@ -1330,11 +1330,11 @@ function rDayPlan(c){
 function rTopLeads(c){
   const territoryChips = TR.filter(function(t){return t!=='All';}).map(function(t){return '<label style="display:inline-flex;align-items:center;gap:5px;padding:7px 11px;background:var(--d3);border-radius:14px;font-size:11px;cursor:pointer"><input type="checkbox" name="tlT" value="'+t+'" style="margin:0"/> '+t+'</label>';}).join('');
   const typeChips = TY.map(function(t){return '<label style="display:inline-flex;align-items:center;gap:5px;padding:7px 11px;background:var(--d3);border-radius:14px;font-size:11px;cursor:pointer"><input type="checkbox" name="tlY" value="'+t+'" '+((t==='Self-Storage Facility'||t==='Assisted Living / Senior Care')?'checked':'')+'/> '+t+'</label>';}).join('');
-  c.innerHTML = '<div class="st"><div class="st b" style="font-size:24px">ð Top Uncaptured Leads</div><div class="st small">Highest-value locations you have not visited recently, ranked by tier Ã capacity Ã newness Ã time-since-visit</div></div>'+
+  c.innerHTML = '<div class="st"><div class="st b" style="font-size:24px">🏆 Top Uncaptured Leads</div><div class="st small">Highest-value locations you have not visited recently, ranked by tier × capacity × newness × time-since-visit</div></div>'+
     '<div class="cnt" style="padding:20px;max-width:880px;margin:0 auto">'+
       '<div class="fg"><label>Territories (leave blank for all)</label><div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px;background:var(--d2);border-radius:10px">'+territoryChips+'</div></div>'+
       '<div class="fg"><label>Types</label><div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px;background:var(--d2);border-radius:10px">'+typeChips+'</div></div>'+
-      '<button class="bs" onclick="tlLoad()" style="width:100%;font-size:15px;padding:14px;margin-top:10px">â¡ Load Top Leads</button>'+
+      '<button class="bs" onclick="tlLoad()" style="width:100%;font-size:15px;padding:14px;margin-top:10px">⚡ Load Top Leads</button>'+
       '<div id="tlResult" style="margin-top:24px"></div>'+
     '</div>';
   setTimeout(tlLoad, 200);
@@ -1360,8 +1360,8 @@ async function tlLoad(){
         '<div style="font-size:24px;font-weight:700;color:#ff0080;min-width:36px">#'+(i+1)+'</div>'+
         '<div style="flex:1">'+
           '<div style="font-size:15px;font-weight:700">'+it.name+tierBadge+'</div>'+
-          '<div style="color:var(--g);font-size:11px;margin:3px 0">'+(it.territory||'?')+' Â· '+(it.type||'?')+(cap?' Â· '+cap:'')+(yr?' Â· '+yr:'')+'</div>'+
-          (it.address?'<div style="color:var(--g);font-size:11px">ð '+it.address+'</div>':'')+
+          '<div style="color:var(--g);font-size:11px;margin:3px 0">'+(it.territory||'?')+' · '+(it.type||'?')+(cap?' · '+cap:'')+(yr?' · '+yr:'')+'</div>'+
+          (it.address?'<div style="color:var(--g);font-size:11px">📍 '+it.address+'</div>':'')+
           note+
         '</div>'+
         '<div style="text-align:right;min-width:90px">'+
@@ -1393,7 +1393,7 @@ function dpGetOpts(){
 async function dpGenerate(){
   const opts=dpGetOpts();if(!opts)return;
   const result=document.getElementById('dpResult');
-  result.innerHTML='<div style="text-align:center;padding:40px;color:var(--g)"><div style="font-size:24px;margin-bottom:10px">â¡</div>Generating plan... ~15 seconds</div>';
+  result.innerHTML='<div style="text-align:center;padding:40px;color:var(--g)"><div style="font-size:24px;margin-bottom:10px">⚡</div>Generating plan... ~15 seconds</div>';
   try{
     const r=await aP({action:'generateDayPlan',opts:opts});
     if(!r.ok){result.innerHTML='<div style="color:var(--r);padding:20px;background:#311;border-radius:8px">Error: '+r.error+'</div>';return}
@@ -1408,37 +1408,37 @@ async function dpEmail(){
   const recipients=personEmail&&personEmail!=='dane@neongiantmoving.com'?[personEmail,'dane@neongiantmoving.com']:['dane@neongiantmoving.com'];
   opts.recipients=recipients;
   const result=document.getElementById('dpResult');
-  result.innerHTML='<div style="text-align:center;padding:40px;color:var(--g)"><div style="font-size:24px;margin-bottom:10px">ð§</div>Generating + emailing to '+recipients.join(', ')+'... ~15 sec</div>';
+  result.innerHTML='<div style="text-align:center;padding:40px;color:var(--g)"><div style="font-size:24px;margin-bottom:10px">📧</div>Generating + emailing to '+recipients.join(', ')+'... ~15 sec</div>';
   try{
     if(window.__dpLastPlan && window.__dpLastPlan.ok){ opts.plan = window.__dpLastPlan; }
     const r=await aP({action:'emailDayPlan',opts:opts});
     if(!r.ok){result.innerHTML='<div style="color:var(--r);padding:20px;background:#311;border-radius:8px">Error: '+r.error+'</div>';return}
-    result.innerHTML='<div style="background:linear-gradient(135deg,#1a0033,#4a0080,#ff0080);padding:24px;border-radius:10px;text-align:center;color:white"><div style="font-size:32px">â</div><b style="font-size:16px">Plan emailed</b><div style="font-size:13px;opacity:.8;margin-top:6px">'+r.stops+' stops sent to '+r.sentTo.join(', ')+'</div></div>';
+    result.innerHTML='<div style="background:linear-gradient(135deg,#1a0033,#4a0080,#ff0080);padding:24px;border-radius:10px;text-align:center;color:white"><div style="font-size:32px">✅</div><b style="font-size:16px">Plan emailed</b><div style="font-size:13px;opacity:.8;margin-top:6px">'+r.stops+' stops sent to '+r.sentTo.join(', ')+'</div></div>';
   }catch(e){result.innerHTML='<div style="color:var(--r);padding:20px;background:#311;border-radius:8px">Error: '+e.message+'</div>'}
 }
 
 function dpRenderStop(s, displayIdx){
   const tps = (s.talkingPoints||[]).map(function(t){return '<li style="margin:4px 0">'+t+'</li>'}).join('');
   const visitInfo = s.lastVisit?'Last visited '+s.lastVisit+(s.daysSinceVisit?' ('+s.daysSinceVisit+' days ago)':''):'First visit';
-  const tierLabel = s.tier&&String(s.tier).indexOf('Tier')>=0?' â¢ '+s.tier:'';
+  const tierLabel = s.tier&&String(s.tier).indexOf('Tier')>=0?' • '+s.tier:'';
   let askFor='';
   if(s.contacts && s.contacts.length){
     askFor = s.contacts.map(function(c){
       const role = c.role?' <span style="opacity:.65;font-weight:400;font-size:11px">('+c.role+')</span>':'';
-      const phone = c.phone?' <a href="tel:'+c.phone+'" style="color:#7af;font-size:11px;text-decoration:none;margin-left:4px">â '+c.phone+'</a>':'';
+      const phone = c.phone?' <a href="tel:'+c.phone+'" style="color:#7af;font-size:11px;text-decoration:none;margin-left:4px">☎ '+c.phone+'</a>':'';
       return '<b>'+c.name+'</b>'+role+phone;
-    }).join(' &nbsp;Â·&nbsp; ');
+    }).join(' &nbsp;·&nbsp; ');
   } else if(s.askFor){ askFor = '<b>'+s.askFor+'</b>'; }
   else if(s.contactName){ askFor = '<b>'+s.contactName+'</b>'; }
   const askForHtml = askFor ? '<div style="background:linear-gradient(135deg,#1a0033,#4a0080);padding:10px 12px;border-radius:6px;margin-bottom:8px;font-size:13px;color:white"><span style="font-size:10px;letter-spacing:1.5px;opacity:.7">ASK FOR</span> &nbsp;'+askFor+'</div>' : '';
-  const addrLine = s.address ? '<div style="color:var(--g);font-size:11px;margin-top:2px">ð '+s.address+'</div>' : '';
+  const addrLine = s.address ? '<div style="color:var(--g);font-size:11px;margin-top:2px">📍 '+s.address+'</div>' : '';
   const title = s.name || s.business || '';
-  const subtitle = (s.business && s.business!==title) ? ' <span style="color:var(--g);font-weight:400;font-size:13px">â '+s.business+'</span>' : '';
+  const subtitle = (s.business && s.business!==title) ? ' <span style="color:var(--g);font-weight:400;font-size:13px">— '+s.business+'</span>' : '';
   return '<div data-stop-idx="'+displayIdx+'" draggable="true" ondragstart="dpDragStart(event,'+displayIdx+')" ondragover="dpDragOver(event)" ondragleave="dpDragLeave(event)" ondrop="dpDrop(event,'+displayIdx+')" style="margin:14px 0;padding:18px;background:var(--d2);border-radius:10px;border-left:5px solid var(--p);cursor:move;position:relative;user-select:none">'+'<div style="position:absolute;left:0;right:0;top:0;height:18px;background:linear-gradient(180deg,rgba(167,139,250,0.18),transparent);cursor:grab;display:flex;align-items:center;justify-content:center;color:#a78bfa;font-size:13px;letter-spacing:6px" title="Drag to reorder">\u22EE\u22EE\u22EE</div>'+
-    '<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:10px;color:var(--g);letter-spacing:2px">STOP '+(displayIdx+1)+'</div><div style="font-size:11px;color:var(--p)">â± ~'+s._stopMin+' min</div></div>'+
+    '<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:10px;color:var(--g);letter-spacing:2px">STOP '+(displayIdx+1)+'</div><div style="font-size:11px;color:var(--p)">⏱ ~'+s._stopMin+' min</div></div>'+
     '<div style="margin:4px 0 4px;font-size:18px;font-weight:700"><span onclick="dpOpenLocation('+s.id+')" style="cursor:pointer;text-decoration:underline;text-decoration-color:rgba(255,255,255,0.25);text-underline-offset:3px">'+title+subtitle+' <span style="font-size:11px;opacity:.55;font-weight:400">\u2197</span></span></div>'+
     addrLine+
-    '<div style="color:var(--g);font-size:11px;margin:6px 0 10px">'+s.territory+' â¢ '+s.type+tierLabel+' â¢ '+visitInfo+'</div>'+
+    '<div style="color:var(--g);font-size:11px;margin:6px 0 10px">'+s.territory+' • '+s.type+tierLabel+' • '+visitInfo+'</div>'+
     askForHtml+
     (s.recentVisits && s.recentVisits.length ? '<div style="background:#0a1f33;padding:10px;border-radius:6px;margin-bottom:8px;border-left:3px solid #4dc9a3"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="color:#4dc9a3;font-size:10px;letter-spacing:1px">RECENT VISITS</b><a onclick="dpJumpToFirstContact('+s.id+',\'profile\')" style="font-size:10px;color:#9cf;cursor:pointer;text-decoration:underline">See all \u2197</a></div>' + s.recentVisits.slice(0,2).map(function(v){return '<div style="font-size:11px;color:#ccc;padding:4px 0;border-top:1px dashed #224"><b style="color:#9fc">'+v.date+(v.handler?' \u00b7 '+v.handler:'')+'</b><br>'+(v.notes||'(no note)').substring(0,180)+'</div>';}).join('')+'</div>' : '')+'<div style="background:var(--d);padding:10px;border-radius:6px;margin-bottom:8px"><b style="color:var(--p);font-size:10px;letter-spacing:1px">BRIEFING</b><div style="font-size:13px;margin-top:4px">'+(s.briefing||'')+'</div></div>'+
     '<div style="margin-bottom:8px"><b style="color:var(--b);font-size:10px;letter-spacing:1px">TALKING POINTS</b><ul style="margin:6px 0;padding-left:20px;font-size:13px">'+tps+'</ul></div>'+
@@ -1486,10 +1486,10 @@ function dpOpenLocation(locId){
       const meta2 = [c.phone?'\u260E '+c.phone:'', c.email?'\u2709 '+c.email:''].filter(Boolean).join(' \u00B7 ');
       if(meta2) h += '<div style="color:var(--g);font-size:11px;margin-top:3px">'+meta2+'</div>';
       h += '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">';
-      h += '<button class="bsm" onclick="dpJumpToContact('+c.id+', \'qv\')" style="background:var(--gn);color:#fff;border:none;cursor:pointer">ð Check-In</button>';
-      h += '<button class="bsm" onclick="dpJumpToContact('+c.id+', \'ref\')" style="background:var(--p);color:#fff;border:none;cursor:pointer">ð Referral</button>';
-      h += '<button class="bsm" onclick="dpJumpToContact('+c.id+', \'rem\')" style="background:var(--b);color:#fff;border:none;cursor:pointer">â° Reminder</button>';
-      h += '<button class="bsm" onclick="dpJumpToContact('+c.id+', \'edit\')" style="background:#555;color:#fff;border:none;cursor:pointer">â Edit</button>';
+      h += '<button class="bsm" onclick="dpJumpToContact('+c.id+', \'qv\')" style="background:var(--gn);color:#fff;border:none;cursor:pointer">📝 Check-In</button>';
+      h += '<button class="bsm" onclick="dpJumpToContact('+c.id+', \'ref\')" style="background:var(--p);color:#fff;border:none;cursor:pointer">🎁 Referral</button>';
+      h += '<button class="bsm" onclick="dpJumpToContact('+c.id+', \'rem\')" style="background:var(--b);color:#fff;border:none;cursor:pointer">⏰ Reminder</button>';
+      h += '<button class="bsm" onclick="dpJumpToContact('+c.id+', \'edit\')" style="background:#555;color:#fff;border:none;cursor:pointer">✏ Edit</button>';
       h += '</div></div>';
     });
   }
@@ -1694,17 +1694,17 @@ function dpRenderAddons(plan){
         '<div style="flex:1">'+
           '<div style="font-size:11px;color:var(--g);letter-spacing:1.5px">SUGGESTED ADD-ON</div>'+
           '<div style="font-size:16px;font-weight:700;margin:3px 0">'+(a.name||'')+'</div>'+
-          (a.address?'<div style="color:var(--g);font-size:11px;margin:2px 0 6px">ð '+a.address+'</div>':'')+
+          (a.address?'<div style="color:var(--g);font-size:11px;margin:2px 0 6px">📍 '+a.address+'</div>':'')+
           '<div style="color:var(--g);font-size:11px;margin-bottom:6px">'+(a.type||'')+tierLabel+lastVisit+'</div>'+
           '<div style="font-size:13px;color:#ddd;margin:6px 0">'+(a.reason||'')+'</div>'+
-          '<div style="font-size:11px;color:#a78bfa">â± +'+dev+' min &middot; insert '+insertLabel+'</div>'+
+          '<div style="font-size:11px;color:#a78bfa">⏱ +'+dev+' min &middot; insert '+insertLabel+'</div>'+
         '</div>'+
         '<button class="bs" onclick="dpAddAddon('+i+')" style="white-space:nowrap;background:linear-gradient(135deg,#33cc66,#2aa050);padding:10px 14px;font-size:13px;font-weight:700">+ Add to plan</button>'+
       '</div>'+
     '</div>';
   }).join('');
   return '<div style="margin:18px 0">'+
-    '<div style="font-size:11px;color:var(--g);letter-spacing:2px;margin:6px 0 8px">ð¡ AI SUGGESTED ADD-ONS</div>'+
+    '<div style="font-size:11px;color:var(--g);letter-spacing:2px;margin:6px 0 8px">💡 AI SUGGESTED ADD-ONS</div>'+
     cards+
   '</div>';
 }
@@ -1755,10 +1755,10 @@ function dpRender(plan){
   const mapId = 'dpMap_x';
   const stopsId = 'dpStops_x';
   const stopsHtml = stops.map(function(s,i){return dpRenderStop(s,i)}).join('');
-  const lunchBanner = lunchMin ? '<div style="margin:18px 0;padding:12px 14px;background:linear-gradient(135deg,#ff8000,#ffb000);border-radius:10px;color:white;text-align:center;font-size:13px;font-weight:600">ð¥ª 30-min lunch break baked in (long route, '+stops.length+' stops)</div>' : '';
+  const lunchBanner = lunchMin ? '<div style="margin:18px 0;padding:12px 14px;background:linear-gradient(135deg,#ff8000,#ffb000);border-radius:10px;color:white;text-align:center;font-size:13px;font-weight:600">🥪 30-min lunch break baked in (long route, '+stops.length+' stops)</div>' : '';
   const out = '<div id="dpPlan">'+'<div id="dpStickyNext"></div>'+
     '<div style="padding:20px;background:linear-gradient(135deg,#1a0033 0%,#4a0080 50%,#ff0080 100%);border-radius:10px;color:white;margin-bottom:14px">'+
-      '<div style="font-size:10px;opacity:.8;letter-spacing:2px">'+plan.person.toUpperCase()+'&#39;S DAY â¢ '+(plan.territories||[]).join(', ').toUpperCase()+'</div>'+
+      '<div style="font-size:10px;opacity:.8;letter-spacing:2px">'+plan.person.toUpperCase()+'&#39;S DAY • '+(plan.territories||[]).join(', ').toUpperCase()+'</div>'+
       '<div style="font-size:14px;margin-top:8px">'+(plan.intro||'')+'</div>'+
     '</div>'+
     '<div id="'+summaryId+'" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px"></div>'+
@@ -1769,8 +1769,8 @@ function dpRender(plan){
     '<div style="padding:16px;background:linear-gradient(135deg,#ff0080,#ff8000);border-radius:8px;color:white;margin-top:14px;text-align:center;font-size:14px">'+(plan.outro||'')+'</div>'+
     '<div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">'+
       '<button class="bs" onclick="dpOptimizeRoute()" style="flex:1;min-width:160px;font-size:15px;padding:14px;background:linear-gradient(135deg,#33cc66,#2aa050)">\u{1F9ED} Optimize Route</button>'+
-      '<button class="bs" onclick="dpOpenInMaps()" style="flex:1;font-size:15px;padding:14px;background:linear-gradient(135deg,#4285F4,#34A853)">ðºï¸ Open Route in Google Maps</button>'+
-      '<button class="bs" onclick="dpDownloadPDF()" style="flex:1;font-size:15px;padding:14px;background:linear-gradient(135deg,#1a0033,#4a0080)">ð Download PDF</button>'+
+      '<button class="bs" onclick="dpOpenInMaps()" style="flex:1;font-size:15px;padding:14px;background:linear-gradient(135deg,#4285F4,#34A853)">🗺️ Open Route in Google Maps</button>'+
+      '<button class="bs" onclick="dpDownloadPDF()" style="flex:1;font-size:15px;padding:14px;background:linear-gradient(135deg,#1a0033,#4a0080)">📄 Download PDF</button>'+
     '</div>'+
   '</div>';
   setTimeout(function(){dpEnhanceWithRoute(plan, stops, baseCoords, stopCoords, summaryId, mapId, stopsId, totalStopMin, lunchMin)}, 80);
@@ -1988,8 +1988,8 @@ async function dpDownloadPDF(){
       const html = origRender(plan);
       const planLabel = window.__dpPlanId ? "Plan ID: " + window.__dpPlanId : "Not yet saved";
       const banner = '<div style="background:linear-gradient(135deg,#22113d,#3a1a5c);padding:10px 14px;border-radius:8px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'+
-        '<div style="font-size:12px;color:#cfc"><b>ð ' + planLabel + '</b></div>'+
-        '<button class="bs" onclick="dpSavePlan()" style="padding:8px 14px;font-size:13px">ð¾ Save &amp; share</button>'+
+        '<div style="font-size:12px;color:#cfc"><b>📌 ' + planLabel + '</b></div>'+
+        '<button class="bs" onclick="dpSavePlan()" style="padding:8px 14px;font-size:13px">💾 Save &amp; share</button>'+
       '</div>';
       return banner + html;
     };
@@ -2012,7 +2012,7 @@ async function dpDownloadPDF(){
             result.innerHTML = dpRender(r.plan);
             const top = document.createElement("div");
             top.style.cssText = "background:linear-gradient(135deg,#1a3a1a,#3a6a3a);padding:10px;border-radius:6px;margin-bottom:12px;font-size:13px;color:#cfffd6;text-align:center";
-            top.innerHTML = "ð Loaded saved plan: <b>" + (r.name || r.id) + "</b> Â· last updated " + (r.lastUpdated || "").substring(0, 16);
+            top.innerHTML = "👁 Loaded saved plan: <b>" + (r.name || r.id) + "</b> · last updated " + (r.lastUpdated || "").substring(0, 16);
             result.insertBefore(top, result.firstChild);
           }
         }, 600);
@@ -2113,15 +2113,15 @@ async function dpDownloadPDF(){
     if (typeof tlLoad === "function") tlLoad();
   };
 
-  // V48 frontend â printable PDF override
+  // V48 frontend — printable PDF override
   window.dpDownloadPDF = async function () {
     if (!window.__dpLastPlan || !window.__dpLastPlan.ok) { try { tt('Generate a plan first', 'er'); } catch (e) { alert('Generate a plan first'); } return; }
     const plan = window.__dpLastPlan;
     const stops = plan.stops || [];
     const escapeHtml = function (s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
     const stopHtml = stops.map(function (s, i) {
-      const addr = s.address ? '<div class="addr">ð ' + escapeHtml(s.address) + '</div>' : '';
-      const askFor = (s.contacts && s.contacts.length) ? s.contacts.map(function (c) { return '<b>' + escapeHtml(c.name||'') + '</b>' + (c.role ? ' (' + escapeHtml(c.role) + ')' : '') + (c.phone ? ' â ' + escapeHtml(c.phone) : ''); }).join(' or ') : (s.askFor || s.contactName || '');
+      const addr = s.address ? '<div class="addr">📍 ' + escapeHtml(s.address) + '</div>' : '';
+      const askFor = (s.contacts && s.contacts.length) ? s.contacts.map(function (c) { return '<b>' + escapeHtml(c.name||'') + '</b>' + (c.role ? ' (' + escapeHtml(c.role) + ')' : '') + (c.phone ? ' — ' + escapeHtml(c.phone) : ''); }).join(' or ') : (s.askFor || s.contactName || '');
       const tps = (s.talkingPoints || []).map(function (t) { return '<li>' + escapeHtml(t) + '</li>'; }).join('');
       return '<div class="stop">' +
         '<div class="stop-num">STOP ' + (i+1) + '</div>' +
@@ -2168,13 +2168,13 @@ async function dpDownloadPDF(){
       (plan.outro ? '<div class="stop" style="background:#fff5e0;border-color:#e6b800"><b>END OF DAY</b><div style="margin-top:4pt">' + escapeHtml(plan.outro) + '</div></div>' : '') +
     '</body></html>';
     const w = window.open('', '_blank');
-    if (!w) { alert('Pop-up blocked â allow pop-ups for this site to download/print plan'); return; }
+    if (!w) { alert('Pop-up blocked — allow pop-ups for this site to download/print plan'); return; }
     w.document.write(printHtml);
     w.document.close();
     setTimeout(function () { try { w.print(); } catch (e) {} }, 600);
   };
 
-  // V49 frontend â Places API powered Top Leads net-new section
+  // V49 frontend — Places API powered Top Leads net-new section
   window.tlDiscoverNetNew = async function () {
     const f = window.__topLeadsLastFilters || {};
     const body = document.getElementById("tlNetNewBody");
@@ -2227,7 +2227,7 @@ async function dpDownloadPDF(){
     alert("Saved " + saved + " to outreach list" + (fails.length ? "\nFailures: " + fails.join(", ") : ""));
   };
 
-  // V51 â Unified in-territory add-ons + map markers
+  // V51 — Unified in-territory add-ons + map markers
   window.dpRenderAddons = function (plan) {
     return '<div id="dpUnifiedAddonsHost" style="margin:14px 0;padding:14px;background:#0a1428;border:1px solid #1f3a5c;border-radius:10px"><div style="font-size:11px;color:#9cf;letter-spacing:1.5px;margin-bottom:8px">\u{1F4CD} ADD TO THIS ROUTE</div><div id="dpUnifiedAddonsBody" style="color:var(--g);font-size:12px;padding:8px">Loading in-territory candidates\u2026</div></div>';
   };
@@ -2321,7 +2321,7 @@ async function dpDownloadPDF(){
 })();
 
 </script><script>
-// V65 NUCLEAR REVERT â strip all perf overrides, clear stale cache, restore original flow
+// V65 NUCLEAR REVERT — strip all perf overrides, clear stale cache, restore original flow
 (function(){
   try { localStorage.removeItem('neon_crm_data_v1'); } catch(e){}
 })();
