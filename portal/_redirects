@@ -1,7 +1,2 @@
-# Friendly URL aliases — let realtors share refer.neongiantmoving.com/?r=...
-# or refer.neongiantmoving.com/portal?r=... without the .html.
-/portal     /portal.html  200
-/portal/    /portal.html  200
-/refer      /refer.html   200
-/refer/     /refer.html   200
-/dashboard  /portal.html  200
+# Empty — Cloudflare Pages auto-strips .html so /portal serves portal.html.
+# Add rewrite rules here later if needed.
