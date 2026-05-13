@@ -78,10 +78,10 @@
   </div>
 </div>
 <script>
-  // If ?r=slug is in URL, redirect to /portal.html?r=slug for a real dashboard.
+  // If ?r=slug is in URL, redirect to /portal?r=slug for a real dashboard.
   (function(){
     const slug = new URLSearchParams(location.search).get('r');
-    if (slug) location.replace('/portal.html?r=' + encodeURIComponent(slug));
+    if (slug) location.replace('/portal?r=' + encodeURIComponent(slug));
   })();
 </script>
 </body>

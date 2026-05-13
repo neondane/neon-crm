@@ -233,7 +233,7 @@ async function loadRealtor() {
       realtor = r.realtor;
       greetEl.textContent = 'Hey ' + (realtor.firstName || realtor.name || 'there') + ' — send us a referral';
       const backLink = document.getElementById('backLink');
-      backLink.href = '/portal.html?r=' + encodeURIComponent(slug);
+      backLink.href = '/portal?r=' + encodeURIComponent(slug);
       backLink.style.display = 'inline-block';
     } else {
       greetEl.textContent = 'Send us a referral';
@@ -298,7 +298,7 @@ async function submitForm(e) {
           '<p>We received your referral for <b>' + escapeHtml(customer.name) + '</b>. ' +
           'The Neon Giant team will reach out within 24 hours.</p>' +
           '<p>Your <b>$50 gift card</b> will be sent at the end of the month after the move completes.</p>' +
-          '<a class="submit" href="/portal.html?r=' + encodeURIComponent(getSlug()) + '" style="display:inline-block;text-decoration:none;text-align:center;max-width:280px;margin-top:18px">View your dashboard</a>' +
+          '<a class="submit" href="/portal?r=' + encodeURIComponent(getSlug()) + '" style="display:inline-block;text-decoration:none;text-align:center;max-width:280px;margin-top:18px">View your dashboard</a>' +
           '<button class="submit" onclick="location.reload()" style="margin-top:10px;max-width:280px;background:#2a2a2a">Send another referral</button>' +
         '</div>';
     } else {

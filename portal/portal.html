@@ -383,7 +383,7 @@ function render(view) {
 
   // Body
   const slug = getSlug();
-  const referUrl = '/refer.html?r=' + encodeURIComponent(slug);
+  const referUrl = '/refer?r=' + encodeURIComponent(slug);
   const portalLink = location.origin + '/?r=' + encodeURIComponent(slug);
 
   let h = '';
