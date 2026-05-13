@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Neon Giant CRM</title>
-<meta name="build" content="v73-2026-05-12-portal-links-leads-tab">
+<meta name="build" content="v74-2026-05-12-activate-portal-status-flow">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
@@ -515,8 +515,34 @@ async function emailReferralReport(){
   }catch(e){if(typeof tt==='function')tt('Error: '+e.message,'er');}
 }
 
+async function toggleActivatePortal(realtorId){
+  const c=D.find(x=>+x.id===+realtorId); if(!c) return;
+  const isActive=!!c.portalActivatedAt;
+  if(isActive){
+    if(!confirm('Deactivate '+c.name+'\u2019s portal?'))return;
+    if(typeof tt==='function')tt('Deactivating...','ok');
+    try{await aP({action:'deactivatePortal',realtorId:realtorId}); c.portalActivatedAt=''; if(typeof tt==='function')tt('\u2713 Deactivated','ok'); if(pOpen===+c.id)oP(c.id);}catch(e){if(typeof tt==='function')tt('Error: '+e.message,'er');}
+  } else {
+    if(!confirm('Activate portal for '+c.name+'?'))return;
+    if(typeof tt==='function')tt('Activating...','ok');
+    try{const r=await aP({action:'activatePortal',realtorId:realtorId});if(r&&r.ok){c.portalActivatedAt=r.activatedAt;if(typeof tt==='function')tt('\u2705 Portal activated','ok');if(pOpen===+c.id)oP(c.id);}else{if(typeof tt==='function')tt('Error: '+(r&&r.error||'unknown'),'er');}}catch(e){if(typeof tt==='function')tt('Error: '+e.message,'er');}
+  }
+}
 function copyPortalLink(url){
   navigator.clipboard.writeText(url).then(function(){if(typeof tt==="function")tt("\u2705 Link copied","ok");}).catch(function(){if(typeof tt==="function")tt("Copy failed","er");});
+}
+async function plSetStatus(leadId, newStatus){
+  if(typeof tt==='function')tt('Updating...','ok');
+  try{
+    const r=await aP({action:'updatePortalLeadStatus', id:leadId, status:newStatus});
+    if(r&&r.ok){
+      const msg='\u2192 '+newStatus.toUpperCase()+(r.emailSent?' \u00b7 \u{1F4E7} realtor notified':r.emailsPaused?' \u00b7 emails paused':'');
+      if(typeof tt==='function')tt('\u2705 '+msg,'ok');
+      const idx=plLeads.findIndex(x=>+x.id===+leadId);
+      if(idx>=0) plLeads[idx].status=newStatus;
+      rPL(document.getElementById('mc'));
+    } else { if(typeof tt==='function')tt('Error: '+(r&&r.error||'unknown'),'er'); }
+  }catch(e){if(typeof tt==='function')tt('Error: '+e.message,'er');}
 }
 async function plLoad(){
   const mc=document.getElementById("mc");
@@ -800,8 +826,12 @@ function oP(id){
   cs = cs + portalLinkSection;
   const ti=(c.type==='Realtor')?`<div class="pr"><span class="k">Realtor Tier</span><span style="color:var(--gold);font-weight:700">${c.tier||'—'}</span></div>`:'';
   const _refSlug=(c.type==='Realtor')?(String(c.name||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').substring(0,40)+'-'+c.id):'';
+  const _activatedAt=c.portalActivatedAt?new Date(c.portalActivatedAt):null;
+  const _activatedTxt=_activatedAt?_activatedAt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
+  const _activateLabel=_activatedAt?('\u2713 Active since '+_activatedTxt):'\u{1F680} Activate Portal';
+  const _activateBg=_activatedAt?'#33cc66':'linear-gradient(135deg,#ff0080,#ff8000)';
   const _refUrl=_refSlug?('https://neondane.github.io/neon-crm/refer.html?r='+_refSlug):'';
-  const portalLinkSection=_refUrl?('<div class="rs" style="border:1px solid var(--p);border-radius:8px;padding:12px;margin-top:12px;background:linear-gradient(135deg,rgba(74,0,128,0.15),rgba(255,0,128,0.10))"><h5 style="color:var(--p);margin:0 0 8px;display:flex;align-items:center;justify-content:space-between"><span>\u{1F517} Referral Portal Link</span><button onclick="copyPortalLink(\''+_refUrl+'\')" style="background:linear-gradient(135deg,var(--p),var(--b));color:#fff;border:none;border-radius:5px;padding:5px 12px;font-size:11px;cursor:pointer">\u{1F4CB} Copy</button></h5><div style="font-family:monospace;font-size:11px;color:#9cf;word-break:break-all;background:rgba(0,0,0,0.25);padding:8px;border-radius:5px">'+_refUrl+'</div><div style="font-size:11px;color:var(--g);margin-top:6px">Send to '+(c.name?String(c.name).split(" ")[0]:'this realtor')+' so they can submit referrals \u2192 you get an email, they earn $50/move</div></div>'):'';
+  const portalLinkSection=_refUrl?('<div class="rs" style="border:1px solid var(--p);border-radius:8px;padding:12px;margin-top:12px;background:linear-gradient(135deg,rgba(74,0,128,0.15),rgba(255,0,128,0.10))"><h5 style="color:var(--p);margin:0 0 8px;display:flex;align-items:center;justify-content:space-between"><span>\u{1F517} Referral Portal</span><button onclick="toggleActivatePortal('+c.id+')" style="background:'+_activateBg+';color:#fff;border:none;border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer;margin-left:6px">'+_activateLabel+'</button<button onclick="copyPortalLink(\''+_refUrl+'\')" style="background:linear-gradient(135deg,var(--p),var(--b));color:#fff;border:none;border-radius:5px;padding:5px 12px;font-size:11px;cursor:pointer">\u{1F4CB} Copy</button></h5><div style="font-family:monospace;font-size:11px;color:#9cf;word-break:break-all;background:rgba(0,0,0,0.25);padding:8px;border-radius:5px">'+_refUrl+'</div><div style="font-size:11px;color:var(--g);margin-top:6px">'+(_activatedAt?'Portal active \u00b7 They see their dashboard with stats + history. Only post-activation referrals count for $50.':'Click Activate to start tracking '+(c.name?String(c.name).split(" ")[0]:'this realtor')+'\'s referrals for $50 payouts')+'</div></div>'):'';
   let vh=cv.map(v=>`<div class="vi" id="vi_${v.id}"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span class="vd">${fd(v.date)}</span><span style="display:flex;gap:4px;align-items:center"><span class="vh">${v.handler}</span><button onclick="editVisit(${v.id})" style="background:none;border:none;color:var(--b);cursor:pointer;font-size:13px;padding:2px 4px" title="Edit visit">✏️</button><button onclick="delVisit(${v.id},${v.contactId})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:13px;padding:2px 4px" title="Delete visit">🗑️</button></span></div><div class="vn" id="vn_${v.id}">${v.notes||''}</div></div>`).join('');
 
   document.getElementById('pc').innerHTML=`<div class="ph"><div><div style="font-size:20px;font-weight:800">${c.name||'—'}</div><div style="color:var(--g);font-size:12px;margin-top:2px">${c.role||''} at <span style="color:var(--p)">${c.business||''}</span></div><div style="margin-top:4px;font-size:11px;color:var(--g)">📍 ${c.territory||'—'} · Added ${fd(c.dateAdded)}</div></div><button class="px" onclick="cP()">✕</button></div><div class="pb">
