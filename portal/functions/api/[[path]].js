@@ -2,33 +2,24 @@
  * /api/[[path]].js — Cloudflare Pages Function proxy to Apps Script
  *
  * Routes ALL /api/* requests to the Apps Script web app, bypassing CORS
- * and the Google Workspace login redirect because this code runs
- * server-to-server inside Cloudflare's edge network.
+ * and the Google Workspace login redirect because this runs server-to-server.
+ *
+ * Why GET upstream, not POST?
+ *   Anonymous POSTs to Apps Script /macros/s/.../exec return a 302 to
+ *   script.googleusercontent.com/macros/echo, and that host returns 405 for
+ *   POST. The canonical pattern for anonymous Apps Script calls is GET with
+ *   ?action=...&payload=<JSON>. The backend's doGet() already supports it.
  *
  * URL pattern (browser → this Function):
- *   POST  /api/submitReferralLead     body: { realtorId, customer: {...} }
- *   POST  /api/getRealtorBySlug       body: { slug }
- *   POST  /api/getRealtorPortalView   body: { realtorId } or { slug }
- *
- * The Function pulls the action name from the URL path and merges it into
- * the JSON payload before forwarding upstream.
- *
- * Why a proxy at all?
- *   - Apps Script /macros/s/.../exec redirects unauthenticated browsers to a
- *     workspace-restricted /a/macros/neongiantmoving.com/s/.../exec URL that
- *     returns "Page Not Found" for anyone who isn't signed into the workspace.
- *   - A Cloudflare Pages Function has no Google cookies, so it gets a clean
- *     JSON response from Apps Script (once the deploy is set to "Anyone" access).
- *   - We re-emit the response with proper CORS headers for the browser.
+ *   POST /api/<action>  body: JSON payload
+ *   GET  /api/<action>?param=value...
  *
  * Bound at: refer.neongiantmoving.com/api/*
  */
 
 const APPS_SCRIPT_URL =
-  'https://script.google.com/macros/s/AKfycbxh1ec9k_uwCmgqRsBeMEtZ9OdjxsINY-ngzgPGBoyD9pe4-Df2YsEQWrYwRYkP7GW4jw/exec';
+  'https://script.google.com/macros/s/AKfycbxh1ecAF9yWN91w04SHROy5T9N-PehvpF29LTFu8M6vjnp1PRyhgxUYf7bfU5DKzbq_nA/exec';
 
-// Origins permitted to call this proxy. Anything else is forced to the canonical
-// origin in CORS responses (so curl / Postman still work for diagnostics).
 const ALLOWED_ORIGINS = [
   'https://refer.neongiantmoving.com',
   'https://portal.neongiantmoving.com',
@@ -43,7 +34,7 @@ function corsHeaders(origin) {
       try {
         const host = new URL(origin).hostname;
         if (host.endsWith('.pages.dev')) allow = origin; // preview deploys
-      } catch { /* ignore malformed Origin */ }
+      } catch (e) { /* ignore malformed Origin */ }
     }
   }
   return {
@@ -85,21 +76,19 @@ export async function onRequest({ request, params }) {
     );
   }
 
-  // Gather payload from POST body, GET query, or empty.
+  // Gather the payload from POST body or GET query.
   let payload = {};
   if (request.method === 'POST') {
     const ct = (request.headers.get('Content-Type') || '').toLowerCase();
     if (ct.includes('application/json')) {
-      try { payload = await request.json(); } catch { payload = {}; }
+      try { payload = await request.json(); } catch (e) { payload = {}; }
     } else if (ct.includes('form-urlencoded')) {
       const form = await request.formData();
       form.forEach((v, k) => { payload[k] = v; });
     } else {
-      // Treat raw text body as JSON (refer.html historically used text/plain
-      // to avoid CORS preflight; preserve that compatibility).
       const raw = await request.text();
       if (raw) {
-        try { payload = JSON.parse(raw); } catch { payload = {}; }
+        try { payload = JSON.parse(raw); } catch (e) { payload = {}; }
       }
     }
   } else if (request.method === 'GET') {
@@ -111,13 +100,16 @@ export async function onRequest({ request, params }) {
 
   payload.action = action;
 
-  // Forward to Apps Script.
+  // Forward to Apps Script as a GET with payload encoded as a query param.
+  // The backend doGet() parses ?payload=<JSON> and dispatches to the action.
+  const upstreamUrl = new URL(APPS_SCRIPT_URL);
+  upstreamUrl.searchParams.set('action', action);
+  upstreamUrl.searchParams.set('payload', JSON.stringify(payload));
+
   let upstream;
   try {
-    upstream = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+    upstream = await fetch(upstreamUrl.toString(), {
+      method: 'GET',
       redirect: 'follow',
     });
   } catch (err) {
@@ -135,13 +127,14 @@ export async function onRequest({ request, params }) {
   let body;
   try {
     body = JSON.parse(text);
-  } catch {
+  } catch (e) {
     return jsonResponse(
       {
         ok: false,
         error:
-          'Upstream returned non-JSON. Apps Script deploy likely needs to be set ' +
-          'to "Who has access: Anyone". See README.',
+          'Upstream returned non-JSON. The Apps Script deploy must be set to ' +
+          '"Who has access: Anyone" AND the workspace must allow public Apps ' +
+          'Script web apps (admin.google.com → Apps → Apps Script).',
         upstreamStatus: upstream.status,
         upstreamPreview: text.substring(0, 200),
       },
