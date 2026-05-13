@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Refer a Move | Neon Giant Moving</title>
+<meta name="description" content="Submit a referral to Neon Giant Moving &amp; Junk Removal. Earn $50 per completed move.">
+<meta name="theme-color" content="#1a0033">
+<link rel="icon" href="/logo.jpg">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: linear-gradient(135deg, #1a0033 0%, #4a0080 50%, #ff0080 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+    color: #fff;
+    padding: 16px 12px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .card {
+    max-width: 540px;
+    margin: 20px auto;
+    background: #0a0a0a;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  }
+  .hdr {
+    background: linear-gradient(135deg, #1a0033 0%, #4a0080 50%, #ff0080 100%);
+    padding: 24px;
+    text-align: center;
+  }
+  .hdr img { width: 64px; height: 64px; border-radius: 12px; background: #000; padding: 4px; object-fit: contain; }
+  .hdr h1 { margin: 12px 0 4px; font-size: 22px; font-weight: 800; letter-spacing: 0.5px; }
+  .hdr .sub { font-size: 11px; opacity: 0.85; letter-spacing: 2px; text-transform: uppercase; }
+  .hdr .greet { margin-top: 14px; font-size: 16px; font-weight: 500; min-height: 22px; }
+  .body { padding: 22px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 11px; letter-spacing: 1px; color: #ff0080; text-transform: uppercase; margin-bottom: 5px; font-weight: 600; }
+  .field input, .field select, .field textarea {
+    width: 100%;
+    padding: 12px 14px;
+    background: #1a1a1a;
+    color: #fff;
+    border: 1px solid #333;
+    border-radius: 8px;
+    font-size: 15px;
+    font-family: inherit;
+    -webkit-appearance: none;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: none;
+    border-color: #ff0080;
+    box-shadow: 0 0 0 2px rgba(255,0,128,0.3);
+  }
+  .field textarea { min-height: 80px; resize: vertical; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 460px) { .row { grid-template-columns: 1fr; } }
+  .reward {
+    background: linear-gradient(135deg, #4a0080, #ff0080);
+    padding: 14px;
+    border-radius: 10px;
+    margin: 0 0 18px;
+    text-align: center;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .reward b { font-size: 18px; display: block; margin-bottom: 4px; }
+  .submit {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, #ff0080, #ff8000);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 8px;
+    font-family: inherit;
+    transition: opacity 0.15s, transform 0.05s;
+  }
+  .submit:hover:not(:disabled) { opacity: 0.92; }
+  .submit:active:not(:disabled) { transform: translateY(1px); }
+  .submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .err {
+    color: #ff6b6b;
+    font-size: 13px;
+    padding: 10px;
+    background: rgba(255,107,107,0.1);
+    border-radius: 6px;
+    margin-top: 10px;
+    border: 1px solid rgba(255,107,107,0.3);
+  }
+  .thank-you { text-align: center; padding: 30px 10px; }
+  .thank-you .check { font-size: 60px; margin-bottom: 14px; }
+  .thank-you h2 { font-size: 22px; margin: 0 0 8px; }
+  .thank-you p { color: #aaa; font-size: 14px; line-height: 1.6; margin: 10px 0; }
+  .thank-you b { color: #fff; }
+  .skeleton-greet {
+    display: inline-block;
+    width: 200px;
+    height: 18px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.25) 50%, rgba(255,255,255,0.1) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+    border-radius: 4px;
+  }
+  @keyframes shimmer { 0% { background-position: -100% 0; } 100% { background-position: 100% 0; } }
+  .footer { text-align: center; padding: 14px; color: rgba(255,255,255,0.6); font-size: 11px; }
+  .footer a { color: rgba(255,255,255,0.8); text-decoration: none; }
+  .back-link {
+    display: inline-block;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.7);
+    text-decoration: none;
+  }
+  .back-link:hover { color: #fff; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="hdr">
+    <img src="/logo.jpg" alt="Neon Giant" onerror="this.style.display='none'">
+    <div class="sub">Refer a Move</div>
+    <h1>Neon Giant Moving &amp; Junk Removal</h1>
+    <div class="greet" id="greet"><span class="skeleton-greet"></span></div>
+  </div>
+  <div class="body" id="body">
+    <a id="backLink" class="back-link" href="#" style="display:none">&larr; Back to your dashboard</a>
+    <div class="reward">
+      <b>$50 / $50</b>
+      $50 gift card to you after the move completes &middot; $50 off the customer's bill
+    </div>
+    <form id="referForm" onsubmit="return submitForm(event)" novalidate>
+      <div class="field">
+        <label for="fName">Customer name *</label>
+        <input id="fName" name="customerName" required autocomplete="name">
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="fPhone">Phone *</label>
+          <input id="fPhone" name="phone" required type="tel" inputmode="tel" autocomplete="tel">
+        </div>
+        <div class="field">
+          <label for="fEmail">Email</label>
+          <input id="fEmail" name="email" type="email" inputmode="email" autocomplete="email">
+        </div>
+      </div>
+      <div class="field">
+        <label for="fFrom">From address</label>
+        <input id="fFrom" name="fromAddress" placeholder="123 Main St, Bellingham" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="fTo">To address</label>
+        <input id="fTo" name="toAddress" placeholder="456 Pine Ave, Mt Vernon" autocomplete="off">
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="fDate">Target move date</label>
+          <input id="fDate" name="moveDate" type="date">
+        </div>
+        <div class="field">
+          <label for="fSize">Move size</label>
+          <select id="fSize" name="moveSize">
+            <option value="">&mdash; select &mdash;</option>
+            <option>Studio</option>
+            <option>1 BR</option>
+            <option>2 BR</option>
+            <option>3 BR</option>
+            <option>4 BR+</option>
+            <option>Junk removal</option>
+            <option>Packing only</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="fNotes">Anything else?</label>
+        <textarea id="fNotes" name="notes" placeholder="Stairs, piano, timing notes&hellip;"></textarea>
+      </div>
+      <button class="submit" type="submit" id="submitBtn">Send referral &rarr;</button>
+      <div id="err" class="err" style="display:none" role="alert"></div>
+    </form>
+  </div>
+</div>
+<div class="footer">
+  Neon Giant Moving &amp; Junk Removal &middot; Skagit Valley, WA &middot;
+  <a href="tel:+13609299723">(360) 929-9723</a>
+</div>
+
+<script>
+'use strict';
+
+// ----------- API helper ----------------------------------------------------
+// All requests go through the Cloudflare Pages Function proxy at /api/<action>.
+// The proxy talks server-to-server to Apps Script and returns proper CORS JSON.
+async function api(action, payload) {
+  const resp = await fetch('/api/' + encodeURIComponent(action), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {}),
+  });
+  if (!resp.ok) {
+    let body = null;
+    try { body = await resp.json(); } catch { /* non-JSON error */ }
+    const msg = (body && body.error) || ('HTTP ' + resp.status);
+    throw new Error(msg);
+  }
+  return resp.json();
+}
+
+// ----------- URL helpers ---------------------------------------------------
+function getSlug() {
+  return new URLSearchParams(location.search).get('r') || '';
+}
+
+// ----------- Realtor lookup ------------------------------------------------
+let realtor = null;
+const greetEl = document.getElementById('greet');
+
+async function loadRealtor() {
+  const slug = getSlug();
+  if (!slug) {
+    greetEl.textContent = 'Send us a referral';
+    return;
+  }
+  try {
+    const r = await api('getRealtorBySlug', { slug });
+    if (r.ok && r.realtor) {
+      realtor = r.realtor;
+      greetEl.textContent = 'Hey ' + (realtor.firstName || realtor.name || 'there') + ' — send us a referral';
+      const backLink = document.getElementById('backLink');
+      backLink.href = '/portal.html?r=' + encodeURIComponent(slug);
+      backLink.style.display = 'inline-block';
+    } else {
+      greetEl.textContent = 'Send us a referral';
+    }
+  } catch (err) {
+    console.error('loadRealtor failed', err);
+    greetEl.textContent = 'Send us a referral';
+  }
+}
+
+// ----------- Submission ----------------------------------------------------
+function showError(msg) {
+  const el = document.getElementById('err');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+function clearError() {
+  document.getElementById('err').style.display = 'none';
+}
+
+async function submitForm(e) {
+  e.preventDefault();
+  clearError();
+
+  if (!realtor) {
+    showError('No realtor link found. Please open the link your Neon Giant contact sent you.');
+    return false;
+  }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  const customer = {
+    name:         document.getElementById('fName').value.trim(),
+    phone:        document.getElementById('fPhone').value.trim(),
+    email:        document.getElementById('fEmail').value.trim(),
+    fromAddress:  document.getElementById('fFrom').value.trim(),
+    toAddress:    document.getElementById('fTo').value.trim(),
+    moveDate:     document.getElementById('fDate').value,
+    moveSize:     document.getElementById('fSize').value,
+    notes:        document.getElementById('fNotes').value.trim(),
+  };
+
+  // Basic client-side validation
+  if (!customer.name) { showError('Customer name is required.'); return reenable(); }
+  if (!customer.phone) { showError('Customer phone is required.'); return reenable(); }
+  if (customer.email && !/^\S+@\S+\.\S+$/.test(customer.email)) {
+    showError('Email looks invalid.'); return reenable();
+  }
+
+  try {
+    const r = await api('submitReferralLead', {
+      realtorId: realtor.id,
+      customer: customer,
+    });
+    if (r.ok) {
+      document.getElementById('body').innerHTML =
+        '<div class="thank-you">' +
+          '<div class="check">✅</div>' +
+          '<h2>Got it, ' + escapeHtml(realtor.firstName || realtor.name || 'there') + '!</h2>' +
+          '<p>We received your referral for <b>' + escapeHtml(customer.name) + '</b>. ' +
+          'The Neon Giant team will reach out within 24 hours.</p>' +
+          '<p>Your <b>$50 gift card</b> will be sent at the end of the month after the move completes.</p>' +
+          '<a class="submit" href="/portal.html?r=' + encodeURIComponent(getSlug()) + '" style="display:inline-block;text-decoration:none;text-align:center;max-width:280px;margin-top:18px">View your dashboard</a>' +
+          '<button class="submit" onclick="location.reload()" style="margin-top:10px;max-width:280px;background:#2a2a2a">Send another referral</button>' +
+        '</div>';
+    } else {
+      showError(r.error || 'Something went wrong. Try again in a minute.');
+      reenable();
+    }
+  } catch (err) {
+    console.error('submit failed', err);
+    showError('Submit failed: ' + err.message);
+    reenable();
+  }
+  return false;
+}
+
+function reenable() {
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = false;
+  btn.textContent = 'Send referral →';
+  return false;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, function(c){
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[c];
+  });
+}
+
+// Kick off
+loadRealtor();
+</script>
+</body>
+</html>
