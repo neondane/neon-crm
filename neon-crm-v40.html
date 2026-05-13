@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Neon Giant CRM</title>
-<meta name="build" content="v77-2026-05-13-fix-tdz-portalLinkSection">
+<meta name="build" content="v78-2026-05-13-gmail-compose-new-portal-url">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
@@ -691,7 +691,7 @@ function plOpenPreview(realtorId){
     });
   }
   var slug=(realtor.name||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').substring(0,40)+'-'+realtor.id;
-  var refUrl='https://neondane.github.io/neon-crm/refer.html?r='+slug;
+  var refUrl='https://neon-portal.pages.dev/?r='+slug;
   h+='<div style="background:linear-gradient(135deg,#4a0080,#ff0080);padding:12px;border-radius:8px;margin-top:12px;text-align:center"><div style="font-size:11px;letter-spacing:1px;color:#fff;margin-bottom:4px">YOUR REFERRAL LINK</div><div style="font-family:monospace;font-size:11px;color:#fff;word-break:break-all;background:rgba(0,0,0,0.25);padding:8px;border-radius:5px">'+refUrl+'</div></div>';
   h+='</div></div>';
   modal.innerHTML=h;
@@ -708,25 +708,18 @@ function plSendInvitation(contactId){
   if(!c.portalActivatedAt){
     if(!confirm('Portal not yet activated for '+c.name+'. Activate now and continue?'))return;
     toggleActivatePortal(contactId);
-    // Don't auto-send right after — let the user click again after activation
     return;
   }
   var slug=String(c.name||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').substring(0,40)+'-'+c.id;
-  var refUrl='https://neondane.github.io/neon-crm/refer.html?r='+slug;
+  var portalUrl='https://neon-portal.pages.dev/?r='+slug;
   var fn=String(c.name||'').split(' ')[0]||'there';
-  var subject='Your Neon Giant referral link — earn $50 per move';
-  var body=
-    'Hey '+fn+',\n\n'+
-    'We built you a personal referral portal. Anyone you send to us through your link gets $50 off their move, and you get a $50 gift card after they complete.\n\n'+
-    'Your link:\n'+refUrl+'\n\n'+
-    'Bookmark it and share it however you like — text, email, social, whatever works. We track every lead that comes through it under your name.\n\n'+
-    '— Dane\nNeon Giant Moving & Junk Removal';
+  var subject='Your Neon Giant referral portal — earn $50 per move';
+  var body='Hey '+fn+',\n\nI built you a personal referral portal. Anyone you send our way through your link gets $50 off their move, and you get a $50 gift card after they complete.\n\nYour portal:\n'+portalUrl+'\n\nBookmark it — that\'s your dashboard. You can see who\'s in the pipeline, what\'s booked, and what you\'ve earned. The page also has a button to submit your next customer.\n\nShare it however you like — text, email, social, whatever works for you. Every lead that comes through it gets tracked under your name automatically.\n\n— Dane\nNeon Giant Moving & Junk Removal\n(360) 929-9723';
   var to=c.email||'';
-  var mailto='mailto:'+encodeURIComponent(to)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
-  // Stash that we tried to invite (for future dupe-check)
+  var gmailUrl='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(to)+'&su='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
   try{ var key='ngm_invited_'+c.id; localStorage.setItem(key, new Date().toISOString()); }catch(e){}
-  if(typeof tt==='function')tt('✉ Opening email draft...','ok');
-  window.location.href=mailto;
+  if(typeof tt==='function')tt('Opening Gmail draft','ok');
+  window.open(gmailUrl, '_blank', 'noopener');
 }
 
 
@@ -969,7 +962,7 @@ function oP(id){
   const _activatedTxt=_activatedAt?_activatedAt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
   const _activateLabel=_activatedAt?('\u2713 Active since '+_activatedTxt):'\u{1F680} Activate Portal';
   const _activateBg=_activatedAt?'#33cc66':'linear-gradient(135deg,#ff0080,#ff8000)';
-  const _refUrl=_refSlug?('https://neondane.github.io/neon-crm/refer.html?r='+_refSlug):'';
+  const _refUrl=_refSlug?('https://neon-portal.pages.dev/?r='+_refSlug):'';
   const portalLinkSection=_refUrl?('<div class="rs" style="border:1px solid var(--p);border-radius:8px;padding:12px;margin-top:12px;background:linear-gradient(135deg,rgba(74,0,128,0.15),rgba(255,0,128,0.10))"><h5 style="color:var(--p);margin:0 0 8px;display:flex;align-items:center;justify-content:space-between"><span>\u{1F517} Referral Portal</span><button onclick="toggleActivatePortal('+c.id+')" style="background:'+_activateBg+';color:#fff;border:none;border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer;margin-left:6px">'+_activateLabel+'</button><button onclick="copyPortalLink(\''+_refUrl+'\')" style="background:linear-gradient(135deg,var(--p),var(--b));color:#fff;border:none;border-radius:5px;padding:5px 12px;font-size:11px;cursor:pointer">\u{1F4CB} Copy</button><button onclick="plSendInvitation('+c.id+')" style="background:linear-gradient(135deg,#33cc66,#22aee4);color:#fff;border:none;border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer;margin-left:6px" title="Open email draft with the portal link">📨 Invite</button></h5><div style="font-family:monospace;font-size:11px;color:#9cf;word-break:break-all;background:rgba(0,0,0,0.25);padding:8px;border-radius:5px">'+_refUrl+'</div><div style="font-size:11px;color:var(--g);margin-top:6px">'+(_activatedAt?'Portal active \u00b7 They see their dashboard with stats + history. Only post-activation referrals count for $50.':'Click Activate to start tracking '+(c.name?String(c.name).split(" ")[0]:'this realtor')+'\'s referrals for $50 payouts')+'</div></div>'):'';
   cs = cs + portalLinkSection;
   let vh=cv.map(v=>`<div class="vi" id="vi_${v.id}"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span class="vd">${fd(v.date)}</span><span style="display:flex;gap:4px;align-items:center"><span class="vh">${v.handler}</span><button onclick="editVisit(${v.id})" style="background:none;border:none;color:var(--b);cursor:pointer;font-size:13px;padding:2px 4px" title="Edit visit">✏️</button><button onclick="delVisit(${v.id},${v.contactId})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:13px;padding:2px 4px" title="Delete visit">🗑️</button></span></div><div class="vn" id="vn_${v.id}">${v.notes||''}</div></div>`).join('');
