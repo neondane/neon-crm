@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Neon Giant CRM</title>
-<meta name="build" content="v83-2026-05-14-email-avatar-lastseen-rebrand">
+<meta name="build" content="v84-2026-05-14-edit-avatar-picker">
 <!-- neon_crm app build marker -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -1077,7 +1077,7 @@ function showEdit(id){
     <div class="fr"><div class="fg"><label>Territory</label><select id="eTr">${TR.slice(1).map(t=>`<option${c.territory===t?' selected':''}>${t}</option>`).join('')}</select></div><div class="fg"><label>Type</label><select id="eTy">${TY.map(t=>`<option${c.type===t?' selected':''}>${t}</option>`).join('')}</select></div></div>
     <div class="fr"><div class="fg"><label>Handler</label><select id="eBy">${(()=>{const h=c.handler||'';const m=String(h).match(/^\{\s*name=([^,}]+)/);const ch=m?m[1].trim():h;return TM.map(t=>`<option${ch===t?' selected':''}>${t}</option>`).join('')})()}</select></div><div class="fg"><label>Score</label><select id="eSc">${SC.map((s,i)=>`<option value="${i}"${+c.score===i?' selected':''}>${s.e} ${s.l}</option>`).join('')}</select></div></div>
     <div class="fr"><div class="fg"><label>Tier</label><select id="eTi">${TI.map(t=>`<option${c.tier===t?' selected':''}>${t}</option>`).join('')}</select></div><div class="fg"><label>Referrals</label><input id="eRef" type="number" value="${c.referrals||0}"></div></div>
-    <div class="fr"><div class="fg"><label>Profile Photo</label><input id="eProfileFile" type="file" accept="image/*" capture="environment" onchange="ePFC(this)" style="font-size:11px"><img id="eProfilePrev" src="${c.profilePic||''}" style="max-width:72px;max-height:72px;border-radius:50%;margin-top:6px;object-fit:cover;${c.profilePic?'':'display:none'}">${c.profilePic?`<button type="button" onclick="eClearProfile()" style="display:block;margin-top:4px;background:none;border:1px solid var(--r);color:var(--r);padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer">Remove</button>`:''}</div><div class="fg"><label>Business Card</label><input id="eCardFile" type="file" accept="image/*" capture="environment" onchange="eCFC(this)" style="font-size:11px"><img id="eCardPrev" src="${c.cardImage||''}" style="max-width:120px;max-height:80px;margin-top:6px;object-fit:cover;border-radius:4px;${c.cardImage?'':'display:none'}">${c.cardImage?`<button type="button" onclick="eClearCard()" style="display:block;margin-top:4px;background:none;border:1px solid var(--r);color:var(--r);padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer">Remove</button>`:''}</div></div>
+    <div class="fr"><div class="fg"><label>Profile Photo</label><input id="eProfileFile" type="file" accept="image/*" capture="environment" onchange="ePFC(this)" style="font-size:11px"><img id="eProfilePrev" src="${c.profilePic||''}" style="max-width:72px;max-height:72px;border-radius:50%;margin-top:6px;object-fit:cover;${c.profilePic?'':'display:none'}">${c.profilePic?`<button type="button" onclick="eClearProfile()" style="display:block;margin-top:4px;background:none;border:1px solid var(--r);color:var(--r);padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer">Remove</button>`:''}<button type="button" onclick="pickAvatarFromCardEdit()" style="display:block;margin-top:4px;background:#a855f7;color:#fff;border:none;padding:3px 8px;border-radius:4px;font-size:11px;cursor:pointer">🎯 Pick avatar from card</button></div><div class="fg"><label>Business Card</label><input id="eCardFile" type="file" accept="image/*" capture="environment" onchange="eCFC(this)" style="font-size:11px"><img id="eCardPrev" src="${c.cardImage||''}" style="max-width:120px;max-height:80px;margin-top:6px;object-fit:cover;border-radius:4px;${c.cardImage?'':'display:none'}">${c.cardImage?`<button type="button" onclick="eClearCard()" style="display:block;margin-top:4px;background:none;border:1px solid var(--r);color:var(--r);padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer">Remove</button>`:''}</div></div>
     <div class="fg"><label>Notes</label><textarea id="eNt">${c.notes||''}</textarea></div>
     <button class="bs" onclick="saveEdit(${c.id})">Save Changes</button><button class="bc" onclick="document.getElementById('editArea').innerHTML=''">Cancel</button></div>`;
 }
@@ -1121,6 +1121,55 @@ function ePFC(inp){const f=inp.files&&inp.files[0];if(!f)return;const r=new File
 function eCFC(inp){const f=inp.files&&inp.files[0];if(!f)return;const r=new FileReader();r.onload=async e=>{try{eCardData=await _resizeImg(e.target.result,900,0.72);const p=document.getElementById('eCardPrev');if(p){p.src=eCardData;p.style.display='block'}}catch(er){tt('Card read error','er')}};r.readAsDataURL(f)}
 function eClearProfile(){eProfileData='';const p=document.getElementById('eProfilePrev');if(p){p.src='';p.style.display='none'}const i=document.getElementById('eProfileFile');if(i)i.value='';tt('Profile photo removed on save','ok')}
 function eClearCard(){eCardData='';const p=document.getElementById('eCardPrev');if(p){p.src='';p.style.display='none'}const i=document.getElementById('eCardFile');if(i)i.value='';tt('Card removed on save','ok')}
+var _avpE=null;
+function pickAvatarFromCardEdit(){
+  let cardSrc=(typeof eCardData==='string'&&eCardData)?eCardData:'';
+  if(!cardSrc){const cp=document.getElementById('eCardPrev');if(cp&&cp.getAttribute('src'))cardSrc=cp.src;}
+  if(!cardSrc){tt('No business card on this contact yet','er');return}
+  const ov=document.createElement('div');ov.id='avpEOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML='<div style="background:#1a1a1a;border-radius:12px;padding:16px;max-width:480px;width:100%;text-align:center"><div style="color:#fff;font-size:14px;margin-bottom:8px;font-weight:600">Pick the face for the avatar</div><canvas id="avpECv" style="border:2px solid var(--b);border-radius:8px;display:block;touch-action:none;max-width:100%;margin:0 auto"></canvas><div style="display:flex;gap:8px;margin-top:10px;justify-content:center;flex-wrap:wrap"><button class="bsm" style="background:#33cc66;color:#fff" onclick="_avatarPickerEditApply()">✓ Use as Avatar</button><button class="bsm" onclick="_avatarPickerEditClose()">Cancel</button></div><div style="font-size:11px;color:var(--g);margin-top:6px">Drag the circle over the face. Drag the corner dot to resize.</div></div>';
+  document.body.appendChild(ov);
+  const img=new Image();
+  img.onload=function(){
+    const maxW=Math.min(window.innerWidth-80,440);
+    const scale=Math.min(maxW/img.width,1);
+    const dw=Math.round(img.width*scale),dh=Math.round(img.height*scale);
+    const canvas=document.getElementById('avpECv');canvas.width=dw;canvas.height=dh;
+    const ctx=canvas.getContext('2d');
+    let size=Math.min(dw,dh)*0.5,bx=(dw-size)/2,by=Math.min(dh*0.08,Math.max(0,dh-size));
+    _avpE={img:img,canvas:canvas,ctx:ctx,scale:scale,box:{x:bx,y:by,size:size},mode:'',ox:0,oy:0};
+    _drawAvatarOverlayE();
+    function getPt(e){const r=canvas.getBoundingClientRect();const sx=canvas.width/r.width,sy=canvas.height/r.height;const cx=(e.touches?e.touches[0].clientX:e.clientX)-r.left,cy=(e.touches?e.touches[0].clientY:e.clientY)-r.top;return[cx*sx,cy*sy]}
+    function down(e){e.preventDefault();const[x,y]=getPt(e);const b=_avpE.box;if(Math.hypot(x-(b.x+b.size),y-(b.y+b.size))<28){_avpE.mode='resize'}else if(x>b.x&&x<b.x+b.size&&y>b.y&&y<b.y+b.size){_avpE.mode='move';_avpE.ox=x-b.x;_avpE.oy=y-b.y}else{_avpE.mode=''}}
+    function move(e){if(!_avpE.mode)return;e.preventDefault();const[x,y]=getPt(e);const b=_avpE.box;if(_avpE.mode==='move'){b.x=Math.max(0,Math.min(canvas.width-b.size,x-_avpE.ox));b.y=Math.max(0,Math.min(canvas.height-b.size,y-_avpE.oy))}else if(_avpE.mode==='resize'){let ns=Math.max(30,Math.max(x-b.x,y-b.y));ns=Math.min(ns,canvas.width-b.x,canvas.height-b.y);b.size=ns}_drawAvatarOverlayE()}
+    function up(){_avpE.mode=''}
+    canvas.addEventListener('mousedown',down);canvas.addEventListener('mousemove',move);window.addEventListener('mouseup',up);
+    canvas.addEventListener('touchstart',down,{passive:false});canvas.addEventListener('touchmove',move,{passive:false});canvas.addEventListener('touchend',up);
+  };
+  img.src=cardSrc;
+}
+function _drawAvatarOverlayE(){
+  const s=_avpE;if(!s)return;const ctx=s.ctx,cw=s.canvas.width,ch=s.canvas.height,b=s.box;
+  ctx.clearRect(0,0,cw,ch);ctx.drawImage(s.img,0,0,cw,ch);
+  ctx.save();ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(0,0,cw,ch);
+  ctx.beginPath();ctx.arc(b.x+b.size/2,b.y+b.size/2,b.size/2,0,2*Math.PI);ctx.closePath();
+  ctx.globalCompositeOperation='destination-out';ctx.fill();ctx.restore();
+  ctx.beginPath();ctx.arc(b.x+b.size/2,b.y+b.size/2,b.size/2,0,2*Math.PI);ctx.strokeStyle='#33cc66';ctx.lineWidth=3;ctx.stroke();
+  ctx.beginPath();ctx.arc(b.x+b.size,b.y+b.size,11,0,2*Math.PI);ctx.fillStyle='#33cc66';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+}
+function _avatarPickerEditApply(){
+  const s=_avpE;if(!s){_avatarPickerEditClose();return}
+  const b=s.box,inv=1/s.scale;
+  const out=document.createElement('canvas');out.width=256;out.height=256;
+  out.getContext('2d').drawImage(s.img,b.x*inv,b.y*inv,b.size*inv,b.size*inv,0,0,256,256);
+  eProfileData=out.toDataURL('image/jpeg',0.85);
+  const pp=document.getElementById('eProfilePrev');if(pp){pp.src=eProfileData;pp.style.display='block'}
+  _avatarPickerEditClose();
+  tt('✅ Avatar set — Save to keep it','ok');
+}
+function _avatarPickerEditClose(){_avpE=null;const ov=document.getElementById('avpEOv');if(ov)ov.remove()}
+
 // Visit edit / delete
 function editVisit(id){
   const v=V.find(x=>+x.id===+id);if(!v)return;
