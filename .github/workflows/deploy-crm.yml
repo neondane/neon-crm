@@ -1,0 +1,38 @@
+name: Deploy CRM to crm.neongiantmoving.com
+
+# Auto-deploys neon-crm-v40.html to the Cloudflare Pages project "neon-crm"
+# (served at https://crm.neongiantmoving.com) on every push to main.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'neon-crm-v40.html'
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build - rename versioned file to index.html
+        run: |
+          mkdir -p dist
+          cp neon-crm-v40.html dist/index.html
+          SIZE=$(wc -c < dist/index.html)
+          echo "CRM file size: $SIZE bytes"
+          if [ "$SIZE" -lt 100000 ]; then
+            echo "::error::CRM file is only $SIZE bytes - looks truncated. Aborting deploy."
+            exit 1
+          fi
+          grep -q "neon_crm" dist/index.html || { echo "::error::CRM file missing core markers. Aborting."; exit 1; }
+          echo "Sanity checks passed."
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=neon-crm --branch=main --commit-dirty=true
