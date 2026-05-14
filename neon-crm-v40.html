@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Neon Giant CRM</title>
-<meta name="build" content="v84-2026-05-14-edit-avatar-picker">
+<meta name="build" content="v85-2026-05-14-invite-templates-inapp-send">
 <!-- neon_crm app build marker -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -703,6 +703,23 @@ function plClosePreview(){
   var modal=document.getElementById('plPreviewModal');
   if(modal)modal.remove();
 }
+function plBuildInviteTemplates(fn,link,sender){
+  var sig='Thanks,\n'+(sender?sender+'\n':'')+'Neon Giant Moving Company\n(360) 588-4700';
+  return [
+    {name:'Short & warm',
+     subject:'Your Neon Giant referral link',
+     body:'Hi '+fn+',\n\nWe set up a referral page just for you. Here is your link:\n'+link+'\n\nAnyone you send our way gets $50 off their move on any move over $1,000, and you get a $50 gift card once their move is done. Your page tracks who is in the pipeline and what you have earned.\n\nShare it however works best for you. Thanks for thinking of us.\n\n'+sig},
+    {name:'Detailed',
+     subject:'Your Neon Giant Moving referral partner page',
+     body:'Hi '+fn+',\n\nThank you for partnering with Neon Giant Moving Company. We put together a referral page that makes it simple to send us customers and keep everything in one place.\n\nHere is your personal link:\n'+link+'\n\nHow it works: anyone you refer gets $50 off their move on any move over $1,000. Once that move is complete, you receive a $50 gift card. Your page shows every lead in the pipeline, what has been booked, and what you have earned to date. It also has a button to submit your next customer directly.\n\nYou are welcome to share the link by text, email, or social media. Every lead that comes through it is automatically tracked under your name.\n\nPlease reach out with any questions.\n\n'+sig},
+    {name:'Casual',
+     subject:'Made you a referral link',
+     body:'Hey '+fn+',\n\nQuick one. We made you your own referral link:\n'+link+'\n\nAnyone you send us saves $50 on their move over $1,000, and you get a $50 gift card once it is done. The page shows what is in progress and what you have earned.\n\nSend it to anyone who is moving. Appreciate you.\n\n'+sig},
+    {name:'Thank-you',
+     subject:'A little something for sending folks our way',
+     body:'Hi '+fn+',\n\nWe really appreciate you sending people our way, so we set up a referral page to make it worth your while and easy to track.\n\nHere is your link:\n'+link+'\n\nEvery customer you refer gets $50 off a move over $1,000, and you earn a $50 gift card once their move wraps up. The page keeps a running view of your referrals and earnings, and has a button to send us your next one.\n\nThanks again for the support.\n\n'+sig}
+  ];
+}
 function plSendInvitation(contactId){
   var c=D.find(function(x){return +x.id===+contactId;});
   if(!c){ if(typeof tt==='function')tt('Contact not found','er'); return; }
@@ -711,22 +728,72 @@ function plSendInvitation(contactId){
     toggleActivatePortal(contactId);
     return;
   }
+  if(!c.email){ if(typeof tt==='function')tt('No email on file for '+c.name,'er'); return; }
   var slug=String(c.name||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').substring(0,40)+'-'+c.id;
   var portalUrl='https://refer.neongiantmoving.com/?r='+slug;
   var fn=String(c.name||'').split(' ')[0]||'there';
-  var subject='Your Neon Giant referral link';
   var sender=(typeof CU!=='undefined'&&CU&&CU.name)?String(CU.name).split(' ')[0]:'';
-  var body='Hi '+fn+',\n\n'+
-    'We set up a referral page just for you. It is your own link for sending customers our way, and it keeps everything in one place.\n\n'+
-    'Here is your link:\n'+portalUrl+'\n\n'+
-    'Anyone you refer gets $50 off their move (any move over $1,000), and once their move is done you get a $50 gift card. The page shows who is in the pipeline, what is booked, and what you have earned so far. It also has a button to send us your next customer.\n\n'+
-    'Share it however works best for you, by text, email, or social. Every lead that comes through it is tracked under your name.\n\n'+
-    'Thanks,\n'+(sender?sender+'\n':'')+'Neon Giant Moving Company\n(360) 588-4700';
-  var to=c.email||'';
-  var gmailUrl='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(to)+'&su='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
-  try{ var key='ngm_invited_'+c.id; localStorage.setItem(key, new Date().toISOString()); }catch(e){}
-  if(typeof tt==='function')tt('Opening Gmail draft','ok');
-  window.open(gmailUrl, '_blank', 'noopener');
+  window.__invTpls=plBuildInviteTemplates(fn,portalUrl,sender);
+  window.__invCid=c.id; window.__invTo=c.email; window.__invIdx=0;
+  plRenderInviteModal(c);
+}
+function plRenderInviteModal(c){
+  var old=document.getElementById('plInvOv'); if(old)old.remove();
+  var ov=document.createElement('div'); ov.id='plInvOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto';
+  var tpls=window.__invTpls;
+  var tabs=tpls.map(function(t,i){return '<button type="button" onclick="plPickInviteTpl('+i+')" id="plInvTab'+i+'" style="padding:6px 10px;font-size:11px;border-radius:6px;border:1px solid var(--bd);cursor:pointer;background:'+(i===window.__invIdx?'var(--b)':'transparent')+';color:#fff">'+t.name+'</button>';}).join('');
+  ov.innerHTML='<div style="background:#161616;border:1px solid var(--bd);border-radius:12px;padding:16px;max-width:560px;width:100%">'+
+    '<div style="color:#fff;font-size:15px;font-weight:600;margin-bottom:2px">Send portal invite</div>'+
+    '<div style="color:var(--g);font-size:12px;margin-bottom:10px">To '+(c.name||'')+' &lt;'+(c.email||'')+'&gt;</div>'+
+    '<div style="color:var(--g);font-size:11px;margin-bottom:4px">Pick a style (switching reloads the text):</div>'+
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'+tabs+'</div>'+
+    '<label style="font-size:11px;color:var(--g)">Subject</label>'+
+    '<input id="plInvSubj" style="width:100%;padding:8px;border-radius:6px;background:var(--d3,#0e0e0e);color:#fff;border:1px solid var(--bd);margin:3px 0 10px">'+
+    '<label style="font-size:11px;color:var(--g)">Message (edit freely before sending)</label>'+
+    '<textarea id="plInvBody" rows="13" style="width:100%;padding:8px;border-radius:6px;background:var(--d3,#0e0e0e);color:#fff;border:1px solid var(--bd);font-family:inherit;margin-top:3px"></textarea>'+
+    '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">'+
+    '<button id="plInvSendBtn" class="bs" onclick="plDoSendInvite()" style="flex:1;min-width:150px;background:linear-gradient(135deg,#33cc66,#22aee4)">\U0001F4E8 Send email</button>'+
+    '<button class="bc" onclick="plCloseInviteModal()">Cancel</button></div>'+
+    '<div style="font-size:10px;color:var(--g);margin-top:8px">Sends from the company account through the CRM. No Gmail sign-in needed.</div>'+
+  '</div>';
+  document.body.appendChild(ov);
+  plPickInviteTpl(window.__invIdx);
+}
+function plPickInviteTpl(i){
+  var tpls=window.__invTpls; if(!tpls||!tpls[i])return;
+  window.__invIdx=i;
+  var s=document.getElementById('plInvSubj'),b=document.getElementById('plInvBody');
+  if(s)s.value=tpls[i].subject;
+  if(b)b.value=tpls[i].body;
+  tpls.forEach(function(t,j){var el=document.getElementById('plInvTab'+j);if(el)el.style.background=(j===i?'var(--b)':'transparent');});
+}
+function plCloseInviteModal(){var ov=document.getElementById('plInvOv');if(ov)ov.remove();}
+async function plDoSendInvite(){
+  var to=window.__invTo, cid=window.__invCid;
+  var subject=(document.getElementById('plInvSubj')||{}).value||'';
+  var body=(document.getElementById('plInvBody')||{}).value||'';
+  if(!body.trim()){tt('Email body is empty','er');return}
+  if(!to){tt('No recipient email','er');return}
+  var btn=document.getElementById('plInvSendBtn');
+  if(btn){btn.disabled=true;btn.textContent='Sending...';}
+  tt('Sending email...','ok');
+  try{
+    var sender=(typeof CU!=='undefined'&&CU&&CU.name)?CU.name:'';
+    var r=await aP({action:'sendEmail',to:to,subject:subject,body:body,contactId:+cid,sender:sender});
+    if(r&&r.ok){
+      try{localStorage.setItem('ngm_invited_'+cid,new Date().toISOString());}catch(e){}
+      tt('✅ Invite sent to '+to,'ok');
+      plCloseInviteModal();
+      if(typeof load==='function')load();
+    }else{
+      tt('Send failed: '+(r&&r.error?r.error:'unknown'),'er');
+      if(btn){btn.disabled=false;btn.textContent='\U0001F4E8 Send email';}
+    }
+  }catch(e){
+    tt('Send failed: '+e.message,'er');
+    if(btn){btn.disabled=false;btn.textContent='\U0001F4E8 Send email';}
+  }
 }
 
 
