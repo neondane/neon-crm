@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Neon Giant CRM</title>
-<meta name="build" content="v85-2026-05-14-invite-templates-inapp-send">
+<meta name="build" content="v86-2026-05-14-fix-send-btn-emoji">
 <!-- neon_crm app build marker -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -753,7 +753,7 @@ function plRenderInviteModal(c){
     '<label style="font-size:11px;color:var(--g)">Message (edit freely before sending)</label>'+
     '<textarea id="plInvBody" rows="13" style="width:100%;padding:8px;border-radius:6px;background:var(--d3,#0e0e0e);color:#fff;border:1px solid var(--bd);font-family:inherit;margin-top:3px"></textarea>'+
     '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">'+
-    '<button id="plInvSendBtn" class="bs" onclick="plDoSendInvite()" style="flex:1;min-width:150px;background:linear-gradient(135deg,#33cc66,#22aee4)">\U0001F4E8 Send email</button>'+
+    '<button id="plInvSendBtn" class="bs" onclick="plDoSendInvite()" style="flex:1;min-width:150px;background:linear-gradient(135deg,#33cc66,#22aee4)">📨 Send email</button>'+
     '<button class="bc" onclick="plCloseInviteModal()">Cancel</button></div>'+
     '<div style="font-size:10px;color:var(--g);margin-top:8px">Sends from the company account through the CRM. No Gmail sign-in needed.</div>'+
   '</div>';
@@ -788,11 +788,11 @@ async function plDoSendInvite(){
       if(typeof load==='function')load();
     }else{
       tt('Send failed: '+(r&&r.error?r.error:'unknown'),'er');
-      if(btn){btn.disabled=false;btn.textContent='\U0001F4E8 Send email';}
+      if(btn){btn.disabled=false;btn.textContent='📨 Send email';}
     }
   }catch(e){
     tt('Send failed: '+e.message,'er');
-    if(btn){btn.disabled=false;btn.textContent='\U0001F4E8 Send email';}
+    if(btn){btn.disabled=false;btn.textContent='📨 Send email';}
   }
 }
 
