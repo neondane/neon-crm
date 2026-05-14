@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Neon Giant CRM</title>
-<meta name="build" content="v79-2026-05-13-branded-refer-domain">
+<meta name="build" content="v83-2026-05-14-email-avatar-lastseen-rebrand">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
@@ -713,8 +713,14 @@ function plSendInvitation(contactId){
   var slug=String(c.name||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').substring(0,40)+'-'+c.id;
   var portalUrl='https://refer.neongiantmoving.com/?r='+slug;
   var fn=String(c.name||'').split(' ')[0]||'there';
-  var subject='Your Neon Giant referral portal — earn $50 per move';
-  var body='Hey '+fn+',\n\nI built you a personal referral portal. Anyone you send our way through your link gets $50 off their move (moves over $1,000), and you get a $50 gift card after they complete a move over $1,000that\'s your dashboard. You can see who\'s in the pipeline, what\'s booked, and what you\'ve earned. The page also has a button to submit your next customer.\n\nShare it however you like — text, email, social, whatever works for you. Every lead that comes through it gets tracked under your name automatically.\n\n— Dane\nNeon Giant Moving & Junk Removal\n(360) 588-4700';
+  var subject='Your Neon Giant referral link';
+  var sender=(typeof CU!=='undefined'&&CU&&CU.name)?String(CU.name).split(' ')[0]:'';
+  var body='Hi '+fn+',\n\n'+
+    'We set up a referral page just for you. It is your own link for sending customers our way, and it keeps everything in one place.\n\n'+
+    'Here is your link:\n'+portalUrl+'\n\n'+
+    'Anyone you refer gets $50 off their move (any move over $1,000), and once their move is done you get a $50 gift card. The page shows who is in the pipeline, what is booked, and what you have earned so far. It also has a button to send us your next customer.\n\n'+
+    'Share it however works best for you, by text, email, or social. Every lead that comes through it is tracked under your name.\n\n'+
+    'Thanks,\n'+(sender?sender+'\n':'')+'Neon Giant Moving Company\n(360) 588-4700';
   var to=c.email||'';
   var gmailUrl='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(to)+'&su='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
   try{ var key='ngm_invited_'+c.id; localStorage.setItem(key, new Date().toISOString()); }catch(e){}
@@ -1043,7 +1049,7 @@ async function compRem(rid){tt('Completing...','ok');try{await aP({action:'updat
 function showAddRef(id,name){
   const today=new Date().toISOString().split('T')[0];
   document.getElementById('refArea').innerHTML=`<div class="pi" style="border:1px solid var(--p)"><h5 style="color:var(--p)">🎁 Log Referral from ${name}</h5>
-    <div class="fg"><label>Job Name / Customer</label><input id="refJob" placeholder="e.g. Smith Family Move, Johnson Junk Removal"></div>
+    <div class="fg"><label>Job Name / Customer</label><input id="refJob" placeholder="e.g. Smith Family Move, Johnson Apartment Move"></div>
     <div class="fr"><div class="fg"><label>Status</label><select id="refSt"><option value="referred">Referred</option><option value="booked">Booked</option><option value="completed">Completed ✅</option></select></div><div class="fg"><label>Date</label><input id="refDt" type="date" value="${today}"></div></div>
     <div class="fr"><div class="fg"><label>Revenue ($)</label><input id="refAmt" type="number" step="0.01" placeholder="0.00"></div><div class="fg"><label>Entered By</label><select id="refBy">${tmOpts()}</select></div></div>
     <div class="fg"><label>Notes</label><input id="refNt" placeholder="Optional"></div>
@@ -1172,7 +1178,7 @@ function rL(){
     <div style="margin:10px 0"><label style="font-size:11px;color:var(--g);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:6px">📷 Business Card</label>
       <div id="lCA"><div style="display:flex;gap:8px"><button class="bsm" onclick="sLCam()">📷 Photo</button><button class="bsm" onclick="document.getElementById('lFI').click()">📁 Upload</button><input type="file" id="lFI" accept="image/*" style="display:none" onchange="hLU(event)"></div></div>
       <div id="lCP"></div>
-      <div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap"><button class="bsm" style="background:var(--b);display:none" id="aiCB" onclick="aiC()">🤖 AI Read Card</button><button class="bsm" style="background:#22aee4;display:none" id="aiCropB" onclick="aiCrop()">✂️ Auto-Crop</button><div id="lAvatarPrev" style="display:none;width:48px;height:48px;border-radius:50%;background-size:cover;background-position:center;border:2px solid var(--gn)" title="Avatar from card"></div></div>
+      <div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap"><button class="bsm" style="background:var(--b);display:none" id="aiCB" onclick="aiC()">🤖 AI Read Card</button><button class="bsm" style="background:#22aee4;display:none" id="aiCropB" onclick="aiCrop()">✂️ Auto-Crop</button><button class="bsm" style="background:#a855f7;display:none" id="pickAvB" onclick="pickAvatar()">🎯 Pick Avatar</button><div id="lAvatarPrev" style="display:none;width:48px;height:48px;border-radius:50%;background-size:cover;background-position:center;border:2px solid var(--gn)" title="Avatar from card"></div></div>
     </div>
     <div class="fg"><label>Contact Name</label><input id="lNm" placeholder="e.g. Steve" oninput="chk()"></div>
     <div id="mA"></div>
@@ -1204,7 +1210,7 @@ async function sLCam(){document.getElementById('lCA').innerHTML=`<div style="pos
 let _acTimer=null,_acPrev=null,_acStill=0;
 function startAutoCapture(){stopAutoCapture();const v=document.getElementById('lVd');const tmp=document.createElement('canvas');tmp.width=64;tmp.height=48;const ctx=tmp.getContext('2d');_acStill=0;_acPrev=null;_acTimer=setInterval(()=>{if(!v||!v.videoWidth)return;try{ctx.drawImage(v,0,0,64,48);const data=ctx.getImageData(0,0,64,48).data;if(_acPrev){let diff=0;for(let i=0;i<data.length;i+=16){diff+=Math.abs(data[i]-_acPrev[i])}const avg=diff/(data.length/16);const status=document.getElementById('lAS');if(avg<6){_acStill++;if(status)status.textContent='📷 Holding still... '+_acStill+'/5';if(_acStill>=5){stopAutoCapture();if(status)status.textContent='✨ Auto-capturing!';cLP()}}else{_acStill=0;if(status)status.textContent='📷 Hold steady — tap to capture'}}_acPrev=new Uint8ClampedArray(data)}catch(e){}},200)}
 function stopAutoCapture(){if(_acTimer){clearInterval(_acTimer);_acTimer=null}_acPrev=null;_acStill=0}
-function cLP(){if(typeof stopAutoCapture==='function')stopAutoCapture();const v=document.getElementById('lVd'),c=document.getElementById('lCn');if(!v||!v.videoWidth){tt('Camera not ready','er');return}c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);lI=c.toDataURL('image/jpeg',.8);sLC();rLCB();document.getElementById('lCP').innerHTML=`<img src="${lI}" style="width:100%;max-width:280px;border-radius:8px;border:2px solid var(--b);margin-top:8px">`;document.getElementById('aiCB').style.display='inline-block';const _cb=document.getElementById('aiCropB');if(_cb)_cb.style.display='inline-block';lAvatar='';const _av=document.getElementById('lAvatarPrev');if(_av)_av.style.display='none'}
+function cLP(){if(typeof stopAutoCapture==='function')stopAutoCapture();const v=document.getElementById('lVd'),c=document.getElementById('lCn');if(!v||!v.videoWidth){tt('Camera not ready','er');return}c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);lI=c.toDataURL('image/jpeg',.8);sLC();rLCB();document.getElementById('lCP').innerHTML=`<img src="${lI}" style="width:100%;max-width:280px;border-radius:8px;border:2px solid var(--b);margin-top:8px">`;document.getElementById('aiCB').style.display='inline-block';const _cb=document.getElementById('aiCropB');if(_cb)_cb.style.display='inline-block';const _pb=document.getElementById('pickAvB');if(_pb)_pb.style.display='inline-block';lAvatar='';const _av=document.getElementById('lAvatarPrev');if(_av)_av.style.display='none'}
 let cvReady=false;
 async function loadCV(){
   if(cvReady||(window.cv&&window.cv.Mat))return new Promise(r=>{const ck=()=>{if(window.cv&&window.cv.Mat){cvReady=true;r()}else setTimeout(ck,100)};ck()});
@@ -1300,24 +1306,77 @@ async function applyCrop(){
   src.delete();dst.delete();rgb.delete();lab.delete();ch.delete();srcPts.delete();dstPts.delete();M.delete();clahe.delete();
   document.getElementById('lCP').innerHTML='<img src="'+lI+'" style="width:100%;max-width:280px;border-radius:8px;border:2px solid var(--b);margin-top:8px">';
   _adj=null;
-  // Face detection via Claude on the cleaned card
-  tt('Looking for face...','ok');
+  // Use AI only as a starting guess, then let the user position the avatar
+  let _initFace=null;
+  tt('Finding the face...','ok');
   try{
     const fr=await ai('Look at this business card. If a human face/headshot is on it, return ONLY: {"face":{"x":N,"y":N,"width":N,"height":N}} as percentages 0-100 of the image. If no face, return {"face":null}. Be tight.',lI);
     const fj=JSON.parse(fr.replace(/```json|```/g,'').trim());
-    if(fj.face&&fj.face.width>0){
-      const fimg=new Image();await new Promise(r=>{fimg.onload=r;fimg.src=lI});
-      const _padX=fj.face.width*fimg.width*0.25/100;const _padY=fj.face.height*fimg.height*0.40/100;
-      const fx=Math.max(0,fj.face.x*fimg.width/100-_padX);const fy=Math.max(0,fj.face.y*fimg.height/100-_padY);
-      const fw=Math.min(fimg.width-fx,fj.face.width*fimg.width/100+_padX*2);const fh=Math.min(fimg.height-fy,fj.face.height*fimg.height/100+_padY*2);
-      const fv=document.createElement('canvas');fv.width=fw;fv.height=fh;fv.getContext('2d').drawImage(fimg,fx,fy,fw,fh,0,0,fw,fh);
-      lAvatar=fv.toDataURL('image/jpeg',0.85);
-      const av=document.getElementById('lAvatarPrev');if(av){av.style.display='inline-block';av.style.backgroundImage='url('+lAvatar+')'}
-      tt('✅ Crop + avatar saved!','ok');
-    }else{tt('✅ Crop applied (no face on card)','ok')}
-  }catch(e){tt('Crop applied. Face skipped: '+e.message,'er')}
+    if(fj.face&&fj.face.width>0)_initFace=fj.face;
+  }catch(e){}
+  _showAvatarPicker(lI,_initFace);
 }
-function hLU(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=v=>{lI=v.target.result;rLCB();document.getElementById('lCP').innerHTML=`<img src="${lI}" style="width:100%;max-width:280px;border-radius:8px;border:2px solid var(--b);margin-top:8px">`;document.getElementById('aiCB').style.display='inline-block';const _cb=document.getElementById('aiCropB');if(_cb)_cb.style.display='inline-block';lAvatar='';const _av=document.getElementById('lAvatarPrev');if(_av)_av.style.display='none'}
+// ===== Manual avatar picker: drag a circle over the face on the card =====
+var _avp=null;
+function pickAvatar(){if(!lI){tt('Add a card photo first','er');return}_showAvatarPicker(lI,null)}
+function _showAvatarPicker(srcUrl,faceBox){
+  const container=document.getElementById('lCP');if(!container)return;
+  const img=new Image();
+  img.onload=function(){
+    const maxW=Math.min(window.innerWidth-40,420);
+    const scale=Math.min(maxW/img.width,1);
+    const dw=Math.round(img.width*scale),dh=Math.round(img.height*scale);
+    let size,bx,by;
+    if(faceBox&&faceBox.width>0){
+      const fw=faceBox.width/100*dw,fh=faceBox.height/100*dh;
+      size=Math.min(Math.max(fw,fh)*1.5,Math.min(dw,dh));
+      const cx=(faceBox.x/100*dw)+fw/2,cy=(faceBox.y/100*dh)+fh/2;
+      bx=cx-size/2;by=cy-size/2;
+    }else{
+      size=Math.min(dw,dh)*0.5;bx=(dw-size)/2;by=Math.min(dh*0.08,Math.max(0,dh-size));
+    }
+    bx=Math.max(0,Math.min(dw-size,bx));by=Math.max(0,Math.min(dh-size,by));
+    container.innerHTML='<div style="position:relative;display:inline-block;max-width:100%"><canvas id="avpCv" width="'+dw+'" height="'+dh+'" style="border:2px solid var(--b);border-radius:8px;display:block;touch-action:none;max-width:100%"></canvas></div>'+
+      '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="bsm" style="background:var(--gn);color:#fff" onclick="_avatarPickerApply()">✓ Use as Avatar</button><button class="bsm" onclick="_avatarPickerSkip()">Skip</button></div>'+
+      '<div style="font-size:11px;color:var(--g);margin-top:6px">Drag the circle over the face. Drag the corner dot to resize.</div>';
+    const canvas=document.getElementById('avpCv');const ctx=canvas.getContext('2d');
+    _avp={img:img,canvas:canvas,ctx:ctx,scale:scale,box:{x:bx,y:by,size:size},mode:'',ox:0,oy:0};
+    _drawAvatarOverlay();
+    function getPt(e){const r=canvas.getBoundingClientRect();const sx=canvas.width/r.width,sy=canvas.height/r.height;const cx=(e.touches?e.touches[0].clientX:e.clientX)-r.left,cy=(e.touches?e.touches[0].clientY:e.clientY)-r.top;return[cx*sx,cy*sy]}
+    function down(e){e.preventDefault();const[x,y]=getPt(e);const b=_avp.box;const hx=b.x+b.size,hy=b.y+b.size;if(Math.hypot(x-hx,y-hy)<28){_avp.mode='resize'}else if(x>b.x&&x<b.x+b.size&&y>b.y&&y<b.y+b.size){_avp.mode='move';_avp.ox=x-b.x;_avp.oy=y-b.y}else{_avp.mode=''}}
+    function move(e){if(!_avp.mode)return;e.preventDefault();const[x,y]=getPt(e);const b=_avp.box;if(_avp.mode==='move'){b.x=Math.max(0,Math.min(canvas.width-b.size,x-_avp.ox));b.y=Math.max(0,Math.min(canvas.height-b.size,y-_avp.oy))}else if(_avp.mode==='resize'){let ns=Math.max(30,Math.max(x-b.x,y-b.y));ns=Math.min(ns,canvas.width-b.x,canvas.height-b.y);b.size=ns}_drawAvatarOverlay()}
+    function up(){_avp.mode=''}
+    canvas.addEventListener('mousedown',down);canvas.addEventListener('mousemove',move);window.addEventListener('mouseup',up);
+    canvas.addEventListener('touchstart',down,{passive:false});canvas.addEventListener('touchmove',move,{passive:false});canvas.addEventListener('touchend',up);
+  };
+  img.src=srcUrl;
+}
+function _drawAvatarOverlay(){
+  const s=_avp;if(!s)return;const ctx=s.ctx,cw=s.canvas.width,ch=s.canvas.height,b=s.box;
+  ctx.clearRect(0,0,cw,ch);ctx.drawImage(s.img,0,0,cw,ch);
+  ctx.save();ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(0,0,cw,ch);
+  ctx.beginPath();ctx.arc(b.x+b.size/2,b.y+b.size/2,b.size/2,0,2*Math.PI);ctx.closePath();
+  ctx.globalCompositeOperation='destination-out';ctx.fill();ctx.restore();
+  ctx.beginPath();ctx.arc(b.x+b.size/2,b.y+b.size/2,b.size/2,0,2*Math.PI);ctx.strokeStyle='#33cc66';ctx.lineWidth=3;ctx.stroke();
+  ctx.beginPath();ctx.arc(b.x+b.size,b.y+b.size,11,0,2*Math.PI);ctx.fillStyle='#33cc66';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+}
+function _avatarPickerApply(){
+  const s=_avp;if(!s){tt('Nothing to apply','er');return}
+  const b=s.box,inv=1/s.scale;
+  const out=document.createElement('canvas');out.width=256;out.height=256;
+  out.getContext('2d').drawImage(s.img,b.x*inv,b.y*inv,b.size*inv,b.size*inv,0,0,256,256);
+  lAvatar=out.toDataURL('image/jpeg',0.85);
+  const av=document.getElementById('lAvatarPrev');if(av){av.style.display='inline-block';av.style.backgroundImage='url('+lAvatar+')'}
+  _avp=null;
+  document.getElementById('lCP').innerHTML='<img src="'+lI+'" style="width:100%;max-width:280px;border-radius:8px;border:2px solid var(--b);margin-top:8px">';
+  tt('✅ Avatar saved!','ok');
+}
+function _avatarPickerSkip(){
+  _avp=null;
+  document.getElementById('lCP').innerHTML='<img src="'+lI+'" style="width:100%;max-width:280px;border-radius:8px;border:2px solid var(--b);margin-top:8px">';
+  tt('Avatar skipped','ok');
+}
+function hLU(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=v=>{lI=v.target.result;rLCB();document.getElementById('lCP').innerHTML=`<img src="${lI}" style="width:100%;max-width:280px;border-radius:8px;border:2px solid var(--b);margin-top:8px">`;document.getElementById('aiCB').style.display='inline-block';const _cb=document.getElementById('aiCropB');if(_cb)_cb.style.display='inline-block';const _pb=document.getElementById('pickAvB');if(_pb)_pb.style.display='inline-block';lAvatar='';const _av=document.getElementById('lAvatarPrev');if(_av)_av.style.display='none'}
 let cvReady=false;
 async function loadCV(){
   if(cvReady||(window.cv&&window.cv.Mat))return new Promise(r=>{const ck=()=>{if(window.cv&&window.cv.Mat){cvReady=true;r()}else setTimeout(ck,100)};ck()});
@@ -1413,24 +1472,17 @@ async function applyCrop(){
   src.delete();dst.delete();rgb.delete();lab.delete();ch.delete();srcPts.delete();dstPts.delete();M.delete();clahe.delete();
   document.getElementById('lCP').innerHTML='<img src="'+lI+'" style="width:100%;max-width:280px;border-radius:8px;border:2px solid var(--b);margin-top:8px">';
   _adj=null;
-  // Face detection via Claude on the cleaned card
-  tt('Looking for face...','ok');
+  // Use AI only as a starting guess, then let the user position the avatar
+  let _initFace=null;
+  tt('Finding the face...','ok');
   try{
     const fr=await ai('Look at this business card. If a human face/headshot is on it, return ONLY: {"face":{"x":N,"y":N,"width":N,"height":N}} as percentages 0-100 of the image. If no face, return {"face":null}. Be tight.',lI);
     const fj=JSON.parse(fr.replace(/```json|```/g,'').trim());
-    if(fj.face&&fj.face.width>0){
-      const fimg=new Image();await new Promise(r=>{fimg.onload=r;fimg.src=lI});
-      const _padX=fj.face.width*fimg.width*0.25/100;const _padY=fj.face.height*fimg.height*0.40/100;
-      const fx=Math.max(0,fj.face.x*fimg.width/100-_padX);const fy=Math.max(0,fj.face.y*fimg.height/100-_padY);
-      const fw=Math.min(fimg.width-fx,fj.face.width*fimg.width/100+_padX*2);const fh=Math.min(fimg.height-fy,fj.face.height*fimg.height/100+_padY*2);
-      const fv=document.createElement('canvas');fv.width=fw;fv.height=fh;fv.getContext('2d').drawImage(fimg,fx,fy,fw,fh,0,0,fw,fh);
-      lAvatar=fv.toDataURL('image/jpeg',0.85);
-      const av=document.getElementById('lAvatarPrev');if(av){av.style.display='inline-block';av.style.backgroundImage='url('+lAvatar+')'}
-      tt('✅ Crop + avatar saved!','ok');
-    }else{tt('✅ Crop applied (no face on card)','ok')}
-  }catch(e){tt('Crop applied. Face skipped: '+e.message,'er')}
+    if(fj.face&&fj.face.width>0)_initFace=fj.face;
+  }catch(e){}
+  _showAvatarPicker(lI,_initFace);
 };r.readAsDataURL(f)}
-function rLCB(){document.getElementById('lCA').innerHTML=`<div style="display:flex;gap:8px"><button class="bsm" onclick="sLCam()">📷 Photo</button><button class="bsm" onclick="document.getElementById('lFI').click()">📁 Upload</button><button class="bsm" style="background:var(--r)" onclick="lI=null;document.getElementById('lCP').innerHTML='';document.getElementById('aiCB').style.display='none';const _cb3=document.getElementById('aiCropB');if(_cb3)_cb3.style.display='none';lAvatar='';const _av3=document.getElementById('lAvatarPrev');if(_av3)_av3.style.display='none';rLCB()">✕</button><input type="file" id="lFI" accept="image/*" style="display:none" onchange="hLU(event)"></div>`}
+function rLCB(){document.getElementById('lCA').innerHTML=`<div style="display:flex;gap:8px"><button class="bsm" onclick="sLCam()">📷 Photo</button><button class="bsm" onclick="document.getElementById('lFI').click()">📁 Upload</button><button class="bsm" style="background:var(--r)" onclick="lI=null;document.getElementById('lCP').innerHTML='';document.getElementById('aiCB').style.display='none';const _cb3=document.getElementById('aiCropB');if(_cb3)_cb3.style.display='none';const _pb3=document.getElementById('pickAvB');if(_pb3)_pb3.style.display='none';lAvatar='';const _av3=document.getElementById('lAvatarPrev');if(_av3)_av3.style.display='none';rLCB()">✕</button><input type="file" id="lFI" accept="image/*" style="display:none" onchange="hLU(event)"></div>`}
 async function aiC(){if(!lI){tt('Photo first','er');return}const b=document.getElementById('aiCB');b.textContent='🤖 Reading...';b.disabled=true;try{const r=await ai(`Read this business card. Return ONLY valid JSON: {"name":"","business":"","role":"","phone":"","email":"","territory":"","type":""}
 Territory: ${TR.slice(1).join(', ')}
 Type: ${TY.join(', ')}`,lI);const j=JSON.parse(r.replace(/```json|```/g,'').trim());if(j.name)document.getElementById('lNm').value=j.name;if(j.business)document.getElementById('lBz').value=j.business;if(j.role)document.getElementById('lRl').value=j.role;if(j.phone)document.getElementById('lPh').value=j.phone;if(j.email)document.getElementById('lEm').value=j.email;if(j.territory){const s=document.getElementById('lTr');for(let i=0;i<s.options.length;i++)if(s.options[i].value===j.territory)s.selectedIndex=i}if(j.type){const s=document.getElementById('lTy');for(let i=0;i<s.options.length;i++)if(s.options[i].value===j.type)s.selectedIndex=i}chk();tt('✅ Card read!','ok')}catch(e){tt('Failed: '+e.message,'er')}b.textContent='🤖 AI Read Card';b.disabled=false}
@@ -1440,7 +1492,7 @@ function chk(){const nm=(document.getElementById('lNm').value||'').toLowerCase()
 function sM(id){lMI=lMI===id?null:id;document.getElementById('lSB').textContent=lMI?'Save Visit to Existing':'Save New Contact + Visit';chk()}
 
 // Submit
-async function sL(){const n=document.getElementById('lN').value,rm=document.getElementById('lRm').value,by=document.getElementById('lBy').value;if(lMI){if(!n){tt('Add notes','er');return}tt('Saving...','ok');try{await aP({action:'addVisit',visit:{contactId:lMI,handler:by,date:(document.getElementById('lDt')?document.getElementById('lDt').value:null)||new Date().toISOString().split('T')[0],notes:n}});if(rm)await aP({action:'addReminder',reminder:{contactId:lMI,text:rm}});tt('✅ Visit saved!','ok');cL();await load()}catch(e){tt('Error','er')}}else{const nm=document.getElementById('lNm').value;if(!nm){tt('Enter name','er');return}const c={name:nm,business:document.getElementById('lBz').value,role:document.getElementById('lRl').value,phone:document.getElementById('lPh').value,email:document.getElementById('lEm').value,territory:document.getElementById('lTr').value,type:document.getElementById('lTy').value,score:+document.getElementById('lSc').value,handler:by,referrals:0,notes:'',cardImage:lI||'',profilePic:lAvatar||'',tier:document.getElementById('lTi').value};tt('Saving...','ok');try{const r=await aP({action:'addContact',contact:c});if(n&&r.id)await aP({action:'addVisit',visit:{contactId:r.id,handler:by,date:(document.getElementById('lDt')?document.getElementById('lDt').value:null)||new Date().toISOString().split('T')[0],notes:n}});if(rm&&r.id)await aP({action:'addReminder',reminder:{contactId:r.id,text:rm}});tt('✅ Saved!','ok');cL();await load()}catch(e){tt('Error','er')}}
+async function sL(){const n=document.getElementById('lN').value,rm=document.getElementById('lRm').value,by=document.getElementById('lBy').value;if(lMI){if(!n){tt('Add notes','er');return}tt('Saving...','ok');try{await aP({action:'addVisit',visit:{contactId:lMI,handler:by,date:(document.getElementById('lDt')?document.getElementById('lDt').value:null)||new Date().toISOString().split('T')[0],notes:n}});if(rm)await aP({action:'addReminder',reminder:{contactId:lMI,text:rm}});tt('✅ Visit saved!','ok');cL();await load()}catch(e){tt('Error','er')}}else{const nm=document.getElementById('lNm').value;if(!nm){tt('Enter name','er');return}const c={name:nm,business:document.getElementById('lBz').value,role:document.getElementById('lRl').value,phone:document.getElementById('lPh').value,email:document.getElementById('lEm').value,territory:document.getElementById('lTr').value,type:document.getElementById('lTy').value,score:+document.getElementById('lSc').value,handler:by,referrals:0,notes:'',lastVisit:new Date().toISOString().slice(0,10),cardImage:lI||'',profilePic:lAvatar||'',tier:document.getElementById('lTi').value};tt('Saving...','ok');try{const r=await aP({action:'addContact',contact:c});if(n&&r.id)await aP({action:'addVisit',visit:{contactId:r.id,handler:by,date:(document.getElementById('lDt')?document.getElementById('lDt').value:null)||new Date().toISOString().split('T')[0],notes:n}});if(rm&&r.id)await aP({action:'addReminder',reminder:{contactId:r.id,text:rm}});tt('✅ Saved!','ok');cL();await load()}catch(e){tt('Error','er')}}
 }
 // ─── INBOX / USER PORTAL ─────
 function rIX(mc){
@@ -1917,7 +1969,8 @@ async function dpSaveNewContact(locId){
     business: document.getElementById('dpAddCBiz').value,
     type: document.getElementById('dpAddCType').value,
     territory: document.getElementById('dpAddCTerritory').value,
-    locationId: locId
+    locationId: locId,
+    lastVisit: new Date().toISOString().slice(0,10)
   };
   try {
     tt && tt('Adding to CRM...','ok');
@@ -2563,7 +2616,7 @@ async function dpDownloadPDF(){
     if (!window.__dpLastPlan) { alert('Generate a plan first'); return; }
     let stopObj;
     if (c.source === 'location') { stopObj = { id: c.id, name: c.name, type: c.type, territory: c.territory, address: c.address, lat: c.lat, lon: c.lon, _stopMin: 25, briefing: c.enrichmentNotes || 'Existing CRM record - never visited', talkingPoints: ['First visit - introduce Neon Giant services', 'Find decision maker', 'Leave business card + flyer'], leaveBehind: 'business card + flyer' }; }
-    else { try { const r = await aP({ action: 'addLocation', location: { name: c.name, type: c.type, territory: c.territory, address: c.address, lat: c.lat, lon: c.lon, notes: 'Discovered via Places' } }); if (!r || !r.ok) { alert('Failed to add to CRM: ' + (r && r.error || '')); return; } stopObj = { id: r.id, name: c.name, type: c.type, territory: c.territory, address: c.address, lat: c.lat, lon: c.lon, _stopMin: 25, briefing: 'Net-new lead just added to CRM. First contact attempt.', talkingPoints: ['Cold intro - explain Neon Giant moving + junk removal', 'Find a contact name to follow up with', 'Leave a flyer'], leaveBehind: 'flyer + business card' }; } catch (e) { alert('Error adding net-new: ' + e.message); return; } }
+    else { try { const r = await aP({ action: 'addLocation', location: { name: c.name, type: c.type, territory: c.territory, address: c.address, lat: c.lat, lon: c.lon, notes: 'Discovered via Places' } }); if (!r || !r.ok) { alert('Failed to add to CRM: ' + (r && r.error || '')); return; } stopObj = { id: r.id, name: c.name, type: c.type, territory: c.territory, address: c.address, lat: c.lat, lon: c.lon, _stopMin: 25, briefing: 'Net-new lead just added to CRM. First contact attempt.', talkingPoints: ['Cold intro - explain Neon Giant Moving Company', 'Find a contact name to follow up with', 'Leave a flyer'], leaveBehind: 'flyer + business card' }; } catch (e) { alert('Error adding net-new: ' + e.message); return; } }
     window.__dpLastPlan.stops = window.__dpLastPlan.stops || [];
     window.__dpLastPlan.stops.push(stopObj);
     const result = document.getElementById('dpResult');
@@ -2613,7 +2666,6 @@ async function dpDownloadPDF(){
   window.dpToggleStop = async function (stopId, visited) { if (!visited) return __origDpToggleStop(stopId, visited); if (!navigator.geolocation) return __origDpToggleStop(stopId, visited); const stop = (window.__dpLastPlan && window.__dpLastPlan.stops || []).find(function (s) { return s && s.id === stopId; }); if (!stop || stop.lat == null || stop.lon == null) return __origDpToggleStop(stopId, visited); try { const pos = await new Promise(function (resolve, reject) { navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }); }); const lat1 = pos.coords.latitude, lon1 = pos.coords.longitude; const lat2 = +stop.lat, lon2 = +stop.lon; const R = 6371000; const dLat = (lat2-lat1) * Math.PI / 180, dLon = (lon2-lon1) * Math.PI / 180; const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2; const dist = 2 * R * Math.asin(Math.sqrt(a)); if (dist > 250) { if (!confirm('You appear to be ' + Math.round(dist) + 'm from ' + (stop.name||'this stop') + '. Mark as visited anyway?')) return; } } catch (e) {} return __origDpToggleStop(stopId, visited); };
 })();
 
-</script><script>
-// V65 NUCLEAR REVERT — strip all perf overrides, clear stale cache, restore original flow
-(function(){
-  try { localStorage.removeItem('neon_crm_dat
+</script>
+</body>
+</html>
