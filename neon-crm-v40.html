@@ -714,7 +714,7 @@ function plSendInvitation(contactId){
   var portalUrl='https://refer.neongiantmoving.com/?r='+slug;
   var fn=String(c.name||'').split(' ')[0]||'there';
   var subject='Your Neon Giant referral portal — earn $50 per move';
-  var body='Hey '+fn+',\n\nI built you a personal referral portal. Anyone you send our way through your link gets $50 off their move, and you get a $50 gift card after they complete.\n\nYour portal:\n'+portalUrl+'\n\nBookmark it — that\'s your dashboard. You can see who\'s in the pipeline, what\'s booked, and what you\'ve earned. The page also has a button to submit your next customer.\n\nShare it however you like — text, email, social, whatever works for you. Every lead that comes through it gets tracked under your name automatically.\n\n— Dane\nNeon Giant Moving & Junk Removal\n(360) 929-9723';
+  var body='Hey '+fn+',\n\nI built you a personal referral portal. Anyone you send our way through your link gets $50 off their move, and you get a $50 gift card after they complete.\n\nYour portal:\n'+portalUrl+'\n\nBookmark it — that\'s your dashboard. You can see who\'s in the pipeline, what\'s booked, and what you\'ve earned. The page also has a button to submit your next customer.\n\nShare it however you like — text, email, social, whatever works for you. Every lead that comes through it gets tracked under your name automatically.\n\n— Dane\nNeon Giant Moving & Junk Removal\n(360) 588-4700';
   var to=c.email||'';
   var gmailUrl='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(to)+'&su='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
   try{ var key='ngm_invited_'+c.id; localStorage.setItem(key, new Date().toISOString()); }catch(e){}
