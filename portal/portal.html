@@ -230,6 +230,49 @@
     z-index: 999;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+
+  /* ============ SOCIAL CTA ============ */
+  .social-card{
+    margin-top:18px;padding:18px 16px;border-radius:14px;
+    background:linear-gradient(135deg,rgba(0,212,255,0.10) 0%,rgba(255,0,176,0.10) 100%),#0e0e14;
+    border:1px solid rgba(0,212,255,0.35);
+    box-shadow:0 0 24px rgba(0,212,255,0.18),inset 0 0 30px rgba(255,0,176,0.06);
+    position:relative;overflow:hidden;text-align:center;
+    animation:socialFloat 6s ease-in-out infinite;
+  }
+  .social-card::before{
+    content:'';position:absolute;inset:-2px;border-radius:14px;padding:1px;
+    background:linear-gradient(135deg,#00d4ff,#ff00b0,#00d4ff);
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;mask-composite:exclude;
+    opacity:0.6;animation:socialBorder 4s linear infinite;pointer-events:none;
+  }
+  @keyframes socialFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+  @keyframes socialBorder{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+  .social-eyebrow{
+    font-size:10px;font-weight:800;letter-spacing:3px;text-transform:uppercase;
+    color:#00d4ff;text-shadow:0 0 12px rgba(0,212,255,0.5);
+  }
+  .social-title{
+    font-size:20px;font-weight:900;margin-top:4px;
+    background:linear-gradient(135deg,#00d4ff,#ff00b0);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    text-shadow:0 0 30px rgba(0,212,255,0.3);
+  }
+  .social-sub{font-size:12px;color:#bbb;margin:6px 0 14px;line-height:1.5;max-width:300px;margin-left:auto;margin-right:auto}
+  .social-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .sbtn{
+    display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:9px;
+    font-size:13px;font-weight:700;text-decoration:none;color:#fff;
+    transition:all .2s ease;cursor:pointer;border:1px solid transparent;
+    min-width:130px;justify-content:center;
+  }
+  .sbtn svg{flex-shrink:0}
+  .sbtn-ig{background:linear-gradient(135deg,#f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%);box-shadow:0 4px 14px rgba(220,39,67,0.35)}
+  .sbtn-ig:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(220,39,67,0.55)}
+  .sbtn-fb{background:#1877f2;box-shadow:0 4px 14px rgba(24,119,242,0.35)}
+  .sbtn-fb:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(24,119,242,0.55)}
+
 </style>
 </head>
 <body>
@@ -243,6 +286,22 @@
   </div>
   <div class="body" id="body">
     <div style="padding:40px 20px;text-align:center;color:#888">Loading your dashboard…</div>
+  </div>
+</div>
+
+<div class="social-card" style="max-width:480px;margin:18px auto 0">
+  <div class="social-eyebrow">See Us In Action</div>
+  <div class="social-title">Bigfoot On The Move</div>
+  <div class="social-sub">Follow Neon Giant on Instagram and Facebook — share with your clients!</div>
+  <div class="social-btns">
+    <a class="sbtn sbtn-ig" href="https://www.instagram.com/neongiantmoving/" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" width="22" height="22"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"/></svg>
+      <span>Instagram</span>
+    </a>
+    <a class="sbtn sbtn-fb" href="https://www.facebook.com/neongiantmoving/" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M22 12a10 10 0 1 0-11.5 9.9v-7H8v-2.9h2.5V9.4c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.3 0-1.7.8-1.7 1.6V12H16l-.4 2.9h-2.1v7A10 10 0 0 0 22 12z"/></svg>
+      <span>Facebook</span>
+    </a>
   </div>
 </div>
 
