@@ -1,3 +1,4 @@
+// build-stamp: 2026-05-18T12:46:57.565Z (Twilio env vars activated)
 /**
  * /api/[[path]].js — Cloudflare Pages Function proxy to Apps Script
  *
