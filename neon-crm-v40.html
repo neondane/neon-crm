@@ -3873,7 +3873,7 @@ async function dpDownloadPDF(){
       '</div>' +
       stopHtml +
       (plan.outro ? '<div class="stop" style="background:#fff5e0;border-color:#e6b800"><b>END OF DAY</b><div style="margin-top:4pt">' + escapeHtml(plan.outro) + '</div></div>' : '') +
-    '</body></html>';
+    '<script>/*v125-text-btn-shim*/(function(){document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("button");if(!b)return;var t=(b.textContent||"").trim();if(!/^(?:.{0,4}\s*)?Text$/.test(t))return;var d=b.closest("#dP, .drawer, aside")||document;var ofp=d.querySelector("button[onclick*=openContact]");var cid=null;if(ofp){var m=(ofp.getAttribute("onclick")||"").match(/openContact\((\d+)/);if(m)cid=parseInt(m[1],10);}if(!cid)cid=window._oP_currentId||window.__currentContactId||null;if(cid&&typeof window.openContact==="function"){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();window._fpMode="sms";window._fpTab="conv";window.openContact(cid);}},true);})();</script></body></html>';
     const w = window.open('', '_blank');
     if (!w) { alert('Pop-up blocked — allow pop-ups for this site to download/print plan'); return; }
     w.document.write(printHtml);
