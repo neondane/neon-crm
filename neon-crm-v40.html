@@ -4258,7 +4258,7 @@ async function dpDownloadPDF(){
     try {
       if (mode === 'sms') {
         if (!c.phone) throw new Error('No phone');
-        var r = await fetch('https://refer.neongiantmoving.com/api/sendSms', {
+        var r = await fetch('https://refer.neongiantmoving.com/api/smsOut', {
           method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ to:c.phone, body:body, contactId:cid, kind:'manual' }),
         });
