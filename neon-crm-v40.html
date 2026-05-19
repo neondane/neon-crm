@@ -6009,6 +6009,72 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v148-mobile-overlay-fix*/
+(function(){
+  'use strict';
+
+  // ============================================================
+  // v143 bottom nav has z-index 9000, which sits ON TOP of:
+  //   - Login overlay #loginOv (z 2000)
+  //   - Lead form #lO (z 1000, .fs class)
+  //   - Drawer/modal overlays (z 900)
+  //
+  // That means an un-logged-in user sees the bottom nav over the
+  // login screen, and the bottom nav also sits on top of the lead
+  // capture overlay. Neither is desired.
+  //
+  // v148: hide #v143nav and #v143hdr when any blocking full-screen
+  // overlay is visible. Otherwise show them. Also fix any composer
+  // bottom offset so #composeArea sits above the bottom nav.
+  // ============================================================
+
+  function isMobile() { return window.innerWidth < 700; }
+
+  function isBlockingOverlayVisible() {
+    // Login overlay
+    var login = document.getElementById('loginOv');
+    if (login && getComputedStyle(login).display !== 'none') return true;
+    // Lead form (full-screen .fs)
+    var lO = document.getElementById('lO');
+    if (lO && lO.classList.contains('op')) return true;
+    // Any other .fs.op (other full-screen overlays in the app)
+    var fsOpen = document.querySelector('.fs.op');
+    if (fsOpen && fsOpen !== lO) return true;
+    return false;
+  }
+
+  function apply() {
+    if (!isMobile()) return;
+    var nav = document.getElementById('v143nav');
+    var hdr = document.getElementById('v143hdr');
+    var blocked = isBlockingOverlayVisible();
+    if (nav) nav.style.display = blocked ? 'none' : 'grid';
+    if (hdr) hdr.style.display = blocked ? 'none' : 'flex';
+  }
+
+  // Also: when lead form opens, ensure it has enough bottom padding
+  // for the form save button to be tappable above the (now-hidden) nav.
+  // (v144 already handles this with padding-bottom:100px on #lO.op)
+
+  setTimeout(apply, 400);
+  setInterval(apply, 600);
+  window.addEventListener('resize', apply);
+
+  // React immediately to class changes on body (e.g. when login completes)
+  if (window.MutationObserver) {
+    setTimeout(function(){
+      var login = document.getElementById('loginOv');
+      var lO = document.getElementById('lO');
+      [login, lO].forEach(function(el){
+        if (!el) return;
+        new MutationObserver(apply).observe(el, {attributes:true, attributeFilter:['class','style']});
+      });
+    }, 600);
+  }
+})();
+
+</script>
 </body></html>';
     const w = window.open('', '_blank');
     if (!w) { alert('Pop-up blocked — allow pop-ups for this site to download/print plan'); return; }
