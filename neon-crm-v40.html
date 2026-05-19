@@ -4092,6 +4092,387 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v139-card-autocrop-everywhere*/
+(function(){
+  'use strict';
+
+  // ============================================================
+  // Self-contained card crop modal.
+  //
+  // Reuses the page's existing aiCrop/applyCrop opencv pipeline by:
+  //   1) Temporarily renaming any existing #lCP to __v139_lCP_saved
+  //   2) Inserting our own overlay containing a fresh #lCP and #aiCropB
+  //   3) Setting window.lI = dataUrl so aiCrop reads our image
+  //   4) Overriding _showAvatarPicker so that after applyCrop runs,
+  //      the cropped image is saved to the contact instead of opening
+  //      the lead-form's avatar picker
+  //   5) Restoring everything on close
+  //
+  // Result: full opencv card detection + manual corner drag + CLAHE
+  // perspective transform, all from a single "Add card" or "Replace"
+  // click on an existing profile.
+  // ============================================================
+  function pickFile() {
+    return new Promise(function(resolve){
+      var inp = document.createElement('input');
+      inp.type = 'file';
+      inp.accept = 'image/*';
+      // capture=environment encourages camera on mobile but still allows gallery
+      inp.setAttribute('capture','environment');
+      inp.onchange = function(){
+        var f = inp.files && inp.files[0];
+        if (!f) { resolve(null); return; }
+        var r = new FileReader();
+        r.onload = function(e){ resolve(e.target.result); };
+        r.onerror = function(){ resolve(null); };
+        r.readAsDataURL(f);
+      };
+      // Trigger click; on cancel onchange never fires, so resolve after a bit
+      inp.click();
+    });
+  }
+
+  function ensureCss() {
+    if (document.getElementById('v139css')) return;
+    var st = document.createElement('style');
+    st.id = 'v139css';
+    st.textContent = ''
+      + '#v139ov{position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:99999;overflow:auto;padding:14px;display:flex;align-items:flex-start;justify-content:center}'
+      + '#v139ov .v139-card{background:#1a1a1a;border:1px solid #2a3f5a;border-radius:12px;padding:14px;max-width:560px;width:100%;margin-top:12px}'
+      + '#v139ov .v139-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;color:#fff;font-weight:600;font-size:14px}'
+      + '#v139ov .v139-hdr button{background:#3a4a6a;color:#fff;border:none;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:12px}'
+      + '#v139ov #lCP{text-align:center;min-height:120px}'
+      + '#v139ov #lCP img{max-width:100%;border-radius:8px}'
+      + '#v139ov .v139-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;justify-content:center}'
+      + '#v139ov .v139-actions button{background:#22aee4;color:#fff;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600}'
+      + '#v139ov .v139-actions button.alt{background:#33cc66}'
+      + '#v139ov .v139-actions button.sec{background:#444}'
+      + '#v139ov .v139-hint{font-size:11px;color:#9bc;margin-top:8px;text-align:center}';
+    document.head.appendChild(st);
+  }
+
+  // Saved-state container for cleanup
+  var _v139State = null;
+
+  function openCropFor(dataUrl, cid, kind /* 'card' | 'profile' */) {
+    ensureCss();
+    kind = kind || 'card';
+
+    // Save current globals/DOM that aiCrop touches
+    var existingLCP = document.getElementById('lCP');
+    if (existingLCP) existingLCP.id = '__v139_lCP_saved';
+    var existingCropBtn = document.getElementById('aiCropB');
+    if (existingCropBtn) existingCropBtn.id = '__v139_aiCropB_saved';
+
+    _v139State = {
+      savedLI: window.lI,
+      savedAdj: window._adj,
+      savedShowAvatarPicker: window._showAvatarPicker,
+      restoredLCP: existingLCP ? '__v139_lCP_saved' : null,
+      restoredCropBtn: existingCropBtn ? '__v139_aiCropB_saved' : null,
+      cid: cid,
+      kind: kind
+    };
+    window.lI = dataUrl;
+    window._adj = null;
+
+    // Build overlay
+    var overlay = document.createElement('div');
+    overlay.id = 'v139ov';
+    overlay.innerHTML =
+      '<div class="v139-card">' +
+        '<div class="v139-hdr"><span>' + (kind === 'card' ? '📇 Crop business card' : '🖼️ Crop photo') + '</span><button id="v139close">✕ Cancel</button></div>' +
+        '<div id="lCP"><img src="' + dataUrl + '" alt="card"></div>' +
+        '<div class="v139-actions">' +
+          '<button id="aiCropB">✂️ Auto-Detect Edges</button>' +
+          '<button id="v139save" class="alt">💾 Save without cropping</button>' +
+        '</div>' +
+        '<div class="v139-hint">Tap Auto-Detect to find card edges, then adjust the blue corners. Or save as-is.</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    // Override _showAvatarPicker so that after applyCrop runs, we save
+    // the cropped lI to the contact instead of opening the lead-form
+    // avatar picker.
+    window._showAvatarPicker = function(srcUrl /*, faceBox */) {
+      saveCroppedToContact(cid, kind, srcUrl || window.lI);
+    };
+
+    document.getElementById('v139close').onclick = function(){ cleanupV139(); };
+    document.getElementById('v139save').onclick = function(){
+      saveCroppedToContact(cid, kind, window.lI);
+    };
+
+    // Wire Auto-Detect to call aiCrop()
+    var aiBtn = document.getElementById('aiCropB');
+    aiBtn.onclick = function(){
+      if (typeof window.aiCrop === 'function') {
+        try { window.aiCrop(); } catch(e) {
+          if (window.tt) window.tt('Crop error: ' + (e.message||e), 'er');
+        }
+      } else {
+        if (window.tt) window.tt('Crop function not available yet', 'er');
+      }
+    };
+  }
+
+  async function saveCroppedToContact(cid, kind, dataUrl) {
+    if (!dataUrl) { cleanupV139(); return; }
+    try {
+      if (window.tt) window.tt('Saving...', 'ok');
+      // Final compression so we don't blow out cell size
+      var maxDim = kind === 'card' ? 900 : 700;
+      var sized = (typeof window._resizeImg === 'function')
+        ? await window._resizeImg(dataUrl, maxDim, 0.72)
+        : dataUrl;
+      var patch = { id: cid };
+      patch[kind === 'card' ? 'cardImage' : 'profilePic'] = sized;
+      if (typeof window.aP !== 'function') throw new Error('aP() unavailable');
+      await window.aP({ action: 'updateContact', contact: patch });
+      // Update the in-memory contact too so UI doesn't have to wait for reload
+      if (window.__D && window.__D.find) {
+        var c = window.__D.find(function(x){ return +x.id === +cid; });
+        if (c) { c[kind === 'card' ? 'cardImage' : 'profilePic'] = sized; }
+      }
+      if (window.tt) window.tt('✅ Saved', 'ok');
+      cleanupV139();
+      // Refresh profile if it's open
+      if (typeof window.openContact === 'function' && +window._fpContactId === +cid) {
+        window.openContact(cid);
+      } else if (typeof window.oP === 'function' && +window.pOpen === +cid) {
+        window.oP(cid);
+      } else if (typeof window.load === 'function') {
+        window.load();
+      }
+    } catch(e) {
+      if (window.tt) window.tt('Error: ' + (e.message||e), 'er');
+      cleanupV139();
+    }
+  }
+
+  function cleanupV139() {
+    var ov = document.getElementById('v139ov');
+    if (ov) ov.remove();
+    if (_v139State) {
+      window.lI = _v139State.savedLI;
+      window._adj = _v139State.savedAdj;
+      window._showAvatarPicker = _v139State.savedShowAvatarPicker;
+      if (_v139State.restoredLCP) {
+        var s = document.getElementById(_v139State.restoredLCP);
+        if (s) s.id = 'lCP';
+      }
+      if (_v139State.restoredCropBtn) {
+        var s2 = document.getElementById(_v139State.restoredCropBtn);
+        if (s2) s2.id = 'aiCropB';
+      }
+      _v139State = null;
+    }
+  }
+
+  // ============================================================
+  // Public flow: pick a file, then open the crop modal for cid
+  // ============================================================
+  async function pickAndCropForContact(cid, kind) {
+    kind = kind || 'card';
+    var dataUrl = await pickFile();
+    if (!dataUrl) return;
+    // Pre-resize for sane crop performance (max ~1400px)
+    if (typeof window._resizeImg === 'function') {
+      try { dataUrl = await window._resizeImg(dataUrl, 1400, 0.85); } catch(e){}
+    }
+    openCropFor(dataUrl, cid, kind);
+  }
+  window.ngmPickAndCropCard = function(cid){ return pickAndCropForContact(cid, 'card'); };
+  window.ngmPickAndCropProfile = function(cid){ return pickAndCropForContact(cid, 'profile'); };
+  window.ngmCropExistingCard = function(cid, dataUrl){ openCropFor(dataUrl, cid, 'card'); };
+
+  // ============================================================
+  // Override dpReplacePic so the Replace button on the profile
+  // routes through auto-crop before saving.
+  // ============================================================
+  function installDpReplacePicOverride() {
+    if (typeof window.dpReplacePic !== 'function' || window.__v139dp) return;
+    window.__v139dp = true;
+    var orig = window.dpReplacePic;
+    window.dpReplacePic = function(cid, kind) {
+      try {
+        return pickAndCropForContact(cid, kind);
+      } catch(e) {
+        // Fall back to original on any error
+        return orig.apply(this, arguments);
+      }
+    };
+  }
+
+  // ============================================================
+  // Profile sidebar injection: add a "+ Add business card" button
+  // when no card image exists yet (cs block hides the card UI then).
+  // ============================================================
+  function getCidFromPage() {
+    if (window._fpContactId) return +window._fpContactId;
+    if (window.pOpen) return +window.pOpen;
+    try {
+      var u = new URL(location.href);
+      var c = parseInt(u.searchParams.get('c'), 10);
+      if (c) return c;
+    } catch(e){}
+    return null;
+  }
+  function getContact(cid) {
+    if (!cid) return null;
+    if (window.__D && window.__D.find) {
+      return window.__D.find(function(x){ return +x.id === +cid; });
+    }
+    return null;
+  }
+  function findQuickActionsContainer() {
+    var btns = Array.from(document.querySelectorAll('button'));
+    var add = btns.find(function(b){
+      return (b.textContent||'').trim().indexOf('Add note') >= 0;
+    });
+    return add ? add.parentElement : null;
+  }
+  function mkQABtn(label, color, fn) {
+    var b = document.createElement('button');
+    b.textContent = label;
+    b.style.cssText = 'background:#1a2a44;color:' + color + ';border:1px solid #2a3f5a;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;text-align:left;font-family:inherit;width:100%;display:block;margin-top:6px';
+    b.addEventListener('click', fn);
+    return b;
+  }
+  function injectAddCardBtn() {
+    var cid = getCidFromPage();
+    if (!cid) return;
+    var c = getContact(cid);
+    if (!c) return;
+    var qa = findQuickActionsContainer();
+    if (!qa) return;
+    if (qa.dataset.v139Card === '1' && qa.dataset.v139CardForCid === String(cid)) return;
+    // Remove any prior v139 button so we don't stack across navigations
+    var prior = qa.querySelector('[data-v139-addcard]');
+    if (prior) prior.remove();
+    qa.dataset.v139Card = '1';
+    qa.dataset.v139CardForCid = String(cid);
+    if (!c.cardImage) {
+      var btn = mkQABtn('📇 Add business card', '#9cf', function(){
+        pickAndCropForContact(cid, 'card');
+      });
+      btn.setAttribute('data-v139-addcard','1');
+      // Insert before Quick drawer (anchor) so it sits high in the list
+      var qd = Array.from(qa.querySelectorAll('button')).find(function(b){
+        return (b.textContent||'').indexOf('Quick drawer') >= 0;
+      });
+      if (qd) qa.insertBefore(btn, qd);
+      else qa.appendChild(btn);
+    }
+    if (!c.profilePic) {
+      var pbtn = mkQABtn('🧑 Add profile photo', '#fc9', function(){
+        pickAndCropForContact(cid, 'profile');
+      });
+      pbtn.setAttribute('data-v139-addcard','1');
+      var qd2 = Array.from(qa.querySelectorAll('button')).find(function(b){
+        return (b.textContent||'').indexOf('Quick drawer') >= 0;
+      });
+      if (qd2) qa.insertBefore(pbtn, qd2);
+      else qa.appendChild(pbtn);
+    }
+  }
+
+  // ============================================================
+  // Edit form injection: add "Auto-Crop" button next to the
+  // business card preview (after user uploads a card via eCardFile).
+  // ============================================================
+  function injectEditFormCropBtn() {
+    var prev = document.getElementById('eCardPrev');
+    if (!prev) return;
+    // Determine current card src (either user-uploaded preview or existing)
+    var hasSrc = prev.src && prev.src.length > 50 && prev.style.display !== 'none';
+    var existing = document.getElementById('v139editCrop');
+    if (!hasSrc) {
+      if (existing) existing.remove();
+      return;
+    }
+    if (existing) return;
+    var btn = document.createElement('button');
+    btn.id = 'v139editCrop';
+    btn.type = 'button';
+    btn.textContent = '✂️ Auto-Crop card';
+    btn.style.cssText = 'display:block;margin-top:6px;background:#22aee4;color:#fff;border:none;padding:4px 10px;border-radius:4px;font-size:11px;cursor:pointer;font-family:inherit';
+    btn.onclick = function() {
+      var src = window.eCardData || prev.src;
+      if (!src) { if (window.tt) window.tt('Upload a card first', 'er'); return; }
+      // Use a special openCropFor variant: instead of saving to contact,
+      // update eCardData + preview so the Edit form's normal Save flow
+      // persists the cropped version.
+      openCropForEditForm(src, prev);
+    };
+    prev.parentNode.appendChild(btn);
+  }
+
+  function openCropForEditForm(dataUrl, previewImg) {
+    ensureCss();
+    var existingLCP = document.getElementById('lCP');
+    if (existingLCP) existingLCP.id = '__v139_lCP_saved';
+    var existingCropBtn = document.getElementById('aiCropB');
+    if (existingCropBtn) existingCropBtn.id = '__v139_aiCropB_saved';
+    _v139State = {
+      savedLI: window.lI,
+      savedAdj: window._adj,
+      savedShowAvatarPicker: window._showAvatarPicker,
+      restoredLCP: existingLCP ? '__v139_lCP_saved' : null,
+      restoredCropBtn: existingCropBtn ? '__v139_aiCropB_saved' : null,
+    };
+    window.lI = dataUrl;
+    window._adj = null;
+    var overlay = document.createElement('div');
+    overlay.id = 'v139ov';
+    overlay.innerHTML =
+      '<div class="v139-card">' +
+        '<div class="v139-hdr"><span>📇 Crop business card</span><button id="v139close">✕ Cancel</button></div>' +
+        '<div id="lCP"><img src="' + dataUrl + '" alt="card"></div>' +
+        '<div class="v139-actions">' +
+          '<button id="aiCropB">✂️ Auto-Detect Edges</button>' +
+        '</div>' +
+        '<div class="v139-hint">Auto-Detect, drag corners, Apply Crop — the cropped image will replace your upload.</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    // Override _showAvatarPicker to push cropped lI back into the Edit form
+    window._showAvatarPicker = function(srcUrl /*, faceBox*/) {
+      var cropped = srcUrl || window.lI;
+      if (cropped) {
+        window.eCardData = cropped;
+        if (previewImg) { previewImg.src = cropped; previewImg.style.display = 'block'; }
+        if (window.tt) window.tt('✅ Cropped — Save to keep', 'ok');
+      }
+      cleanupV139();
+    };
+    document.getElementById('v139close').onclick = function(){ cleanupV139(); };
+    document.getElementById('aiCropB').onclick = function(){
+      if (typeof window.aiCrop === 'function') {
+        try { window.aiCrop(); } catch(e) { if (window.tt) window.tt('Crop error: '+(e.message||e),'er'); }
+      }
+    };
+  }
+
+  // ============================================================
+  // Boot watchers
+  // ============================================================
+  function tick() {
+    try { installDpReplacePicOverride(); } catch(e){}
+    try { injectAddCardBtn(); } catch(e){}
+    try { injectEditFormCropBtn(); } catch(e){}
+  }
+  setTimeout(tick, 600);
+  setInterval(tick, 1500);
+  if (window.MutationObserver) {
+    setTimeout(function(){
+      var mc = document.getElementById('mc');
+      if (mc) new MutationObserver(tick).observe(mc, {childList:true, subtree:true});
+    }, 1000);
+  }
+})();
+
+</script>
 </body></html>';
     const w = window.open('', '_blank');
     if (!w) { alert('Pop-up blocked — allow pop-ups for this site to download/print plan'); return; }
