@@ -4885,7 +4885,8 @@ async function dpDownloadPDF(){
 
 
 
-<script>/*v132-profile-overlay*/
+
+<script>/*v133-profile-overlay*/
 (function(){
   'use strict';
 
@@ -4913,164 +4914,152 @@ async function dpDownloadPDF(){
     if (typeof window.oP === 'function') window.oP(+m[1]);
   });
 
-  // ----- 2) Action overlay sidebar (data-less; calls into existing window fns) -----
+  // ----- 2) Inject missing actions into the existing Quick Actions card -----
   function getCid(){
     if (window._fpContactId) return +window._fpContactId;
     try { var u = new URL(location.href); var c = parseInt(u.searchParams.get('c'),10); if (c) return c; } catch(e){}
     return null;
   }
   function getNameFromDom(){
-    // The profile hero usually has a big name title. Find first H1/H2 or large-font div inside #mc.
     var mc = document.getElementById('mc');
     if (!mc) return '';
     var hero = mc.querySelector('h1, h2');
     if (hero) return (hero.textContent||'').trim();
-    var big = mc.querySelector('div[style*="font-size:24"], div[style*="font-size:28"], div[style*="font-size:32"], div[style*="font-size:40"]');
+    var big = mc.querySelector('div[style*="font-size:24"], div[style*="font-size:28"], div[style*="font-size:32"], div[style*="font-size:40"], div[style*="font-size:48"]');
     if (big) return (big.textContent||'').trim();
     return '';
   }
-  function ensureCss(){
-    if (document.getElementById('v132css')) return;
-    var st = document.createElement('style');
-    st.id = 'v132css';
-    st.textContent = ''
-      + '#v132sb { position:fixed; right:18px; top:140px; width:280px; max-height:calc(100vh - 160px); overflow-y:auto; z-index:60; font-family:inherit; }'
-      + '@media (max-width:1180px){ #v132sb { display:none !important; } }'
-      + '.v132-card { background:#0a1428; border:1px solid #1f3a5a; border-radius:10px; padding:14px; margin-bottom:12px; }'
-      + '.v132-h { font-size:11px; color:#788; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; font-weight:600; }'
-      + '.v132-portal { background:linear-gradient(135deg,rgba(74,0,128,0.18),rgba(255,0,128,0.10)); border:1px solid #4a0080; border-radius:10px; padding:14px; margin-bottom:12px; }'
-      + '.v132-h-p { font-size:11px; color:#c5f; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; font-weight:600; }'
-      + '.v132-url { font-family:monospace; font-size:11px; color:#9cf; word-break:break-all; background:rgba(0,0,0,0.25); padding:8px; border-radius:5px; margin-bottom:8px; }'
-      + '.v132-btnrow { display:flex; gap:6px; flex-wrap:wrap; }'
-      + '.v132-btnrow button { color:#fff; border:none; border-radius:5px; padding:6px 12px; font-size:11px; cursor:pointer; flex:1; min-width:74px; font-family:inherit; font-weight:600; }'
-      + '.v132-note { font-size:10px; color:#9bc; margin-top:6px; }'
-      + '.v132-action { background:#1a2a44; border:1px solid #2a3f5a; padding:9px 12px; border-radius:6px; cursor:pointer; font-size:12px; text-align:left; display:block; width:100%; margin-top:6px; font-family:inherit; }'
-      + '.v132-action:hover { background:#22325a; }'
-      + '.v132-danger { background:transparent !important; color:#f99 !important; border-color:#b44 !important; margin-top:12px !important; }';
-    document.head.appendChild(st);
+  function findQuickActionsContainer(){
+    // Look for a button labeled "Add note" — its parent is the Quick actions stack
+    var btns = Array.from(document.querySelectorAll('button'));
+    var add = btns.find(function(b){ return (b.textContent||'').trim().indexOf('Add note') >= 0; });
+    return add ? add.parentElement : null;
   }
-  function isProfileOpen(){
+  function mkBtn(label, color, fn){
+    var b = document.createElement('button');
+    b.textContent = label;
+    b.style.cssText = 'background:#1a2a44;color:'+color+';border:1px solid #2a3f5a;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;text-align:left;font-family:inherit';
+    b.addEventListener('click', fn);
+    return b;
+  }
+  function mkPillBtn(label, bg, fn){
+    var b = document.createElement('button');
+    b.textContent = label;
+    b.style.cssText = 'background:'+bg+';color:#fff;border:none;border-radius:5px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;flex:1;min-width:78px';
+    b.addEventListener('click', fn);
+    return b;
+  }
+  function injectMissing(){
     var cid = getCid();
-    if (!cid) return false;
-    var mc = document.getElementById('mc');
-    if (!mc || mc.innerHTML.length < 200) return false;
-    // Avoid showing on Dashboard/Map etc — page should look like a profile
-    // Heuristic: the page contains "Dashboard" back-button OR "Conversation" tab
-    var txt = mc.textContent || '';
-    return txt.indexOf('Conversation') >= 0 || txt.indexOf('Dashboard') >= 0;
-  }
-  function getSlug(){
-    // Best-effort: use name from DOM + cid
-    var name = getNameFromDom();
-    if (!name) return '';
-    return String(name).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').substring(0,40) + '-' + getCid();
-  }
+    if (!cid) return;
+    var container = findQuickActionsContainer();
+    if (!container || container.dataset.v133) return;
+    container.dataset.v133 = '1';
+    // anchor before "Quick drawer" if it exists
+    var qd = Array.from(container.querySelectorAll('button')).find(function(b){ return (b.textContent||'').indexOf('Quick drawer') >= 0; });
+    var anchor = qd || null;
+    var name = getNameFromDom() || 'this contact';
 
-  function build(cid){
-    var slug = getSlug();
-    var refUrl = slug ? ('https://refer.neongiantmoving.com/?r=' + slug) : '';
-    var portalSection = '';
-    if (refUrl) {
-      portalSection =
-        '<div class="v132-portal">' +
-          '<div class="v132-h-p">\u{1F517} Referral Portal</div>' +
-          '<div class="v132-url">'+refUrl+'</div>' +
-          '<div class="v132-btnrow">' +
-            '<button data-act="activate" style="background:linear-gradient(135deg,#ff0080,#ff8000)">\u{1F680} Activate</button>' +
-            '<button data-act="copy" style="background:linear-gradient(135deg,#22aee4,#4a90e2)">\u{1F4CB} Copy</button>' +
-            '<button data-act="invite" style="background:linear-gradient(135deg,#33cc66,#22aee4)">\u{1F4E8} Invite</button>' +
-          '</div>' +
-          '<div class="v132-note">Realtors only · Tracks $50 referrals</div>' +
-        '</div>';
-    }
-    return '<div style="position:sticky;top:14px">' +
-      portalSection +
-      '<div class="v132-card">' +
-        '<div class="v132-h">Quick actions</div>' +
-        '<button class="v132-action" data-act="note" style="color:#9fe">\u{1F4DD} Add note</button>' +
-        '<button class="v132-action" data-act="reminder" style="color:#fc9">⏰ Set reminder</button>' +
-        '<button class="v132-action" data-act="checkin" style="color:#9fc">\u{1F4CD} Check-in / log visit</button>' +
-        '<button class="v132-action" data-act="logref" style="color:#fcf">⭐ Log referral</button>' +
-        '<button class="v132-action" data-act="edit" style="color:#cfe">✏️ Edit info</button>' +
-        '<button class="v132-action" data-act="compose" style="color:#fc9">✉️ Compose email</button>' +
-        '<button class="v132-action" data-act="drawer" style="color:#aaa">⚡ Quick drawer</button>' +
-        '<button class="v132-action v132-danger" data-act="delete">\u{1F5D1}️ Delete contact</button>' +
-      '</div>' +
-    '</div>';
-  }
-
-  function wireButtons(panel, cid, refUrl){
-    panel.querySelectorAll('button[data-act]').forEach(function(b){
-      b.onclick = function(){
-        var act = b.getAttribute('data-act');
-        var nm = getNameFromDom() || 'this contact';
-        try {
-          if (act === 'activate' && typeof window.toggleActivatePortal === 'function') window.toggleActivatePortal(cid);
-          else if (act === 'copy') {
-            if (typeof window.copyPortalLink === 'function') window.copyPortalLink(refUrl);
-            else { navigator.clipboard.writeText(refUrl); if (typeof window.tt === 'function') window.tt('Copied','ok'); }
-          }
-          else if (act === 'invite' && typeof window.plSendInvitation === 'function') window.plSendInvitation(cid);
-          else if (act === 'note' && typeof window.fpQuickNote === 'function') window.fpQuickNote(cid);
-          else if (act === 'reminder' && typeof window.showAddRem === 'function') window.showAddRem(cid, nm);
-          else if (act === 'checkin' && typeof window.showQV === 'function') window.showQV(cid);
-          else if (act === 'logref' && typeof window.showAddRef === 'function') window.showAddRef(cid, nm);
-          else if (act === 'edit' && typeof window.showEdit === 'function') window.showEdit(cid);
-          else if (act === 'compose' && typeof window.showCompose === 'function') window.showCompose(cid);
-          else if (act === 'drawer' && typeof window.oP === 'function') window.oP(cid);
-          else if (act === 'delete') {
-            if (confirm('Delete '+nm+'? This cannot be undone.') && typeof window.delContact === 'function') {
-              window.delContact(cid);
-            }
-          }
-        } catch(e){ console.error('[v132 action]', act, e); }
-      };
+    var newBtns = [];
+    newBtns.push(mkBtn('✏️ Edit info', '#cfe', function(){
+      if (typeof window.showEdit === 'function') window.showEdit(cid);
+    }));
+    newBtns.push(mkBtn('✉️ Compose email', '#fc9', function(){
+      if (typeof window.showCompose === 'function') window.showCompose(cid);
+    }));
+    var del = mkBtn('\u{1F5D1}️ Delete contact', '#f99', function(){
+      if (confirm('Delete '+name+'? This cannot be undone.') && typeof window.delContact === 'function') {
+        window.delContact(cid);
+      }
     });
-  }
+    del.style.background = 'transparent';
+    del.style.border = '1px solid #b44';
+    del.style.marginTop = '10px';
+    newBtns.push(del);
 
-  function ensure(){
-    var cid = getCid();
-    var sb = document.getElementById('v132sb');
-    if (!cid || !isProfileOpen()) { if (sb) sb.style.display = 'none'; return; }
-    ensureCss();
-    if (!sb) { sb = document.createElement('div'); sb.id = 'v132sb'; document.body.appendChild(sb); }
-    var slug = getSlug();
-    var refUrl = slug ? ('https://refer.neongiantmoving.com/?r=' + slug) : '';
-    var newKey = cid + '|' + slug;
-    if (sb.dataset.key !== newKey) {
-      sb.innerHTML = build(cid);
-      sb.dataset.key = newKey;
-      wireButtons(sb, cid, refUrl);
+    newBtns.forEach(function(b){
+      if (anchor) container.insertBefore(b, anchor); else container.appendChild(b);
+    });
+
+    // Inject the Referral Portal section if missing.
+    // Anchor: the Quick Actions card itself
+    var qaCard = container.closest('div[style*="background:#0a1428"]');
+    if (qaCard && qaCard.parentElement && !qaCard.parentElement.querySelector('[data-v133-portal]')) {
+      // Decide if this is a realtor — heuristic: the page mentions "Realtor" near top OR Activate Portal button exists somewhere already
+      var pageTxt = (document.getElementById('mc')||{}).textContent || '';
+      var isRealtor = /Realtor/i.test(pageTxt);
+      if (isRealtor && name && name.length > 1) {
+        var slug = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').substring(0,40) + '-' + cid;
+        var refUrl = 'https://refer.neongiantmoving.com/?r=' + slug;
+
+        var portal = document.createElement('div');
+        portal.setAttribute('data-v133-portal','1');
+        portal.style.cssText = 'background:linear-gradient(135deg,rgba(74,0,128,0.18),rgba(255,0,128,0.10));border:1px solid #4a0080;border-radius:10px;padding:14px;margin-bottom:12px';
+        portal.innerHTML =
+          '<div style="font-size:11px;color:#c5f;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:600">\u{1F517} Referral Portal</div>' +
+          '<div style="font-family:monospace;font-size:11px;color:#9cf;word-break:break-all;background:rgba(0,0,0,0.25);padding:8px;border-radius:5px;margin-bottom:8px">'+refUrl+'</div>' +
+          '<div data-pbtns style="display:flex;gap:6px;flex-wrap:wrap"></div>' +
+          '<div style="font-size:10px;color:#9bc;margin-top:6px">Realtor portal · post-activation referrals count toward $50 payouts</div>';
+        var row = portal.querySelector('[data-pbtns]');
+        row.appendChild(mkPillBtn('\u{1F680} Activate', 'linear-gradient(135deg,#ff0080,#ff8000)', function(){
+          if (typeof window.toggleActivatePortal === 'function') window.toggleActivatePortal(cid);
+        }));
+        row.appendChild(mkPillBtn('\u{1F4CB} Copy', 'linear-gradient(135deg,#22aee4,#4a90e2)', function(){
+          if (typeof window.copyPortalLink === 'function') window.copyPortalLink(refUrl);
+          else { try { navigator.clipboard.writeText(refUrl); if (typeof window.tt === 'function') window.tt('Copied','ok'); } catch(e){} }
+        }));
+        row.appendChild(mkPillBtn('\u{1F4E8} Invite', 'linear-gradient(135deg,#33cc66,#22aee4)', function(){
+          if (typeof window.plSendInvitation === 'function') window.plSendInvitation(cid);
+        }));
+        qaCard.parentElement.insertBefore(portal, qaCard);
+      }
     }
-    sb.style.display = '';
   }
 
-  setTimeout(ensure, 600);
-  setInterval(ensure, 1500);
+  function tick(){ try { injectMissing(); } catch(e){ console.warn('[v133]', e); } }
+  setTimeout(tick, 500);
+  setInterval(tick, 1500);
   if (window.MutationObserver) {
     setTimeout(function(){
       var mc = document.getElementById('mc');
-      if (mc) new MutationObserver(function(){ try { ensure(); } catch(e){} }).observe(mc, {childList:true, subtree:true});
-    }, 1000);
+      if (mc) new MutationObserver(tick).observe(mc, {childList:true, subtree:true});
+    }, 800);
   }
-  window.addEventListener('popstate', ensure);
+  window.addEventListener('popstate', tick);
 
-  // ----- 3) Nav-bug trace -----
-  var _lastClickAt = 0;
-  document.addEventListener('click', function(){ _lastClickAt = Date.now(); }, true);
+  // ----- 3) Nav-bug trace (passive, console-only) -----
+  var _lastClick = 0;
+  document.addEventListener('click', function(){ _lastClick = Date.now(); }, true);
   function wrapST(){
-    if (typeof window.sT !== 'function' || window.__v132sT) return false;
+    if (typeof window.sT !== 'function' || window.__v133sT) return false;
     var orig = window.sT;
     window.sT = function(tab){
-      var el = Date.now() - _lastClickAt;
+      var el = Date.now() - _lastClick;
       if ((tab === 'p' || tab === 'pl' || tab === 'portal') && el > 600) {
-        console.warn('[v132] portal switch with no recent click, tab='+tab+' ago='+el+'ms');
+        console.warn('[v133] portal switch w/o recent click: tab='+tab+' '+el+'ms');
       }
       return orig.apply(this, arguments);
     };
-    window.__v132sT = true; return true;
+    window.__v133sT = true; return true;
   }
   var ti=0, p=setInterval(function(){ if (wrapST() || ++ti>200) clearInterval(p); }, 50);
+
+  // ----- 4) Clickability sweep -----
+  // Make any element with class .cd or data-cid clickable to open full profile.
+  // (Already handled for .cd above. Add a delegated handler for any future data-cid hooks.)
+  document.addEventListener('click', function(e){
+    if (e.target.closest('button, a, input, select, textarea')) return;
+    var el = e.target.closest('[data-cid]');
+    if (!el) return;
+    var cid = parseInt(el.getAttribute('data-cid'), 10);
+    if (!cid) return;
+    // don't intercept clicks inside the sidebar overlay
+    if (el.closest('#v132sb, #v133sb, [data-v133-portal]')) return;
+    if (typeof window.openContact === 'function') {
+      e.preventDefault(); e.stopPropagation();
+      window.openContact(cid);
+    }
+  }, false);
 })();
 </script>
 </body>
