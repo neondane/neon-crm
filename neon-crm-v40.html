@@ -6209,6 +6209,74 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v150-more-highlight-search-polish*/
+(function(){
+  'use strict';
+
+  // ============================================================
+  // Two small mobile polish wins:
+  //
+  // 1) "More" button highlight: when the current tab is one of
+  //    the More-menu tabs (Portal/TopLeads/Reminders/Map/Calendar),
+  //    glow the ⋯ More button so users know where they are.
+  //
+  // 2) Dashboard search input: bigger, more prominent on mobile —
+  //    the .flt container holds it. Make the search bar full-width,
+  //    16px font, magenta focus ring so users can find contacts fast.
+  // ============================================================
+
+  var MORE_KEYS = ['pl','tl','r','m','cal'];
+
+  function isMobile() { return window.innerWidth < 700; }
+
+  function ensureCss() {
+    if (document.getElementById('v150css')) return;
+    var st = document.createElement('style');
+    st.id = 'v150css';
+    st.textContent = ''
+      + '@media (max-width:699px){'
+      // More button active state
+      + '  #v143nav button[data-v149more].on{color:#ff0080 !important}'
+      + '  #v143nav button[data-v149more].on .v143-ic{filter:drop-shadow(0 0 8px #ff0080) !important;color:#ff0080 !important}'
+      // Dashboard search bar (the .flt block)
+      + '  .flt{display:flex !important;flex-direction:column !important;gap:8px !important;padding:0 0 12px !important;margin-bottom:10px !important;border-bottom:1px solid #1f3a5a !important}'
+      + '  .flt input[type="text"], .flt input:not([type]), .flt input[placeholder]{width:100% !important;min-height:48px !important;font-size:16px !important;padding:12px 14px !important;border-radius:10px !important;background:#0f1828 !important;border:1.5px solid #2a3f5a !important;color:#fff !important;outline:none !important;box-sizing:border-box !important}'
+      + '  .flt input:focus{border-color:#ff0080 !important;box-shadow:0 0 0 3px rgba(255,0,128,0.18) !important}'
+      + '  .flt select{width:100% !important;min-height:44px !important;font-size:15px !important;padding:10px !important;border-radius:8px !important;background:#0f1828 !important;color:#fff !important;border:1px solid #2a3f5a !important}'
+      // Stack territory/type filter selects side-by-side on mobile (two-column)
+      + '  .flt > div:has(> select){display:grid !important;grid-template-columns:1fr 1fr !important;gap:8px !important}'
+      + '}';
+    document.head.appendChild(st);
+  }
+
+  function currentTab() {
+    if (typeof window.__tb === 'string') return window.__tb;
+    var on = document.querySelector('.navitem.on');
+    return on ? on.getAttribute('data-tab') : '';
+  }
+
+  function syncMoreActive() {
+    var btn = document.querySelector('#v143nav button[data-v149more]');
+    if (!btn) return;
+    var tab = currentTab();
+    if (MORE_KEYS.indexOf(tab) >= 0) btn.classList.add('on');
+    else btn.classList.remove('on');
+  }
+
+  function tick() {
+    if (!isMobile()) return;
+    ensureCss();
+    syncMoreActive();
+  }
+
+  setTimeout(tick, 600);
+  setInterval(tick, 1200);
+  window.addEventListener('resize', tick);
+  window.addEventListener('popstate', tick);
+})();
+
+</script>
 </body></html>';
     const w = window.open('', '_blank');
     if (!w) { alert('Pop-up blocked — allow pop-ups for this site to download/print plan'); return; }
