@@ -343,7 +343,7 @@ const TI=["—","Tier 1","Tier 2","Tier 3","Tier 4"];const TID={"Tier 1":"Core P
 const TERR_COORDS={"Whatcom — Bellingham":[48.7519,-122.4787],"Whatcom — North of Bellingham":[48.86,-122.51],"Skagit — Mount Vernon area":[48.4201,-122.334],"Skagit — Anacortes":[48.5126,-122.6127],"Snohomish County":[48.166,-122.22],"Whidbey Island":[48.2932,-122.6433]};
 const TC={"Anacortes":[48.5126,-122.6127],"Burlington":[48.4757,-122.3254],"Oak Harbor":[48.2932,-122.6433],"Mt. Vernon":[48.4201,-122.334],"Sedro-Woolley":[48.5037,-122.2366],"Bellingham":[48.7519,-122.4787],"North of Bellingham":[48.86,-122.51],"Snohomish":[48.166,-122.22],"South Whidbey":[48.12,-122.68],"Arlington":[48.1987,-122.1254],"Stanwood":[48.2404,-122.3706],"La Conner":[48.3921,-122.4932]};
 const IC={'Self-Storage':'📦','Realtor':'🏠','Assisted':'🏥','Senior':'🧓','Apartment':'🏢','Property':'🏘️','Other':'📋'};
-let D=[],V=[],R=[],JR=[],TEAM=[],mapTypes=JSON.parse(localStorage.getItem('ngm_map_types')||'["all"]'),fRA='All',fRStatus='active',mRS={},lAvatar='',CU=JSON.parse(sessionStorage.getItem('neon_user')||'null'),tb='d',dV='contacts',fT='All',fY='All',fS='',sr='visited',lm=null,mM=[],ok=false,IM=[],pOpen=null,lbSort='total',lbFrom='',lbTo='',ixHidden=JSON.parse(localStorage.getItem('neon_ix_hidden')||'{}'),ixShowHidden=false,ixFilter='',ixSel={},plLeads=[],plLoaded=false,plRealtors=[],plRealtorsLoaded=false,plPreviewId=null;
+let D=[],V=[],R=[],JR=[],TEAM=[],mapTypes=JSON.parse(localStorage.getItem('ngm_map_types')||'["all"]'),fRA='All',fRStatus='active',mRS={},lAvatar='',CU=JSON.parse(sessionStorage.getItem('neon_user')||'null'),tb='d',dV='contacts',fT='All',fY='All',fS='',sr='visited',lm=null,mM=[],ok=false,IM=[],pOpen=null,lbSort='total',lbFrom='',lbTo='',ixHidden=JSON.parse(localStorage.getItem('neon_ix_hidden')||'{}'),ixShowHidden=false,ixFilter='',ixSel={},plLeads=[],plLoaded=false,plRealtors=[],plRealtorsLoaded=false,plPreviewId=null; window.__D=D; window.__V=V; window.__R=R; window.__JR=JR; window.__TEAM=TEAM; setInterval(function(){ window.__pOpen=pOpen; window.__tb=tb; window.__D=D; window.__V=V; window.__R=R; window.__JR=JR; }, 500);
 
 async function aG(a){return(await fetch(API+'?action='+a)).json()}
 async function aP(d){const r=await(await fetch(API,{method:'POST',body:JSON.stringify(d),headers:{'Content-Type':'text/plain'}})).json();if(r&&r.error){throw new Error(r.error)}return r}
@@ -3141,6 +3141,8 @@ function dpRenderStop(s, displayIdx){
   '</div>';
 }
 
+function dpCloseLocation(){ var o=document.getElementById('dpLocOverlay'); if(o)o.remove(); }
+
 function dpOpenLocation(locId){
   const stops = (window.__dpPlan && window.__dpPlan.stops) || [];
   const addons = (window.__dpPlan && window.__dpPlan.suggestedAddons) || [];
@@ -4102,7 +4104,7 @@ async function dpDownloadPDF(){
         '<div id="fpTabBody">' + fpTabBody(tab, c, cv, cr) + '</div>' +
       '</div>';
   }
-  window._fpRender = fpRender;
+  /*v136-disabled-simple-fpRender*/
 
   function fpTabBtn(key, label, active) {
     var on = (key === active);
