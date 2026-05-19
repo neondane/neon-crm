@@ -4882,21 +4882,20 @@ async function dpDownloadPDF(){
 
 </script>
 
-<script>/*v128-text-killer*/(function(){var origOpen=window.open;window.open=function(u){if(typeof u==="string"&&u.indexOf("sms:")===0)return null;return origOpen.apply(this,arguments);};var origAC=HTMLAnchorElement.prototype.click;HTMLAnchorElement.prototype.click=function(){if(this.href&&this.href.indexOf("sms:")===0)return;return origAC.apply(this,arguments);};function findCid(el){try{var u=new URL(location.href);var c=parseInt(u.searchParams.get("c"),10);if(c)return c;}catch(e){}var d=el&&el.closest&&el.closest("[data-cid]");if(d){var v=parseInt(d.getAttribute("data-cid"),10);if(v)return v;}var ofp=document.querySelector("button[onclick*=openContact]");if(ofp){var m=(ofp.getAttribute("onclick")||"").match(/openContact\((\d+)/);if(m)return parseInt(m[1],10);}return window._oP_currentId||null;}function gotoSms(cid){if(typeof window.openContact==="function"&&cid){window._fpMode="sms";window._fpTab="conv";try{window.openContact(cid);return true;}catch(e){}}return false;}function isTextEl(el){if(!el||!el.textContent)return false;var t=el.textContent.trim();if(t.length>12)return false;return /Text$/.test(t);}document.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("button,a");if(!isTextEl(b))return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();gotoSms(findCid(b));return false;},true);function stripAll(){document.querySelectorAll("button,a").forEach(function(b){if(!isTextEl(b))return;if(b.dataset&&b.dataset.v128)return;if(b.dataset)b.dataset.v128="1";b.removeAttribute("onclick");if(b.tagName==="A")b.removeAttribute("href");});}stripAll();setInterval(stripAll,500);if(window.MutationObserver){new MutationObserver(stripAll).observe(document.body||document.documentElement,{childList:true,subtree:true});}})();</script>
-<script>/*v129-op-patch*/(function(){var tries=0;var t=setInterval(function(){if(typeof window.oP==='function'){clearInterval(t);if(window.__oPPatchedV129)return;window.__oPPatchedV129=true;var orig=window.oP;window.oP=function(id){window._oP_currentId=+id;return orig.apply(this,arguments);};if(typeof window.cP==='function'){var origCP=window.cP;window.cP=function(){window._oP_currentId=null;return origCP.apply(this,arguments);};}}else if(++tries>200){clearInterval(t);}},25);})();</script>
 
-
-
-
-<script>/*v133-profile-overlay*/
+<script>/*v137-consolidated*/
 (function(){
   'use strict';
 
-  // ----- 1) Dashboard contact rows: single-click -> full profile -----
+  // ============================================================
+  // 1) Dashboard contact-row clicks: single -> full profile, right -> drawer
+  // ============================================================
   document.addEventListener('click', function(e){
-    var row = e.target && e.target.closest && e.target.closest('.cd');
+    var t = e.target;
+    if (!t || !t.closest) return;
+    var row = t.closest('.cd');
     if (!row) return;
-    if (e.target.closest('button, a, input, select, textarea')) return;
+    if (t.closest('button, a, input, select, textarea')) return;
     var oc = row.getAttribute('onclick') || '';
     var m = oc.match(/oP\((\d+)\)/);
     if (!m) return;
@@ -4916,23 +4915,73 @@ async function dpDownloadPDF(){
     if (typeof window.oP === 'function') window.oP(+m[1]);
   });
 
-  // ----- 2) Inject missing actions into the existing Quick Actions card -----
+  // ============================================================
+  // 2) MOBILE FIX: when a drawer action opens a form, scroll it into view.
+  //    Wraps showEdit/showQV/showAddRem/showAddRef/showCompose to focus
+  //    the rendered form right after open.
+  // ============================================================
+  var TARGETS = {
+    showEdit: 'editArea',
+    showQV: 'qvArea',
+    showAddRem: 'remArea',
+    showAddRef: 'refArea',
+    showCompose: 'composeArea',
+  };
+  function scrollIntoView(elId){
+    var el = document.getElementById(elId);
+    if (!el) return;
+    setTimeout(function(){
+      try {
+        el.scrollIntoView({behavior:'smooth', block:'center'});
+        // Focus first input for fast editing
+        var firstInput = el.querySelector('input:not([type="hidden"]), textarea, select');
+        if (firstInput) {
+          firstInput.focus();
+          // On mobile, scrollIntoView again after keyboard pops
+          if (window.innerWidth < 700) {
+            setTimeout(function(){ try { firstInput.scrollIntoView({behavior:'smooth', block:'center'}); } catch(e){} }, 400);
+          }
+        }
+      } catch(e){}
+    }, 80);
+  }
+  function wrapAction(name){
+    if (typeof window[name] !== 'function') return false;
+    if (window['__v137_'+name]) return true;
+    var orig = window[name];
+    window[name] = function(){
+      var r = orig.apply(this, arguments);
+      var targetId = TARGETS[name];
+      if (targetId) scrollIntoView(targetId);
+      return r;
+    };
+    window['__v137_'+name] = true;
+    return true;
+  }
+  var wrapTries = 0;
+  var wrapPoll = setInterval(function(){
+    var allDone = true;
+    Object.keys(TARGETS).forEach(function(n){ if (!wrapAction(n)) allDone = false; });
+    if (allDone || ++wrapTries > 200) clearInterval(wrapPoll);
+  }, 50);
+
+  // ============================================================
+  // 3) Full profile sidebar: add Edit/Compose/Delete + Referral Portal
+  //    (re-implementation of v133, using window.__D now that it exists)
+  // ============================================================
   function getCid(){
     if (window._fpContactId) return +window._fpContactId;
     try { var u = new URL(location.href); var c = parseInt(u.searchParams.get('c'),10); if (c) return c; } catch(e){}
     return null;
   }
-  function getNameFromDom(){
-    var mc = document.getElementById('mc');
-    if (!mc) return '';
-    var hero = mc.querySelector('h1, h2');
-    if (hero) return (hero.textContent||'').trim();
-    var big = mc.querySelector('div[style*="font-size:24"], div[style*="font-size:28"], div[style*="font-size:32"], div[style*="font-size:40"], div[style*="font-size:48"]');
-    if (big) return (big.textContent||'').trim();
-    return '';
+  function getContact(id){
+    if (!id) return null;
+    if (window.__D && window.__D.find) {
+      return window.__D.find(function(x){ return +x.id === +id; });
+    }
+    return null;
   }
-  function findQuickActionsContainer(){
-    // Look for a button labeled "Add note" — its parent is the Quick actions stack
+  function findQA(){
     var btns = Array.from(document.querySelectorAll('button'));
     var add = btns.find(function(b){ return (b.textContent||'').trim().indexOf('Add note') >= 0; });
     return add ? add.parentElement : null;
@@ -4940,11 +4989,11 @@ async function dpDownloadPDF(){
   function mkBtn(label, color, fn){
     var b = document.createElement('button');
     b.textContent = label;
-    b.style.cssText = 'background:#1a2a44;color:'+color+';border:1px solid #2a3f5a;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;text-align:left;font-family:inherit';
+    b.style.cssText = 'background:#1a2a44;color:'+color+';border:1px solid #2a3f5a;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;text-align:left;font-family:inherit;width:100%;display:block;margin-top:6px';
     b.addEventListener('click', fn);
     return b;
   }
-  function mkPillBtn(label, bg, fn){
+  function mkPill(label, bg, fn){
     var b = document.createElement('button');
     b.textContent = label;
     b.style.cssText = 'background:'+bg+';color:#fff;border:none;border-radius:5px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;flex:1;min-width:78px';
@@ -4954,21 +5003,23 @@ async function dpDownloadPDF(){
   function injectMissing(){
     var cid = getCid();
     if (!cid) return;
-    var container = findQuickActionsContainer();
-    if (!container || container.dataset.v133) return;
-    container.dataset.v133 = '1';
-    // anchor before "Quick drawer" if it exists
+    var container = findQA();
+    if (!container || container.dataset.v137) return;
+    container.dataset.v137 = '1';
+    var c = getContact(cid) || {};
+    var name = c.name || 'this contact';
     var qd = Array.from(container.querySelectorAll('button')).find(function(b){ return (b.textContent||'').indexOf('Quick drawer') >= 0; });
     var anchor = qd || null;
-    var name = getNameFromDom() || 'this contact';
 
     var newBtns = [];
     newBtns.push(mkBtn('✏️ Edit info', '#cfe', function(){
       if (typeof window.showEdit === 'function') window.showEdit(cid);
     }));
-    newBtns.push(mkBtn('✉️ Compose email', '#fc9', function(){
-      if (typeof window.showCompose === 'function') window.showCompose(cid);
-    }));
+    if (c.email) {
+      newBtns.push(mkBtn('✉️ Compose email', '#fc9', function(){
+        if (typeof window.showCompose === 'function') window.showCompose(cid);
+      }));
+    }
     var del = mkBtn('\u{1F5D1}️ Delete contact', '#f99', function(){
       if (confirm('Delete '+name+'? This cannot be undone.') && typeof window.delContact === 'function') {
         window.delContact(cid);
@@ -4983,42 +5034,36 @@ async function dpDownloadPDF(){
       if (anchor) container.insertBefore(b, anchor); else container.appendChild(b);
     });
 
-    // Inject the Referral Portal section if missing.
-    // Anchor: the Quick Actions card itself
+    // Referral Portal section
     var qaCard = container.closest('div[style*="background:#0a1428"]');
-    if (qaCard && qaCard.parentElement && !qaCard.parentElement.querySelector('[data-v133-portal]')) {
-      // Decide if this is a realtor — heuristic: the page mentions "Realtor" near top OR Activate Portal button exists somewhere already
-      var pageTxt = (document.getElementById('mc')||{}).textContent || '';
-      var isRealtor = /Realtor/i.test(pageTxt);
-      if (isRealtor && name && name.length > 1) {
-        var slug = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').substring(0,40) + '-' + cid;
-        var refUrl = 'https://refer.neongiantmoving.com/?r=' + slug;
-
-        var portal = document.createElement('div');
-        portal.setAttribute('data-v133-portal','1');
-        portal.style.cssText = 'background:linear-gradient(135deg,rgba(74,0,128,0.18),rgba(255,0,128,0.10));border:1px solid #4a0080;border-radius:10px;padding:14px;margin-bottom:12px';
-        portal.innerHTML =
-          '<div style="font-size:11px;color:#c5f;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:600">\u{1F517} Referral Portal</div>' +
-          '<div style="font-family:monospace;font-size:11px;color:#9cf;word-break:break-all;background:rgba(0,0,0,0.25);padding:8px;border-radius:5px;margin-bottom:8px">'+refUrl+'</div>' +
-          '<div data-pbtns style="display:flex;gap:6px;flex-wrap:wrap"></div>' +
-          '<div style="font-size:10px;color:#9bc;margin-top:6px">Realtor portal · post-activation referrals count toward $50 payouts</div>';
-        var row = portal.querySelector('[data-pbtns]');
-        row.appendChild(mkPillBtn('\u{1F680} Activate', 'linear-gradient(135deg,#ff0080,#ff8000)', function(){
-          if (typeof window.toggleActivatePortal === 'function') window.toggleActivatePortal(cid);
-        }));
-        row.appendChild(mkPillBtn('\u{1F4CB} Copy', 'linear-gradient(135deg,#22aee4,#4a90e2)', function(){
-          if (typeof window.copyPortalLink === 'function') window.copyPortalLink(refUrl);
-          else { try { navigator.clipboard.writeText(refUrl); if (typeof window.tt === 'function') window.tt('Copied','ok'); } catch(e){} }
-        }));
-        row.appendChild(mkPillBtn('\u{1F4E8} Invite', 'linear-gradient(135deg,#33cc66,#22aee4)', function(){
-          if (typeof window.plSendInvitation === 'function') window.plSendInvitation(cid);
-        }));
-        qaCard.parentElement.insertBefore(portal, qaCard);
-      }
+    if (qaCard && qaCard.parentElement && c.type === 'Realtor' && !qaCard.parentElement.querySelector('[data-v137-portal]')) {
+      var slug = String(name).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').substring(0,40) + '-' + cid;
+      var refUrl = 'https://refer.neongiantmoving.com/?r=' + slug;
+      var activated = c.portalActivatedAt ? new Date(c.portalActivatedAt) : null;
+      var portal = document.createElement('div');
+      portal.setAttribute('data-v137-portal','1');
+      portal.style.cssText = 'background:linear-gradient(135deg,rgba(74,0,128,0.18),rgba(255,0,128,0.10));border:1px solid #4a0080;border-radius:10px;padding:14px;margin-bottom:12px';
+      portal.innerHTML =
+        '<div style="font-size:11px;color:#c5f;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:600">\u{1F517} Referral Portal</div>' +
+        '<div style="font-family:monospace;font-size:11px;color:#9cf;word-break:break-all;background:rgba(0,0,0,0.25);padding:8px;border-radius:5px;margin-bottom:8px">'+refUrl+'</div>' +
+        '<div data-pbtns style="display:flex;gap:6px;flex-wrap:wrap"></div>' +
+        '<div style="font-size:10px;color:'+(activated?'#9bc':'#fc9')+';margin-top:6px">'+(activated?'Portal active. Post-activation referrals count.':'Activate to start tracking referrals for $50 payouts.')+'</div>';
+      var row = portal.querySelector('[data-pbtns]');
+      row.appendChild(mkPill(activated ? '✓ Active' : '\u{1F680} Activate', activated ? '#33cc66' : 'linear-gradient(135deg,#ff0080,#ff8000)', function(){
+        if (typeof window.toggleActivatePortal === 'function') window.toggleActivatePortal(cid);
+      }));
+      row.appendChild(mkPill('\u{1F4CB} Copy', 'linear-gradient(135deg,#22aee4,#4a90e2)', function(){
+        if (typeof window.copyPortalLink === 'function') window.copyPortalLink(refUrl);
+        else { try { navigator.clipboard.writeText(refUrl); if (typeof window.tt === 'function') window.tt('Copied','ok'); } catch(e){} }
+      }));
+      row.appendChild(mkPill('\u{1F4E8} Invite', 'linear-gradient(135deg,#33cc66,#22aee4)', function(){
+        if (typeof window.plSendInvitation === 'function') window.plSendInvitation(cid);
+      }));
+      qaCard.parentElement.insertBefore(portal, qaCard);
     }
   }
 
-  function tick(){ try { injectMissing(); } catch(e){ console.warn('[v133]', e); } }
+  function tick(){ try { injectMissing(); } catch(e){ console.warn('[v137]', e); } }
   setTimeout(tick, 500);
   setInterval(tick, 1500);
   if (window.MutationObserver) {
@@ -5029,183 +5074,70 @@ async function dpDownloadPDF(){
   }
   window.addEventListener('popstate', tick);
 
-  // ----- 3) Nav-bug trace (passive, console-only) -----
-  var _lastClick = 0;
-  document.addEventListener('click', function(){ _lastClick = Date.now(); }, true);
+  // ============================================================
+  // 4) Stats clickability (passive)
+  // ============================================================
+  function enhanceStats(){
+    var sR = document.getElementById('sR');
+    if (sR) Array.from(sR.querySelectorAll('div')).forEach(function(el){
+      if (el.dataset.v137) return;
+      var text = (el.textContent||'').toLowerCase();
+      if (el.children.length > 3 || text.length > 80) return;
+      var tgt = null;
+      if (/reminders due|to thank/.test(text)) tgt = 'ix';
+      else if (/new messages|inbox|^messages/.test(text)) tgt = 'ix';
+      else if (/portal leads/.test(text)) tgt = 'pl';
+      if (tgt) {
+        el.dataset.v137 = '1';
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', function(ev){ ev.stopPropagation(); if (typeof window.sT === 'function') window.sT(tgt); });
+      }
+    });
+    // Profile stat tiles
+    var mc = document.getElementById('mc');
+    if (mc) {
+      var tabBtns = Array.from(mc.querySelectorAll('button'));
+      var vtab = tabBtns.find(function(b){ return /Visits/.test((b.textContent||'').trim()) && (b.textContent||'').length<25; });
+      var rtab = tabBtns.find(function(b){ return /Referrals/.test((b.textContent||'').trim()) && (b.textContent||'').length<25; });
+      mc.querySelectorAll('div[style*="font-size:22"]').forEach(function(tile){
+        var parent = tile.parentElement;
+        if (!parent || parent.dataset.v137) return;
+        var label = (parent.textContent||'').toLowerCase();
+        if (/referrals/.test(label) && rtab) {
+          parent.dataset.v137 = '1';
+          parent.style.cursor = 'pointer';
+          parent.addEventListener('click', function(ev){ ev.stopPropagation(); rtab.click(); });
+        } else if (/visits/.test(label) && vtab) {
+          parent.dataset.v137 = '1';
+          parent.style.cursor = 'pointer';
+          parent.addEventListener('click', function(ev){ ev.stopPropagation(); vtab.click(); });
+        }
+      });
+    }
+  }
+  setInterval(enhanceStats, 1500);
+  setTimeout(enhanceStats, 800);
+
+  // ============================================================
+  // 5) Universal nav-bug tracer
+  // ============================================================
+  var _lastClickAt = 0;
+  document.addEventListener('click', function(){ _lastClickAt = Date.now(); }, true);
   function wrapST(){
-    if (typeof window.sT !== 'function' || window.__v133sT) return false;
+    if (typeof window.sT !== 'function' || window.__v137sT) return false;
     var orig = window.sT;
     window.sT = function(tab){
-      var el = Date.now() - _lastClick;
+      var el = Date.now() - _lastClickAt;
       if ((tab === 'p' || tab === 'pl' || tab === 'portal') && el > 600) {
-        console.warn('[v133] portal switch w/o recent click: tab='+tab+' '+el+'ms');
+        console.warn('[v137] suspicious portal switch tab='+tab+' ago='+el+'ms');
       }
       return orig.apply(this, arguments);
     };
-    window.__v133sT = true; return true;
+    window.__v137sT = true;
+    return true;
   }
-  var ti=0, p=setInterval(function(){ if (wrapST() || ++ti>200) clearInterval(p); }, 50);
-
-  // ----- 4) Clickability sweep -----
-  // Make any element with class .cd or data-cid clickable to open full profile.
-  // (Already handled for .cd above. Add a delegated handler for any future data-cid hooks.)
-  document.addEventListener('click', function(e){
-    if (e.target.closest('button, a, input, select, textarea')) return;
-    var el = e.target.closest('[data-cid]');
-    if (!el) return;
-    var cid = parseInt(el.getAttribute('data-cid'), 10);
-    if (!cid) return;
-    // don't intercept clicks inside the sidebar overlay
-    if (el.closest('#v132sb, #v133sb, [data-v133-portal]')) return;
-    if (typeof window.openContact === 'function') {
-      e.preventDefault(); e.stopPropagation();
-      window.openContact(cid);
-    }
-  }, false);
-})();
-</script>
-
-
-<script>/*v135-clickability-fix*/
-(function(){
-  'use strict';
-
-  function isQuickDrawerBtn(el){
-    if (!el) return false;
-    var t = (el.textContent||'').trim().toLowerCase();
-    return t.indexOf('quick drawer') >= 0;
-  }
-  function isExcluded(el){
-    if (!el) return false;
-    return !!el.closest('#dP, #composeArea, #v131sb, #v132sb, [data-v133-portal], [data-pbtns]');
-  }
-  function cidFromOnclick(s){
-    if (!s) return null;
-    var m;
-    m = s.match(/openContact\(\s*(\d+)/); if (m) return +m[1];
-    m = s.match(/\boP\(\s*(\d+)/);        if (m) return +m[1];
-    m = s.match(/ix2Open\(\s*['"][^'"]*['"]\s*,\s*(\d+)/); if (m) return +m[1];
-    return null;
-  }
-  function routeToProfile(cid){
-    if (typeof window.openContact === 'function') window.openContact(cid);
-    else if (typeof window.oP === 'function') window.oP(cid);
-  }
-
-  // Capture-phase click — but BAIL EARLY for any button/anchor click.
-  // Those elements have their own handlers and we must not preempt them.
-  document.addEventListener('click', function(e){
-    if (e.button !== 0 && e.button !== undefined) return;
-    var t = e.target;
-    if (!t || !t.closest) return;
-    if (isExcluded(t)) return;
-
-    // CRITICAL: do not intercept clicks on or inside buttons / anchors / inputs.
-    // Their inline onclick OR addEventListener handlers must fire untouched.
-    if (t.closest('button, a, input, select, textarea, [role="button"], label')) return;
-
-    // Walk up looking for a row-like element with onclick referencing a contact
-    var hop = t;
-    var depth = 0;
-    while (hop && depth < 6) {
-      if (isQuickDrawerBtn(hop)) return;
-      var oc = hop.getAttribute && hop.getAttribute('onclick');
-      if (oc) {
-        var cid = cidFromOnclick(oc);
-        if (cid) {
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-          routeToProfile(cid);
-          return false;
-        }
-      }
-      hop = hop.parentElement;
-      depth++;
-    }
-  }, true);
-
-  document.addEventListener('contextmenu', function(e){
-    var t = e.target;
-    if (!t || !t.closest) return;
-    if (isExcluded(t)) return;
-    var hop = t;
-    var depth = 0;
-    while (hop && depth < 6) {
-      var oc = hop.getAttribute && hop.getAttribute('onclick');
-      if (oc) {
-        var cid = cidFromOnclick(oc);
-        if (cid) {
-          e.preventDefault();
-          if (typeof window.oP === 'function') window.oP(cid);
-          return false;
-        }
-      }
-      hop = hop.parentElement;
-      depth++;
-    }
-  });
-
-  // Dashboard top stats clickability (passive, non-destructive)
-  function enhanceDashboardStats(){
-    var sR = document.getElementById('sR');
-    if (!sR) return;
-    Array.from(sR.querySelectorAll('div')).forEach(function(el){
-      if (el.dataset.v135) return;
-      var text = (el.textContent||'').toLowerCase();
-      var isTile = el.children.length <= 3 && text.length < 80;
-      if (!isTile) return;
-      if (/reminders due/.test(text) || /to thank/.test(text)) {
-        el.dataset.v135 = '1';
-        el.style.cursor = 'pointer';
-        el.addEventListener('click', function(ev){
-          ev.stopPropagation();
-          if (typeof window.sT === 'function') window.sT('ix');
-        });
-      } else if (/new messages|messages|inbox/.test(text)) {
-        el.dataset.v135 = '1';
-        el.style.cursor = 'pointer';
-        el.addEventListener('click', function(ev){
-          ev.stopPropagation();
-          if (typeof window.sT === 'function') window.sT('ix');
-        });
-      } else if (/new portal leads|portal leads/.test(text)) {
-        el.dataset.v135 = '1';
-        el.style.cursor = 'pointer';
-        el.addEventListener('click', function(ev){
-          ev.stopPropagation();
-          if (typeof window.sT === 'function') window.sT('pl');
-        });
-      }
-    });
-  }
-  setInterval(enhanceDashboardStats, 1500);
-  setTimeout(enhanceDashboardStats, 800);
-
-  // Profile stat tiles → tab switch
-  function enhanceProfileStats(){
-    var mc = document.getElementById('mc');
-    if (!mc) return;
-    var tabBtns = Array.from(mc.querySelectorAll('button'));
-    var visitsTab = tabBtns.find(function(b){ return /Visits/.test((b.textContent||'').trim()) && (b.textContent||'').length < 25; });
-    var refsTab = tabBtns.find(function(b){ return /Referrals/.test((b.textContent||'').trim()) && (b.textContent||'').length < 25; });
-    var statTiles = mc.querySelectorAll('div[style*="font-size:22"]');
-    statTiles.forEach(function(tile){
-      var parent = tile.parentElement;
-      if (!parent || parent.dataset.v135) return;
-      var label = (parent.textContent||'').toLowerCase();
-      if (/referrals/.test(label) && refsTab) {
-        parent.dataset.v135 = '1';
-        parent.style.cursor = 'pointer';
-        parent.addEventListener('click', function(ev){ ev.stopPropagation(); refsTab.click(); });
-      } else if (/visits/.test(label) && visitsTab) {
-        parent.dataset.v135 = '1';
-        parent.style.cursor = 'pointer';
-        parent.addEventListener('click', function(ev){ ev.stopPropagation(); visitsTab.click(); });
-      }
-    });
-  }
-  setInterval(enhanceProfileStats, 1500);
+  var sTtries = 0;
+  var pollST = setInterval(function(){ if (wrapST() || ++sTtries > 200) clearInterval(pollST); }, 50);
 })();
 </script>
 </body>
