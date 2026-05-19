@@ -5062,5 +5062,194 @@ async function dpDownloadPDF(){
   }, false);
 })();
 </script>
+
+<script>/*v134-clickability-sweep*/
+(function(){
+  'use strict';
+
+  // ============================================================
+  // Strategy: any element wired to open the DRAWER (oP) or to
+  // route via ix2Open gets intercepted and sent to the full
+  // profile (openContact) instead — UNLESS it's an explicit
+  // "Quick drawer" button or right-click.
+  // ============================================================
+
+  function isQuickDrawerBtn(el){
+    if (!el) return false;
+    var t = (el.textContent||'').trim().toLowerCase();
+    return t.indexOf('quick drawer') >= 0 || t.indexOf('⚡ quick') >= 0 || t === '⚡' ;
+  }
+  function isExcluded(el){
+    if (!el) return false;
+    return !!el.closest('#dP, #composeArea, #v131sb, #v132sb, [data-v133-portal]');
+  }
+  function cidFromOnclick(s){
+    if (!s) return null;
+    var m;
+    // openContact(N)
+    m = s.match(/openContact\(\s*(\d+)/);
+    if (m) return +m[1];
+    // oP(N)
+    m = s.match(/\boP\(\s*(\d+)/);
+    if (m) return +m[1];
+    // ix2Open('type', cid, id)
+    m = s.match(/ix2Open\(\s*['"][^'"]*['"]\s*,\s*(\d+)/);
+    if (m) return +m[1];
+    // dpOpenLocation(N) — for Day Plan stops, but those are LOCATION ids, not contact ids. skip.
+    return null;
+  }
+  function routeToProfile(cid){
+    if (typeof window.openContact === 'function') {
+      window.openContact(cid);
+    } else if (typeof window.oP === 'function') {
+      window.oP(cid);
+    }
+  }
+
+  // Universal capture-phase click handler
+  document.addEventListener('click', function(e){
+    if (e.button !== 0 && e.button !== undefined) return; // ignore middle/right
+    var t = e.target;
+    if (!t || !t.closest) return;
+    if (isExcluded(t)) return;
+
+    // Walk up looking for an element with onclick referencing a contact
+    var hop = t;
+    var depth = 0;
+    while (hop && depth < 6) {
+      if (isQuickDrawerBtn(hop)) return; // explicit drawer click
+      var oc = hop.getAttribute && hop.getAttribute('onclick');
+      if (oc) {
+        var cid = cidFromOnclick(oc);
+        if (cid) {
+          // Don't intercept if this element is INSIDE an input/button-action that should keep its native behavior
+          // unless it's a contact-list / inbox-row / popup pattern
+          var tag = (hop.tagName||'').toLowerCase();
+          var className = (hop.className||'')+'';
+          // Skip if user clicked on a control button inside the row (handled by its own handler)
+          if (e.target !== hop) {
+            var inner = e.target.closest('button, a, input, select, textarea');
+            if (inner && inner !== hop && !inner.contains(hop)) {
+              // Inner control — let it handle itself
+              return;
+            }
+          }
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          routeToProfile(cid);
+          return false;
+        }
+      }
+      hop = hop.parentElement;
+      depth++;
+    }
+  }, true);
+
+  // Right-click on anything contact-bearing -> drawer (existing behavior)
+  document.addEventListener('contextmenu', function(e){
+    var t = e.target;
+    if (!t || !t.closest) return;
+    if (isExcluded(t)) return;
+    var hop = t;
+    var depth = 0;
+    while (hop && depth < 6) {
+      var oc = hop.getAttribute && hop.getAttribute('onclick');
+      if (oc) {
+        var cid = cidFromOnclick(oc);
+        if (cid) {
+          e.preventDefault();
+          if (typeof window.oP === 'function') window.oP(cid);
+          return false;
+        }
+      }
+      hop = hop.parentElement;
+      depth++;
+    }
+  });
+
+  // ============================================================
+  // Specific spots: make dashboard top stats and other tiles clickable
+  // ============================================================
+  function enhanceDashboardStats(){
+    var sR = document.getElementById('sR');
+    if (!sR || sR.dataset.v134) return;
+    // sR is the top stats strip. We don't have a "ReminderTab" exactly, but
+    // clicking the "Reminders" stat could open the Inbox tab.
+    // Find numeric-label tiles by looking at their text patterns.
+    var tiles = Array.from(sR.querySelectorAll('div,a,button'));
+    tiles.forEach(function(el){
+      var text = (el.textContent||'').toLowerCase();
+      // "REMINDERS DUE" tile
+      if (text.indexOf('reminders due') >= 0 && !el.dataset.v134){
+        el.dataset.v134 = '1';
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', function(){
+          if (typeof window.sT === 'function') window.sT('ix');
+        });
+      }
+      // "INBOX" / "MESSAGES" tile
+      if ((text.indexOf('inbox') >= 0 || text.indexOf('messages') >= 0 || text.indexOf('unread') >= 0) && !el.dataset.v134){
+        // skip if it's the entire panel
+        if (el.children.length > 5) return;
+        el.dataset.v134 = '1';
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', function(){
+          if (typeof window.sT === 'function') window.sT('ix');
+        });
+      }
+    });
+    sR.dataset.v134 = '1';
+  }
+  setInterval(enhanceDashboardStats, 1500);
+  setTimeout(enhanceDashboardStats, 800);
+
+  // ============================================================
+  // Profile page stats: clicking Referrals stat scrolls/switches to Referrals tab
+  // Clicking Visits stat scrolls/switches to Visits tab
+  // ============================================================
+  function enhanceProfileStats(){
+    var mc = document.getElementById('mc');
+    if (!mc) return;
+    // Find tabs (the conv/visits/refs/notes nav)
+    var tabBtns = Array.from(mc.querySelectorAll('button'));
+    var visitsTab = tabBtns.find(function(b){ return /Visits/.test((b.textContent||'').trim()) && (b.textContent||'').length < 25; });
+    var refsTab = tabBtns.find(function(b){ return /Referrals/.test((b.textContent||'').trim()) && (b.textContent||'').length < 25; });
+    // Find the stats tiles (color: #ff0080 = Referrals, color: #22aee4 = Visits)
+    var statTiles = mc.querySelectorAll('div[style*="font-size:22px"]');
+    statTiles.forEach(function(tile){
+      if (tile.dataset.v134) return;
+      var parent = tile.parentElement;
+      if (!parent || parent.dataset.v134) return;
+      var label = (parent.textContent||'').toLowerCase();
+      if (label.indexOf('referrals') >= 0 && refsTab) {
+        parent.dataset.v134 = '1';
+        parent.style.cursor = 'pointer';
+        parent.addEventListener('click', function(){ refsTab.click(); });
+      } else if (label.indexOf('visits') >= 0 && visitsTab) {
+        parent.dataset.v134 = '1';
+        parent.style.cursor = 'pointer';
+        parent.addEventListener('click', function(){ visitsTab.click(); });
+      }
+    });
+  }
+  setInterval(enhanceProfileStats, 1500);
+
+  // ============================================================
+  // Conversation thread: clicking a message bubble's contact reference
+  // already inherits from the universal handler above.
+  // Add `data-cid` to any visible contact-name labels so they're hit
+  // by the data-cid handler in v133.
+  // ============================================================
+
+  // ============================================================
+  // Diagnostic helper: log every successful intercept in dev
+  // ============================================================
+  if (location.search.indexOf('v134debug') >= 0) {
+    var origRoute = routeToProfile;
+    routeToProfile = function(cid){ console.log('[v134] routing to profile', cid); return origRoute(cid); };
+  }
+})();
+</script>
 </body>
 </html>
