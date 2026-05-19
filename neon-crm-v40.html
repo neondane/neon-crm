@@ -5195,6 +5195,208 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v143-mobile-shell*/
+(function(){
+  'use strict';
+
+  // ============================================================
+  // First milestone of the field-first mobile rebuild.
+  //
+  // Mobile-only changes (window.innerWidth < 700 OR ?mobile=1):
+  //   1) Hide the cryptic top icon strip (.sidebar) entirely
+  //   2) Hide the existing top-right "+" FAB (it overlaps the new nav)
+  //   3) Inject a fixed BOTTOM NAV with 4 big labeled tabs:
+  //        🔍 Find  → sT('d') (dashboard / contact list / search)
+  //        🗺 Route → sT('dp') (day plan)
+  //        ➕ Add   → openLog() (lead form with camera + AI Read)
+  //        💬 Inbox → sT('ix') (inbox / conversations)
+  //   4) Bottom-nav active-tab highlighting that syncs with sT()
+  //   5) 56px+ tap targets, full-width content, sane padding
+  //   6) Bottom-safe padding so content isn't hidden behind nav
+  //
+  // Desktop view (innerWidth >= 700) is 100% UNCHANGED.
+  // ============================================================
+
+  function isMobileMode() {
+    if (window.innerWidth >= 700) return false;
+    return true;
+  }
+
+  function ensureCss() {
+    if (document.getElementById('v143css')) return;
+    var st = document.createElement('style');
+    st.id = 'v143css';
+    st.textContent = ''
+      // === MOBILE-ONLY layout overrides ===
+      + '@media (max-width:699px){'
+      // Stack the app normally
+      + '  .app{flex-direction:column !important}'
+      // KILL the desktop top icon strip
+      + '  .sidebar{display:none !important}'
+      // KILL the existing top-right "+" FAB (replaced by bottom-nav Add tab)
+      + '  .fab{display:none !important}'
+      // Main content full-width and padded for bottom nav
+      + '  .main{padding:14px 12px 88px !important;min-height:100vh}'
+      + '  .cnt, #mc{padding:0 !important;margin:0 !important}'
+      // Bigger touch targets on existing buttons
+      + '  .bsm, .bs, .bc, button.btn{min-height:44px !important;font-size:14px !important}'
+      // Stat tiles full row
+      + '  .sts{grid-template-columns:1fr 1fr !important;gap:8px !important;margin-bottom:14px !important}'
+      // Contact cards full width
+      + '  .cd{padding:14px 12px !important;border-radius:10px !important;margin-bottom:8px !important}'
+      + '  .cd .nm{font-size:16px !important;font-weight:700 !important}'
+      + '  .cd .rl{font-size:12px !important;color:#9bc !important}'
+      // === BOTTOM NAV ===
+      + '  #v143nav{position:fixed;left:0;right:0;bottom:0;height:68px;background:linear-gradient(180deg,#0f1828 0%,#0a1220 100%);border-top:1px solid #1f3a5a;box-shadow:0 -6px 24px rgba(0,0,0,0.55);z-index:9000;display:grid;grid-template-columns:repeat(4,1fr);font-family:inherit;padding-bottom:env(safe-area-inset-bottom,0px)}'
+      + '  #v143nav button{background:transparent;border:none;color:#7a8aa0;font-family:inherit;font-size:11px;font-weight:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;padding:6px 4px;touch-action:manipulation;-webkit-tap-highlight-color:rgba(255,0,128,0.2);transition:color .12s ease,background .12s ease}'
+      + '  #v143nav button .v143-ic{font-size:22px;line-height:1}'
+      + '  #v143nav button .v143-lb{font-size:11px;letter-spacing:.02em}'
+      + '  #v143nav button.on{color:#22aee4}'
+      + '  #v143nav button.on .v143-ic{filter:drop-shadow(0 0 6px #22aee4)}'
+      + '  #v143nav button.add{color:#ff0080}'
+      + '  #v143nav button.add .v143-ic{font-size:30px;color:#fff;background:linear-gradient(135deg,#ff0080,#ff8000);width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(255,0,128,0.5),0 0 0 3px rgba(255,0,128,0.15);margin-top:-14px}'
+      + '  #v143nav button.add .v143-lb{margin-top:2px;color:#ff0080;font-weight:700}'
+      // Header strip with logo + brand on mobile (replaces desktop sidebar)
+      + '  #v143hdr{display:flex;align-items:center;gap:10px;padding:10px 12px 0;color:#fff;font-family:inherit}'
+      + '  #v143hdr .v143-brand{font-size:18px;font-weight:800;letter-spacing:.02em}'
+      + '  #v143hdr .v143-brand .nm-p{color:#ff0080}'
+      + '  #v143hdr .v143-brand .nm-c{color:#22aee4}'
+      + '  #v143hdr .v143-sub{font-size:11px;color:#7a8aa0;letter-spacing:.06em;text-transform:uppercase;margin-left:auto}'
+      + '}'
+      // Hide bottom nav on desktop just in case it leaks
+      + '@media (min-width:700px){#v143nav,#v143hdr{display:none !important}}';
+    document.head.appendChild(st);
+  }
+
+  // ============================================================
+  // Bottom nav build / state sync
+  // ============================================================
+  var TABS = [
+    {key:'d',  ic:'🔍', lb:'Find',  cls:''},
+    {key:'dp', ic:'🗺️', lb:'Route', cls:''},
+    {key:'',   ic:'+',  lb:'Add',   cls:'add'},
+    {key:'ix', ic:'💬', lb:'Inbox', cls:''},
+  ];
+
+  function buildBottomNav() {
+    if (document.getElementById('v143nav')) return;
+    var nav = document.createElement('div');
+    nav.id = 'v143nav';
+    nav.innerHTML = TABS.map(function(t, i){
+      return '<button data-v143tab="'+t.key+'" data-idx="'+i+'" class="'+t.cls+'">' +
+        '<span class="v143-ic">'+t.ic+'</span>' +
+        '<span class="v143-lb">'+t.lb+'</span>' +
+      '</button>';
+    }).join('');
+    document.body.appendChild(nav);
+    nav.addEventListener('click', function(e){
+      var btn = e.target && e.target.closest && e.target.closest('button[data-v143tab]');
+      if (!btn) return;
+      e.preventDefault(); e.stopPropagation();
+      var key = btn.getAttribute('data-v143tab');
+      if (btn.classList.contains('add')) {
+        // ADD button → open lead form
+        if (typeof window.openLog === 'function') {
+          try { window.openLog(); } catch(err) { console.warn('[v143 openLog]', err); }
+        }
+        return;
+      }
+      if (key && typeof window.sT === 'function') {
+        try { window.sT(key, null); } catch(err) { console.warn('[v143 sT]', err); }
+        syncActive(key);
+      }
+    });
+  }
+
+  function buildMobileHeader() {
+    if (document.getElementById('v143hdr')) return;
+    var main = document.querySelector('.main');
+    if (!main) return;
+    var hdr = document.createElement('div');
+    hdr.id = 'v143hdr';
+    hdr.innerHTML =
+      '<div class="v143-brand"><span class="nm-p">NEON</span> <span class="nm-c">CRM</span></div>' +
+      '<div class="v143-sub" id="v143hdr-sub">Field Mode</div>';
+    main.insertBefore(hdr, main.firstChild);
+  }
+
+  function currentTab() {
+    // tb is module-scoped in the page; v136 exposes window.__tb on a poll
+    if (typeof window.__tb === 'string') return window.__tb;
+    // fall back to inspecting the sidebar .on element
+    var on = document.querySelector('.navitem.on');
+    if (on) return on.getAttribute('data-tab') || '';
+    return '';
+  }
+
+  function syncActive(forceKey) {
+    var nav = document.getElementById('v143nav');
+    if (!nav) return;
+    var tab = forceKey || currentTab();
+    Array.from(nav.querySelectorAll('button[data-v143tab]')).forEach(function(b){
+      var k = b.getAttribute('data-v143tab');
+      if (k && k === tab) b.classList.add('on');
+      else if (!b.classList.contains('add')) b.classList.remove('on');
+    });
+    // Header sub label updates with current tab
+    var sub = document.getElementById('v143hdr-sub');
+    if (sub) {
+      var map = { d:'Dashboard', dp:'Day Plan', ix:'Inbox', pl:'Portal', tl:'Top Leads', m:'Map', r:'Reminders', cal:'Calendar' };
+      sub.textContent = map[tab] || 'Field Mode';
+    }
+  }
+
+  // Wrap sT so bottom nav stays in sync when other code switches tabs
+  function wrapST() {
+    if (window.__v143sT || typeof window.sT !== 'function') return;
+    var orig = window.sT;
+    window.sT = function(t, el) {
+      var r = orig.apply(this, arguments);
+      try { syncActive(t); } catch(e){}
+      return r;
+    };
+    window.__v143sT = true;
+  }
+
+  // ============================================================
+  // Boot / teardown based on viewport
+  // ============================================================
+  function applyMobile() {
+    ensureCss();
+    if (isMobileMode()) {
+      buildBottomNav();
+      buildMobileHeader();
+      wrapST();
+      syncActive();
+    } else {
+      // If we resized to desktop, remove mobile chrome
+      var n = document.getElementById('v143nav'); if (n) n.remove();
+      var h = document.getElementById('v143hdr'); if (h) h.remove();
+    }
+  }
+
+  // Re-apply on resize (rotation)
+  var resizeT;
+  window.addEventListener('resize', function(){
+    clearTimeout(resizeT);
+    resizeT = setTimeout(applyMobile, 150);
+  });
+
+  // Periodic sync (in case desktop sT() override happens later)
+  setTimeout(applyMobile, 500);
+  setInterval(function(){
+    try { applyMobile(); wrapST(); syncActive(); } catch(e){}
+  }, 2000);
+
+  // ============================================================
+  // Make sure popstate / back-button keep bottom nav synced
+  // ============================================================
+  window.addEventListener('popstate', function(){ syncActive(); });
+
+})();
+
+</script>
 </body></html>';
     const w = window.open('', '_blank');
     if (!w) { alert('Pop-up blocked — allow pop-ups for this site to download/print plan'); return; }
