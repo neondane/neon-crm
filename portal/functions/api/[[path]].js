@@ -24,6 +24,7 @@ const APPS_SCRIPT_URL =
 const ALLOWED_ORIGINS = [
   'https://refer.neongiantmoving.com',
   'https://portal.neongiantmoving.com',
+  'https://crm.neongiantmoving.com',
 ];
 
 function corsHeaders(origin) {
