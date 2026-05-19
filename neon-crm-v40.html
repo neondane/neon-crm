@@ -3875,7 +3875,224 @@ async function dpDownloadPDF(){
       '</div>' +
       stopHtml +
       (plan.outro ? '<div class="stop" style="background:#fff5e0;border-color:#e6b800"><b>END OF DAY</b><div style="margin-top:4pt">' + escapeHtml(plan.outro) + '</div></div>' : '') +
-    '</body></html>';
+    '<script>
+/*v138-mobile-debug-and-fix*/
+(function(){
+  'use strict';
+
+  var IS_MOBILE = window.innerWidth < 700 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent || '');
+
+  // ============================================================
+  // 1) MOBILE: defensive touch/tap fixes
+  //    - Ensure quick-action buttons in the drawer & sidebar
+  //      respond to taps even if a parent caught the click first.
+  //    - Force pointer-events:auto and a sane z-index on buttons
+  //      inside known action containers.
+  //    - Make sure the drawer's action buttons get a touch handler
+  //      that mirrors click, so iOS quirks don't drop the event.
+  // ============================================================
+  function ensureMobileButtonCss(){
+    if (document.getElementById('v138css')) return;
+    var st = document.createElement('style');
+    st.id = 'v138css';
+    st.textContent = ''
+      + '@media (max-width:700px){'
+      + '  #dP button, #editArea button, #qvArea button, #remArea button, #refArea button, #composeArea button {'
+      + '    pointer-events:auto !important; touch-action:manipulation !important;'
+      + '    min-height:36px !important; position:relative !important; z-index:5 !important;'
+      + '  }'
+      + '  #dP .act, #dP .acts, #dP .bsm { pointer-events:auto !important; }'
+      + '  /* Make sure overlays do not eat taps */'
+      + '  #ov { pointer-events:none !important; }'
+      + '  #ov.show, #ov[style*="display:block"] { pointer-events:auto !important; }'
+      + '  /* Drawer sticky bottom so form fields are reachable */'
+      + '  #dP { -webkit-overflow-scrolling:touch !important; }'
+      + '  /* Floating debug toggle */'
+      + '  #v138dbg-toggle{position:fixed;left:6px;bottom:6px;z-index:99999;width:36px;height:36px;border-radius:50%;background:#ff0080;color:#fff;border:none;font-size:16px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.5);font-family:inherit;line-height:1;padding:0}'
+      + '  #v138dbg{position:fixed;left:0;right:0;bottom:0;max-height:50vh;overflow-y:auto;background:rgba(10,20,40,.97);color:#9fe;font:11px/1.3 monospace;padding:8px 8px 12px;z-index:99998;border-top:2px solid #ff0080;display:none}'
+      + '  #v138dbg.open{display:block}'
+      + '  #v138dbg .row{border-bottom:1px solid #1f3a5a;padding:4px 0}'
+      + '  #v138dbg .t{color:#fc9}'
+      + '  #v138dbg .h{color:#ff0080;font-weight:700;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:rgba(10,20,40,.97);padding-bottom:4px}'
+      + '  #v138dbg .h button{background:#1a2a44;color:#fff;border:1px solid #2a3f5a;border-radius:4px;padding:3px 8px;font-size:10px;font-family:inherit}'
+      + '}';
+    document.head.appendChild(st);
+  }
+
+  // ============================================================
+  // 2) Tap mirror for mobile: if a tap happens inside the drawer
+  //    and the target is a button with onclick but no event has
+  //    fired in 100ms (iOS bug pattern), manually trigger onclick.
+  // ============================================================
+  function attachTouchMirror(){
+    document.addEventListener('touchstart', function(e){
+      if (!IS_MOBILE) return;
+      var btn = e.target && e.target.closest && e.target.closest('button');
+      if (!btn) return;
+      // Skip if it has both touch + click handlers handled elsewhere
+      if (btn.dataset.v138Touched) return;
+      btn.dataset.v138Touched = '1';
+    }, {passive:true});
+
+    // Defensive: also bind a synthetic click for any button inside the drawer
+    // that has an inline onclick but isn't responding to taps.
+    document.addEventListener('touchend', function(e){
+      if (!IS_MOBILE) return;
+      var btn = e.target && e.target.closest && e.target.closest('button');
+      if (!btn) return;
+      // Don't double-fire if click works
+      var fired = false;
+      var listener = function(){ fired = true; };
+      btn.addEventListener('click', listener, {once:true, capture:true});
+      setTimeout(function(){
+        btn.removeEventListener('click', listener, {capture:true});
+        if (!fired && btn.onclick) {
+          try { btn.onclick.call(btn, e); } catch(err) { console.warn('[v138 mirror]', err); }
+        } else if (!fired) {
+          var oc = btn.getAttribute('onclick');
+          if (oc) {
+            try { (new Function('event', oc)).call(btn, e); } catch(err) { console.warn('[v138 mirror inline]', err); }
+          }
+        }
+      }, 250);
+    }, {passive:true});
+  }
+
+  // ============================================================
+  // 3) DEBUG OVERLAY (mobile only)
+  //    Records every tap with: tag, classes, id, onclick, parent chain.
+  //    Floating button toggles visibility.
+  // ============================================================
+  var dbgLines = [];
+  function dbgPush(line){
+    dbgLines.unshift('[' + new Date().toLocaleTimeString() + '] ' + line);
+    if (dbgLines.length > 40) dbgLines.length = 40;
+    renderDbg();
+  }
+  function describeEl(el){
+    if (!el) return '(null)';
+    var parts = [];
+    parts.push(el.tagName.toLowerCase());
+    if (el.id) parts.push('#'+el.id);
+    if (el.className && typeof el.className === 'string') {
+      var c = el.className.trim().split(/\s+/).slice(0,2).join('.');
+      if (c) parts.push('.'+c);
+    }
+    var txt = (el.textContent||'').trim().substring(0,30);
+    if (txt) parts.push('"'+txt+'"');
+    var oc = el.getAttribute && el.getAttribute('onclick');
+    if (oc) parts.push('oc='+oc.substring(0,40));
+    return parts.join(' ');
+  }
+  function renderDbg(){
+    var d = document.getElementById('v138dbg');
+    if (!d) return;
+    var html = '<div class="h">v138 mobile debug <button id="v138dbg-clear">clear</button></div>';
+    html += dbgLines.map(function(l){ return '<div class="row">'+l.replace(/</g,'&lt;')+'</div>'; }).join('');
+    d.innerHTML = html;
+    var cb = document.getElementById('v138dbg-clear');
+    if (cb) cb.onclick = function(){ dbgLines = []; renderDbg(); };
+  }
+  function buildDbg(){
+    if (!IS_MOBILE) return;
+    if (document.getElementById('v138dbg')) return;
+    ensureMobileButtonCss();
+    var t = document.createElement('button');
+    t.id = 'v138dbg-toggle';
+    t.textContent = '🐞';
+    t.title = 'Mobile debug';
+    t.onclick = function(){
+      var d = document.getElementById('v138dbg');
+      if (d) d.classList.toggle('open');
+    };
+    document.body.appendChild(t);
+    var d = document.createElement('div');
+    d.id = 'v138dbg';
+    document.body.appendChild(d);
+    renderDbg();
+
+    // Log every touchstart and click
+    document.addEventListener('touchstart', function(e){
+      var el = e.target;
+      dbgPush('<span class="t">TAP</span> ' + describeEl(el));
+    }, {passive:true, capture:true});
+    document.addEventListener('click', function(e){
+      var el = e.target;
+      var btn = el.closest && el.closest('button, a, [role="button"]');
+      dbgPush('<span class="t">CLICK</span> ' + describeEl(btn || el));
+    }, true);
+  }
+
+  // ============================================================
+  // 4) Hook into the action functions so debug records when they actually run
+  // ============================================================
+  function instrumentActions(){
+    var actions = ['showEdit','showQV','showAddRem','showAddRef','showCompose','oP','openContact','delContact','toggleActivatePortal','copyPortalLink','plSendInvitation','fpQuickNote'];
+    actions.forEach(function(name){
+      if (typeof window[name] !== 'function') return;
+      if (window['__v138_'+name]) return;
+      var orig = window[name];
+      window[name] = function(){
+        if (IS_MOBILE) dbgPush('<span style="color:#0f8">FIRE</span> '+name+'('+Array.from(arguments).slice(0,2).join(',')+')');
+        try {
+          return orig.apply(this, arguments);
+        } catch(e) {
+          if (IS_MOBILE) dbgPush('<span style="color:#f44">ERR in '+name+': '+(e.message||e)+'</span>');
+          throw e;
+        }
+      };
+      window['__v138_'+name] = true;
+    });
+  }
+
+  // ============================================================
+  // 5) MOBILE: re-bind drawer action buttons if they were rendered without working onclick
+  //    The drawer (#dP) renders buttons like "Edit" "Text" "Email" — make sure each
+  //    has a working handler. If buttons rely on event delegation that's broken on
+  //    mobile, this provides a backup.
+  // ============================================================
+  function fixDrawerButtons(){
+    var dp = document.getElementById('dP');
+    if (!dp) return;
+    var btns = dp.querySelectorAll('button');
+    btns.forEach(function(b){
+      if (b.dataset.v138bound) return;
+      b.dataset.v138bound = '1';
+      // If button has inline onclick attr but no JS handler, ensure tap works
+      var oc = b.getAttribute('onclick');
+      if (oc && !b.onclick) {
+        try { b.onclick = new Function('event', oc); } catch(e){}
+      }
+      // Visual touch feedback
+      b.style.cssText += ';-webkit-tap-highlight-color:rgba(255,0,128,0.3);touch-action:manipulation';
+    });
+  }
+
+  // ============================================================
+  // Boot
+  // ============================================================
+  function boot(){
+    ensureMobileButtonCss();
+    if (IS_MOBILE) {
+      buildDbg();
+      attachTouchMirror();
+      dbgPush('<span style="color:#fc9">v138 loaded</span> innerW='+window.innerWidth);
+    }
+    instrumentActions();
+    fixDrawerButtons();
+    setInterval(function(){
+      try { instrumentActions(); fixDrawerButtons(); } catch(e){}
+    }, 1500);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+
+</script>
+</body></html>';
     const w = window.open('', '_blank');
     if (!w) { alert('Pop-up blocked — allow pop-ups for this site to download/print plan'); return; }
     w.document.write(printHtml);
