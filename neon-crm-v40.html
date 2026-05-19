@@ -5397,6 +5397,495 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v144-mobile-add-contact*/
+(function(){
+  'use strict';
+
+  // ============================================================
+  // Mobile Add Contact polish.
+  //
+  // Triggered by the v143 bottom-nav "+ Add" button (or anywhere
+  // openLog() is called). On mobile (innerWidth < 700):
+  //   - Lead form (#lO.op) becomes full-screen with big inputs
+  //   - When opened, automatically starts the camera so capture is
+  //     literally the first thing the user sees
+  //   - Auto-Crop modal (from v142) fires after snap
+  //   - AI Read Card button (#aiCB) auto-runs once cropped image is
+  //     ready so the form auto-fills
+  //   - Save button is sticky at the bottom for one-thumb reach
+  // ============================================================
+
+  function isMobile() { return window.innerWidth < 700; }
+
+  function ensureCss() {
+    if (document.getElementById('v144css')) return;
+    var st = document.createElement('style');
+    st.id = 'v144css';
+    st.textContent = ''
+      + '@media (max-width:699px){'
+      // Lead overlay full-screen
+      + '  #lO.op{position:fixed;inset:0;z-index:8500;background:#0a1220;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 100px}'
+      // Hide the dimmed background overlay if present
+      + '  #lO.op::before{display:none}'
+      // Inner form sizing
+      + '  #lO .lForm, #lO form, #lO > div{max-width:100% !important;width:100% !important;box-shadow:none !important}'
+      // Bigger inputs / selects
+      + '  #lO input[type="text"], #lO input[type="email"], #lO input[type="tel"], #lO input[type="date"], #lO input[type="time"], #lO select, #lO textarea{font-size:16px !important;padding:12px 12px !important;border-radius:8px !important;width:100% !important;box-sizing:border-box !important;min-height:48px !important;background:#0f1828 !important;border:1px solid #1f3a5a !important;color:#fff !important}'
+      + '  #lO textarea{min-height:80px !important}'
+      + '  #lO label{font-size:11px !important;color:#9bc !important;letter-spacing:.04em !important;text-transform:uppercase !important;margin-bottom:4px !important;display:block !important}'
+      // Camera + photo buttons big
+      + '  #lO .bsm{min-height:52px !important;font-size:15px !important;font-weight:700 !important;padding:12px 14px !important;border-radius:10px !important;flex:1 !important;min-width:0 !important}'
+      // Header
+      + '  #lO h1, #lO h2, #lO h3{font-size:20px !important;margin-bottom:14px !important;color:#ff0080 !important}'
+      // Save/Cancel sticky at bottom
+      + '  #lO #lSB, #lO .bs{position:sticky !important;bottom:14px !important;width:100% !important;font-size:16px !important;font-weight:800 !important;padding:14px !important;min-height:54px !important;border-radius:12px !important;background:linear-gradient(135deg,#33cc66,#22aee4) !important;color:#fff !important;border:none !important;box-shadow:0 6px 18px rgba(34,174,228,0.4) !important;margin-top:14px !important}'
+      + '  #lO .bc{width:100% !important;font-size:14px !important;padding:10px !important;background:transparent !important;color:#9bc !important;border:1px solid #2a3f5a !important;border-radius:8px !important;margin-top:8px !important}'
+      // Camera preview big
+      + '  #lO #lCA video, #lO #lCP img{max-width:100% !important;width:100% !important;border-radius:10px !important}'
+      // Two-column field groups stack
+      + '  #lO .fr, #lO .row, #lO [style*="grid-template-columns"]{display:flex !important;flex-direction:column !important;gap:12px !important}'
+      + '  #lO .fg, #lO .col{width:100% !important;flex:1 1 100% !important}'
+      // Hide non-essential bits on mobile capture flow (visit notes etc) - we want capture-first
+      + '  #lO .v144-collapsed{display:none}'
+      + '  #lO .v144-expand-btn{display:block;width:100%;margin-top:8px;padding:10px;background:transparent;color:#9bc;border:1px dashed #2a3f5a;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit}'
+      // Add Contact action bar at top of overlay
+      + '  #lO .v144-topbar{position:sticky;top:0;background:linear-gradient(180deg,#0a1220 0%,#0a1220 88%,transparent 100%);padding:8px 0 14px;margin:-14px -14px 14px;padding-left:14px;padding-right:14px;display:flex;align-items:center;gap:10px;z-index:10}'
+      + '  #lO .v144-topbar .v144-close{background:#1a2a44;color:#fff;border:1px solid #2a3f5a;border-radius:8px;width:42px;height:42px;font-size:18px;cursor:pointer;font-family:inherit;flex-shrink:0}'
+      + '  #lO .v144-topbar .v144-title{font-size:18px;font-weight:800;color:#fff;font-family:inherit}'
+      + '  #lO .v144-topbar .v144-title .v144-acc{color:#ff0080}'
+      + '}';
+    document.head.appendChild(st);
+  }
+
+  // Inject a topbar with close + title into the lead overlay (mobile only).
+  // The existing #lO has a Cancel button somewhere; keep it but add this header
+  // for clarity.
+  function injectTopBar() {
+    var lO = document.getElementById('lO');
+    if (!lO) return;
+    if (lO.querySelector('.v144-topbar')) return;
+    var bar = document.createElement('div');
+    bar.className = 'v144-topbar';
+    bar.innerHTML =
+      '<button class="v144-close" title="Close">✕</button>' +
+      '<div class="v144-title">📇 Add <span class="v144-acc">Contact</span></div>';
+    lO.insertBefore(bar, lO.firstChild);
+    bar.querySelector('.v144-close').onclick = function(){
+      try { if (typeof window.cL === 'function') window.cL(); } catch(e){}
+    };
+  }
+
+  // Auto-start camera when lead overlay opens via mobile bottom-nav Add.
+  // We only auto-launch when the overlay was JUST opened (transition from
+  // no .op class to having it) AND we're on mobile.
+  var wasOpen = false;
+  function watchLeadOverlay() {
+    var lO = document.getElementById('lO');
+    if (!lO) return;
+    var isOpen = lO.classList.contains('op');
+    if (isOpen && !wasOpen) {
+      // Just opened
+      if (isMobile()) {
+        injectTopBar();
+        // Auto-start camera after a short delay so the form has rendered
+        setTimeout(function(){
+          if (!lO.classList.contains('op')) return; // user closed it
+          // Skip auto-camera if camera area already shows an image (user
+          // re-opened with existing capture in progress)
+          var lCA = document.getElementById('lCA');
+          var lCP = document.getElementById('lCP');
+          if (lCP && lCP.querySelector('img')) return;
+          if (typeof window.sLCam === 'function') {
+            try { window.sLCam(); } catch(e) { console.warn('[v144 sLCam]', e); }
+          }
+        }, 350);
+      }
+    }
+    wasOpen = isOpen;
+  }
+
+  // Auto-run AI Read Card after the user snaps a photo (and crop closes).
+  // Strategy: when #aiCB becomes visible (display:inline-block) AND a lI
+  // is present AND we haven't auto-fired for this session, click it once.
+  var aiAutoFired = false;
+  function watchAiButton() {
+    if (!isMobile()) return;
+    var lO = document.getElementById('lO');
+    if (!lO || !lO.classList.contains('op')) {
+      aiAutoFired = false;
+      return;
+    }
+    var b = document.getElementById('aiCB');
+    if (!b) return;
+    var visible = b.style.display && b.style.display !== 'none';
+    if (visible && !aiAutoFired && window.lI && !window._v144AIQueued) {
+      window._v144AIQueued = true;
+      aiAutoFired = true;
+      setTimeout(function(){
+        if (b && lO.classList.contains('op')) {
+          try { b.click(); } catch(e) { console.warn('[v144 aiC]', e); }
+        }
+      }, 600);
+    }
+  }
+
+  function tick() {
+    try {
+      ensureCss();
+      watchLeadOverlay();
+      watchAiButton();
+    } catch(e) { console.warn('[v144]', e); }
+  }
+  setTimeout(tick, 500);
+  setInterval(tick, 800);
+
+  // Reset auto-fire on close
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    if (!t || !t.closest) return;
+    if (t.closest('.v144-close') || t.closest('.bc')) {
+      window._v144AIQueued = false;
+      aiAutoFired = false;
+    }
+  }, true);
+})();
+
+</script>
+<script>
+/*v145-mobile-route*/
+(function(){
+  'use strict';
+
+  // ============================================================
+  // Mobile Route polish for the Day Plan tab.
+  //
+  // On mobile (innerWidth < 700) when the Day Plan tab is active:
+  //   - Show one stop at a time as a big card (single-stop carousel)
+  //   - Floating prev / next chevrons + swipe gestures
+  //   - Sticky "Stop X of Y" header with progress
+  //   - One huge NAVIGATE button on each card → opens Google/Apple Maps
+  //   - Tap card body → opens existing stop detail modal (untouched)
+  //
+  // Desktop view is unchanged. Original Day Plan DOM stays mounted —
+  // we just visually hide all stops except the "current" one and
+  // intercept paging via prev/next buttons. No re-render needed.
+  // ============================================================
+
+  function isMobile() { return window.innerWidth < 700; }
+
+  function ensureCss() {
+    if (document.getElementById('v145css')) return;
+    var st = document.createElement('style');
+    st.id = 'v145css';
+    st.textContent = ''
+      + '@media (max-width:699px){'
+      // Hide map on Day Plan in mobile mode (it eats vertical space)
+      + '  #dpMap_x, .dpMap, [id^="dpMap"]{display:none !important}'
+      // Hide stops by default — show only the active one
+      + '  #dpStops_x > .stop, .dp-stop, [class*="dpStop"], .stop{display:none !important}'
+      + '  #dpStops_x > .stop.v145-active, .stop.v145-active{display:block !important}'
+      // The active stop big card style
+      + '  #dpStops_x > .stop.v145-active, .stop.v145-active{background:linear-gradient(135deg,#0f1828,#0a1220) !important;border:2px solid #22aee4 !important;border-radius:14px !important;padding:18px !important;margin:14px 0 !important;box-shadow:0 8px 24px rgba(34,174,228,0.2) !important}'
+      + '  .stop.v145-active h1, .stop.v145-active h2{font-size:22px !important;color:#fff !important;margin:6px 0 10px !important;line-height:1.2 !important}'
+      + '  .stop.v145-active .stop-num, .stop.v145-active [class*="num"]{font-size:11px !important;color:#22aee4 !important;letter-spacing:.12em !important;text-transform:uppercase !important;font-weight:700 !important}'
+      + '  .stop.v145-active ul li{font-size:14px !important;line-height:1.4 !important;margin:6px 0 !important;color:#cde !important}'
+      + '  .stop.v145-active .ask{background:rgba(255,0,128,0.12) !important;border:1px solid #ff0080 !important;border-radius:8px !important;padding:10px 12px !important;margin:10px 0 !important;font-size:13px !important;color:#ffb !important}'
+      // Sticky progress bar
+      + '  #v145bar{position:sticky;top:0;background:linear-gradient(180deg,#0a1220 0%,#0a1220 92%,transparent 100%);padding:12px 8px 16px;margin:-14px -12px 6px;display:flex;align-items:center;gap:10px;font-family:inherit;z-index:50}'
+      + '  #v145bar .v145-prev, #v145bar .v145-next{background:#1a2a44;color:#fff;border:1px solid #2a3f5a;border-radius:50%;width:46px;height:46px;font-size:22px;cursor:pointer;font-family:inherit;flex-shrink:0;display:flex;align-items:center;justify-content:center;touch-action:manipulation}'
+      + '  #v145bar .v145-prev:disabled, #v145bar .v145-next:disabled{opacity:0.35}'
+      + '  #v145bar .v145-info{flex:1;text-align:center;color:#fff;font-weight:700;font-size:14px}'
+      + '  #v145bar .v145-info .v145-of{color:#9bc;font-weight:500;font-size:12px}'
+      + '  #v145bar .v145-track{flex:1;height:4px;background:#1f3a5a;border-radius:2px;position:relative;overflow:hidden;margin:0 12px}'
+      + '  #v145bar .v145-fill{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#22aee4,#33cc66);border-radius:2px;transition:width .25s ease}'
+      // Floating navigate button on active stop
+      + '  .v145-navbtn{display:block;width:100%;margin-top:14px;padding:18px 14px;border-radius:14px;background:linear-gradient(135deg,#33cc66,#22aee4);color:#fff;border:none;font-size:18px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 6px 20px rgba(34,174,228,0.45);touch-action:manipulation}'
+      + '  .v145-navbtn .v145-icn{font-size:22px;margin-right:8px;vertical-align:middle}'
+      + '  .v145-checkin{display:block;width:100%;margin-top:10px;padding:12px;border-radius:10px;background:#1a2a44;color:#9fe;border:1px solid #2a3f5a;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;touch-action:manipulation}'
+      + '}'
+      + '@media (min-width:700px){#v145bar{display:none !important}.stop.v145-active{}}';
+    document.head.appendChild(st);
+  }
+
+  function currentTab() {
+    if (typeof window.__tb === 'string') return window.__tb;
+    var on = document.querySelector('.navitem.on');
+    return on ? on.getAttribute('data-tab') : '';
+  }
+
+  // ============================================================
+  // Carousel state
+  // ============================================================
+  var carouselIdx = 0;
+
+  function findStops() {
+    // Day Plan renders stops with various class patterns
+    var candidates = document.querySelectorAll('#dpStops_x > .stop, .stop');
+    var stops = [];
+    candidates.forEach(function(el){
+      if (el.children && el.children.length > 0) stops.push(el);
+    });
+    return stops;
+  }
+
+  function setActive(stops, idx) {
+    if (!stops.length) return;
+    if (idx < 0) idx = 0;
+    if (idx >= stops.length) idx = stops.length - 1;
+    carouselIdx = idx;
+    stops.forEach(function(s, i){
+      if (i === idx) s.classList.add('v145-active');
+      else s.classList.remove('v145-active');
+    });
+    // Scroll active into view
+    var active = stops[idx];
+    if (active) {
+      setTimeout(function(){
+        try { active.scrollIntoView({behavior:'smooth', block:'start'}); } catch(e){}
+      }, 50);
+    }
+    // Inject navigate + check-in buttons if not present
+    injectStopActions(active);
+    // Update progress bar
+    updateBar(stops.length, idx);
+  }
+
+  function getStopName(stopEl) {
+    if (!stopEl) return '';
+    var h = stopEl.querySelector('h1, h2, h3');
+    return h ? (h.textContent||'').trim() : '';
+  }
+
+  function getStopAddress(stopEl) {
+    if (!stopEl) return '';
+    // Look for an address line — often a div containing zip or "WA"
+    var ps = stopEl.querySelectorAll('p, div');
+    for (var i = 0; i < ps.length; i++) {
+      var t = (ps[i].textContent||'').trim();
+      if (/\b(WA|OR|CA)\b\s+\d{5}/.test(t) && t.length < 200) return t;
+    }
+    return '';
+  }
+
+  function injectStopActions(stopEl) {
+    if (!stopEl) return;
+    if (stopEl.querySelector('.v145-navbtn')) return;
+    var name = getStopName(stopEl);
+    var addr = getStopAddress(stopEl) || name;
+    var nav = document.createElement('button');
+    nav.className = 'v145-navbtn';
+    nav.innerHTML = '<span class="v145-icn">🗺️</span>Navigate to this stop';
+    nav.onclick = function(){
+      var q = encodeURIComponent(addr || name);
+      // Prefer Google Maps; iOS users may get Apple Maps via URL scheme
+      var isIos = /iPhone|iPad|iPod/.test(navigator.userAgent);
+      var url = isIos ? ('maps://?daddr=' + q) : ('https://www.google.com/maps/dir/?api=1&destination=' + q);
+      window.open(url, isIos ? '_self' : '_blank');
+    };
+    stopEl.appendChild(nav);
+    var ci = document.createElement('button');
+    ci.className = 'v145-checkin';
+    ci.textContent = "📍 I'm here — Check in";
+    ci.onclick = function(){
+      // Find an existing check-in button in the stop and click it
+      var existing = stopEl.querySelector('button, a');
+      var buttons = Array.from(stopEl.querySelectorAll('button, a'));
+      var checkin = buttons.find(function(b){
+        var t = (b.textContent||'').toLowerCase();
+        return t.indexOf('check-in') >= 0 || t.indexOf('check in') >= 0 || t.indexOf('i\'m here') >= 0;
+      });
+      if (checkin) { checkin.click(); }
+      else if (window.tt) window.tt('Check-in not available on this stop', 'er');
+    };
+    stopEl.appendChild(ci);
+  }
+
+  function updateBar(total, idx) {
+    var bar = document.getElementById('v145bar');
+    if (!bar) return;
+    var info = bar.querySelector('.v145-info');
+    if (info) info.innerHTML = 'Stop <strong>' + (idx+1) + '</strong> <span class="v145-of">of ' + total + '</span>';
+    var fill = bar.querySelector('.v145-fill');
+    if (fill) fill.style.width = (total > 0 ? ((idx+1)/total * 100) : 0) + '%';
+    var prev = bar.querySelector('.v145-prev');
+    var next = bar.querySelector('.v145-next');
+    if (prev) prev.disabled = (idx <= 0);
+    if (next) next.disabled = (idx >= total - 1);
+  }
+
+  function ensureBar() {
+    var existing = document.getElementById('v145bar');
+    if (existing) return existing;
+    var mc = document.getElementById('mc');
+    if (!mc) return null;
+    var bar = document.createElement('div');
+    bar.id = 'v145bar';
+    bar.innerHTML =
+      '<button class="v145-prev" aria-label="Previous stop">‹</button>' +
+      '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div class="v145-info">Stop 1 of 1</div><div class="v145-track" style="width:100%"><div class="v145-fill" style="width:0"></div></div></div>' +
+      '<button class="v145-next" aria-label="Next stop">›</button>';
+    mc.insertBefore(bar, mc.firstChild);
+    bar.querySelector('.v145-prev').onclick = function(){
+      var stops = findStops();
+      setActive(stops, carouselIdx - 1);
+    };
+    bar.querySelector('.v145-next').onclick = function(){
+      var stops = findStops();
+      setActive(stops, carouselIdx + 1);
+    };
+    // Swipe gestures
+    var touchStartX = 0;
+    var mc2 = document.getElementById('mc');
+    if (mc2) {
+      mc2.addEventListener('touchstart', function(e){
+        if (!e.touches || !e.touches.length) return;
+        touchStartX = e.touches[0].clientX;
+      }, {passive:true});
+      mc2.addEventListener('touchend', function(e){
+        if (!touchStartX || !e.changedTouches || !e.changedTouches.length) return;
+        var dx = e.changedTouches[0].clientX - touchStartX;
+        touchStartX = 0;
+        if (Math.abs(dx) < 60) return;
+        var stops = findStops();
+        if (dx > 0) setActive(stops, carouselIdx - 1);
+        else setActive(stops, carouselIdx + 1);
+      }, {passive:true});
+    }
+    return bar;
+  }
+
+  function teardown() {
+    var bar = document.getElementById('v145bar');
+    if (bar) bar.remove();
+    var stops = findStops();
+    stops.forEach(function(s){
+      s.classList.remove('v145-active');
+      var nb = s.querySelector('.v145-navbtn'); if (nb) nb.remove();
+      var ci = s.querySelector('.v145-checkin'); if (ci) ci.remove();
+    });
+  }
+
+  function apply() {
+    if (!isMobile() || currentTab() !== 'dp') {
+      teardown();
+      return;
+    }
+    ensureCss();
+    var stops = findStops();
+    if (!stops.length) return;
+    ensureBar();
+    // Restore selection or default to first
+    if (carouselIdx >= stops.length) carouselIdx = stops.length - 1;
+    setActive(stops, carouselIdx);
+  }
+
+  // Boot
+  setTimeout(apply, 600);
+  setInterval(apply, 1500);
+  window.addEventListener('resize', apply);
+  if (window.MutationObserver) {
+    setTimeout(function(){
+      var mc = document.getElementById('mc');
+      if (mc) new MutationObserver(function(){
+        // Re-apply when Day Plan re-renders
+        if (currentTab() === 'dp') apply();
+      }).observe(mc, {childList:true, subtree:true});
+    }, 1000);
+  }
+})();
+
+</script>
+<script>
+/*v146-mobile-conversations*/
+(function(){
+  'use strict';
+
+  // ============================================================
+  // Mobile Conversations polish for the Inbox tab.
+  //
+  // On mobile (innerWidth < 700) when the Inbox tab is active:
+  //   - Inbox rows are full-width, generous tap targets
+  //   - Each row reads like an SMS thread: avatar/initials, name,
+  //     last message preview, timestamp, unread dot
+  //   - Tap row → opens the existing profile/thread view
+  //   - Removed/hidden columns: bulk select checkboxes by default
+  //     (tap-and-hold could re-enable but for now keep it simple)
+  //   - Compose box (when in a thread) pinned to bottom of viewport
+  //
+  // Implementation: heavy CSS overrides, no DOM rewrites needed.
+  // The existing Inbox v2/v3 renderers produce rows we restyle.
+  // ============================================================
+
+  function isMobile() { return window.innerWidth < 700; }
+
+  function ensureCss() {
+    if (document.getElementById('v146css')) return;
+    var st = document.createElement('style');
+    st.id = 'v146css';
+    st.textContent = ''
+      + '@media (max-width:699px){'
+      // Hide desktop bulk-select header chrome
+      + '  .ix-bulk-bar, .ix-bulkbar, [class*="bulkSelect"]{display:none !important}'
+      // Inbox rows full width, generous padding
+      + '  .ix-row, .ixrow, [class*="ix-item"]{padding:14px 12px !important;border-radius:0 !important;border-left:none !important;border-right:none !important;border-top:none !important;border-bottom:1px solid #1f3a5a !important;margin:0 -12px !important;background:transparent !important;display:flex !important;align-items:flex-start !important;gap:12px !important;min-height:64px !important;cursor:pointer !important;touch-action:manipulation}'
+      + '  .ix-row:active, .ixrow:active{background:#0f1828 !important}'
+      + '  .ix-row.unread::before, .ixrow.unread::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:#22aee4;flex-shrink:0;margin-top:6px;box-shadow:0 0 8px #22aee4}'
+      // The name + preview stack
+      + '  .ix-row .name, .ix-row .from, .ixrow .name{font-size:15px !important;font-weight:700 !important;color:#fff !important;margin-bottom:3px !important}'
+      + '  .ix-row .body, .ix-row .preview, .ixrow .preview, .ix-row .snippet{font-size:13px !important;color:#9bc !important;display:-webkit-box !important;-webkit-line-clamp:2 !important;-webkit-box-orient:vertical !important;overflow:hidden !important;line-height:1.35 !important}'
+      + '  .ix-row .when, .ix-row .ts, .ixrow .ts{font-size:11px !important;color:#788 !important;flex-shrink:0 !important;margin-left:auto !important;white-space:nowrap !important}'
+      // Hide bulk-select checkboxes by default (re-enable via "Select")
+      + '  .ix-row input[type="checkbox"], .ixrow input[type="checkbox"]{display:none !important}'
+      + '  body.v146-select .ix-row input[type="checkbox"], body.v146-select .ixrow input[type="checkbox"]{display:inline-block !important;width:22px !important;height:22px !important;margin-right:6px !important}'
+      // Filter chips stay but compact + sticky
+      + '  .ix-filters, .ix-fil, [id^="ixFilter"]{position:sticky !important;top:0 !important;background:#0a1220 !important;padding:8px 0 !important;z-index:40 !important;display:flex !important;gap:6px !important;overflow-x:auto !important;flex-wrap:nowrap !important;margin-bottom:6px !important}'
+      + '  .ix-filters button, .ix-fil button{flex-shrink:0 !important;padding:8px 14px !important;font-size:13px !important;border-radius:18px !important;background:#1a2a44 !important;color:#9bc !important;border:1px solid #2a3f5a !important}'
+      + '  .ix-filters button.on, .ix-fil button.on{background:linear-gradient(135deg,#ff0080,#22aee4) !important;color:#fff !important;border-color:transparent !important}'
+      // Empty state
+      + '  .ix-empty, .ix-nope{padding:60px 20px !important;text-align:center !important;color:#788 !important;font-size:14px !important}'
+      // Thread/profile message composer pinned to viewport bottom when on a profile
+      + '  body.v146-in-thread #composeArea, body.v146-in-thread .compose-area{position:fixed !important;left:0 !important;right:0 !important;bottom:68px !important;background:#0a1220 !important;border-top:1px solid #2a3f5a !important;padding:10px !important;z-index:8000 !important;margin:0 !important;box-shadow:0 -6px 18px rgba(0,0,0,0.5) !important}'
+      + '  body.v146-in-thread #composeArea textarea, body.v146-in-thread .compose-area textarea{min-height:48px !important;max-height:120px !important;font-size:16px !important;padding:10px !important;border-radius:10px !important;width:100% !important;box-sizing:border-box !important;background:#0f1828 !important;border:1px solid #2a3f5a !important;color:#fff !important}'
+      + '  body.v146-in-thread #composeArea button, body.v146-in-thread .compose-area button{padding:12px 16px !important;font-size:14px !important;min-height:44px !important}'
+      // Conversation thread messages (full profile Conversation tab)
+      + '  body.v146-in-thread .msg, body.v146-in-thread .conv-msg, body.v146-in-thread [class*="message-bubble"]{font-size:14px !important;line-height:1.4 !important;padding:10px 12px !important;border-radius:14px !important;max-width:80% !important;margin:6px 0 !important}'
+      + '}'
+      + '@media (min-width:700px){body.v146-in-thread #composeArea{position:static !important}}';
+    document.head.appendChild(st);
+  }
+
+  function currentTab() {
+    if (typeof window.__tb === 'string') return window.__tb;
+    var on = document.querySelector('.navitem.on');
+    return on ? on.getAttribute('data-tab') : '';
+  }
+
+  function isOnFullProfile() {
+    try {
+      var u = new URL(location.href);
+      return !!u.searchParams.get('c');
+    } catch(e) { return false; }
+  }
+
+  function apply() {
+    if (!isMobile()) {
+      document.body.classList.remove('v146-in-thread');
+      return;
+    }
+    ensureCss();
+    // Toggle thread-mode body class so the composer pins
+    if (isOnFullProfile()) document.body.classList.add('v146-in-thread');
+    else document.body.classList.remove('v146-in-thread');
+  }
+
+  setTimeout(apply, 500);
+  setInterval(apply, 1000);
+  window.addEventListener('resize', apply);
+  window.addEventListener('popstate', apply);
+})();
+
+</script>
 </body></html>';
     const w = window.open('', '_blank');
     if (!w) { alert('Pop-up blocked — allow pop-ups for this site to download/print plan'); return; }
