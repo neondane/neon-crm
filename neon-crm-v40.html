@@ -6075,6 +6075,140 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v149-mobile-more-menu*/
+(function(){
+  'use strict';
+
+  // ============================================================
+  // v143 only put 4 tabs on the bottom nav (Find / Route / Add /
+  // Inbox). The other 5 tabs — Portal, Top Leads, Reminders, Map,
+  // Calendar — were completely unreachable on mobile.
+  //
+  // v149: add a 5th "⋯ More" button that opens a bottom sheet
+  // with the remaining tabs as big tap rows. Tapping a row
+  // switches tabs via sT() and closes the sheet.
+  //
+  // Also adjusts the grid-template-columns from 4 to 5 cols.
+  // ============================================================
+
+  function isMobile() { return window.innerWidth < 700; }
+
+  var MORE_TABS = [
+    {key:'pl',  ic:'🔗', lb:'Portal',    desc:'Realtor referral portal + leads'},
+    {key:'tl',  ic:'⭐', lb:'Top Leads',  desc:'Best uncaptured prospects by territory'},
+    {key:'r',   ic:'⏰', lb:'Reminders',  desc:'All upcoming reminders'},
+    {key:'m',   ic:'🗺', lb:'Map',        desc:'All contacts on a map'},
+    {key:'cal', ic:'📅', lb:'Calendar',   desc:'Schedule + Google Calendar sync'},
+  ];
+
+  function ensureCss() {
+    if (document.getElementById('v149css')) return;
+    var st = document.createElement('style');
+    st.id = 'v149css';
+    st.textContent = ''
+      + '@media (max-width:699px){'
+      + '  #v143nav{grid-template-columns:repeat(5,1fr) !important}'
+      // More sheet
+      + '  #v149sheet{position:fixed;left:0;right:0;bottom:0;background:#0a1220;border-top:1px solid #1f3a5a;box-shadow:0 -10px 30px rgba(0,0,0,0.6);z-index:9500;font-family:inherit;border-top-left-radius:14px;border-top-right-radius:14px;padding:12px 0 calc(80px + env(safe-area-inset-bottom,0px));transform:translateY(100%);transition:transform .22s ease;max-height:75vh;overflow-y:auto}'
+      + '  #v149sheet.open{transform:translateY(0)}'
+      + '  #v149sheet .v149-handle{width:42px;height:5px;background:#2a3f5a;border-radius:3px;margin:0 auto 10px}'
+      + '  #v149sheet .v149-title{padding:0 16px 12px;font-size:18px;font-weight:800;color:#fff;border-bottom:1px solid #1f3a5a;display:flex;align-items:center;justify-content:space-between}'
+      + '  #v149sheet .v149-title button{background:#1a2a44;color:#fff;border:1px solid #2a3f5a;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit}'
+      + '  #v149sheet .v149-row{display:flex;align-items:center;gap:14px;padding:14px 16px;cursor:pointer;border-bottom:1px solid #1f3a5a;color:#fff;touch-action:manipulation;-webkit-tap-highlight-color:rgba(34,174,228,0.2)}'
+      + '  #v149sheet .v149-row:active{background:#0f1828}'
+      + '  #v149sheet .v149-row.on{background:linear-gradient(90deg,rgba(34,174,228,0.18),transparent);border-left:3px solid #22aee4;padding-left:13px}'
+      + '  #v149sheet .v149-icon{font-size:24px;width:36px;text-align:center;flex-shrink:0}'
+      + '  #v149sheet .v149-meta{flex:1;min-width:0}'
+      + '  #v149sheet .v149-name{font-size:16px;font-weight:700}'
+      + '  #v149sheet .v149-desc{font-size:12px;color:#9bc;margin-top:2px}'
+      + '  #v149backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9400;display:none;opacity:0;transition:opacity .2s ease}'
+      + '  #v149backdrop.open{display:block;opacity:1}'
+      + '}'
+      + '@media (min-width:700px){#v149sheet,#v149backdrop{display:none !important}}';
+    document.head.appendChild(st);
+  }
+
+  function buildMoreButton() {
+    var nav = document.getElementById('v143nav');
+    if (!nav) return;
+    if (nav.querySelector('[data-v149more]')) return;
+    var btn = document.createElement('button');
+    btn.setAttribute('data-v149more','1');
+    btn.innerHTML = '<span class="v143-ic">⋯</span><span class="v143-lb">More</span>';
+    nav.appendChild(btn);
+    btn.addEventListener('click', function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      toggleSheet(true);
+    });
+  }
+
+  function buildSheet() {
+    if (document.getElementById('v149sheet')) return;
+    var bd = document.createElement('div');
+    bd.id = 'v149backdrop';
+    bd.onclick = function(){ toggleSheet(false); };
+    document.body.appendChild(bd);
+    var sheet = document.createElement('div');
+    sheet.id = 'v149sheet';
+    sheet.innerHTML =
+      '<div class="v149-handle"></div>' +
+      '<div class="v149-title"><span>More</span><button id="v149close">Close</button></div>' +
+      MORE_TABS.map(function(t){
+        return '<div class="v149-row" data-v149tab="'+t.key+'">' +
+          '<div class="v149-icon">'+t.ic+'</div>' +
+          '<div class="v149-meta">' +
+            '<div class="v149-name">'+t.lb+'</div>' +
+            '<div class="v149-desc">'+t.desc+'</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    document.body.appendChild(sheet);
+    document.getElementById('v149close').onclick = function(){ toggleSheet(false); };
+    sheet.addEventListener('click', function(e){
+      var row = e.target && e.target.closest && e.target.closest('.v149-row');
+      if (!row) return;
+      var k = row.getAttribute('data-v149tab');
+      if (k && typeof window.sT === 'function') {
+        try { window.sT(k, null); } catch(err){ console.warn('[v149 sT]', err); }
+      }
+      toggleSheet(false);
+    });
+  }
+
+  function toggleSheet(open) {
+    var sheet = document.getElementById('v149sheet');
+    var bd = document.getElementById('v149backdrop');
+    if (!sheet || !bd) return;
+    if (open) {
+      // Highlight current tab in the sheet
+      var cur = window.__tb || '';
+      Array.from(sheet.querySelectorAll('.v149-row')).forEach(function(r){
+        if (r.getAttribute('data-v149tab') === cur) r.classList.add('on');
+        else r.classList.remove('on');
+      });
+      sheet.classList.add('open');
+      bd.classList.add('open');
+    } else {
+      sheet.classList.remove('open');
+      bd.classList.remove('open');
+    }
+  }
+
+  function apply() {
+    if (!isMobile()) return;
+    ensureCss();
+    buildMoreButton();
+    buildSheet();
+  }
+
+  setTimeout(apply, 600);
+  setInterval(apply, 1500);
+  window.addEventListener('resize', apply);
+})();
+
+</script>
 </body></html>';
     const w = window.open('', '_blank');
     if (!w) { alert('Pop-up blocked — allow pop-ups for this site to download/print plan'); return; }
