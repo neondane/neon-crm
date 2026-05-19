@@ -5886,6 +5886,129 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v147-mobile-fixes*/
+(function(){
+  'use strict';
+
+  // ============================================================
+  // Fix-pack for v144 + v146.
+  //
+  // v146 BUG: targeted selectors like .ix-row, .ixrow, [class*="ix-item"]
+  // — none of those exist. The actual inbox rows are emitted as:
+  //   <div id="ixrow-XYZ" style="display:flex;align-items:center;...">
+  // i.e. INLINE STYLES, NO CLASS. v147 uses [id^="ixrow-"] selectors
+  // with !important to win against the inline styles.
+  //
+  // v144 BUG: the AI Read Card auto-fire checked window.lI, but lI is
+  // let-scoped — window.lI is permanently undefined, so the auto-fire
+  // never fires. v147 drops that check entirely.
+  // ============================================================
+
+  function isMobile() { return window.innerWidth < 700; }
+
+  function ensureCss() {
+    if (document.getElementById('v147css')) return;
+    var st = document.createElement('style');
+    st.id = 'v147css';
+    st.textContent = ''
+      + '@media (max-width:699px){'
+      // === INBOX rows (real selector) ===
+      // Override inline styles — full-width, bigger tap target, no border-radius
+      + '  [id^="ixrow-"]{padding:14px 12px !important;border-radius:0 !important;border-top:none !important;border-right:none !important;border-bottom:1px solid #1f3a5a !important;margin:0 -12px !important;background:#0a1220 !important;min-height:64px !important;gap:12px !important;cursor:pointer !important;touch-action:manipulation;-webkit-tap-highlight-color:rgba(255,0,128,0.15)}'
+      + '  [id^="ixrow-"]:active{background:#0f1828 !important}'
+      // Title/sub inside rows — second child is icon, third child is the title/sub block
+      + '  [id^="ixrow-"] > div[onclick] > div:first-child{font-size:15px !important;font-weight:700 !important;color:#fff !important;line-height:1.3 !important;margin-bottom:4px !important;white-space:normal !important;overflow:visible !important;text-overflow:clip !important}'
+      + '  [id^="ixrow-"] > div[onclick] > div:nth-child(2){font-size:13px !important;color:#9bc !important;line-height:1.35 !important;display:-webkit-box !important;-webkit-line-clamp:2 !important;-webkit-box-orient:vertical !important;overflow:hidden !important}'
+      // Hide bulk-select checkbox by default (less clutter on mobile)
+      + '  [id^="ixrow-"] > input[type="checkbox"]{display:none !important}'
+      + '  body.v147-bulksel [id^="ixrow-"] > input[type="checkbox"]{display:inline-block !important;width:22px !important;height:22px !important;margin-right:4px !important;flex-shrink:0 !important}'
+      // Icon gets a bit bigger
+      + '  [id^="ixrow-"] > div:not([onclick]):first-of-type{font-size:24px !important;flex-shrink:0 !important;width:32px !important;text-align:center !important}'
+      // Per-row action buttons (Done/Archive/Open) — make them bigger and more tappable
+      + '  [id^="ixrow-"] > div:last-child button{min-width:36px !important;min-height:36px !important;font-size:13px !important;padding:6px 8px !important;border-radius:6px !important;margin-left:2px !important}'
+      // Compose area pinned at bottom of viewport when on a profile (?c=)
+      + '  body.v147-in-thread #composeArea, body.v147-in-thread [id="composeArea"]{position:fixed !important;left:0 !important;right:0 !important;bottom:68px !important;background:#0a1220 !important;border-top:1px solid #2a3f5a !important;padding:10px !important;z-index:8000 !important;margin:0 !important;box-shadow:0 -6px 18px rgba(0,0,0,0.5) !important}'
+      + '  body.v147-in-thread #composeArea textarea{min-height:48px !important;max-height:120px !important;font-size:16px !important;padding:10px !important;border-radius:10px !important;width:100% !important;box-sizing:border-box !important;background:#0f1828 !important;border:1px solid #2a3f5a !important;color:#fff !important}'
+      + '  body.v147-in-thread #composeArea button{padding:12px 16px !important;font-size:14px !important;min-height:44px !important}'
+      // Inbox filter chips — sticky, scrollable
+      + '  #mc > div:first-child[style*="display:flex"] button[onclick*="ixFilter2"]{flex-shrink:0 !important;padding:8px 14px !important;font-size:13px !important;border-radius:18px !important;min-height:38px !important}'
+      // Bulk action bar (Done/Archive/Clear) — bigger touch targets
+      + '  #mc button[onclick*="ix2BulkAction"]{min-height:42px !important;padding:8px 14px !important;font-size:13px !important}'
+      + '}';
+    document.head.appendChild(st);
+  }
+
+  function isOnFullProfile() {
+    try {
+      var u = new URL(location.href);
+      return !!u.searchParams.get('c');
+    } catch(e) { return false; }
+  }
+
+  function syncBodyClass() {
+    if (!isMobile()) {
+      document.body.classList.remove('v147-in-thread');
+      return;
+    }
+    if (isOnFullProfile()) document.body.classList.add('v147-in-thread');
+    else document.body.classList.remove('v147-in-thread');
+  }
+
+  // ============================================================
+  // Patch v144: AI Read Card auto-fire. v144's check for window.lI
+  // never passed. We re-implement here without that check.
+  // ============================================================
+  var aiFiredForOpen = false;
+  function watchAiAuto() {
+    if (!isMobile()) return;
+    var lO = document.getElementById('lO');
+    if (!lO || !lO.classList.contains('op')) {
+      aiFiredForOpen = false;
+      return;
+    }
+    if (aiFiredForOpen) return;
+    var b = document.getElementById('aiCB');
+    if (!b) return;
+    var visible = b.style && b.style.display && b.style.display !== 'none';
+    if (!visible) return;
+    // Check that a photo actually exists (look at #lCP for an img)
+    var lCP = document.getElementById('lCP');
+    if (!lCP) return;
+    var img = lCP.querySelector('img');
+    if (!img || !img.src || img.src.length < 100) return;
+    aiFiredForOpen = true;
+    setTimeout(function(){
+      var bb = document.getElementById('aiCB');
+      if (bb && lO.classList.contains('op')) {
+        try { bb.click(); } catch(e) { console.warn('[v147 aiC]', e); }
+      }
+    }, 500);
+  }
+
+  function tick() {
+    try {
+      ensureCss();
+      syncBodyClass();
+      watchAiAuto();
+    } catch(e){ console.warn('[v147]', e); }
+  }
+  setTimeout(tick, 500);
+  setInterval(tick, 800);
+  window.addEventListener('resize', tick);
+  window.addEventListener('popstate', tick);
+
+  // Reset AI auto-fire when lead overlay closes
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    if (!t || !t.closest) return;
+    if (t.closest('.fsx') || t.closest('.bc') || t.closest('.v144-close')) {
+      aiFiredForOpen = false;
+    }
+  }, true);
+})();
+
+</script>
 </body></html>';
     const w = window.open('', '_blank');
     if (!w) { alert('Pop-up blocked — allow pop-ups for this site to download/print plan'); return; }
