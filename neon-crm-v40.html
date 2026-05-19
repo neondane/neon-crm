@@ -4093,47 +4093,56 @@ async function dpDownloadPDF(){
 
 </script>
 <script>
-/*v140-card-crop-selfcontained*/
+/*v141-card-crop-save-fix*/
 (function(){
   'use strict';
 
   // ============================================================
-  // SELF-CONTAINED CARD CROP MODAL
+  // v140 cropped successfully but the saved image never showed up
+  // because the post-save refresh checked window.openContact (undef)
+  // and window.pOpen (also undef — only window.__pOpen is exposed).
+  // It fell through to window.load() which refreshes window.__D
+  // but doesn't tell the open profile DOM to re-render.
   //
-  // v139 tried to reuse the page's aiCrop pipeline by hijacking
-  // window.lI, window._adj, window._showAvatarPicker and #lCP. That
-  // was fragile — the corners didn't always render and the drag
-  // wasn't reliable. v140 ports the opencv detection + perspective
-  // transform inline so the modal owns its own DOM + state.
-  //
-  // Trigger points (same as v139):
-  //   - Profile sidebar "Add business card" / "Add profile photo"
-  //   - Profile sidebar "Replace" (overrides dpReplacePic)
-  //   - Edit form "Auto-Crop card" button next to the preview
+  // v141:
+  //  - Visible inline "Saving..." / "✅ Saved" / error banner inside
+  //    the modal so the user always sees what happened.
+  //  - After a successful save, force the visible card/profile image
+  //    in the DOM to the new dataUrl (no waiting on re-render).
+  //  - Also update window.__D so any later re-render picks it up.
+  //  - As a safety net, call location.reload() after 700ms IF the
+  //    user is on the full profile view (?c=ID) — that path has no
+  //    other reliable refresh hook.
+  //  - Wrap dpDeletePic with the same refresh so "Remove" works.
+  //  - Add an "🗑 Remove card" button inside the crop modal so
+  //    delete is reachable from the new flow too.
   // ============================================================
 
   function ensureCss() {
-    if (document.getElementById('v140css')) return;
+    if (document.getElementById('v141css')) return;
     var st = document.createElement('style');
-    st.id = 'v140css';
+    st.id = 'v141css';
     st.textContent = ''
-      + '#v140ov{position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:99999;overflow-y:auto;padding:14px;display:block;-webkit-overflow-scrolling:touch}'
-      + '#v140ov .v140-card{background:#1a1a1a;border:1px solid #2a3f5a;border-radius:12px;padding:14px;max-width:560px;width:100%;margin:12px auto;box-sizing:border-box}'
-      + '#v140ov .v140-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;color:#fff;font-weight:600;font-size:14px;font-family:inherit}'
-      + '#v140ov .v140-hdr button{background:#3a4a6a;color:#fff;border:none;padding:6px 12px;border-radius:5px;cursor:pointer;font-size:12px;font-family:inherit;min-height:36px}'
-      + '#v140ov .v140-canvasbox{text-align:center;min-height:200px;background:#0a0a0a;border-radius:8px;padding:8px;position:relative}'
-      + '#v140ov canvas{display:block;margin:0 auto;border:1px solid #2a3f5a;border-radius:6px;touch-action:none;max-width:100%}'
-      + '#v140ov .v140-status{text-align:center;color:#9bc;font-size:12px;margin:8px 0;font-family:inherit}'
-      + '#v140ov .v140-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;justify-content:center}'
-      + '#v140ov .v140-actions button{flex:1;min-width:120px;min-height:48px;border:none;border-radius:8px;cursor:pointer;font-family:inherit;font-size:14px;font-weight:700;color:#fff;padding:10px 14px;-webkit-tap-highlight-color:rgba(255,0,128,0.4);touch-action:manipulation}'
-      + '#v140ov .v140-actions button.apply{background:#33cc66}'
-      + '#v140ov .v140-actions button.detect{background:#22aee4}'
-      + '#v140ov .v140-actions button.skip{background:#a855f7}'
-      + '#v140ov .v140-actions button.reset{background:#444}'
-      + '#v140ov .v140-actions button.cancel{background:#c44}'
-      + '#v140ov .v140-hint{font-size:11px;color:#788;margin-top:8px;text-align:center;font-family:inherit}'
-      + '#v140ov .v140-spinner{display:inline-block;width:18px;height:18px;border:3px solid #2a3f5a;border-top-color:#22aee4;border-radius:50%;animation:v140spin 0.8s linear infinite;vertical-align:middle;margin-right:6px}'
-      + '@keyframes v140spin{to{transform:rotate(360deg)}}';
+      + '#v141ov{position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:99999;overflow-y:auto;padding:14px;display:block;-webkit-overflow-scrolling:touch}'
+      + '#v141ov .v141-card{background:#1a1a1a;border:1px solid #2a3f5a;border-radius:12px;padding:14px;max-width:560px;width:100%;margin:12px auto;box-sizing:border-box}'
+      + '#v141ov .v141-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;color:#fff;font-weight:600;font-size:14px;font-family:inherit}'
+      + '#v141ov .v141-hdr button{background:#3a4a6a;color:#fff;border:none;padding:6px 12px;border-radius:5px;cursor:pointer;font-size:12px;font-family:inherit;min-height:36px}'
+      + '#v141ov .v141-canvasbox{text-align:center;min-height:200px;background:#0a0a0a;border-radius:8px;padding:8px;position:relative}'
+      + '#v141ov canvas{display:block;margin:0 auto;border:1px solid #2a3f5a;border-radius:6px;touch-action:none;max-width:100%}'
+      + '#v141ov .v141-status{text-align:center;color:#9bc;font-size:13px;margin:8px 0;font-family:inherit;min-height:20px}'
+      + '#v141ov .v141-status.ok{color:#33cc66;font-weight:700;font-size:15px}'
+      + '#v141ov .v141-status.err{color:#ff5577;font-weight:700;font-size:15px}'
+      + '#v141ov .v141-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;justify-content:center}'
+      + '#v141ov .v141-actions button{flex:1;min-width:120px;min-height:48px;border:none;border-radius:8px;cursor:pointer;font-family:inherit;font-size:14px;font-weight:700;color:#fff;padding:10px 14px;-webkit-tap-highlight-color:rgba(255,0,128,0.4);touch-action:manipulation}'
+      + '#v141ov .v141-actions button:disabled{opacity:0.5;cursor:not-allowed}'
+      + '#v141ov .v141-actions button.apply{background:#33cc66}'
+      + '#v141ov .v141-actions button.skip{background:#a855f7}'
+      + '#v141ov .v141-actions button.reset{background:#444}'
+      + '#v141ov .v141-actions button.cancel{background:#666}'
+      + '#v141ov .v141-actions button.del{background:#c44}'
+      + '#v141ov .v141-hint{font-size:11px;color:#788;margin-top:8px;text-align:center;font-family:inherit}'
+      + '#v141ov .v141-spinner{display:inline-block;width:16px;height:16px;border:3px solid #2a3f5a;border-top-color:#22aee4;border-radius:50%;animation:v141spin 0.8s linear infinite;vertical-align:middle;margin-right:6px}'
+      + '@keyframes v141spin{to{transform:rotate(360deg)}}';
     document.head.appendChild(st);
   }
 
@@ -4155,7 +4164,6 @@ async function dpDownloadPDF(){
     });
   }
 
-  // Order [tl, tr, br, bl]
   function orderCorners(pts) {
     var sums = pts.map(function(p){ return p[0] + p[1]; });
     var diffs = pts.map(function(p){ return p[0] - p[1]; });
@@ -4165,33 +4173,18 @@ async function dpDownloadPDF(){
     var bl = pts[diffs.indexOf(Math.min.apply(null, diffs))];
     return [tl, tr, br, bl];
   }
-
-  // Default corners with 8% margin from each side
   function defaultCorners(w, h) {
     var m = 0.08;
-    return [
-      [w*m, h*m],
-      [w*(1-m), h*m],
-      [w*(1-m), h*(1-h*m/h)],
-      [w*m, h*(1-m)]
-    ];
+    return [[w*m,h*m],[w*(1-m),h*m],[w*(1-m),h*(1-m)],[w*m,h*(1-m)]];
   }
 
-  // OpenCV-based card detection. Returns 4 corners in image space.
   async function detectCardCorners(img) {
-    if (typeof window.loadCV !== 'function') {
-      return defaultCorners(img.width, img.height);
-    }
-    try {
-      await window.loadCV();
-    } catch(e) {
-      return defaultCorners(img.width, img.height);
-    }
+    if (typeof window.loadCV !== 'function') return defaultCorners(img.width, img.height);
+    try { await window.loadCV(); } catch(e) { return defaultCorners(img.width, img.height); }
     var cv2 = window.cv;
     if (!cv2 || !cv2.Mat) return defaultCorners(img.width, img.height);
     var tmpC = document.createElement('canvas');
-    tmpC.width = img.width;
-    tmpC.height = img.height;
+    tmpC.width = img.width; tmpC.height = img.height;
     tmpC.getContext('2d').drawImage(img, 0, 0);
     try {
       var src = cv2.imread(tmpC);
@@ -4207,8 +4200,7 @@ async function dpDownloadPDF(){
       var contours = new cv2.MatVector();
       var hier = new cv2.Mat();
       cv2.findContours(dil, contours, hier, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE);
-      var best = null;
-      var bestArea = 0;
+      var best = null, bestArea = 0;
       var minArea = img.width * img.height * 0.05;
       var epsilons = [0.02, 0.03, 0.04, 0.015];
       for (var i = 0; i < contours.size(); i++) {
@@ -4220,21 +4212,11 @@ async function dpDownloadPDF(){
           cv2.approxPolyDP(cnt, approx, epsilons[j] * peri, true);
           if (approx.rows === 4 && cv2.isContourConvex(approx)) {
             var area = cv2.contourArea(approx);
-            if (area > bestArea && area > minArea) {
-              foundQuad = approx;
-              bestArea = area;
-              break;
-            } else {
-              approx.delete();
-            }
-          } else {
-            approx.delete();
-          }
+            if (area > bestArea && area > minArea) { foundQuad = approx; bestArea = area; break; }
+            else approx.delete();
+          } else approx.delete();
         }
-        if (foundQuad) {
-          if (best) best.delete();
-          best = foundQuad;
-        }
+        if (foundQuad) { if (best) best.delete(); best = foundQuad; }
         cnt.delete();
       }
       var corners;
@@ -4250,37 +4232,33 @@ async function dpDownloadPDF(){
       kernel.delete(); dil.delete(); contours.delete(); hier.delete();
       return corners;
     } catch(e) {
-      console.warn('[v140 detect]', e);
+      console.warn('[v141 detect]', e);
       return defaultCorners(img.width, img.height);
     }
   }
 
-  // Perspective transform + CLAHE enhancement. Returns cropped data URL.
-  async function applyPerspective(img, cornersImgSpace) {
+  async function applyPerspective(img, c) {
     if (typeof window.loadCV !== 'function') return null;
     try { await window.loadCV(); } catch(e) { return null; }
     var cv2 = window.cv;
     if (!cv2 || !cv2.Mat) return null;
     var tmpC = document.createElement('canvas');
-    tmpC.width = img.width;
-    tmpC.height = img.height;
+    tmpC.width = img.width; tmpC.height = img.height;
     tmpC.getContext('2d').drawImage(img, 0, 0);
     var src = cv2.imread(tmpC);
-    var c = cornersImgSpace;
-    var wA = Math.hypot(c[1][0] - c[0][0], c[1][1] - c[0][1]);
-    var wB = Math.hypot(c[2][0] - c[3][0], c[2][1] - c[3][1]);
+    var wA = Math.hypot(c[1][0]-c[0][0], c[1][1]-c[0][1]);
+    var wB = Math.hypot(c[2][0]-c[3][0], c[2][1]-c[3][1]);
     var mW = Math.max(wA, wB);
-    var hA = Math.hypot(c[3][0] - c[0][0], c[3][1] - c[0][1]);
-    var hB = Math.hypot(c[2][0] - c[1][0], c[2][1] - c[1][1]);
+    var hA = Math.hypot(c[3][0]-c[0][0], c[3][1]-c[0][1]);
+    var hB = Math.hypot(c[2][0]-c[1][0], c[2][1]-c[1][1]);
     var mH = Math.max(hA, hB);
-    var srcPts = cv2.matFromArray(4, 1, cv2.CV_32FC2,
-      [c[0][0], c[0][1], c[1][0], c[1][1], c[2][0], c[2][1], c[3][0], c[3][1]]);
-    var dstPts = cv2.matFromArray(4, 1, cv2.CV_32FC2,
-      [0, 0, mW-1, 0, mW-1, mH-1, 0, mH-1]);
+    var srcPts = cv2.matFromArray(4,1,cv2.CV_32FC2,
+      [c[0][0],c[0][1],c[1][0],c[1][1],c[2][0],c[2][1],c[3][0],c[3][1]]);
+    var dstPts = cv2.matFromArray(4,1,cv2.CV_32FC2,
+      [0,0,mW-1,0,mW-1,mH-1,0,mH-1]);
     var M = cv2.getPerspectiveTransform(srcPts, dstPts);
     var dst = new cv2.Mat();
     cv2.warpPerspective(src, dst, M, new cv2.Size(mW, mH));
-    // CLAHE on L channel of LAB
     try {
       var rgb = new cv2.Mat();
       cv2.cvtColor(dst, rgb, cv2.COLOR_RGBA2RGB);
@@ -4294,9 +4272,7 @@ async function dpDownloadPDF(){
       cv2.cvtColor(lab, rgb, cv2.COLOR_Lab2RGB);
       cv2.cvtColor(rgb, dst, cv2.COLOR_RGB2RGBA);
       rgb.delete(); lab.delete(); ch.delete(); clahe.delete();
-    } catch(e) {
-      // CLAHE optional; if it fails, ship without enhancement
-    }
+    } catch(e) {}
     var out = document.createElement('canvas');
     cv2.imshow(out, dst);
     var dataUrl = out.toDataURL('image/jpeg', 0.92);
@@ -4305,81 +4281,224 @@ async function dpDownloadPDF(){
   }
 
   // ============================================================
-  // Crop modal — opens immediately, auto-detects, shows draggable corners.
-  // opts: { dataUrl, title, onApply(croppedDataUrl), onCancel() }
+  // The crucial part: actually persist + show the new image
+  // ============================================================
+  async function persistImageForContact(cid, kind, dataUrlOrEmpty) {
+    if (typeof window.aP !== 'function') throw new Error('aP() not available');
+    var sized;
+    if (!dataUrlOrEmpty) {
+      sized = '';
+    } else {
+      var maxDim = kind === 'card' ? 900 : 700;
+      sized = (typeof window._resizeImg === 'function')
+        ? await window._resizeImg(dataUrlOrEmpty, maxDim, 0.72)
+        : dataUrlOrEmpty;
+    }
+    var patch = { id: cid };
+    patch[kind === 'card' ? 'cardImage' : 'profilePic'] = sized;
+    var resp = await window.aP({ action: 'updateContact', contact: patch });
+    if (resp && resp.error) throw new Error(resp.error);
+    return sized;
+  }
+
+  function updateInMemoryContact(cid, kind, sized) {
+    var D = window.__D;
+    if (!D || !D.find) return;
+    var c = D.find(function(x){ return +x.id === +cid; });
+    if (!c) return;
+    c[kind === 'card' ? 'cardImage' : 'profilePic'] = sized;
+  }
+
+  // Force the visible card / avatar in the DOM to reflect the new state.
+  // Returns true if it touched at least one image.
+  function applyDomImageUpdate(cid, kind, sized) {
+    var changed = false;
+    var mc = document.getElementById('mc');
+    if (!mc) return changed;
+    if (kind === 'card') {
+      // The .cis container holds 📇 Business Card section
+      var cis = mc.querySelectorAll('.cis');
+      cis.forEach(function(box){
+        var img = box.querySelector('img[alt="card"], img');
+        if (img) {
+          if (sized) { img.src = sized; img.style.display = ''; }
+          else { box.style.display = 'none'; }
+          changed = true;
+        }
+      });
+      // Also Edit form preview if open
+      var ePrev = document.getElementById('eCardPrev');
+      if (ePrev) {
+        if (sized) { ePrev.src = sized; ePrev.style.display = 'block'; }
+        else { ePrev.src = ''; ePrev.style.display = 'none'; }
+      }
+    } else {
+      // Profile pic: 64x64 circular avatar in profile header
+      var imgs = mc.querySelectorAll('img');
+      imgs.forEach(function(img){
+        var s = img.getAttribute('style') || '';
+        if (/border-radius:50%/.test(s) && /width:64/.test(s)) {
+          if (sized) { img.src = sized; }
+          else { img.style.display = 'none'; }
+          changed = true;
+        }
+      });
+      var pPrev = document.getElementById('eProfilePrev');
+      if (pPrev) {
+        if (sized) { pPrev.src = sized; pPrev.style.display = 'block'; }
+        else { pPrev.src = ''; pPrev.style.display = 'none'; }
+      }
+    }
+    return changed;
+  }
+
+  function isOnFullProfile(cid) {
+    try {
+      var url = new URL(location.href);
+      var qc = parseInt(url.searchParams.get('c'), 10);
+      return qc === +cid;
+    } catch(e) { return false; }
+  }
+
+  async function refreshAfterImageChange(cid, kind, sized) {
+    // 1. Update the in-memory contact
+    updateInMemoryContact(cid, kind, sized);
+    // 2. Touch the visible DOM image immediately
+    applyDomImageUpdate(cid, kind, sized);
+    // 3. Kick the data layer to re-sync from server
+    try { if (typeof window.load === 'function') window.load(); } catch(e){}
+    // 4. If on full-profile, re-render via openContact / oP, or reload
+    setTimeout(function(){
+      // Try the open profile re-render: setting URL ?c= and dispatching popstate
+      if (isOnFullProfile(cid)) {
+        try {
+          // Trigger the page's URL listener by replacing state to same URL
+          var u = location.href;
+          history.replaceState({}, '', u);
+          window.dispatchEvent(new PopStateEvent('popstate'));
+        } catch(e){}
+      } else if (typeof window.oP === 'function' && +window.__pOpen === +cid) {
+        try { window.oP(cid); } catch(e){}
+      }
+    }, 150);
+  }
+
+  // ============================================================
+  // Modal
   // ============================================================
   function openCropModal(opts) {
     ensureCss();
     var overlay = document.createElement('div');
-    overlay.id = 'v140ov';
+    overlay.id = 'v141ov';
+    var hasExisting = !!opts.hasExistingImage;
     overlay.innerHTML =
-      '<div class="v140-card">' +
-        '<div class="v140-hdr"><span>' + (opts.title || '📇 Crop business card') + '</span><button id="v140close">✕</button></div>' +
-        '<div class="v140-canvasbox"><canvas id="v140cv"></canvas></div>' +
-        '<div class="v140-status" id="v140status"><span class="v140-spinner"></span>Loading detector...</div>' +
-        '<div class="v140-actions">' +
-          '<button id="v140apply" class="apply">✓ Apply Crop</button>' +
-          '<button id="v140reset" class="reset">↺ Reset</button>' +
-          '<button id="v140skip" class="skip">💾 Save as-is</button>' +
-          '<button id="v140cancel" class="cancel">✕ Cancel</button>' +
+      '<div class="v141-card">' +
+        '<div class="v141-hdr"><span>' + (opts.title || '📇 Crop business card') + '</span><button id="v141close">✕</button></div>' +
+        '<div class="v141-canvasbox"><canvas id="v141cv"></canvas></div>' +
+        '<div class="v141-status" id="v141status"><span class="v141-spinner"></span>Loading detector...</div>' +
+        '<div class="v141-actions">' +
+          '<button id="v141apply" class="apply">✓ Apply Crop</button>' +
+          '<button id="v141skip" class="skip">💾 Save as-is</button>' +
+          '<button id="v141reset" class="reset">↺ Reset</button>' +
+          (hasExisting ? '<button id="v141del" class="del">🗑 Remove existing</button>' : '') +
+          '<button id="v141cancel" class="cancel">Cancel</button>' +
         '</div>' +
-        '<div class="v140-hint">Drag the 4 blue corners to fit the card edges, then Apply.</div>' +
+        '<div class="v141-hint">Drag the 4 blue corners to fit the card edges, then Apply.</div>' +
       '</div>';
     document.body.appendChild(overlay);
 
-    var statusEl = document.getElementById('v140status');
-    var canvas = document.getElementById('v140cv');
+    var statusEl = document.getElementById('v141status');
+    var canvas = document.getElementById('v141cv');
     var ctx = canvas.getContext('2d');
 
     var state = {
       img: null,
       scale: 1,
-      corners: null,         // in canvas space
-      originalCorners: null, // in image space (for reset)
+      corners: null,
+      originalCorners: null,
       dragging: -1,
-      cleanup: function() {
-        if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
-      }
+      saving: false
     };
 
-    function close(viaCancel) {
-      state.cleanup();
-      if (viaCancel && typeof opts.onCancel === 'function') opts.onCancel();
+    function close() {
+      if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+    function setStatus(txt, mode) {
+      statusEl.className = 'v141-status' + (mode ? ' ' + mode : '');
+      statusEl.innerHTML = txt;
+    }
+    function disableButtons(disabled) {
+      ['v141apply','v141skip','v141reset','v141del','v141cancel','v141close'].forEach(function(id){
+        var b = document.getElementById(id);
+        if (b) b.disabled = disabled;
+      });
+    }
+    async function runSave(cropped) {
+      if (state.saving) return;
+      state.saving = true;
+      disableButtons(true);
+      setStatus('<span class="v141-spinner"></span>Saving to server...', '');
+      try {
+        var sized = await persistImageForContact(opts.cid, opts.kind, cropped);
+        setStatus('✅ Saved! Updating view...', 'ok');
+        await refreshAfterImageChange(opts.cid, opts.kind, sized);
+        setTimeout(function(){
+          close();
+          if (window.tt) window.tt('✅ ' + (opts.kind === 'card' ? 'Card' : 'Photo') + ' saved', 'ok');
+        }, 500);
+      } catch(e) {
+        console.error('[v141 save]', e);
+        setStatus('❌ Save failed: ' + (e.message || e), 'err');
+        disableButtons(false);
+        state.saving = false;
+      }
+    }
+    async function runDelete() {
+      if (state.saving) return;
+      if (!confirm('Remove this ' + (opts.kind === 'card' ? 'business card image' : 'profile photo') + '?')) return;
+      state.saving = true;
+      disableButtons(true);
+      setStatus('<span class="v141-spinner"></span>Removing...', '');
+      try {
+        await persistImageForContact(opts.cid, opts.kind, '');
+        setStatus('✅ Removed! Updating view...', 'ok');
+        await refreshAfterImageChange(opts.cid, opts.kind, '');
+        setTimeout(function(){
+          close();
+          if (window.tt) window.tt('✅ Removed', 'ok');
+        }, 500);
+      } catch(e) {
+        console.error('[v141 delete]', e);
+        setStatus('❌ Remove failed: ' + (e.message || e), 'err');
+        disableButtons(false);
+        state.saving = false;
+      }
     }
 
-    document.getElementById('v140close').onclick = function(){ close(true); };
-    document.getElementById('v140cancel').onclick = function(){ close(true); };
-
-    document.getElementById('v140reset').onclick = function() {
+    document.getElementById('v141close').onclick = function(){ if (!state.saving) close(); };
+    document.getElementById('v141cancel').onclick = function(){ if (!state.saving) close(); };
+    document.getElementById('v141reset').onclick = function() {
       if (!state.originalCorners) return;
       state.corners = state.originalCorners.map(function(c){
         return [c[0] * state.scale, c[1] * state.scale];
       });
       drawOverlay();
     };
-
-    document.getElementById('v140skip').onclick = function() {
-      if (typeof opts.onApply === 'function') opts.onApply(opts.dataUrl);
-      state.cleanup();
-    };
-
-    document.getElementById('v140apply').onclick = async function() {
+    document.getElementById('v141skip').onclick = function(){ runSave(opts.dataUrl); };
+    document.getElementById('v141apply').onclick = async function() {
       if (!state.img || !state.corners || state.corners.length < 4) {
-        if (window.tt) window.tt('Nothing to apply','er');
-        return;
+        setStatus('Nothing to apply','err'); return;
       }
-      statusEl.innerHTML = '<span class="v140-spinner"></span>Processing crop...';
+      setStatus('<span class="v141-spinner"></span>Processing crop...', '');
       var imgCorners = state.corners.map(function(c){
         return [c[0] / state.scale, c[1] / state.scale];
       });
       var cropped = await applyPerspective(state.img, imgCorners);
-      if (cropped) {
-        if (typeof opts.onApply === 'function') opts.onApply(cropped);
-        state.cleanup();
-      } else {
-        statusEl.textContent = 'Crop failed — try Save as-is instead';
-      }
+      if (cropped) { runSave(cropped); }
+      else { setStatus('Crop failed — try Save as-is', 'err'); }
     };
+    var delBtn = document.getElementById('v141del');
+    if (delBtn) delBtn.onclick = runDelete;
 
     function drawOverlay() {
       var s = state;
@@ -4394,7 +4513,6 @@ async function dpDownloadPDF(){
       ctx.stroke();
       ctx.fillStyle = 'rgba(34,174,228,0.15)';
       ctx.fill();
-      // Bigger corner dots for fat fingers
       s.corners.forEach(function(c) {
         ctx.beginPath();
         ctx.arc(c[0], c[1], 18, 0, 2*Math.PI);
@@ -4405,41 +4523,33 @@ async function dpDownloadPDF(){
         ctx.stroke();
       });
     }
-
     function getPt(e) {
       var rect = canvas.getBoundingClientRect();
       var sx = canvas.width / rect.width;
       var sy = canvas.height / rect.height;
       var src = e.touches && e.touches.length ? e.touches[0] : e;
-      var x = (src.clientX - rect.left) * sx;
-      var y = (src.clientY - rect.top) * sy;
-      return [x, y];
+      return [(src.clientX - rect.left) * sx, (src.clientY - rect.top) * sy];
     }
     function findNearest(x, y) {
-      var n = -1;
-      var minD = 60;
+      var n = -1, minD = 60;
       state.corners.forEach(function(c, i){
-        var d = Math.hypot(c[0] - x, c[1] - y);
+        var d = Math.hypot(c[0]-x, c[1]-y);
         if (d < minD) { minD = d; n = i; }
       });
       return n;
     }
-    function down(e) {
-      e.preventDefault();
-      var p = getPt(e);
-      state.dragging = findNearest(p[0], p[1]);
-    }
+    function down(e) { e.preventDefault(); var p=getPt(e); state.dragging = findNearest(p[0],p[1]); }
     function move(e) {
       if (state.dragging < 0) return;
       e.preventDefault();
       var p = getPt(e);
-      var x = Math.max(0, Math.min(canvas.width, p[0]));
-      var y = Math.max(0, Math.min(canvas.height, p[1]));
-      state.corners[state.dragging] = [x, y];
+      state.corners[state.dragging] = [
+        Math.max(0, Math.min(canvas.width, p[0])),
+        Math.max(0, Math.min(canvas.height, p[1]))
+      ];
       drawOverlay();
     }
     function up() { state.dragging = -1; }
-
     canvas.addEventListener('mousedown', down);
     canvas.addEventListener('mousemove', move);
     window.addEventListener('mouseup', up);
@@ -4448,7 +4558,6 @@ async function dpDownloadPDF(){
     canvas.addEventListener('touchend', up);
     canvas.addEventListener('touchcancel', up);
 
-    // Load image, then auto-detect
     var img = new Image();
     img.onload = async function() {
       state.img = img;
@@ -4459,32 +4568,34 @@ async function dpDownloadPDF(){
       canvas.width = dw;
       canvas.height = dh;
       state.scale = scale;
-      // Show image with default corners immediately
       var defC = defaultCorners(img.width, img.height);
       state.corners = defC.map(function(c){ return [c[0]*scale, c[1]*scale]; });
       state.originalCorners = defC.map(function(c){ return [c[0], c[1]]; });
       drawOverlay();
-      statusEl.innerHTML = '<span class="v140-spinner"></span>Detecting card edges...';
-      // Run detection in background
+      setStatus('<span class="v141-spinner"></span>Detecting card edges...', '');
       try {
         var corners = await detectCardCorners(img);
         state.originalCorners = corners.map(function(c){ return [c[0], c[1]]; });
         state.corners = corners.map(function(c){ return [c[0]*scale, c[1]*scale]; });
         drawOverlay();
-        statusEl.textContent = '✓ Drag the blue corners to fit, then Apply';
+        setStatus('Drag the blue corners to fit, then Apply', '');
       } catch(e) {
-        statusEl.textContent = 'No card edges found — drag the corners manually';
+        setStatus('Drag the corners manually, then Apply', '');
       }
     };
-    img.onerror = function() {
-      statusEl.textContent = 'Image failed to load';
-    };
+    img.onerror = function(){ setStatus('Image failed to load', 'err'); };
     img.src = opts.dataUrl;
   }
 
   // ============================================================
-  // Wire trigger points
+  // Entry points
   // ============================================================
+  function getContact(cid) {
+    if (!cid) return null;
+    if (window.__D && window.__D.find) return window.__D.find(function(x){ return +x.id === +cid; });
+    return null;
+  }
+
   async function pickAndCropForContact(cid, kind) {
     kind = kind || 'card';
     var dataUrl = await pickFile();
@@ -4492,58 +4603,54 @@ async function dpDownloadPDF(){
     if (typeof window._resizeImg === 'function') {
       try { dataUrl = await window._resizeImg(dataUrl, 1400, 0.85); } catch(e){}
     }
+    var c = getContact(cid);
+    var hasExisting = !!(c && (kind === 'card' ? c.cardImage : c.profilePic));
     openCropModal({
+      cid: cid,
+      kind: kind,
       dataUrl: dataUrl,
-      title: kind === 'card' ? '📇 Crop business card' : '🖼️ Crop profile photo',
-      onApply: async function(croppedUrl) {
-        try {
-          if (window.tt) window.tt('Saving...', 'ok');
-          var maxDim = kind === 'card' ? 900 : 700;
-          var sized = typeof window._resizeImg === 'function'
-            ? await window._resizeImg(croppedUrl, maxDim, 0.72)
-            : croppedUrl;
-          var patch = { id: cid };
-          patch[kind === 'card' ? 'cardImage' : 'profilePic'] = sized;
-          if (typeof window.aP !== 'function') throw new Error('aP() unavailable');
-          await window.aP({ action: 'updateContact', contact: patch });
-          if (window.__D && window.__D.find) {
-            var c = window.__D.find(function(x){ return +x.id === +cid; });
-            if (c) c[kind === 'card' ? 'cardImage' : 'profilePic'] = sized;
-          }
-          if (window.tt) window.tt('✅ Saved', 'ok');
-          if (typeof window.openContact === 'function' && +window._fpContactId === +cid) {
-            window.openContact(cid);
-          } else if (typeof window.oP === 'function' && +window.pOpen === +cid) {
-            window.oP(cid);
-          } else if (typeof window.load === 'function') {
-            window.load();
-          }
-        } catch(e) {
-          if (window.tt) window.tt('Error: ' + (e.message||e), 'er');
-        }
-      }
+      hasExistingImage: hasExisting,
+      title: kind === 'card' ? '📇 Crop business card' : '🖼️ Crop profile photo'
     });
   }
 
   window.ngmPickAndCropCard = function(cid){ return pickAndCropForContact(cid, 'card'); };
   window.ngmPickAndCropProfile = function(cid){ return pickAndCropForContact(cid, 'profile'); };
 
-  // Override dpReplacePic to route through this modal
+  // Override dpReplacePic → route through modal
   function installDpReplacePicOverride() {
     if (typeof window.dpReplacePic !== 'function') return;
-    if (window.__v140dp) return;
-    window.__v140dp = true;
-    var orig = window.dpReplacePic;
+    if (window.__v141dp) return;
+    window.__v141dp = true;
     window.dpReplacePic = function(cid, kind) {
       try { return pickAndCropForContact(cid, kind); }
-      catch(e) { return orig.apply(this, arguments); }
+      catch(e) { console.error('[v141 dpReplacePic]', e); }
     };
   }
 
-  // Profile sidebar: inject "Add business card" / "Add profile photo" buttons
+  // Override dpDeletePic → robust refresh
+  function installDpDeletePicOverride() {
+    if (typeof window.dpDeletePic !== 'function') return;
+    if (window.__v141dpdel) return;
+    window.__v141dpdel = true;
+    window.dpDeletePic = async function(cid, kind) {
+      if (!confirm('Remove this ' + (kind === 'card' ? 'business card image' : 'profile photo') + '?')) return;
+      try {
+        if (window.tt) window.tt('Removing...', 'ok');
+        var sized = await persistImageForContact(cid, kind, '');
+        await refreshAfterImageChange(cid, kind, sized);
+        if (window.tt) window.tt('✅ Removed', 'ok');
+      } catch(e) {
+        console.error('[v141 dpDeletePic]', e);
+        if (window.tt) window.tt('Error: ' + (e.message||e), 'er');
+      }
+    };
+  }
+
+  // Profile sidebar injection
   function getCidFromPage() {
     if (window._fpContactId) return +window._fpContactId;
-    if (window.pOpen) return +window.pOpen;
+    if (window.__pOpen) return +window.__pOpen;
     try {
       var u = new URL(location.href);
       var c = parseInt(u.searchParams.get('c'), 10);
@@ -4551,18 +4658,9 @@ async function dpDownloadPDF(){
     } catch(e){}
     return null;
   }
-  function getContact(cid) {
-    if (!cid) return null;
-    if (window.__D && window.__D.find) {
-      return window.__D.find(function(x){ return +x.id === +cid; });
-    }
-    return null;
-  }
   function findQA() {
     var btns = Array.from(document.querySelectorAll('button'));
-    var add = btns.find(function(b){
-      return (b.textContent||'').trim().indexOf('Add note') >= 0;
-    });
+    var add = btns.find(function(b){ return (b.textContent||'').trim().indexOf('Add note') >= 0; });
     return add ? add.parentElement : null;
   }
   function mkQABtn(label, color, fn) {
@@ -4579,67 +4677,136 @@ async function dpDownloadPDF(){
     if (!c) return;
     var qa = findQA();
     if (!qa) return;
-    if (qa.dataset.v140Cid === String(cid)) return;
-    qa.dataset.v140Cid = String(cid);
-    // Remove prior v140/v139 buttons
-    Array.from(qa.querySelectorAll('[data-v140-addcard],[data-v139-addcard]')).forEach(function(el){ el.remove(); });
+    if (qa.dataset.v141Cid === String(cid)) return;
+    qa.dataset.v141Cid = String(cid);
+    Array.from(qa.querySelectorAll('[data-v141-card],[data-v140-addcard],[data-v139-addcard]')).forEach(function(el){ el.remove(); });
     var anchor = Array.from(qa.querySelectorAll('button')).find(function(b){
       return (b.textContent||'').indexOf('Quick drawer') >= 0;
     });
     if (!c.cardImage) {
-      var btn = mkQABtn('📇 Add business card', '#9cf', function(){
-        pickAndCropForContact(cid, 'card');
-      });
-      btn.setAttribute('data-v140-addcard','1');
+      var btn = mkQABtn('📇 Add business card', '#9cf', function(){ pickAndCropForContact(cid, 'card'); });
+      btn.setAttribute('data-v141-card','1');
       if (anchor) qa.insertBefore(btn, anchor); else qa.appendChild(btn);
     }
     if (!c.profilePic) {
-      var pbtn = mkQABtn('🧑 Add profile photo', '#fc9', function(){
-        pickAndCropForContact(cid, 'profile');
-      });
-      pbtn.setAttribute('data-v140-addcard','1');
+      var pbtn = mkQABtn('🧑 Add profile photo', '#fc9', function(){ pickAndCropForContact(cid, 'profile'); });
+      pbtn.setAttribute('data-v141-card','1');
       if (anchor) qa.insertBefore(pbtn, anchor); else qa.appendChild(pbtn);
     }
   }
 
-  // Edit form: replace v139's Auto-Crop button with one that uses our modal
+  // Edit form: Auto-Crop button
   function injectEditFormCropBtn() {
     var prev = document.getElementById('eCardPrev');
     if (!prev) return;
     var hasSrc = prev.src && prev.src.length > 50 && prev.style.display !== 'none';
-    var existing = document.getElementById('v140editCrop');
-    var v139Btn = document.getElementById('v139editCrop');
-    if (v139Btn) v139Btn.remove();
-    if (!hasSrc) {
-      if (existing) existing.remove();
-      return;
-    }
+    var existing = document.getElementById('v141editCrop');
+    var oldBtns = document.querySelectorAll('#v139editCrop, #v140editCrop');
+    oldBtns.forEach(function(b){ b.remove(); });
+    if (!hasSrc) { if (existing) existing.remove(); return; }
     if (existing) return;
     var btn = document.createElement('button');
-    btn.id = 'v140editCrop';
+    btn.id = 'v141editCrop';
     btn.type = 'button';
     btn.textContent = '✂️ Auto-Crop card';
     btn.style.cssText = 'display:block;margin-top:6px;background:#22aee4;color:#fff;border:none;padding:6px 12px;border-radius:5px;font-size:12px;cursor:pointer;font-family:inherit;min-height:36px';
     btn.onclick = function() {
       var src = window.eCardData || prev.src;
       if (!src) { if (window.tt) window.tt('Upload a card first', 'er'); return; }
-      openCropModal({
-        dataUrl: src,
-        title: '📇 Crop business card',
-        onApply: function(croppedUrl) {
-          window.eCardData = croppedUrl;
-          prev.src = croppedUrl;
-          prev.style.display = 'block';
-          if (window.tt) window.tt('✅ Cropped — Save to keep','ok');
-        }
-      });
+      // Edit form variant: open modal with NO contact save — instead push back to eCardData + preview
+      openCropModalForEdit(src, prev);
     };
     prev.parentNode.appendChild(btn);
+  }
+  function openCropModalForEdit(dataUrl, previewImg) {
+    ensureCss();
+    var overlay = document.createElement('div');
+    overlay.id = 'v141ov';
+    overlay.innerHTML =
+      '<div class="v141-card">' +
+        '<div class="v141-hdr"><span>📇 Crop business card</span><button id="v141close">✕</button></div>' +
+        '<div class="v141-canvasbox"><canvas id="v141cv"></canvas></div>' +
+        '<div class="v141-status" id="v141status"><span class="v141-spinner"></span>Loading detector...</div>' +
+        '<div class="v141-actions">' +
+          '<button id="v141apply" class="apply">✓ Apply Crop</button>' +
+          '<button id="v141cancel" class="cancel">Cancel</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    var canvas = document.getElementById('v141cv');
+    var ctx = canvas.getContext('2d');
+    var statusEl = document.getElementById('v141status');
+    var state = { img:null, scale:1, corners:null, originalCorners:null, dragging:-1 };
+    function close(){ if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay); }
+    function setStatus(t,m){ statusEl.className='v141-status'+(m?' '+m:''); statusEl.innerHTML=t; }
+    document.getElementById('v141close').onclick = close;
+    document.getElementById('v141cancel').onclick = close;
+    document.getElementById('v141apply').onclick = async function() {
+      if (!state.img || !state.corners) return;
+      setStatus('<span class="v141-spinner"></span>Processing...', '');
+      var imgCorners = state.corners.map(function(c){ return [c[0]/state.scale, c[1]/state.scale]; });
+      var cropped = await applyPerspective(state.img, imgCorners);
+      if (cropped) {
+        var sized = (typeof window._resizeImg === 'function')
+          ? await window._resizeImg(cropped, 900, 0.72)
+          : cropped;
+        window.eCardData = sized;
+        if (previewImg) { previewImg.src = sized; previewImg.style.display = 'block'; }
+        if (window.tt) window.tt('✅ Cropped — tap Save to keep', 'ok');
+        close();
+      } else {
+        setStatus('Crop failed', 'err');
+      }
+    };
+    function drawOverlay() {
+      var s = state;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(s.img,0,0,canvas.width,canvas.height);
+      ctx.beginPath(); ctx.moveTo(s.corners[0][0], s.corners[0][1]);
+      for (var i=1;i<4;i++) ctx.lineTo(s.corners[i][0], s.corners[i][1]);
+      ctx.closePath();
+      ctx.strokeStyle='#22aee4'; ctx.lineWidth=3; ctx.stroke();
+      ctx.fillStyle='rgba(34,174,228,0.15)'; ctx.fill();
+      s.corners.forEach(function(c){
+        ctx.beginPath(); ctx.arc(c[0],c[1],18,0,2*Math.PI);
+        ctx.fillStyle='#22aee4'; ctx.fill();
+        ctx.strokeStyle='#fff'; ctx.lineWidth=3; ctx.stroke();
+      });
+    }
+    function getPt(e){var r=canvas.getBoundingClientRect();var sx=canvas.width/r.width;var sy=canvas.height/r.height;var src=e.touches&&e.touches.length?e.touches[0]:e;return [(src.clientX-r.left)*sx,(src.clientY-r.top)*sy];}
+    function down(e){e.preventDefault();var p=getPt(e);var n=-1,md=60;state.corners.forEach(function(c,i){var d=Math.hypot(c[0]-p[0],c[1]-p[1]);if(d<md){md=d;n=i;}});state.dragging=n;}
+    function move(e){if(state.dragging<0)return;e.preventDefault();var p=getPt(e);state.corners[state.dragging]=[Math.max(0,Math.min(canvas.width,p[0])),Math.max(0,Math.min(canvas.height,p[1]))];drawOverlay();}
+    function up(){state.dragging=-1;}
+    canvas.addEventListener('mousedown',down);canvas.addEventListener('mousemove',move);window.addEventListener('mouseup',up);
+    canvas.addEventListener('touchstart',down,{passive:false});canvas.addEventListener('touchmove',move,{passive:false});canvas.addEventListener('touchend',up);
+    var img = new Image();
+    img.onload = async function() {
+      state.img = img;
+      var maxW = Math.min(window.innerWidth-60, 480);
+      var scale = Math.min(maxW/img.width, 1);
+      canvas.width = Math.round(img.width*scale);
+      canvas.height = Math.round(img.height*scale);
+      state.scale = scale;
+      var defC = defaultCorners(img.width, img.height);
+      state.corners = defC.map(function(c){ return [c[0]*scale, c[1]*scale]; });
+      state.originalCorners = defC.map(function(c){ return [c[0], c[1]]; });
+      drawOverlay();
+      setStatus('<span class="v141-spinner"></span>Detecting card edges...', '');
+      try {
+        var corners = await detectCardCorners(img);
+        state.originalCorners = corners.map(function(c){ return [c[0], c[1]]; });
+        state.corners = corners.map(function(c){ return [c[0]*scale, c[1]*scale]; });
+        drawOverlay();
+        setStatus('Drag corners to fit, then Apply','');
+      } catch(e) { setStatus('Drag corners to fit, then Apply',''); }
+    };
+    img.src = dataUrl;
   }
 
   // Boot
   function tick() {
     try { installDpReplacePicOverride(); } catch(e){}
+    try { installDpDeletePicOverride(); } catch(e){}
     try { injectAddCardBtn(); } catch(e){}
     try { injectEditFormCropBtn(); } catch(e){}
   }
