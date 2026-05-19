@@ -4882,5 +4882,168 @@ async function dpDownloadPDF(){
 
 <script>/*v128-text-killer*/(function(){var origOpen=window.open;window.open=function(u){if(typeof u==="string"&&u.indexOf("sms:")===0)return null;return origOpen.apply(this,arguments);};var origAC=HTMLAnchorElement.prototype.click;HTMLAnchorElement.prototype.click=function(){if(this.href&&this.href.indexOf("sms:")===0)return;return origAC.apply(this,arguments);};function findCid(el){try{var u=new URL(location.href);var c=parseInt(u.searchParams.get("c"),10);if(c)return c;}catch(e){}var d=el&&el.closest&&el.closest("[data-cid]");if(d){var v=parseInt(d.getAttribute("data-cid"),10);if(v)return v;}var ofp=document.querySelector("button[onclick*=openContact]");if(ofp){var m=(ofp.getAttribute("onclick")||"").match(/openContact\((\d+)/);if(m)return parseInt(m[1],10);}return window._oP_currentId||null;}function gotoSms(cid){if(typeof window.openContact==="function"&&cid){window._fpMode="sms";window._fpTab="conv";try{window.openContact(cid);return true;}catch(e){}}return false;}function isTextEl(el){if(!el||!el.textContent)return false;var t=el.textContent.trim();if(t.length>12)return false;return /Text$/.test(t);}document.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("button,a");if(!isTextEl(b))return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();gotoSms(findCid(b));return false;},true);function stripAll(){document.querySelectorAll("button,a").forEach(function(b){if(!isTextEl(b))return;if(b.dataset&&b.dataset.v128)return;if(b.dataset)b.dataset.v128="1";b.removeAttribute("onclick");if(b.tagName==="A")b.removeAttribute("href");});}stripAll();setInterval(stripAll,500);if(window.MutationObserver){new MutationObserver(stripAll).observe(document.body||document.documentElement,{childList:true,subtree:true});}})();</script>
 <script>/*v129-op-patch*/(function(){var tries=0;var t=setInterval(function(){if(typeof window.oP==='function'){clearInterval(t);if(window.__oPPatchedV129)return;window.__oPPatchedV129=true;var orig=window.oP;window.oP=function(id){window._oP_currentId=+id;return orig.apply(this,arguments);};if(typeof window.cP==='function'){var origCP=window.cP;window.cP=function(){window._oP_currentId=null;return origCP.apply(this,arguments);};}}else if(++tries>200){clearInterval(t);}},25);})();</script>
+
+<script>/*v130-profile-and-nav*/
+(function(){
+  'use strict';
+
+  // 1) Flip dashboard contact list: single-click -> full profile.
+  document.addEventListener('click', function(e){
+    var row = e.target && e.target.closest && e.target.closest('.cd');
+    if (!row) return;
+    if (e.target.closest('button, a, input, select, textarea')) return;
+    var oc = row.getAttribute('onclick') || '';
+    var m = oc.match(/oP\((\d+)\)/);
+    if (!m) return;
+    var id = +m[1];
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    if (typeof window.openContact === 'function') window.openContact(id);
+    else if (typeof window.oP === 'function') window.oP(id);
+    return false;
+  }, true);
+  document.addEventListener('contextmenu', function(e){
+    var row = e.target && e.target.closest && e.target.closest('.cd');
+    if (!row) return;
+    var oc = row.getAttribute('onclick') || '';
+    var m = oc.match(/oP\((\d+)\)/);
+    if (!m) return;
+    e.preventDefault();
+    if (typeof window.oP === 'function') window.oP(+m[1]);
+  });
+
+  // 2) Sidebar action injection on full profile
+  function getCid(){
+    if (window._fpContactId) return +window._fpContactId;
+    try { var u = new URL(location.href); var c = parseInt(u.searchParams.get('c'),10); if (c) return c; } catch(e){}
+    return null;
+  }
+  function getContact(id){
+    if (!id || typeof window.D === 'undefined' || !window.D || !window.D.find) return null;
+    return window.D.find(function(x){ return +x.id === +id; });
+  }
+  function slugFor(c){
+    return String(c.name||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').substring(0,40) + '-' + c.id;
+  }
+  function btn(label, color, onclick){
+    var b = document.createElement('button');
+    b.textContent = label;
+    b.style.cssText = 'background:#1a2a44;color:'+color+';border:1px solid #2a3f5a;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;text-align:left;display:block;width:100%;margin-top:6px;font-family:inherit';
+    b.addEventListener('click', onclick);
+    return b;
+  }
+  function pillBtn(label, bg, onclick){
+    var b = document.createElement('button');
+    b.textContent = label;
+    b.style.cssText = 'background:'+bg+';color:#fff;border:none;border-radius:5px;padding:5px 12px;font-size:11px;cursor:pointer;font-family:inherit;flex:1;min-width:80px';
+    b.addEventListener('click', onclick);
+    return b;
+  }
+  function enrichSidebar(){
+    var c = getContact(getCid());
+    if (!c) return;
+    var allBtns = Array.from(document.querySelectorAll('button'));
+    var addNoteBtn = allBtns.find(function(b){ return (b.textContent||'').trim().indexOf('Add note') >= 0; });
+    if (!addNoteBtn) return;
+    var container = addNoteBtn.parentElement;
+    if (!container || container.dataset.v130Done) return;
+    container.dataset.v130Done = '1';
+    var quickDrawerBtn = Array.from(container.querySelectorAll('button')).find(function(b){ return (b.textContent||'').indexOf('Quick drawer') >= 0; });
+    var anchor = quickDrawerBtn || null;
+    var nb = [];
+    nb.push(btn('Edit info', '#cfe', function(){ if (typeof window.showEdit === 'function') window.showEdit(c.id); }));
+    if (c.email) nb.push(btn('Compose email', '#fc9', function(){ if (typeof window.showCompose === 'function') window.showCompose(c.id); }));
+    var del = btn('Delete contact', '#f99', function(){
+      if (confirm('Delete '+(c.name||'this contact')+'? This cannot be undone.')) {
+        if (typeof window.delContact === 'function') window.delContact(c.id);
+      }
+    });
+    del.style.background = 'transparent';
+    del.style.border = '1px solid #b44';
+    del.style.marginTop = '12px';
+    nb.push(del);
+    nb.forEach(function(b){ if (anchor) container.insertBefore(b, anchor); else container.appendChild(b); });
+
+    if (c.type === 'Realtor' && c.name) {
+      var qaBlock = container.closest('div[style*="background:#0a1428"]');
+      if (qaBlock && qaBlock.parentElement && !qaBlock.parentElement.querySelector('[data-v130-portal]')) {
+        var slug = slugFor(c);
+        var refUrl = 'https://refer.neongiantmoving.com/?r=' + slug;
+        var activated = c.portalActivatedAt ? new Date(c.portalActivatedAt) : null;
+        var label = activated ? 'Active' : 'Activate Portal';
+        var bg = activated ? '#33cc66' : 'linear-gradient(135deg,#ff0080,#ff8000)';
+        var portal = document.createElement('div');
+        portal.setAttribute('data-v130-portal','1');
+        portal.style.cssText = 'background:linear-gradient(135deg,rgba(74,0,128,0.18),rgba(255,0,128,0.10));border:1px solid #4a0080;border-radius:10px;padding:14px;margin-bottom:12px';
+        portal.innerHTML =
+          '<div style="font-size:11px;color:#c5f;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:600">Referral Portal</div>' +
+          '<div style="font-family:monospace;font-size:11px;color:#9cf;word-break:break-all;background:rgba(0,0,0,0.25);padding:8px;border-radius:5px;margin-bottom:8px">'+refUrl+'</div>' +
+          '<div data-pbtns style="display:flex;gap:6px;flex-wrap:wrap"></div>' +
+          (activated
+            ? '<div style="font-size:10px;color:#9bc;margin-top:6px">Portal active. Post-activation referrals count for $50.</div>'
+            : '<div style="font-size:10px;color:#fc9;margin-top:6px">Activate to start tracking referrals.</div>');
+        var pbtns = portal.querySelector('[data-pbtns]');
+        pbtns.appendChild(pillBtn(label, bg, function(){ if (typeof window.toggleActivatePortal === 'function') window.toggleActivatePortal(c.id); }));
+        pbtns.appendChild(pillBtn('Copy', 'linear-gradient(135deg,#22aee4,#4a90e2)', function(){
+          if (typeof window.copyPortalLink === 'function') window.copyPortalLink(refUrl);
+          else { try { navigator.clipboard.writeText(refUrl); if (typeof window.tt === 'function') window.tt('Copied','ok'); } catch(e){} }
+        }));
+        pbtns.appendChild(pillBtn('Invite', 'linear-gradient(135deg,#33cc66,#22aee4)', function(){ if (typeof window.plSendInvitation === 'function') window.plSendInvitation(c.id); }));
+        qaBlock.parentElement.insertBefore(portal, qaBlock);
+      }
+    }
+  }
+  function installFpRenderHook(){
+    var orig = window._fpRender;
+    if (!orig) return false;
+    if (window.__v130FpHook) return true;
+    window.__v130FpHook = true;
+    window._fpRender = function(){
+      var r = orig.apply(this, arguments);
+      setTimeout(enrichSidebar, 30);
+      setTimeout(enrichSidebar, 200);
+      setTimeout(enrichSidebar, 600);
+      return r;
+    };
+    return true;
+  }
+  var attempts = 0;
+  var pollFp = setInterval(function(){
+    if (installFpRenderHook() || ++attempts > 200) {
+      clearInterval(pollFp);
+      try { enrichSidebar(); } catch(e){}
+    }
+  }, 50);
+  if (window.MutationObserver) {
+    setTimeout(function(){
+      var mc = document.getElementById('mc');
+      if (mc) new MutationObserver(function(){ try { enrichSidebar(); } catch(e){} }).observe(mc, {childList:true, subtree:true});
+    }, 1000);
+  }
+
+  // 3) Nav-bug trace
+  var _lastUserClick = 0;
+  document.addEventListener('click', function(){ _lastUserClick = Date.now(); }, true);
+  function wrapSetTab(){
+    if (typeof window.sT !== 'function') return false;
+    if (window.__v130sTwrapped) return true;
+    var orig = window.sT;
+    window.sT = function(tab){
+      var elapsed = Date.now() - _lastUserClick;
+      if ((tab === 'p' || tab === 'pl' || tab === 'portal') && elapsed > 500) {
+        console.warn('[v130-nav] suspicious portal switch, tab='+tab+', elapsed='+elapsed+'ms');
+      }
+      return orig.apply(this, arguments);
+    };
+    window.__v130sTwrapped = true;
+    return true;
+  }
+  var sTtries = 0;
+  var pollST = setInterval(function(){
+    if (wrapSetTab() || ++sTtries > 200) clearInterval(pollST);
+  }, 50);
+})();
+</script>
 </body>
 </html>
