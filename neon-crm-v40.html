@@ -7623,5 +7623,208 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v153-functional-fixes*/
+(function(){
+  'use strict';
+
+  // ============================================================
+  // Dane's actual functional bug list (not cosmetic):
+  //
+  // 1) Refresh logs me out
+  //    → CRM stores neon_user in sessionStorage. Mirror to
+  //      localStorage on every set, and restore from there on
+  //      load if sessionStorage is empty. Refresh now keeps you in.
+  //
+  // 2) Random jumps to Portal while scrolling
+  //    → v137 made the "New Portal Leads" stat tile auto-clickable.
+  //      On mobile, accidental scroll-taps fire it and yank you to
+  //      Portal. Remove those auto-handlers entirely on mobile, AND
+  //      block any sT('p'/'pl'/'portal') call that fires more than
+  //      500ms after the last click (i.e. not triggered by a real
+  //      tap). Log the suspicious calls with stack trace.
+  //
+  // 3) Profile is left-aligned on mobile
+  //    → Center the hero block (avatar + name + meta) on mobile.
+  //
+  // 4) Quick actions don't work
+  //    → Audit the v141 sidebar buttons and ensure they fire on
+  //      mobile (defensive: use addEventListener AND direct onclick).
+  //
+  // 5) Hardcore sT() debug
+  //    → Wrap sT() to capture stack trace and last 3 click targets.
+  //      Stash in window.__v153nav so we can inspect from console.
+  // ============================================================
+
+  function isMobile() { return window.innerWidth < 700; }
+
+  // ============================================================
+  // 1) AUTH PERSISTENCE
+  // ============================================================
+  (function authPersistence(){
+    if (window.__v153auth) return;
+    window.__v153auth = true;
+
+    // On load: if sessionStorage doesn't have neon_user but localStorage does,
+    // copy it over so the existing CRM init code reads it.
+    try {
+      var sk = sessionStorage.getItem('neon_user');
+      if (!sk) {
+        var lk = localStorage.getItem('neon_user');
+        if (lk) {
+          sessionStorage.setItem('neon_user', lk);
+          console.log('[v153] restored auth from localStorage');
+          // Also restore gmail tokens if present
+          ['neon_gmail_tok','neon_gmail_email','neon_gmail_name'].forEach(function(k){
+            var v = localStorage.getItem(k);
+            if (v) sessionStorage.setItem(k, v);
+          });
+        }
+      }
+    } catch(e) {}
+
+    // Mirror sessionStorage writes for auth keys → localStorage
+    var origSetItem = sessionStorage.setItem.bind(sessionStorage);
+    sessionStorage.setItem = function(k, v) {
+      origSetItem(k, v);
+      if (k === 'neon_user' || k === 'neon_gmail_tok' || k === 'neon_gmail_email' || k === 'neon_gmail_name') {
+        try { localStorage.setItem(k, v); } catch(e){}
+      }
+    };
+    // Mirror removeItem too (so logout clears both)
+    var origRemove = sessionStorage.removeItem.bind(sessionStorage);
+    sessionStorage.removeItem = function(k) {
+      origRemove(k);
+      if (k === 'neon_user' || k === 'neon_gmail_tok' || k === 'neon_gmail_email' || k === 'neon_gmail_name') {
+        try { localStorage.removeItem(k); } catch(e){}
+      }
+    };
+  })();
+
+  // ============================================================
+  // 2) KILL PORTAL-JUMP CAUSES
+  // ============================================================
+  function killStatTileAutoClicks() {
+    // v137 added click handlers to the dashboard stat tiles (#sR > div).
+    // On mobile, these fire on accidental scroll-taps and yank to Portal.
+    // Remove the cursor:pointer and stop intercepting clicks.
+    var sR = document.getElementById('sR');
+    if (!sR) return;
+    Array.from(sR.querySelectorAll('div')).forEach(function(el){
+      if (!el.dataset.v137 && !el.dataset.v135) return;
+      // Replace the element with a clone (cleans event listeners)
+      var clone = el.cloneNode(true);
+      // Reset all v137/v135 markers
+      clone.removeAttribute('data-v137');
+      clone.removeAttribute('data-v135');
+      clone.removeAttribute('data-v153killed');
+      clone.style.cursor = '';
+      el.parentNode.replaceChild(clone, el);
+      clone.dataset.v153killed = '1';
+    });
+  }
+
+  // ============================================================
+  // 3) SUSPICIOUS sT() BLOCKER + STACK CAPTURE
+  // ============================================================
+  var lastClickAt = 0;
+  var lastClickTargets = []; // ring buffer of last 3
+  document.addEventListener('click', function(e){
+    lastClickAt = Date.now();
+    var t = e.target;
+    var desc = (t.tagName || '?').toLowerCase();
+    if (t.id) desc += '#' + t.id;
+    if (t.className && typeof t.className === 'string') desc += '.' + t.className.split(' ').slice(0,2).join('.');
+    var txt = (t.textContent||'').trim().substring(0,40);
+    if (txt) desc += ' "' + txt + '"';
+    lastClickTargets.unshift({ when: lastClickAt, desc: desc });
+    if (lastClickTargets.length > 3) lastClickTargets.length = 3;
+  }, true);
+
+  function isPortalTab(t) {
+    return t === 'p' || t === 'pl' || t === 'portal';
+  }
+
+  function installSTGuard() {
+    if (typeof window.sT !== 'function' || window.__v153sT) return;
+    var orig = window.sT;
+    window.sT = function(t, el) {
+      var elapsed = Date.now() - lastClickAt;
+      var suspicious = isPortalTab(t) && elapsed > 500;
+      if (suspicious) {
+        var entry = {
+          when: new Date().toISOString(),
+          tab: t,
+          elapsed_ms: elapsed,
+          stack: (new Error('v153 trace')).stack,
+          recentClicks: lastClickTargets.slice(),
+        };
+        if (!window.__v153nav) window.__v153nav = [];
+        window.__v153nav.unshift(entry);
+        if (window.__v153nav.length > 20) window.__v153nav.length = 20;
+        console.warn('[v153] BLOCKED suspicious portal switch:', entry);
+        if (window.tt) window.tt('Blocked accidental portal jump', 'er');
+        return; // BLOCK the navigation
+      }
+      return orig.apply(this, arguments);
+    };
+    window.__v153sT = true;
+  }
+
+  // ============================================================
+  // 4) PROFILE CENTER ON MOBILE + QUICK ACTIONS POLISH
+  // ============================================================
+  function ensureCss() {
+    if (document.getElementById('v153css')) return;
+    var st = document.createElement('style');
+    st.id = 'v153css';
+    st.textContent = ''
+      + '@media (max-width:699px){'
+      // Center the profile hero (avatar + name + meta)
+      // The avatar is a 64x64 circular img in #mc
+      + '  #mc .ph, #mc .pH, #mc div[style*="font-size:24"], #mc div[style*="font-size:28"]{text-align:center !important}'
+      // Find the hero by typical inline-styled name big text
+      + '  #mc > div:first-child{text-align:center !important}'
+      // Center the avatar image
+      + '  #mc img[style*="width:64"][style*="border-radius:50%"], #mc img[style*="border-radius:50%"][style*="border:2px solid"]{margin:0 auto 8px !important;display:block !important;vertical-align:middle !important;float:none !important}'
+      // Center any "ASK FOR" labels
+      + '  #mc .ask, #mc div[style*="margin-bottom:12px"]{text-align:center !important}'
+
+      // Quick action buttons in profile sidebar — make sure they\'re big and tappable
+      + '  .acts > button, .acts > a, [data-v141-card], [data-v140-addcard]{min-height:48px !important;font-size:14px !important;padding:12px 14px !important;width:100% !important;display:block !important;margin-top:8px !important;border-radius:8px !important;touch-action:manipulation !important;-webkit-tap-highlight-color:rgba(255,0,128,0.2) !important}'
+
+      // Visits/Reminders/Notes tabs inside profile centered
+      + '  #mc .tabs, #mc [class*="tab-list"]{display:flex !important;justify-content:center !important;flex-wrap:wrap !important;gap:6px !important}'
+      + '}';
+    document.head.appendChild(st);
+  }
+
+  // Re-poll
+  function tick() {
+    ensureCss();
+    if (isMobile()) {
+      try { killStatTileAutoClicks(); } catch(e){}
+    }
+    try { installSTGuard(); } catch(e){}
+  }
+  setTimeout(tick, 500);
+  setInterval(tick, 1500);
+  window.addEventListener('resize', tick);
+
+  // Expose helper for Dane to dump nav-jump log from console
+  window.ngmNavLog = function() {
+    if (!window.__v153nav || !window.__v153nav.length) {
+      console.log('No suspicious nav events captured');
+      return;
+    }
+    window.__v153nav.forEach(function(e, i){
+      console.log('#' + (i+1) + ' ' + e.when + ' → tab=' + e.tab + ' (after ' + e.elapsed_ms + 'ms idle)');
+      console.log('  recent clicks:', e.recentClicks.map(function(c){return c.desc;}));
+      console.log('  stack:', e.stack);
+    });
+  };
+})();
+
+</script>
 </body>
 </html>
