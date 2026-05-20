@@ -7826,5 +7826,117 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v154-log-sent-emails-to-thread*/
+(function(){
+  'use strict';
+
+  // ============================================================
+  // Dane: "I want to see the thread exactly like SmartMoving — even
+  // if Valentina sends it, I can go to the contact in the CRM and
+  // see the message she sent."
+  //
+  // Root cause: the in-profile Conversation box (fpSendMessage) DOES
+  // log outbound email into the shared Supabase `email_messages`
+  // table — that's why those show in the thread. But the two other
+  // send paths skip it:
+  //   - plDoSendInvite  (portal invite email)
+  //   - sendCompose     ("Compose email" quick action)
+  // Both just call aP({action:'sendEmail'}) and never write a row.
+  // So those messages never appear on the contact, for anyone.
+  //
+  // Fix: wrap window.aP. After ANY successful sendEmail that carries
+  // a contactId, insert a row into email_messages with the real
+  // sender name (read from sessionStorage neon_user) and the actual
+  // from-address (connected Gmail, or the default). Because the table
+  // is server-side, every teammate sees the message on the contact —
+  // regardless of who sent it or from which Gmail account.
+  //
+  // Dedup: fpSendMessage already logs its own row, so we set a flag
+  // while it runs and skip logging for its aP call.
+  // ============================================================
+
+  function getFromEmail() {
+    try {
+      var g = sessionStorage.getItem('neon_gmail_email');
+      if (g) return g;
+    } catch(e){}
+    return 'dane@neongiantmoving.com';
+  }
+  function getSenderName() {
+    try {
+      var u = JSON.parse(sessionStorage.getItem('neon_user') || 'null');
+      if (u && u.name) return u.name;
+    } catch(e){}
+    try {
+      var g = sessionStorage.getItem('neon_gmail_name');
+      if (g) return g;
+    } catch(e){}
+    return '';
+  }
+
+  function install() {
+    if (window.__v154) return;
+    if (typeof window.aP !== 'function' || typeof window._sbInsert !== 'function') return;
+    window.__v154 = true;
+
+    // Wrap fpSendMessage so its own aP call is flagged (it logs itself;
+    // we must not double-log).
+    if (typeof window.fpSendMessage === 'function' && !window.__v154fp) {
+      window.__v154fp = true;
+      var origFp = window.fpSendMessage;
+      window.fpSendMessage = async function() {
+        window.__v154fpActive = true;
+        try { return await origFp.apply(this, arguments); }
+        finally { setTimeout(function(){ window.__v154fpActive = false; }, 250); }
+      };
+    }
+
+    var origAP = window.aP;
+    window.aP = async function(d) {
+      // Let the real send happen (errors propagate so callers show their toast)
+      var r = await origAP.apply(this, arguments);
+      try {
+        if (d && d.action === 'sendEmail' && d.contactId && !window.__v154fpActive) {
+          // success: Apps Script returns {ok:true}; Gmail API returns {id,threadId};
+          // failures throw before reaching here. Treat "no .error" as success.
+          var ok = r && !r.error && r !== false;
+          if (ok) {
+            await window._sbInsert('email_messages', {
+              contact_id: +d.contactId,
+              direction: 'out',
+              from_email: getFromEmail(),
+              to_email: d.to || '',
+              subject: d.subject || '',
+              body: d.body || '',
+              status: 'sent',
+              sender: d.sender || getSenderName(),
+              sent_at: new Date().toISOString(),
+            });
+            // If the user is looking at this contact, refresh the thread live
+            if (typeof window.fpLoadThread === 'function' &&
+                +window._fpContactId === +d.contactId) {
+              try { window.fpLoadThread(d.contactId); } catch(e){}
+            }
+            console.log('[v154] logged sent email to thread for contact', d.contactId);
+          }
+        }
+      } catch(e) {
+        console.warn('[v154] thread-log failed:', e);
+      }
+      return r;
+    };
+    console.log('[v154] email-to-thread logging active');
+  }
+
+  install();
+  var tries = 0;
+  var poll = setInterval(function(){
+    install();
+    if (window.__v154 || ++tries > 80) clearInterval(poll);
+  }, 500);
+})();
+
+</script>
 </body>
 </html>
