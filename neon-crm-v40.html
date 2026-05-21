@@ -7938,5 +7938,130 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v155-tap-diagnostic*/
+(function(){
+  'use strict';
+
+  // ============================================================
+  // GROUND-TRUTH tap diagnostic. Claude can't reproduce Dane's
+  // mobile viewport, so this captures, on the real device, exactly
+  // what happens when a "quick link" tap fails.
+  //
+  // Tiny ? dot, bottom-LEFT (out of the way of the bottom nav's
+  // Add button). Tap it to arm. When armed, the NEXT tap shows a
+  // readout bar at the top of the screen with:
+  //   - what element your finger actually hit (e.target)
+  //   - the TOPMOST element at that exact pixel (elementFromPoint)
+  //   - whether something is COVERING the thing you meant to tap
+  //     (the #1 cause of "nothing is clickable")
+  //   - that covering element's id + z-index, so the fix is exact
+  //
+  // Off by default. Zero interference until armed.
+  // ============================================================
+
+  if (window.__v155) return;
+  window.__v155 = true;
+
+  var armed = false;
+
+  function css(){
+    if (document.getElementById('v155css')) return;
+    var st = document.createElement('style');
+    st.id = 'v155css';
+    st.textContent = ''
+      + '#v155dot{position:fixed;left:8px;bottom:8px;width:30px;height:30px;border-radius:50%;background:#444;color:#fff;border:2px solid #888;font-size:15px;z-index:2147483000;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:monospace;box-shadow:0 2px 6px rgba(0,0,0,.5);padding:0;line-height:1}'
+      + '#v155dot.on{background:#ff0080;border-color:#fff}'
+      + '#v155bar{position:fixed;left:0;right:0;top:0;background:#0a1220;color:#9fe;font:12px/1.4 monospace;padding:10px 12px;z-index:2147483001;border-bottom:2px solid #ff0080;display:none;max-height:45vh;overflow-y:auto;white-space:pre-wrap;word-break:break-word}'
+      + '#v155bar.show{display:block}'
+      + '#v155bar .ok{color:#33cc66}'
+      + '#v155bar .bad{color:#ff5577;font-weight:700}'
+      + '#v155bar .k{color:#fc9}';
+    document.head.appendChild(st);
+  }
+
+  function desc(el){
+    if (!el) return '(none)';
+    var s = el.tagName.toLowerCase();
+    if (el.id) s += '#' + el.id;
+    if (el.className && typeof el.className === 'string') {
+      var c = el.className.trim().split(/\s+/).slice(0,2).join('.');
+      if (c) s += '.' + c;
+    }
+    var t = (el.textContent||'').trim().slice(0,24);
+    if (t) s += ' "' + t + '"';
+    return s;
+  }
+  function zOf(el){
+    while (el && el !== document.body) {
+      var z = getComputedStyle(el).zIndex;
+      var pos = getComputedStyle(el).position;
+      if (z !== 'auto' && pos !== 'static') return z + ' (' + desc(el) + ')';
+      el = el.parentElement;
+    }
+    return 'auto';
+  }
+
+  function build(){
+    css();
+    if (!document.getElementById('v155dot')) {
+      var dot = document.createElement('button');
+      dot.id = 'v155dot';
+      dot.textContent = '?';
+      dot.title = 'Tap diagnostic';
+      dot.addEventListener('click', function(e){
+        e.preventDefault(); e.stopPropagation();
+        armed = !armed;
+        dot.classList.toggle('on', armed);
+        var bar = document.getElementById('v155bar');
+        if (armed) {
+          bar.classList.add('show');
+          bar.innerHTML = '<span class="ok">DIAGNOSTIC ARMED.</span> Now tap the link/button that doesn\'t work. (Tap ? again to turn off.)';
+        } else {
+          bar.classList.remove('show');
+        }
+      }, true);
+      document.body.appendChild(dot);
+    }
+    if (!document.getElementById('v155bar')) {
+      var bar = document.createElement('div');
+      bar.id = 'v155bar';
+      document.body.appendChild(bar);
+    }
+  }
+
+  // Capture-phase, runs before anything else. Only reports when armed.
+  document.addEventListener('pointerdown', function(e){
+    if (!armed) return;
+    var dot = document.getElementById('v155dot');
+    if (e.target === dot) return;
+    var x = e.clientX, y = e.clientY;
+    var hit = e.target;
+    var top = document.elementFromPoint(x, y);
+    var bar = document.getElementById('v155bar');
+    if (!bar) return;
+    var blocked = top && hit && top !== hit && !hit.contains(top) && !top.contains(hit);
+    var clickableAncestor = hit && hit.closest ? hit.closest('button,a,[onclick],.act,.navitem,.cd,[role="button"]') : null;
+    var html = '';
+    html += '<span class="k">YOU HIT:</span> ' + desc(hit) + '\n';
+    html += '<span class="k">TOP ELEMENT AT POINT:</span> ' + desc(top) + '\n';
+    html += '<span class="k">CLICKABLE TARGET:</span> ' + (clickableAncestor ? desc(clickableAncestor) : '<span class="bad">NONE FOUND</span>') + '\n';
+    if (blocked) {
+      html += '<span class="bad">⚠ BLOCKED: a different element is on top — ' + desc(top) + '</span>\n';
+      html += '<span class="k">its z-index:</span> ' + zOf(top) + '\n';
+    } else {
+      html += '<span class="ok">✓ No covering element — your tap reached its target.</span>\n';
+    }
+    html += '<span class="k">pointer-events on top:</span> ' + (top ? getComputedStyle(top).pointerEvents : '?');
+    bar.innerHTML = html;
+    bar.classList.add('show');
+  }, true);
+
+  function tick(){ try { build(); } catch(e){} }
+  setTimeout(tick, 500);
+  setInterval(tick, 2000);
+})();
+
+</script>
 </body>
 </html>
