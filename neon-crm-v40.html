@@ -8063,5 +8063,121 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v156-inbound-sms-surface*/
+(function(){
+  'use strict';
+
+  // ============================================================
+  // Two-way texting, CRM side. The neon-sms-inbound Worker writes
+  // every incoming text into Supabase sms_messages (direction:'in').
+  // This shim makes those replies VISIBLE without a manual reload:
+  //   - polls sms_messages for new inbound every 20s
+  //   - if you're looking at that contact, live-refreshes the thread
+  //   - toast + subtle ding + a title-bar unread badge "(2) Neon Giant…"
+  //
+  // Deliberately adds NO floating DOM element (we're chasing a
+  // tap-blocking overlay bug, #256) — title badge + toast only, so
+  // there is zero chance of covering a button.
+  // ============================================================
+
+  if (window.__v156) return;
+  window.__v156 = true;
+
+  var SB  = 'https://aoyfieswynhgqyrveqnp.supabase.co';
+  var KEY = 'sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ';
+  var H   = { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY };
+
+  var LSK = 'ngm_sms_lastInId';
+  var seen = +(localStorage.getItem(LSK) || 0);
+  var primed = false;
+  var unread = 0;
+  var baseTitle = document.title || 'Neon Giant CRM';
+
+  function toast(msg){ try { if (typeof tt === 'function') tt(msg, 'ok'); } catch(e){} }
+
+  function ding(){
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      var ac = window.__ngAudio || (window.__ngAudio = new AC());
+      if (ac.state === 'suspended') return; // needs a user gesture; skip silently
+      var o = ac.createOscillator(), g = ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+      o.type = 'sine'; o.frequency.value = 880; g.gain.value = 0.04;
+      o.start(); o.stop(ac.currentTime + 0.12);
+    } catch(e){}
+  }
+
+  function nameFor(cid){
+    try {
+      var D = window.__D || window.D;
+      if (D && D.find) {
+        var c = D.find(function(x){ return +x.id === +cid; });
+        if (c) return c.name || c.business || ('contact #' + cid);
+      }
+    } catch(e){}
+    return cid ? ('contact #' + cid) : 'an unknown number';
+  }
+
+  function setBadge(){
+    if (unread > 0) document.title = '(' + unread + ') ' + baseTitle;
+    else document.title = baseTitle;
+  }
+
+  // Clear the unread badge when the operator comes back to the tab
+  window.addEventListener('focus', function(){ unread = 0; setBadge(); });
+  document.addEventListener('visibilitychange', function(){
+    if (!document.hidden) { unread = 0; setBadge(); }
+  });
+
+  async function poll(){
+    try {
+      var url = SB + '/rest/v1/sms_messages?direction=eq.in&select=id,contact_id,from_number,body&order=id.desc&limit=20';
+      var r = await fetch(url, { headers: H });
+      if (!r.ok) return;
+      var rows = await r.json();
+      if (!rows || !rows.length) { primed = true; return; }
+      var maxId = rows[0].id;
+
+      // First successful poll on a fresh device: set the baseline so we
+      // never alert on history. Real-time alerting starts after this.
+      if (!primed && seen === 0) {
+        seen = maxId; localStorage.setItem(LSK, String(seen)); primed = true; return;
+      }
+      primed = true;
+
+      var fresh = rows.filter(function(m){ return m.id > seen; });
+      if (!fresh.length) return;
+      seen = maxId; localStorage.setItem(LSK, String(seen));
+
+      // Live-refresh the thread if the operator is on a matching contact
+      var open = window._fpContactId;
+      if (open && typeof window.fpLoadThread === 'function') {
+        var hit = fresh.find(function(m){ return +m.contact_id === +open; });
+        if (hit) { try { window.fpLoadThread(open); } catch(e){} }
+      }
+
+      // Notify (count only those not for the currently-open contact as "unread")
+      var newlyUnread = fresh.filter(function(m){ return !(open && +m.contact_id === +open); });
+      if (newlyUnread.length) {
+        unread += newlyUnread.length;
+        setBadge();
+        ding();
+      }
+      var first = fresh[0];
+      var who = first.contact_id ? nameFor(first.contact_id) : (first.from_number || 'a number');
+      var more = fresh.length > 1 ? (' (+' + (fresh.length - 1) + ' more)') : '';
+      toast('\u{1F4AC} New text from ' + who + more);
+    } catch(e){ /* network blips are non-fatal */ }
+  }
+
+  // Kick off: prime immediately, then poll on an interval.
+  poll();
+  setInterval(poll, 20000);
+  console.log('[v156] inbound SMS surfacing active');
+})();
+
+</script>
 </body>
 </html>
