@@ -8179,5 +8179,141 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v157-delivery-ticks*/
+(function(){
+  'use strict';
+
+  // ============================================================
+  // WhatsApp-style delivery ticks on outbound TEXTS.
+  //   ✓        sent (Twilio accepted / handed to carrier)
+  //   ✓✓       delivered (carrier confirmed)
+  //   ✗ (red)  failed / undelivered
+  //   ✓ faint  still sending / queued / pending
+  // (SMS carriers do not report "read", so there is no blue seen-tick.)
+  //
+  // The neon-sms-inbound Worker's /status route advances sms_messages.status
+  // from Twilio's delivery callbacks. The live thread renderer is a LOCAL
+  // function (window._fpRenderThread is not the one actually called), and an
+  // enhanced fpLoadThread post-processes the rendered bubbles to add pin
+  // buttons. So we use the SAME proven technique here: wrap fpLoadThread and
+  // decorate the outbound-SMS bubbles with a tick after each render. A short
+  // poll keeps ticks current (sent -> delivered happens in seconds) and never
+  // re-renders, so the scroll position is preserved.
+  // ============================================================
+
+  if (window.__v157) return;
+  window.__v157 = true;
+
+  var SB  = 'https://aoyfieswynhgqyrveqnp.supabase.co';
+  var KEY = 'sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ';
+  var H   = { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY };
+  var SMS_GLYPH = '\u{1F4AC}'; // 💬  (email bubbles use 📧 and are skipped)
+
+  // status -> { glyph, color, title }
+  function tickFor(status){
+    var s = (status || '').toLowerCase();
+    if (s === 'delivered' || s === 'read')     return { g:'✓✓', c:'#7fe0ff', t:'Delivered' };
+    if (s === 'failed' || s === 'undelivered') return { g:'✗',       c:'#ff6b81', t:'Not delivered' };
+    if (s === 'sent')                          return { g:'✓',       c:'rgba(255,255,255,0.9)', t:'Sent' };
+    return { g:'✓', c:'rgba(255,255,255,0.45)', t:'Sending…' }; // queued/sending/pending/accepted/unknown
+  }
+
+  // Collect the meta line (time + label) of each OUTBOUND SMS bubble in the
+  // open thread, in chronological (DOM) order. Skips inbound and email bubbles.
+  function outboundSmsMetas(box){
+    var metas = [];
+    var wraps = box.querySelectorAll(':scope > div[style*="justify-content"]');
+    wraps.forEach(function(wrap){
+      var st = wrap.getAttribute('style') || '';
+      if (st.indexOf('flex-end') < 0) return;          // outbound only
+      var bubble = wrap.firstElementChild;
+      if (!bubble) return;
+      var meta = bubble.lastElementChild;              // the 💬/📧 + time line
+      if (!meta) return;
+      if ((meta.textContent || '').indexOf(SMS_GLYPH) < 0) return; // SMS only
+      metas.push(meta);
+    });
+    return metas;
+  }
+
+  function applyTick(meta, row){
+    var tk = tickFor(row.status);
+    var span = meta.querySelector('.ngtk');
+    if (!span){
+      span = document.createElement('span');
+      span.className = 'ngtk';
+      span.style.marginLeft = '5px';
+      span.style.fontWeight = '700';
+      meta.appendChild(span);
+    }
+    if (span.getAttribute('data-s') === (row.status || '') && span.id === 'tk-sms-' + row.id) return;
+    span.id = 'tk-sms-' + row.id;
+    span.textContent = tk.g;
+    span.style.color = tk.c;
+    span.title = tk.t;
+    span.setAttribute('data-s', row.status || '');
+  }
+
+  // Fetch outbound SMS statuses for this contact and stamp ticks on the
+  // matching bubbles. Idempotent: reuses existing tick spans (no scroll jump).
+  async function decorateTicks(cid){
+    cid = +cid;
+    if (!cid) return;
+    var box = document.getElementById('fpConvScroll');
+    if (!box) return;
+    var metas = outboundSmsMetas(box);
+    if (!metas.length) return;
+    var rows;
+    try {
+      var r = await fetch(SB + '/rest/v1/sms_messages?contact_id=eq.' + cid +
+        '&direction=eq.out&select=id,status&order=created_at.asc&limit=500', { headers: H });
+      if (!r.ok) return;
+      rows = await r.json();
+    } catch(e){ return; }
+    if (!rows || !rows.length) return;
+    // Both lists are the outbound-SMS subset in chronological order. Align from
+    // the most-recent end so any transient count mismatch never shifts the
+    // newest ticks (the ones the user is actually watching).
+    var n = Math.min(metas.length, rows.length);
+    for (var i = 1; i <= n; i++){
+      applyTick(metas[metas.length - i], rows[rows.length - i]);
+    }
+  }
+
+  // Wrap whatever fpLoadThread currently is (base + v156 etc.), so ticks are
+  // drawn after every thread render — including the post-send reload and the
+  // v156 inbound live-refresh.
+  function installLoadWrap(){
+    var orig = window.fpLoadThread;
+    if (typeof orig !== 'function') return false;
+    if (orig.__v157wrapped) return true;
+    var wrapped = async function(cid){
+      if (typeof orig === 'function') { try { await orig(cid); } catch(e){} }
+      try { await decorateTicks(cid); } catch(e){}
+    };
+    wrapped.__v157wrapped = true;
+    window.fpLoadThread = wrapped;
+    return true;
+  }
+
+  if (!installLoadWrap()) {
+    // fpLoadThread not defined yet for some reason — retry briefly.
+    var tries = 0;
+    var iv = setInterval(function(){
+      if (installLoadWrap() || ++tries > 20) clearInterval(iv);
+    }, 250);
+  }
+
+  // Decorate the thread that's already on screen so ticks appear immediately.
+  setTimeout(function(){ var cid = window._fpContactId; if (cid) decorateTicks(cid); }, 400);
+
+  // Keep ticks live while a thread is open (sent -> delivered lands in seconds).
+  setInterval(function(){ var cid = window._fpContactId; if (cid) decorateTicks(cid); }, 8000);
+
+  console.log('[v157] delivery ticks active');
+})();
+                                                                                                                                                                                                                                                         
+</script>
 </body>
 </html>
