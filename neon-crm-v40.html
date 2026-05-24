@@ -8654,18 +8654,16 @@ async function dpDownloadPDF(){
   'use strict';
 
   // ============================================================
-  // MMS photo/file texting.
-  //   • Inbound: the neon-sms-inbound Worker re-hosts received media in the
-  //     public Supabase `sms-media` bucket and stores it in sms_messages.media.
-  //   • Outbound: a 📎 button in the composer uploads the chosen photo to the
-  //     same bucket, then POSTs to the Worker /send route (which sends the MMS
-  //     via Twilio and logs it). Delivery checkmarks (v157) work as usual.
-  //
-  // Rendering technique mirrors v157: the live thread renderer calls a LOCAL
-  // _fpRenderThread (window._fpRenderThread is NOT the one invoked), so we WRAP
-  // window.fpLoadThread and post-process the rendered bubbles to inject media.
-  // Both the bubble list and our re-fetched list are (sms+email) in identical
-  // chronological order, so they align 1:1.
+  // MMS photo/file texting (no new account setup required).
+  //  • Outbound: 📎 in the composer → upload bytes to the Worker KV media store
+  //    (public URL) → POST /api/sendSms with mediaUrl (Pages fn already holds the
+  //    Twilio creds) → Twilio sends MMS + logs the row.
+  //  • Inbound: the Worker stamps received media into the message body as a
+  //    ::NGMMS::[{u,t}] marker, where each u is the authed /api/twMedia proxy.
+  //  • Render: like v157, we WRAP fpLoadThread and post-process the bubbles,
+  //    parsing the marker out of body, stripping it from the visible text, and
+  //    injecting image (or file) bubbles. Bubble list and our re-fetched list are
+  //    both (sms+email) in identical order, so they align 1:1.
   // ============================================================
 
   if (window.__v160) return;
@@ -8674,40 +8672,55 @@ async function dpDownloadPDF(){
   var SB     = 'https://aoyfieswynhgqyrveqnp.supabase.co';
   var KEY    = 'sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ';
   var H      = { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY };
-  var BUCKET = 'sms-media';
-  var SEND   = 'https://neon-sms-inbound.dane-bc3.workers.dev/send';
-  var MAXB   = 5 * 1024 * 1024; // 5MB Twilio MMS cap
+  var UPLOAD = 'https://neon-sms-inbound.dane-bc3.workers.dev/upload';
+  var SEND   = 'https://refer.neongiantmoving.com/api/sendSms';
+  var MARK   = '::NGMMS::';
+  var MAXB   = 5 * 1024 * 1024;
 
   function toast(msg, kind){ if (typeof tt === 'function') { try { tt(msg, kind || 'ok'); } catch(e){} } }
 
-  function parseMedia(m){
-    if (!m) return [];
-    if (typeof m === 'string') { try { m = JSON.parse(m); } catch(e){ return []; } }
-    if (!Array.isArray(m)) return [];
-    return m.filter(function(x){ return x && x.url; });
+  // body "caption\n::NGMMS::[...]" -> { text, media:[{u,t}] }
+  function splitBody(body){
+    body = body || '';
+    var i = body.indexOf(MARK);
+    if (i < 0) return { text: body, media: [] };
+    var text = body.slice(0, i).replace(/\n+$/, '');
+    var media = [];
+    try { media = JSON.parse(body.slice(i + MARK.length)) || []; } catch(e){ media = []; }
+    if (!Array.isArray(media)) media = [];
+    return { text: text, media: media };
   }
-
   function isImage(mm){
-    return /^image\//i.test(mm.type || '') || /\.(jpe?g|png|gif|webp|heic)(\?|$)/i.test(mm.url || '');
+    return /^image\//i.test(mm.t || '') || /\.(jpe?g|png|gif|webp|heic)(\?|$)/i.test(mm.u || '');
   }
 
-  function injectMedia(wrap, media, rowId){
+  // Immediately hide any raw marker text the base renderer printed (kills flash).
+  function stripMarkersNow(box){
+    var divs = box.querySelectorAll('div[style*="pre-wrap"]');
+    divs.forEach(function(d){
+      var t = d.textContent || '';
+      var i = t.indexOf(MARK);
+      if (i >= 0) d.textContent = t.slice(0, i).replace(/\n+$/, '');
+    });
+  }
+
+  function injectMedia(wrap, media, tagId){
     var inner = wrap.firstElementChild; if (!inner) return;
-    if (inner.querySelector('.ngmms-' + rowId)) return; // already decorated
+    if (inner.querySelector('.ngmms-' + tagId)) return;
     var meta = inner.lastElementChild;
     media.forEach(function(mm){
       var holder = document.createElement('div');
-      holder.className = 'ngmms ngmms-' + rowId;
+      holder.className = 'ngmms ngmms-' + tagId;
       holder.style.marginTop = '6px';
       if (isImage(mm)) {
         var img = document.createElement('img');
-        img.src = mm.url; img.loading = 'lazy';
+        img.src = mm.u; img.loading = 'lazy';
         img.style.cssText = 'max-width:220px;max-height:260px;border-radius:10px;display:block;cursor:pointer;border:1px solid rgba(255,255,255,0.18)';
-        img.addEventListener('click', function(){ window.open(mm.url, '_blank'); });
+        img.addEventListener('click', function(){ window.open(mm.u, '_blank'); });
         holder.appendChild(img);
       } else {
         var a = document.createElement('a');
-        a.href = mm.url; a.target = '_blank';
+        a.href = mm.u; a.target = '_blank';
         a.textContent = '\u{1F4CE} Attachment';
         a.style.cssText = 'color:#fff;text-decoration:underline;font-size:12px';
         holder.appendChild(a);
@@ -8719,6 +8732,7 @@ async function dpDownloadPDF(){
   async function decorateMedia(cid){
     cid = +cid; if (!cid) return;
     var box = document.getElementById('fpConvScroll'); if (!box) return;
+    stripMarkersNow(box);
     var bubbles = Array.prototype.filter.call(box.children, function(el){
       var st = el.getAttribute('style') || ''; return st.indexOf('justify-content') >= 0;
     });
@@ -8726,7 +8740,7 @@ async function dpDownloadPDF(){
     var sms = [], emails = [];
     try {
       var r1 = await fetch(SB + '/rest/v1/sms_messages?contact_id=eq.' + cid +
-        '&select=id,direction,media,sent_at,received_at,created_at&order=created_at.asc&limit=500', { headers: H });
+        '&select=id,direction,body,sent_at,received_at,created_at&order=created_at.asc&limit=500', { headers: H });
       if (r1.ok) sms = await r1.json();
     } catch(e){ return; }
     try {
@@ -8735,19 +8749,18 @@ async function dpDownloadPDF(){
       if (r2.ok) emails = await r2.json();
     } catch(e){}
     var list = [];
-    sms.forEach(function(m){ list.push({ kind:'sms', when: m.sent_at || m.received_at || m.created_at, media: m.media, id: m.id }); });
+    sms.forEach(function(m){ list.push({ kind:'sms', when: m.sent_at || m.received_at || m.created_at, body: m.body, id: m.id }); });
     emails.forEach(function(e){ list.push({ kind:'email', when: e.sent_at || e.received_at || e.created_at }); });
     list.sort(function(a,b){ return new Date(a.when) - new Date(b.when); });
     if (list.length !== bubbles.length) return; // alignment mismatch — bail safely
     for (var i = 0; i < list.length; i++) {
       var item = list[i];
-      if (item.kind !== 'sms' || !item.media) continue;
-      var media = parseMedia(item.media);
-      if (media.length) injectMedia(bubbles[i], media, item.id);
+      if (item.kind !== 'sms' || !item.body || item.body.indexOf(MARK) < 0) continue;
+      var parsed = splitBody(item.body);
+      if (parsed.media.length) injectMedia(bubbles[i], parsed.media, item.id);
     }
   }
 
-  // ---- wrap fpLoadThread so media is drawn after every render (preserves v157 ticks) ----
   function installLoadWrap(){
     var orig = window.fpLoadThread;
     if (typeof orig !== 'function') return false;
@@ -8761,7 +8774,7 @@ async function dpDownloadPDF(){
     return true;
   }
 
-  // ---- outbound: pick → upload to bucket → Worker /send ----
+  // ---- outbound: pick → upload to Worker KV → /api/sendSms ----
   function currentCid(){
     var b = document.getElementById('fpBody');
     if (b) {
@@ -8778,23 +8791,14 @@ async function dpDownloadPDF(){
     var c = (typeof D !== 'undefined') ? D.find(function(x){ return +x.id === cid; }) : null;
     if (!c || !c.phone) { toast('No phone number on file', 'er'); return; }
     if (file.size > MAXB) { toast('File too large (5MB max for text)', 'er'); return; }
-    toast('Uploading photo…', 'ok');
     var ext = ((file.type.split('/')[1] || 'jpg')).replace(/[^a-z0-9]/gi, '') || 'jpg';
-    var path = 'out/' + cid + '_' + Date.now() + '.' + ext;
-    var pub;
+    toast('Uploading photo…', 'ok');
+    var pub, ctype = file.type || 'image/jpeg';
     try {
-      var up = await fetch(SB + '/storage/v1/object/' + BUCKET + '/' + path, {
-        method: 'POST',
-        headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': file.type || 'application/octet-stream', 'x-upsert': 'true' },
-        body: file,
-      });
-      if (!up.ok) {
-        var t = await up.text().catch(function(){ return ''; });
-        console.warn('[v160] upload failed', up.status, t);
-        toast('Photo upload failed — is the sms-media bucket set up?', 'er');
-        return;
-      }
-      pub = SB + '/storage/v1/object/public/' + BUCKET + '/' + path;
+      var up = await fetch(UPLOAD + '?ext=' + ext, { method: 'POST', headers: { 'Content-Type': ctype }, body: file });
+      var uj = await up.json().catch(function(){ return {}; });
+      if (!up.ok || !uj.url) { toast('Upload failed (' + (uj.error || up.status) + ')', 'er'); return; }
+      pub = uj.url;
     } catch(e){ toast('Upload error: ' + (e.message || e), 'er'); return; }
 
     var bodyEl = document.getElementById('fpBody');
@@ -8803,13 +8807,10 @@ async function dpDownloadPDF(){
     try {
       var r = await fetch(SEND, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: c.phone, contactId: cid, body: caption, mediaUrl: pub, mediaType: file.type || 'image/jpeg' }),
+        body: JSON.stringify({ to: c.phone, contactId: cid, body: caption, mediaUrl: pub, mediaType: ctype, kind: 'manual' }),
       });
       var j = await r.json().catch(function(){ return {}; });
-      if (!r.ok || j.error) {
-        toast('Send failed: ' + (j.error || ('HTTP ' + r.status)), 'er');
-        return;
-      }
+      if (!r.ok || !j.ok) { toast('Send failed: ' + (j.error || j.message || ('HTTP ' + r.status)), 'er'); return; }
       toast('\u{1F4F7} Photo sent', 'ok');
       if (bodyEl) bodyEl.value = '';
       if (typeof window.fpLoadThread === 'function') await window.fpLoadThread(cid);
@@ -8822,10 +8823,7 @@ async function dpDownloadPDF(){
     var inp = document.createElement('input');
     inp.type = 'file';
     inp.accept = 'image/*,application/pdf';
-    inp.addEventListener('change', function(){
-      var f = inp.files && inp.files[0];
-      if (f) sendPhoto(cid, f);
-    });
+    inp.addEventListener('change', function(){ var f = inp.files && inp.files[0]; if (f) sendPhoto(cid, f); });
     inp.click();
   }
 
@@ -8837,16 +8835,14 @@ async function dpDownloadPDF(){
     btn.textContent = '\u{1F4CE}';
     btn.style.cssText = 'flex:0 0 auto;background:#0e1c33;color:#9fe;border:1px solid #2a3f5a;border-radius:6px;padding:0 14px;font-size:18px;cursor:pointer;line-height:1';
     btn.addEventListener('click', function(e){ e.preventDefault(); pickFile(); });
-    // insert as the first item of the [textarea][Send] flex row
     if (bodyEl.parentNode) bodyEl.parentNode.insertBefore(btn, bodyEl);
   }
 
-  // boot
   if (!installLoadWrap()) {
     var tries = 0;
     var iv = setInterval(function(){ if (installLoadWrap() || ++tries > 40) clearInterval(iv); }, 250);
   }
-  setInterval(ensureClipBtn, 800);             // (re)inject the 📎 whenever the composer is present
+  setInterval(ensureClipBtn, 800);
   setTimeout(function(){ var cid = window._fpContactId; if (cid) decorateMedia(cid); }, 500);
 
   console.log('[v160] mms photos active');
