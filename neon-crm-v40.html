@@ -8546,5 +8546,107 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v159-portal-bounce-fix*/
+(function(){
+  'use strict';
+
+  // ============================================================
+  // FIX: login/dashboard randomly "bounces" to the Portal view.
+  //
+  // ROOT CAUSE
+  //   rS() (the dashboard stat-tile render, called on every ren())
+  //   kicks a ONE-TIME background prefetch so the "New Portal Leads"
+  //   tile shows an accurate count:
+  //       plLoad().then(function(){ if(tb==='d') rS(); });
+  //   But plLoad() is the PORTAL TAB's loader. It (a) immediately
+  //   wipes #mc with a spinner and (b) on fetch-resolve calls
+  //   rPL(mc) UNCONDITIONALLY — painting the Portal into #mc even
+  //   when the user is on the Dashboard (tb==='d'). The nav still
+  //   highlights Dashboard, so it looks like a random "bounce".
+  //   Clicking Dashboard repaints via ren(); plLoaded is now true so
+  //   it never recurs that session — matching "I click dashboard once".
+  //
+  // FIX
+  //   Replace plLoad with a tab-aware version: it still fetches the
+  //   leads and updates plLeads/plLoaded, but only touches #mc when
+  //   the user is actually viewing the Portal (tb==='pl'). Otherwise
+  //   it just refreshes the dashboard stat tiles (rS) so the count
+  //   updates — never clobbering #mc. As belt-and-suspenders, rPL is
+  //   also guarded to no-op if called while tb!=='pl'.
+  // ============================================================
+
+  if (window.__v159) return;
+  window.__v159 = true;
+
+  function curTab(){ try { return (typeof tb !== 'undefined') ? tb : undefined; } catch(e){ return undefined; } }
+
+  // ---- tab-aware plLoad (replaces base loader) ----
+  function installPlLoad(){
+    if (typeof window.plLoad !== 'function') return false;
+    if (window.plLoad.__v159) return true;
+
+    var tabSafePlLoad = async function(){
+      var onPortal = (curTab() === 'pl');
+      var mc = document.getElementById('mc');
+      if (onPortal && mc) {
+        mc.innerHTML = '<div class="ld"><div class="sp"></div></div>';
+      }
+      try {
+        var r = await aP({ action: 'listPortalLeads' });
+        plLeads = (r && r.leads) || [];
+        plLoaded = true;
+        if (curTab() === 'pl') {
+          // User is on the Portal — render it for real.
+          if (typeof rPL === 'function') rPL(document.getElementById('mc'));
+        } else if (curTab() === 'd') {
+          // Background prefetch for the dashboard count — refresh ONLY
+          // the stat tiles (#sR), never #mc.
+          if (typeof rS === 'function') rS();
+        }
+      } catch(e) {
+        if (curTab() === 'pl' && mc) {
+          mc.innerHTML = '<div style="color:var(--r);padding:20px">Error: ' + (e && e.message || e) + '</div>';
+        }
+      }
+    };
+    tabSafePlLoad.__v159 = true;
+    window.plLoad = tabSafePlLoad;
+    return true;
+  }
+
+  // ---- guard rPL: never paint the Portal unless we're on it ----
+  function installRplGuard(){
+    if (typeof window.rPL !== 'function') return false;
+    if (window.rPL.__v159) return true;
+    var orig = window.rPL;
+    var guarded = function(mc){
+      var t = curTab();
+      // Only block when we positively know we're NOT on the portal tab.
+      if (t !== undefined && t !== 'pl') return;
+      return orig.apply(this, arguments);
+    };
+    guarded.__v159 = true;
+    window.rPL = guarded;
+    return true;
+  }
+
+  function install(){
+    var a = installPlLoad();
+    var b = installRplGuard();
+    return a && b;
+  }
+
+  if (!install()) {
+    var tries = 0;
+    var iv = setInterval(function(){
+      if (install() || ++tries > 40) clearInterval(iv);
+    }, 250);
+  }
+
+  console.log('[v159] portal-bounce fix active');
+})();
+
+</script>
 </body>
 </html>
