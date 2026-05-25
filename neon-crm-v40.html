@@ -8363,6 +8363,15 @@ async function dpDownloadPDF(){
     return sameDay ? dt.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})
                    : dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});
   }
+  // Strip the hidden ::NGMMS:: media marker out of preview text so it never leaks
+  // into the dropdown. If the text was only a photo, show a clean "Photo" label.
+  function cleanPreview(s){
+    s = String(s==null?'':s);
+    var hadMedia = s.indexOf('::NGMMS::') >= 0;
+    s = s.replace(/\n?::NGMMS::[\s\S]*$/, '').trim();
+    if(hadMedia) return s ? (s + ' \u{1F4F7}') : '\u{1F4F7} Photo';
+    return s;
+  }
 
   // ---- audible ding ----
   var actx=null;
@@ -8484,8 +8493,8 @@ async function dpDownloadPDF(){
 
   function rowHTML(t, it, idx){
     var title='', sub='', when='';
-    if(t.k==='sms'){ title=contactName(it.contact_id)||it.from_number||'Unknown'; sub=it.body||''; when=fmtTime(it.received_at||it.created_at); }
-    else if(t.k==='email'){ title=contactName(it.contact_id)||it.from_email||'Unknown'; sub=it.subject||it.body||''; when=fmtTime(it.received_at||it.created_at); }
+    if(t.k==='sms'){ title=contactName(it.contact_id)||it.from_number||'Unknown'; sub=cleanPreview(it.body); when=fmtTime(it.received_at||it.created_at); }
+    else if(t.k==='email'){ title=contactName(it.contact_id)||it.from_email||'Unknown'; sub=it.subject||cleanPreview(it.body); when=fmtTime(it.received_at||it.created_at); }
     else if(t.k==='rem'){ title=it.title||it.note||it.what||it.text||'Reminder'; sub=contactName(it.contactId); when=fmtTime(it.due||it.dueDate); }
     else if(t.k==='portal'){ title=it.name||it.customerName||it.customer||it.fullName||'New portal lead'; sub=(it.realtor||it.referrer||'')+''; when=fmtTime(it.submittedAt||it.created_at); }
     sub=String(sub).replace(/\s+/g,' ').slice(0,42);
@@ -8545,12 +8554,24 @@ async function dpDownloadPDF(){
     try{ if(typeof compRem==='function') compRem(it.id); else if(typeof aP==='function') aP({action:'updateReminder',reminder:{id:it.id,status:'completed'}}); }catch(e){}
   }
 
+  // Open the FULL PROFILE on the Conversation tab and load the message thread.
+  // The full profile is driven by _fpContactId + _fpTab + _fpRender (NOT oP, which
+  // only opens the quick-action drawer and never shows the thread). fpLoadThread is
+  // async and renders the bubbles itself once messages come back.
   function openThread(cid){
+    if(cid==null) return;
+    try{
+      if(typeof window._fpRender==='function'){
+        window._fpContactId = cid;
+        window._fpTab = 'conv';
+        window._fpRender();
+        if(typeof window.fpLoadThread==='function') window.fpLoadThread(cid);
+        try{ if(window.history && history.replaceState) history.replaceState(null,'','?c='+cid); }catch(e){}
+        return;
+      }
+    }catch(e){}
+    // Fallback: if the full-profile renderer isn't available, at least open the person.
     try{ if(typeof oP==='function') oP(cid); }catch(e){}
-    setTimeout(function(){
-      try{ window._fpTab='conv'; if(typeof window._fpRender==='function') window._fpRender(); }catch(e){}
-      try{ if(typeof window.fpLoadThread==='function') window.fpLoadThread(cid); }catch(e){}
-    }, 160);
   }
 
   function openItem(k, i){
@@ -8574,8 +8595,9 @@ async function dpDownloadPDF(){
   function tick(){ if(build()){ refresh(); } }
   var t0=0; var iv=setInterval(function(){ if(build()){ if(t0++%2===0) refresh(); } }, 4000);
   setTimeout(tick, 500); setTimeout(tick, 1500);
-  console.log('[v158] notif bar (ding + per-item dismiss + click-to-thread)');
+  console.log('[v158 v4] notif bar: ding + per-item dismiss + click-opens-conversation + clean photo preview');
 })();
+/* end v158 */
 
 </script>
 <script>
