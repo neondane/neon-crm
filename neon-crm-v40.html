@@ -8326,8 +8326,8 @@ async function dpDownloadPDF(){
   var KEY = 'sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ';
   var H   = { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY };
 
-  var LS_SMS = 'ngm_nb_sms_seen';
-  var LS_EM  = 'ngm_nb_em_seen';
+  // high-water "seen" marks (largest id seen) per type — so badges CLEAR on view
+  var LS = { sms:'ngm_nb_sms_seen', email:'ngm_nb_em_seen', rem:'ngm_nb_rem_seen', portal:'ngm_nb_portal_seen' };
 
   function esc(s){
     if (typeof window._fpEsc === 'function') return window._fpEsc(s);
@@ -8335,7 +8335,7 @@ async function dpDownloadPDF(){
   }
   function lsGet(k){ try{ return parseInt(localStorage.getItem(k)||'0',10)||0; }catch(e){ return 0; } }
   function lsSet(k,v){ try{ localStorage.setItem(k,String(v)); }catch(e){} }
-  // safe access to base-app globals living in the shared top-level scope
+  function maxId(arr){ var m=0; (arr||[]).forEach(function(x){ var v=+x.id; if(!isNaN(v)&&v>m) m=v; }); return m; }
   function gArr(name){
     try{
       if(name==='R')       return (typeof R!=='undefined'&&Array.isArray(R))?R:[];
@@ -8358,7 +8358,6 @@ async function dpDownloadPDF(){
                    : dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});
   }
 
-  // ---- type config ----
   var TYPES = [
     {k:'sms',    ic:'\u{1F4AC}', label:'Texts',     color:'#22aee4'},
     {k:'email',  ic:'\u{1F4E7}', label:'Emails',    color:'#7fb0ff'},
@@ -8366,13 +8365,11 @@ async function dpDownloadPDF(){
     {k:'portal', ic:'\u{1F517}', label:'Referrals', color:'#ff6ec7'}
   ];
 
-  // data + counts
   var DATA = { sms:[], email:[], rem:[], portal:[] };
   var NEW  = { sms:0,  email:0,  rem:0,  portal:0 };
   var openKey = null;
 
   async function refresh(){
-    // texts + emails from Supabase (inbound)
     try{
       var rs = await Promise.all([
         fetch(SB+'/rest/v1/sms_messages?direction=eq.in&select=id,contact_id,from_number,body,created_at,received_at&order=id.desc&limit=25',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}),
@@ -8382,11 +8379,9 @@ async function dpDownloadPDF(){
       DATA.email = rs[1]||[];
     }catch(e){}
 
-    var smsSeen = lsGet(LS_SMS), emSeen = lsGet(LS_EM);
-    NEW.sms   = DATA.sms.filter(function(m){ return +m.id > smsSeen; }).length;
-    NEW.email = DATA.email.filter(function(m){ return +m.id > emSeen; }).length;
+    NEW.sms   = DATA.sms.filter(function(m){ return +m.id > lsGet(LS.sms); }).length;
+    NEW.email = DATA.email.filter(function(m){ return +m.id > lsGet(LS.email); }).length;
 
-    // reminders due today/overdue (active, not done)
     var endToday = new Date(); endToday.setHours(23,59,59,999); var endMs = endToday.getTime();
     DATA.rem = gArr('R').filter(function(r){
       if(r.done) return false;
@@ -8396,17 +8391,15 @@ async function dpDownloadPDF(){
       var t=new Date(due).getTime();
       return isNaN(t) ? true : (t <= endMs);
     }).sort(function(a,b){ return new Date(a.due||a.dueDate||0)-new Date(b.due||b.dueDate||0); });
-    NEW.rem = DATA.rem.length;
+    NEW.rem = DATA.rem.filter(function(r){ return +r.id > lsGet(LS.rem); }).length;
 
-    // new portal leads
     DATA.portal = gArr('plLeads').filter(function(l){ return String(l.status||'new').toLowerCase()==='new'; });
-    NEW.portal = DATA.portal.length;
+    NEW.portal = DATA.portal.filter(function(l){ return +l.id > lsGet(LS.portal); }).length;
 
     renderBadges();
-    if(openKey) renderPanel(openKey); // keep open panel fresh
+    if(openKey) renderPanel(openKey);
   }
 
-  // ---- DOM ----
   function bar(){ return document.getElementById('ngNotifBar'); }
   function panel(){ return document.getElementById('ngNbPanel'); }
 
@@ -8414,7 +8407,7 @@ async function dpDownloadPDF(){
     if(document.getElementById('ngNotifBar')) return true;
     var nf = document.querySelector('.nfwrap');
     if(!nf || !nf.parentNode) return false;
-    nf.style.display='none'; // retire old bell
+    nf.style.display='none';
 
     var wrap = document.createElement('div');
     wrap.id='ngNotifBar';
@@ -8432,7 +8425,7 @@ async function dpDownloadPDF(){
             + '</button>';
     });
     wrap.innerHTML = btns
-      + '<div id="ngNbPanel" style="display:none;position:absolute;top:135%;right:0;width:330px;max-height:440px;'
+      + '<div id="ngNbPanel" style="display:none;position:absolute;top:135%;right:0;width:340px;max-height:460px;'
       + 'overflow:auto;background:#0c1626;border:1px solid rgba(127,224,255,0.18);border-radius:14px;'
       + 'box-shadow:0 18px 50px rgba(0,0,0,0.55);z-index:99999;padding:6px"></div>';
 
@@ -8443,7 +8436,6 @@ async function dpDownloadPDF(){
       b.addEventListener('mouseenter', function(){ b.style.background='rgba(255,255,255,0.10)'; });
       b.addEventListener('mouseleave', function(){ b.style.background='rgba(255,255,255,0.04)'; });
     });
-    // outside click closes
     document.addEventListener('click', function(ev){
       var w=bar(); if(!w) return;
       if(openKey && !w.contains(ev.target)) close();
@@ -8470,6 +8462,11 @@ async function dpDownloadPDF(){
     else if(t.k==='rem'){ cid=it.contactId; title=it.title||it.note||it.what||it.text||'Reminder'; sub=contactName(cid); when=fmtTime(it.due||it.dueDate); }
     else if(t.k==='portal'){ cid=it.contactId; title=it.name||it.customerName||it.customer||it.fullName||'New portal lead'; sub=(it.realtor||it.referrer||'')+''; when=fmtTime(it.submittedAt||it.created_at); }
     sub=String(sub).replace(/\s+/g,' ').slice(0,46);
+    var doneBtn = (t.k==='rem')
+      ? '<button class="ng-nb-done" data-i="'+idx+'" title="Mark done" '
+        + 'style="flex:0 0 auto;align-self:center;background:rgba(51,204,102,0.14);border:1px solid #33cc66;color:#7CFFB0;'
+        + 'border-radius:7px;width:26px;height:26px;cursor:pointer;font-size:13px;font-weight:700;line-height:1">✓</button>'
+      : '';
     return '<div class="ng-nb-row" data-k="'+t.k+'" data-i="'+idx+'" '
       + 'style="display:flex;gap:9px;align-items:flex-start;padding:9px 10px;border-radius:9px;cursor:pointer">'
       + '<span style="font-size:15px;line-height:1.3">'+t.ic+'</span>'
@@ -8477,7 +8474,8 @@ async function dpDownloadPDF(){
       +   '<div style="font-size:12.5px;font-weight:700;color:#eaf6ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(title)+'</div>'
       +   (sub?'<div style="font-size:11px;color:#9fb3c8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(sub)+'</div>':'')
       + '</div>'
-      + (when?'<span style="font-size:10px;color:#6f8298;white-space:nowrap">'+esc(when)+'</span>':'')
+      + (when?'<span style="font-size:10px;color:#6f8298;white-space:nowrap;align-self:center">'+esc(when)+'</span>':'')
+      + doneBtn
       + '</div>';
   }
 
@@ -8485,10 +8483,11 @@ async function dpDownloadPDF(){
     var p=panel(); if(!p) return;
     var t=null; TYPES.forEach(function(x){ if(x.k===k) t=x; });
     var list=DATA[k]||[];
+    var hint = (k==='rem') ? '<span style="font-size:10px;color:#6f8298">tap ✓ to clear</span>'
+             : (list.length?'<span style="font-size:10px;color:#6f8298">'+list.length+'</span>':'');
     var head='<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px 9px">'
       + '<span style="font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:'+t.color+'">'+t.ic+' '+t.label+'</span>'
-      + (list.length?'<span style="font-size:10px;color:#6f8298">'+list.length+'</span>':'')
-      + '</div>';
+      + hint + '</div>';
     var body='';
     if(!list.length){
       body='<div style="padding:22px 10px;text-align:center;color:#6f8298;font-size:12px">Nothing new</div>';
@@ -8496,6 +8495,9 @@ async function dpDownloadPDF(){
       list.slice(0,15).forEach(function(it,i){ body+=rowHTML(t,it,i); });
     }
     p.innerHTML = head + body;
+    p.querySelectorAll('.ng-nb-done').forEach(function(btn){
+      btn.addEventListener('click', function(ev){ ev.stopPropagation(); completeRem(+btn.getAttribute('data-i')); });
+    });
     p.querySelectorAll('.ng-nb-row').forEach(function(row){
       row.addEventListener('mouseenter', function(){ row.style.background='rgba(127,224,255,0.08)'; });
       row.addEventListener('mouseleave', function(){ row.style.background='transparent'; });
@@ -8509,40 +8511,51 @@ async function dpDownloadPDF(){
   function toggle(k){
     if(openKey===k){ close(); return; }
     openKey=k;
-    // mark texts/emails seen on open
-    if(k==='sms' && DATA.sms.length){ lsSet(LS_SMS, +DATA.sms[0].id); NEW.sms=0; }
-    if(k==='email' && DATA.email.length){ lsSet(LS_EM, +DATA.email[0].id); NEW.email=0; }
+    // opening a category marks it "seen" -> badge clears
+    if(k==='sms'    && DATA.sms.length)    { lsSet(LS.sms,    +DATA.sms[0].id);   NEW.sms=0; }
+    if(k==='email'  && DATA.email.length)  { lsSet(LS.email,  +DATA.email[0].id); NEW.email=0; }
+    if(k==='rem'    && DATA.rem.length)    { lsSet(LS.rem,    maxId(DATA.rem));    NEW.rem=0; }
+    if(k==='portal' && DATA.portal.length) { lsSet(LS.portal, maxId(DATA.portal)); NEW.portal=0; }
     renderBadges();
     renderPanel(k);
     var p=panel(); if(p) p.style.display='block';
   }
   function close(){ openKey=null; var p=panel(); if(p) p.style.display='none'; }
 
+  // mark a reminder done straight from the dropdown
+  function completeRem(i){
+    var it=(DATA.rem||[])[i]; if(!it || it.id==null) return;
+    DATA.rem.splice(i,1);            // optimistic remove
+    renderPanel('rem'); renderBadges();
+    try{
+      if(typeof compRem==='function'){ compRem(it.id); }              // base: updateReminder->completed + reload
+      else if(typeof aP==='function'){ aP({action:'updateReminder',reminder:{id:it.id,status:'completed'}}); }
+    }catch(e){}
+  }
+
   function openItem(k, i){
     var it=(DATA[k]||[])[i]; if(!it) return;
     close();
     try{
       if(k==='sms' || k==='email'){
-        var cid = it.contact_id;
-        if(cid!=null && typeof oP==='function'){ oP(cid); return; }
+        if(it.contact_id!=null && typeof oP==='function'){ oP(it.contact_id); return; }
       } else if(k==='rem'){
-        if(it.contactId!=null && typeof oP==='function'){ oP(it.contactId); return; }
-        var rb=document.querySelector('[data-tab="r"]'); if(rb && typeof sT==='function'){ sT('r', rb); return; }
+        // go to the Reminders tab where they can be managed/cleared
+        var rb=document.querySelector('.navitem[data-tab="r"]')||document.querySelector('[data-tab="r"]');
+        if(typeof sT==='function'){ sT('r', rb||null); return; }
       } else if(k==='portal'){
         var pb=document.querySelector('[data-tab="pl"]');
-        if(pb && typeof sT==='function'){ sT('pl', pb); return; }  // synchronous: passes v153 click-recency guard
+        if(pb && typeof sT==='function'){ sT('pl', pb); return; }
       }
     }catch(e){}
   }
 
-  // ---- boot ----
   function tick(){ if(build()){ refresh(); } }
-  // try to build promptly, then keep badges fresh + re-inject if header re-renders
   var t0=0; var iv=setInterval(function(){ if(build()){ if(t0++%2===0) refresh(); } }, 4000);
   setTimeout(tick, 500);
   setTimeout(tick, 1500);
 
-  console.log('[v158] notification bar active');
+  console.log('[v158] notification bar active (seen-clears-all + reminder done)');
 })();
 
 </script>
