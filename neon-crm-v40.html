@@ -8962,5 +8962,92 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v162-tremendous-pay*/
+(function(){
+  'use strict';
+  if (window.__v162) return;
+  window.__v162 = true;
+
+  // Wire the Payouts Due view to actually SEND the gift card via Tremendous.
+  // The base UI only had "Mark paid" (local bookkeeping). We add a "💳 Send $X"
+  // button beside each unpaid payout that calls /api/sendPayout (which holds the
+  // Tremendous production key in the Pages env), then marks it paid on success.
+
+  var ENDPOINT = 'https://refer.neongiantmoving.com/api/sendPayout';
+
+  function toast(m,k){ if(typeof tt==='function'){ try{ tt(m,k||'ok'); }catch(e){} } }
+
+  function items(){ try{ return (typeof _poItems==='function')? (_poItems()||[]) : []; }catch(e){ return []; } }
+  function contacts(){ try{ return (typeof D!=='undefined'&&Array.isArray(D))?D:[]; }catch(e){ return []; } }
+
+  function resolveEmail(it){
+    var d=contacts(), c=null;
+    // match by realtor contact id first, then by name
+    c = d.find(function(x){ return String(x.id)===String(it.partnerId) || (+x.id===+it.partnerId); });
+    if(!c && it.partner){ c = d.find(function(x){ return (x.name||'')===it.partner || (x.company||'')===it.partner; }); }
+    return (c && c.email) || '';
+  }
+
+  window.ngPayGiftCard = async function(key){
+    var it = items().find(function(x){ return x.key===key; });
+    if(!it){ toast('Payout item not found','er'); return; }
+    if(it.paid){ toast('Already paid','ok'); return; }
+    var email = resolveEmail(it);
+    if(!email){
+      alert('No email on file for '+(it.partner||'this partner')+'.\n\nAdd an email to their contact, then try again.');
+      return;
+    }
+    if(!confirm('Send a $'+it.amount+' gift card to '+it.partner+' ('+email+')?\n\nThis sends REAL money via Tremendous.')) return;
+    toast('Sending $'+it.amount+' gift card…','ok');
+    try{
+      var r = await fetch(ENDPOINT, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          leadId: it.id, realtorName: it.partner, realtorEmail: email,
+          amount: it.amount, customerName: it.customer || ''
+        })
+      });
+      var j = await r.json().catch(function(){ return {}; });
+      if(j && j.ok){
+        toast('💳 $'+it.amount+' sent to '+it.partner+(j.env==='test'?' [TEST]':''),'ok');
+        if(typeof poMarkPaid==='function') poMarkPaid(key);   // mark paid + re-render
+      } else if(j && j.configured===false){
+        alert('Tremendous isn’t live yet — the API key isn’t loaded. (Redeploy the portal after setting the key.)');
+      } else {
+        var err = (j && (j.error || (j.details && JSON.stringify(j.details)))) || ('HTTP '+r.status);
+        toast('Payout failed: '+err,'er');
+        console.warn('[v162] sendPayout failed', j);
+      }
+    }catch(e){ toast('Payout error: '+(e.message||e),'er'); }
+  };
+
+  // Inject a "Send" button next to each unpaid "Mark paid" button whenever the
+  // Payouts view is on screen.
+  function decorate(){
+    var btns = document.querySelectorAll('button[onclick*="poMarkPaid("]');
+    btns.forEach(function(b){
+      if(b.__v162) return; b.__v162 = true;
+      var m = (b.getAttribute('onclick')||'').match(/poMarkPaid\('([^']+)'\)/);
+      if(!m) return;
+      var key = m[1];
+      var it = items().find(function(x){ return x.key===key; });
+      var amt = it ? it.amount : 50;
+      var send = document.createElement('button');
+      send.textContent = '💳 Send $'+amt;
+      send.title = 'Send the gift card now via Tremendous';
+      send.style.cssText = 'background:linear-gradient(135deg,#ff6ec7,#a06bff);color:#fff;border:none;border-radius:5px;'
+        + 'padding:6px 11px;font-size:11px;cursor:pointer;flex-shrink:0;white-space:nowrap;margin-right:6px;font-weight:700';
+      send.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); window.ngPayGiftCard(key); });
+      if(b.parentNode) b.parentNode.insertBefore(send, b);
+    });
+  }
+  setInterval(decorate, 1200);
+  setTimeout(decorate, 600);
+
+  console.log('[v162] tremendous pay button active');
+})();
+
+</script>
 </body>
 </html>
