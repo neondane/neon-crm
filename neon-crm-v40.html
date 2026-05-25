@@ -9142,5 +9142,69 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v164-neon-icons*/
+(function(){
+  'use strict';
+  if (window.__v164) return;
+  window.__v164 = true;
+
+  // Neon Giant icon system: gradient-stroked SVG line icons with a glow halo,
+  // hover lift, and a pulsing active tab. Replaces the plain glyph nav icons.
+
+  // 1) shared gradient def (kept referenceable; NOT display:none which can break url() refs)
+  if (!document.getElementById('ngIconDefs')) {
+    var dd = document.createElement('div');
+    dd.id = 'ngIconDefs';
+    dd.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none';
+    dd.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true">'
+      + '<defs><linearGradient id="ngGrad" x1="0" y1="0" x2="1" y2="1">'
+      + '<stop offset="0%" stop-color="#22e6ff"/><stop offset="52%" stop-color="#8a5bff"/><stop offset="100%" stop-color="#ff4ddb"/>'
+      + '</linearGradient></defs></svg>';
+    document.body.appendChild(dd);
+  }
+
+  // 2) styles
+  if (!document.getElementById('ngIconCss')) {
+    var st = document.createElement('style');
+    st.id = 'ngIconCss';
+    st.textContent = ''
+      + '.navitem .ni-ic{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px}'
+      + '.navitem .ng-ic{width:22px;height:22px;fill:none;stroke:url(#ngGrad);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;'
+      + 'filter:drop-shadow(0 0 3px rgba(34,230,255,.55));transition:transform .18s cubic-bezier(.34,1.56,.64,1),filter .18s ease}'
+      + '.navitem:hover .ng-ic{transform:scale(1.18) rotate(-4deg);filter:drop-shadow(0 0 6px rgba(34,230,255,.85)) drop-shadow(0 0 11px rgba(255,77,219,.6))}'
+      + '.navitem.on .ng-ic{animation:ngIconPulse 2.4s ease-in-out infinite}'
+      + '@keyframes ngIconPulse{0%,100%{filter:drop-shadow(0 0 5px rgba(34,230,255,.85)) drop-shadow(0 0 9px rgba(255,77,219,.5))}'
+      + '50%{filter:drop-shadow(0 0 10px rgba(34,230,255,1)) drop-shadow(0 0 18px rgba(255,77,219,.85))}}';
+    document.head.appendChild(st);
+  }
+
+  // 3) icon paths per tab (24x24, line style)
+  var ICONS = {
+    d:  '<rect x="3" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"/>',
+    m:  '<path d="M12 22s7-7.6 7-12.4A7 7 0 0 0 5 9.6C5 14.4 12 22 12 22z"/><circle cx="12" cy="9.6" r="2.6"/>',
+    r:  '<path d="M18 8.5a6 6 0 1 0-12 0c0 6.5-3 8.5-3 8.5h18s-3-2-3-8.5"/><path d="M13.8 21a2 2 0 0 1-3.6 0"/>',
+    ix: '<polyline points="21 13 15.5 13 13.5 16 10.5 16 8.5 13 3 13"/><path d="M6 5h12l3 8v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4z"/>',
+    dp: '<polygon points="13 2 4 14 11.5 14 10.5 22 20 9.5 12.5 9.5 13 2"/>',
+    tl: '<polygon points="12 2.5 15 8.6 21.7 9.6 16.8 14.3 18 21 12 17.8 6 21 7.2 14.3 2.3 9.6 9 8.6 12 2.5"/>',
+    pl: '<path d="M9.5 13.5a4.5 4.5 0 0 0 6.8.5l2.7-2.7a4.5 4.5 0 1 0-6.4-6.4l-1.5 1.5"/><path d="M14.5 10.5a4.5 4.5 0 0 0-6.8-.5L5 12.7a4.5 4.5 0 1 0 6.4 6.4l1.5-1.5"/>',
+    cal:'<rect x="3" y="4.5" width="18" height="16.5" rx="2.2"/><line x1="16" y1="2.5" x2="16" y2="7"/><line x1="8" y1="2.5" x2="8" y2="7"/><line x1="3" y1="10" x2="21" y2="10"/>'
+  };
+  function svgFor(inner){ return '<svg class="ng-ic" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">'+inner+'</svg>'; }
+
+  function apply(){
+    document.querySelectorAll('.navitem[data-tab]').forEach(function(nv){
+      var t = nv.getAttribute('data-tab'); var ic = ICONS[t]; if (!ic) return;
+      var span = nv.querySelector('.ni-ic'); if (!span) return;
+      if (span.getAttribute('data-ng') === '1') return;
+      span.innerHTML = svgFor(ic); span.setAttribute('data-ng', '1');
+    });
+  }
+  apply();
+  var n=0, iv=setInterval(function(){ apply(); if (++n>20) clearInterval(iv); }, 400);
+  console.log('[v164] neon nav icons active');
+})();
+
+</script>
 </body>
 </html>
