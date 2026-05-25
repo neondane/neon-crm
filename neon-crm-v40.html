@@ -9069,5 +9069,78 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v163-payout-history*/
+(function(){
+  'use strict';
+  if (window.__v163) return;
+  window.__v163 = true;
+
+  // Shows a durable, authoritative "Payments sent" list pulled straight from
+  // Tremendous (every gift card actually sent), at the bottom of the Payouts view.
+
+  var HIST = 'https://refer.neongiantmoving.com/api/payoutHistory';
+  var cache = null, fetched = false;
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function fmtDate(d){ try{ return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }catch(e){ return ''; } }
+
+  function listHTML(list){
+    if(!list || !list.length) return '<div style="padding:10px;color:#6f8298;font-size:12px">No gift cards sent yet.</div>';
+    var h='';
+    list.forEach(function(p){
+      var st=(p.status||'').toUpperCase();
+      var col = /SUCC|REDEEM|DELIVER/.test(st)?'#33cc66' : (/FAIL|CANCEL|ERROR/.test(st)?'#ff6b81':'#caa6ff');
+      h+='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--d2,#0a1428);border:1px solid var(--bd,#1f3a5a);border-radius:8px;padding:9px 11px;margin-bottom:6px">'
+        +'<div style="min-width:0"><div style="color:#eaf6ff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.name||p.email||'—')+'</div>'
+        +'<div style="color:#6f8298;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.email||'')+' · '+fmtDate(p.date)+'</div></div>'
+        +'<div style="text-align:right;flex-shrink:0"><div style="color:#7fe0ff;font-weight:800">$'+(p.amount!=null?p.amount:'?')+'</div>'
+        +'<div style="font-size:9px;color:'+col+';font-weight:700">'+esc(st)+'</div></div></div>';
+    });
+    return h;
+  }
+
+  function load(){
+    if (fetched) return;
+    fetched = true;
+    fetch(HIST, { cache:'no-store' }).then(function(r){ return r.json(); }).then(function(j){
+      cache = (j && j.payouts) || [];
+      var el = document.getElementById('ngPaySentList'); if (el) el.innerHTML = listHTML(cache);
+    }).catch(function(){ cache = []; var el=document.getElementById('ngPaySentList'); if(el) el.innerHTML=listHTML([]); });
+  }
+
+  function render(){
+    if (typeof tb === 'undefined' || tb !== 'pl') return;
+    if (typeof plView === 'undefined' || plView !== 'payouts') return;
+    var mc = document.getElementById('mc'); if (!mc) return;
+    if (document.getElementById('ngPaySent')) return;       // already on this render
+    var box = document.createElement('div');
+    box.id = 'ngPaySent';
+    box.style.cssText = 'margin-top:20px';
+    box.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+      + '<span style="font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#7CFFB0">✅ Payments sent</span>'
+      + '<button id="ngPaySentRefresh" style="background:var(--d3,#1a2a44);color:#9fe;border:1px solid var(--bd,#2a3f5a);border-radius:5px;padding:3px 9px;font-size:10px;cursor:pointer">↻ Refresh</button>'
+      + '</div>'
+      + '<div id="ngPaySentList">' + (cache ? listHTML(cache) : '<div style="padding:10px;color:#6f8298;font-size:12px">Loading…</div>') + '</div>';
+    mc.appendChild(box);
+    var rb = document.getElementById('ngPaySentRefresh');
+    if (rb) rb.addEventListener('click', function(e){ e.preventDefault(); fetched=false; cache=null; var el=document.getElementById('ngPaySentList'); if(el) el.innerHTML='<div style="padding:10px;color:#6f8298;font-size:12px">Loading…</div>'; load(); });
+    if (!cache) load();
+  }
+
+  function installHook(){
+    if (typeof window.ren !== 'function' || window.ren.__v163) return false;
+    var orig = window.ren;
+    var w = function(){ var r = orig.apply(this, arguments); try { render(); } catch(e){} return r; };
+    w.__v163 = true; window.ren = w; return true;
+  }
+  if (!installHook()) { var t=0, iv=setInterval(function(){ if (installHook() || ++t>40) clearInterval(iv); }, 250); }
+  setInterval(render, 1500);
+  setTimeout(render, 800);
+
+  console.log('[v163] payment history panel active');
+})();
+
+</script>
 </body>
 </html>
