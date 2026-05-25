@@ -9206,5 +9206,66 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v165-neon-icons-everywhere*/
+(function(){
+  'use strict';
+  if (window.__v165) return;
+  window.__v165 = true;
+
+  // Extends the v164 neon icon system to the top notification bar + the FAB.
+  // Reuses the #ngGrad gradient and .ng-ic styling injected by v164.
+
+  if (!document.getElementById('ngIcon165Css')) {
+    var st = document.createElement('style');
+    st.id = 'ngIcon165Css';
+    st.textContent = ''
+      + '.ng-nb-ic .ng-ic{width:18px;height:18px}'
+      + '.ng-nb-ic:hover .ng-ic{transform:scale(1.15);filter:drop-shadow(0 0 6px rgba(34,230,255,.85)) drop-shadow(0 0 10px rgba(255,77,219,.6))}'
+      + '#ngFabNeon{background:linear-gradient(135deg,#22e6ff,#8a5bff 55%,#ff4ddb) !important;'
+      + 'box-shadow:0 0 14px rgba(34,230,255,.6),0 0 26px rgba(255,77,219,.45) !important;border:none !important;'
+      + 'transition:transform .18s cubic-bezier(.34,1.56,.64,1),box-shadow .2s ease !important}'
+      + '#ngFabNeon:hover{transform:scale(1.1) rotate(90deg);box-shadow:0 0 20px rgba(34,230,255,.85),0 0 38px rgba(255,77,219,.7) !important}';
+    document.head.appendChild(st);
+  }
+
+  var NB = {
+    sms:    '<path d="M21 11.5a8.4 8.4 0 0 1-9 8.3 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.2A8.4 8.4 0 0 1 12 3.1a8.4 8.4 0 0 1 9 8.4z"/>',
+    email:  '<rect x="3" y="5" width="18" height="14" rx="2.2"/><polyline points="3.5 7 12 13 20.5 7"/>',
+    rem:    '<path d="M18 8.5a6 6 0 1 0-12 0c0 6.5-3 8.5-3 8.5h18s-3-2-3-8.5"/><path d="M13.8 21a2 2 0 0 1-3.6 0"/>',
+    portal: '<path d="M9.5 13.5a4.5 4.5 0 0 0 6.8.5l2.7-2.7a4.5 4.5 0 1 0-6.4-6.4l-1.5 1.5"/><path d="M14.5 10.5a4.5 4.5 0 0 0-6.8-.5L5 12.7a4.5 4.5 0 1 0 6.4 6.4l1.5-1.5"/>'
+  };
+  function svgFor(inner){ return '<svg class="ng-ic" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">'+inner+'</svg>'; }
+
+  function applyNotifBar(){
+    document.querySelectorAll('#ngNotifBar .ng-nb-ic[data-k]').forEach(function(b){
+      if (b.getAttribute('data-ng') === '1') return;
+      var k = b.getAttribute('data-k'); var ic = NB[k]; if (!ic) return;
+      var badge = b.querySelector('.ng-nb-badge');   // preserve the live badge node
+      b.innerHTML = svgFor(ic);
+      if (badge) b.appendChild(badge);
+      b.setAttribute('data-ng', '1');
+    });
+  }
+
+  function applyFab(){
+    if (document.getElementById('ngFabNeon')) return;
+    var nodes = document.querySelectorAll('button, a, div');
+    for (var i=0;i<nodes.length;i++){
+      var el = nodes[i];
+      var t = (el.textContent||'').trim();
+      if (t !== '+' && t !== '＋') continue;
+      var cs = getComputedStyle(el);
+      if (cs.position === 'fixed') { el.id = 'ngFabNeon'; break; }
+    }
+  }
+
+  function apply(){ try{ applyNotifBar(); }catch(e){} try{ applyFab(); }catch(e){} }
+  apply();
+  var n=0, iv=setInterval(function(){ apply(); if (++n>25) clearInterval(iv); }, 500);
+  console.log('[v165] neon icons extended to notif bar + FAB');
+})();
+
+</script>
 </body>
 </html>
