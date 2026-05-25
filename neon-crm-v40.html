@@ -9053,10 +9053,19 @@ async function dpDownloadPDF(){
       if(b.parentNode) b.parentNode.insertBefore(send, b);
     });
   }
-  setInterval(decorate, 1200);
-  setTimeout(decorate, 600);
+  // Run decorate synchronously right after every render so the Send button is
+  // injected before paint (no flash when toggling "Show already paid").
+  function installRenHook(){
+    if (typeof window.ren !== 'function' || window.ren.__v162ren) return false;
+    var orig = window.ren;
+    var w = function(){ var r = orig.apply(this, arguments); try { decorate(); } catch(e){} return r; };
+    w.__v162ren = true; window.ren = w; return true;
+  }
+  if (!installRenHook()) { var rt=0, riv=setInterval(function(){ if (installRenHook() || ++rt>40) clearInterval(riv); }, 250); }
+  setInterval(decorate, 1500);   // backstop only
+  setTimeout(decorate, 500);
 
-  console.log('[v162] tremendous pay button active (single-fire guarded)');
+  console.log('[v162] tremendous pay button active (single-fire + render-hook)');
 })();
 
 </script>
