@@ -8326,8 +8326,10 @@ async function dpDownloadPDF(){
   var KEY = 'sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ';
   var H   = { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY };
 
-  // high-water "seen" marks (largest id seen) per type — so badges CLEAR on view
-  var LS = { sms:'ngm_nb_sms_seen', email:'ngm_nb_em_seen', rem:'ngm_nb_rem_seen', portal:'ngm_nb_portal_seen' };
+  // sms/email use a per-item dismissed-id set (so each notif can be cleared);
+  // rem/portal use a high-water "seen" (badge clears when the dropdown opens).
+  var LS = { rem:'ngm_nb_rem_seen', portal:'ngm_nb_portal_seen' };
+  var DISMISS = { sms:'ngm_nb_sms_dismiss', email:'ngm_nb_em_dismiss' };
 
   function esc(s){
     if (typeof window._fpEsc === 'function') return window._fpEsc(s);
@@ -8335,7 +8337,11 @@ async function dpDownloadPDF(){
   }
   function lsGet(k){ try{ return parseInt(localStorage.getItem(k)||'0',10)||0; }catch(e){ return 0; } }
   function lsSet(k,v){ try{ localStorage.setItem(k,String(v)); }catch(e){} }
+  function lsArr(k){ try{ var a=JSON.parse(localStorage.getItem(k)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+  function lsArrSet(k,a){ try{ localStorage.setItem(k, JSON.stringify(a.slice(-800))); }catch(e){} }
   function maxId(arr){ var m=0; (arr||[]).forEach(function(x){ var v=+x.id; if(!isNaN(v)&&v>m) m=v; }); return m; }
+  function isDismissed(k,id){ return lsArr(DISMISS[k]).indexOf(+id) >= 0; }
+  function dismiss(k,id){ var a=lsArr(DISMISS[k]); if(a.indexOf(+id)<0){ a.push(+id); lsArrSet(DISMISS[k],a); } }
   function gArr(name){
     try{
       if(name==='R')       return (typeof R!=='undefined'&&Array.isArray(R))?R:[];
@@ -8358,6 +8364,22 @@ async function dpDownloadPDF(){
                    : dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});
   }
 
+  // ---- audible ding ----
+  var actx=null;
+  function unlockAudio(){ try{ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended') actx.resume(); }catch(e){} }
+  document.addEventListener('click', unlockAudio);
+  document.addEventListener('keydown', unlockAudio);
+  function ding(){
+    if(!actx) return;
+    try{
+      var t=actx.currentTime, o=actx.createOscillator(), g=actx.createGain();
+      o.connect(g); g.connect(actx.destination); o.type='sine';
+      o.frequency.setValueAtTime(880,t); o.frequency.setValueAtTime(1174.7,t+0.09);
+      g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.22,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+0.5);
+      o.start(t); o.stop(t+0.52);
+    }catch(e){}
+  }
+
   var TYPES = [
     {k:'sms',    ic:'\u{1F4AC}', label:'Texts',     color:'#22aee4'},
     {k:'email',  ic:'\u{1F4E7}', label:'Emails',    color:'#7fb0ff'},
@@ -8369,6 +8391,17 @@ async function dpDownloadPDF(){
   var NEW  = { sms:0,  email:0,  rem:0,  portal:0 };
   var openKey = null;
 
+  function visible(k){
+    if(k==='sms'||k==='email') return (DATA[k]||[]).filter(function(m){ return !isDismissed(k, m.id); });
+    return DATA[k]||[];
+  }
+  function recount(){
+    NEW.sms   = visible('sms').length;
+    NEW.email = visible('email').length;
+    NEW.rem   = (DATA.rem||[]).filter(function(r){ return +r.id > lsGet(LS.rem); }).length;
+    NEW.portal= (DATA.portal||[]).filter(function(l){ return +l.id > lsGet(LS.portal); }).length;
+  }
+
   async function refresh(){
     try{
       var rs = await Promise.all([
@@ -8379,9 +8412,6 @@ async function dpDownloadPDF(){
       DATA.email = rs[1]||[];
     }catch(e){}
 
-    NEW.sms   = DATA.sms.filter(function(m){ return +m.id > lsGet(LS.sms); }).length;
-    NEW.email = DATA.email.filter(function(m){ return +m.id > lsGet(LS.email); }).length;
-
     var endToday = new Date(); endToday.setHours(23,59,59,999); var endMs = endToday.getTime();
     DATA.rem = gArr('R').filter(function(r){
       if(r.done) return false;
@@ -8391,10 +8421,13 @@ async function dpDownloadPDF(){
       var t=new Date(due).getTime();
       return isNaN(t) ? true : (t <= endMs);
     }).sort(function(a,b){ return new Date(a.due||a.dueDate||0)-new Date(b.due||b.dueDate||0); });
-    NEW.rem = DATA.rem.filter(function(r){ return +r.id > lsGet(LS.rem); }).length;
-
     DATA.portal = gArr('plLeads').filter(function(l){ return String(l.status||'new').toLowerCase()==='new'; });
-    NEW.portal = DATA.portal.filter(function(l){ return +l.id > lsGet(LS.portal); }).length;
+
+    recount();
+    // ding when new arrivals show up (texts / emails / leads — not time-based reminders)
+    var arrivals = NEW.sms + NEW.email + NEW.portal;
+    if(window.__nbPrev != null && arrivals > window.__nbPrev) ding();
+    window.__nbPrev = arrivals;
 
     renderBadges();
     if(openKey) renderPanel(openKey);
@@ -8408,7 +8441,6 @@ async function dpDownloadPDF(){
     var nf = document.querySelector('.nfwrap');
     if(!nf || !nf.parentNode) return false;
     nf.style.display='none';
-
     var wrap = document.createElement('div');
     wrap.id='ngNotifBar';
     wrap.style.cssText='position:relative;display:inline-flex;align-items:center;gap:4px;vertical-align:middle';
@@ -8428,18 +8460,13 @@ async function dpDownloadPDF(){
       + '<div id="ngNbPanel" style="display:none;position:absolute;top:135%;right:0;width:340px;max-height:460px;'
       + 'overflow:auto;background:#0c1626;border:1px solid rgba(127,224,255,0.18);border-radius:14px;'
       + 'box-shadow:0 18px 50px rgba(0,0,0,0.55);z-index:99999;padding:6px"></div>';
-
     nf.parentNode.insertBefore(wrap, nf);
-
     wrap.querySelectorAll('.ng-nb-ic').forEach(function(b){
-      b.addEventListener('click', function(ev){ ev.stopPropagation(); toggle(b.getAttribute('data-k')); });
+      b.addEventListener('click', function(ev){ ev.stopPropagation(); unlockAudio(); toggle(b.getAttribute('data-k')); });
       b.addEventListener('mouseenter', function(){ b.style.background='rgba(255,255,255,0.10)'; });
       b.addEventListener('mouseleave', function(){ b.style.background='rgba(255,255,255,0.04)'; });
     });
-    document.addEventListener('click', function(ev){
-      var w=bar(); if(!w) return;
-      if(openKey && !w.contains(ev.target)) close();
-    });
+    document.addEventListener('click', function(ev){ var w=bar(); if(!w) return; if(openKey && !w.contains(ev.target)) close(); });
     renderBadges();
     return true;
   }
@@ -8456,106 +8483,98 @@ async function dpDownloadPDF(){
   }
 
   function rowHTML(t, it, idx){
-    var title='', sub='', when='', cid=null;
-    if(t.k==='sms'){ cid=it.contact_id; title=contactName(cid)||it.from_number||'Unknown'; sub=it.body||''; when=fmtTime(it.received_at||it.created_at); }
-    else if(t.k==='email'){ cid=it.contact_id; title=contactName(cid)||it.from_email||'Unknown'; sub=it.subject||it.body||''; when=fmtTime(it.received_at||it.created_at); }
-    else if(t.k==='rem'){ cid=it.contactId; title=it.title||it.note||it.what||it.text||'Reminder'; sub=contactName(cid); when=fmtTime(it.due||it.dueDate); }
-    else if(t.k==='portal'){ cid=it.contactId; title=it.name||it.customerName||it.customer||it.fullName||'New portal lead'; sub=(it.realtor||it.referrer||'')+''; when=fmtTime(it.submittedAt||it.created_at); }
-    sub=String(sub).replace(/\s+/g,' ').slice(0,46);
-    var doneBtn = (t.k==='rem')
-      ? '<button class="ng-nb-done" data-i="'+idx+'" title="Mark done" '
-        + 'style="flex:0 0 auto;align-self:center;background:rgba(51,204,102,0.14);border:1px solid #33cc66;color:#7CFFB0;'
-        + 'border-radius:7px;width:26px;height:26px;cursor:pointer;font-size:13px;font-weight:700;line-height:1">✓</button>'
-      : '';
-    return '<div class="ng-nb-row" data-k="'+t.k+'" data-i="'+idx+'" '
-      + 'style="display:flex;gap:9px;align-items:flex-start;padding:9px 10px;border-radius:9px;cursor:pointer">'
+    var title='', sub='', when='';
+    if(t.k==='sms'){ title=contactName(it.contact_id)||it.from_number||'Unknown'; sub=it.body||''; when=fmtTime(it.received_at||it.created_at); }
+    else if(t.k==='email'){ title=contactName(it.contact_id)||it.from_email||'Unknown'; sub=it.subject||it.body||''; when=fmtTime(it.received_at||it.created_at); }
+    else if(t.k==='rem'){ title=it.title||it.note||it.what||it.text||'Reminder'; sub=contactName(it.contactId); when=fmtTime(it.due||it.dueDate); }
+    else if(t.k==='portal'){ title=it.name||it.customerName||it.customer||it.fullName||'New portal lead'; sub=(it.realtor||it.referrer||'')+''; when=fmtTime(it.submittedAt||it.created_at); }
+    sub=String(sub).replace(/\s+/g,' ').slice(0,42);
+    var act='';
+    if(t.k==='rem') act='<button class="ng-nb-done" data-i="'+idx+'" title="Mark done" style="flex:0 0 auto;align-self:center;background:rgba(51,204,102,0.14);border:1px solid #33cc66;color:#7CFFB0;border-radius:7px;width:26px;height:26px;cursor:pointer;font-size:13px;font-weight:700;line-height:1">✓</button>';
+    else if(t.k==='sms'||t.k==='email') act='<button class="ng-nb-dismiss" data-i="'+idx+'" title="Dismiss" style="flex:0 0 auto;align-self:center;background:rgba(255,107,129,0.12);border:1px solid rgba(255,107,129,0.5);color:#ff9aa8;border-radius:7px;width:24px;height:24px;cursor:pointer;font-size:12px;font-weight:700;line-height:1">✕</button>';
+    return '<div class="ng-nb-row" data-k="'+t.k+'" data-i="'+idx+'" style="display:flex;gap:9px;align-items:flex-start;padding:9px 10px;border-radius:9px;cursor:pointer">'
       + '<span style="font-size:15px;line-height:1.3">'+t.ic+'</span>'
       + '<div style="flex:1;min-width:0">'
       +   '<div style="font-size:12.5px;font-weight:700;color:#eaf6ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(title)+'</div>'
       +   (sub?'<div style="font-size:11px;color:#9fb3c8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(sub)+'</div>':'')
       + '</div>'
       + (when?'<span style="font-size:10px;color:#6f8298;white-space:nowrap;align-self:center">'+esc(when)+'</span>':'')
-      + doneBtn
-      + '</div>';
+      + act + '</div>';
   }
 
   function renderPanel(k){
     var p=panel(); if(!p) return;
     var t=null; TYPES.forEach(function(x){ if(x.k===k) t=x; });
-    var list=DATA[k]||[];
+    var list=visible(k);
     var hint = (k==='rem') ? '<span style="font-size:10px;color:#6f8298">tap ✓ to clear</span>'
-             : (list.length?'<span style="font-size:10px;color:#6f8298">'+list.length+'</span>':'');
+      : ((k==='sms'||k==='email') && list.length ? '<button id="ngNbClearAll" style="background:none;border:none;color:#7fd0ff;font-size:10px;cursor:pointer;text-decoration:underline">Clear all</button>'
+      : (list.length?'<span style="font-size:10px;color:#6f8298">'+list.length+'</span>':''));
     var head='<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px 9px">'
-      + '<span style="font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:'+t.color+'">'+t.ic+' '+t.label+'</span>'
-      + hint + '</div>';
+      + '<span style="font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:'+t.color+'">'+t.ic+' '+t.label+'</span>'+hint+'</div>';
     var body='';
-    if(!list.length){
-      body='<div style="padding:22px 10px;text-align:center;color:#6f8298;font-size:12px">Nothing new</div>';
-    } else {
-      list.slice(0,15).forEach(function(it,i){ body+=rowHTML(t,it,i); });
-    }
+    if(!list.length) body='<div style="padding:22px 10px;text-align:center;color:#6f8298;font-size:12px">Nothing new</div>';
+    else list.slice(0,15).forEach(function(it,i){ body+=rowHTML(t,it,i); });
     p.innerHTML = head + body;
-    p.querySelectorAll('.ng-nb-done').forEach(function(btn){
-      btn.addEventListener('click', function(ev){ ev.stopPropagation(); completeRem(+btn.getAttribute('data-i')); });
-    });
+
+    var clr=document.getElementById('ngNbClearAll');
+    if(clr) clr.addEventListener('click', function(ev){ ev.stopPropagation(); visible(k).forEach(function(it){ dismiss(k,it.id); }); recount(); renderBadges(); renderPanel(k); });
+    p.querySelectorAll('.ng-nb-done').forEach(function(btn){ btn.addEventListener('click', function(ev){ ev.stopPropagation(); completeRem(+btn.getAttribute('data-i')); }); });
+    p.querySelectorAll('.ng-nb-dismiss').forEach(function(btn){ btn.addEventListener('click', function(ev){ ev.stopPropagation(); var it=visible(k)[+btn.getAttribute('data-i')]; if(it){ dismiss(k,it.id); recount(); renderBadges(); renderPanel(k); } }); });
     p.querySelectorAll('.ng-nb-row').forEach(function(row){
       row.addEventListener('mouseenter', function(){ row.style.background='rgba(127,224,255,0.08)'; });
       row.addEventListener('mouseleave', function(){ row.style.background='transparent'; });
-      row.addEventListener('click', function(ev){
-        ev.stopPropagation();
-        openItem(row.getAttribute('data-k'), +row.getAttribute('data-i'));
-      });
+      row.addEventListener('click', function(ev){ ev.stopPropagation(); openItem(row.getAttribute('data-k'), +row.getAttribute('data-i')); });
     });
   }
 
   function toggle(k){
     if(openKey===k){ close(); return; }
     openKey=k;
-    // opening a category marks it "seen" -> badge clears
-    if(k==='sms'    && DATA.sms.length)    { lsSet(LS.sms,    +DATA.sms[0].id);   NEW.sms=0; }
-    if(k==='email'  && DATA.email.length)  { lsSet(LS.email,  +DATA.email[0].id); NEW.email=0; }
-    if(k==='rem'    && DATA.rem.length)    { lsSet(LS.rem,    maxId(DATA.rem));    NEW.rem=0; }
-    if(k==='portal' && DATA.portal.length) { lsSet(LS.portal, maxId(DATA.portal)); NEW.portal=0; }
-    renderBadges();
-    renderPanel(k);
+    // rem/portal: opening marks them seen so the badge clears. sms/email clear per-item or via Clear all.
+    if(k==='rem'    && DATA.rem.length)    { lsSet(LS.rem,    maxId(DATA.rem)); }
+    if(k==='portal' && DATA.portal.length) { lsSet(LS.portal, maxId(DATA.portal)); }
+    recount(); renderBadges(); renderPanel(k);
     var p=panel(); if(p) p.style.display='block';
   }
   function close(){ openKey=null; var p=panel(); if(p) p.style.display='none'; }
 
-  // mark a reminder done straight from the dropdown
   function completeRem(i){
-    var it=(DATA.rem||[])[i]; if(!it || it.id==null) return;
-    DATA.rem.splice(i,1);            // optimistic remove
-    renderPanel('rem'); renderBadges();
-    try{
-      if(typeof compRem==='function'){ compRem(it.id); }              // base: updateReminder->completed + reload
-      else if(typeof aP==='function'){ aP({action:'updateReminder',reminder:{id:it.id,status:'completed'}}); }
-    }catch(e){}
+    var it=visible('rem')[i]; if(!it || it.id==null) return;
+    var idx=DATA.rem.indexOf(it); if(idx>=0) DATA.rem.splice(idx,1);
+    recount(); renderBadges(); renderPanel('rem');
+    try{ if(typeof compRem==='function') compRem(it.id); else if(typeof aP==='function') aP({action:'updateReminder',reminder:{id:it.id,status:'completed'}}); }catch(e){}
+  }
+
+  function openThread(cid){
+    try{ if(typeof oP==='function') oP(cid); }catch(e){}
+    setTimeout(function(){
+      try{ window._fpTab='conv'; if(typeof window._fpRender==='function') window._fpRender(); }catch(e){}
+      try{ if(typeof window.fpLoadThread==='function') window.fpLoadThread(cid); }catch(e){}
+    }, 160);
   }
 
   function openItem(k, i){
-    var it=(DATA[k]||[])[i]; if(!it) return;
+    var it=visible(k)[i]; if(!it) return;
     close();
     try{
       if(k==='sms' || k==='email'){
-        if(it.contact_id!=null && typeof oP==='function'){ oP(it.contact_id); return; }
+        dismiss(k, it.id); recount(); renderBadges();         // handled -> clears it
+        if(it.contact_id!=null) openThread(it.contact_id);    // jump straight into the conversation
+        else { var ib=document.querySelector('.navitem[data-tab="ix"]'); if(ib && typeof sT==='function') sT('ix', ib); }
       } else if(k==='rem'){
-        // go to the Reminders tab where they can be managed/cleared
         var rb=document.querySelector('.navitem[data-tab="r"]')||document.querySelector('[data-tab="r"]');
-        if(typeof sT==='function'){ sT('r', rb||null); return; }
+        if(typeof sT==='function'){ sT('r', rb||null); }
       } else if(k==='portal'){
         var pb=document.querySelector('[data-tab="pl"]');
-        if(pb && typeof sT==='function'){ sT('pl', pb); return; }
+        if(pb && typeof sT==='function'){ sT('pl', pb); }
       }
     }catch(e){}
   }
 
   function tick(){ if(build()){ refresh(); } }
   var t0=0; var iv=setInterval(function(){ if(build()){ if(t0++%2===0) refresh(); } }, 4000);
-  setTimeout(tick, 500);
-  setTimeout(tick, 1500);
-
-  console.log('[v158] notification bar active (seen-clears-all + reminder done)');
+  setTimeout(tick, 500); setTimeout(tick, 1500);
+  console.log('[v158] notif bar (ding + per-item dismiss + click-to-thread)');
 })();
 
 </script>
