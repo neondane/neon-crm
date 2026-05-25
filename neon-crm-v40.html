@@ -8675,7 +8675,7 @@ async function dpDownloadPDF(){
   var UPLOAD = 'https://neon-sms-inbound.dane-bc3.workers.dev/upload';
   var SEND   = 'https://refer.neongiantmoving.com/api/sendSms';
   var MARK   = '::NGMMS::';
-  var MAXB   = 5 * 1024 * 1024;
+  var MAXB   = 25 * 1024 * 1024;  // sanity cap on the ORIGINAL pick; images auto-shrink below
 
   function toast(msg, kind){ if (typeof tt === 'function') { try { tt(msg, kind || 'ok'); } catch(e){} } }
 
@@ -8786,16 +8786,36 @@ async function dpDownloadPDF(){
     return +window._fpContactId || 0;
   }
 
+  // Shrink big phone photos in-browser so they send fast and never hit the size wall.
+  async function compressImage(file){
+    if (!/^image\//i.test(file.type || '')) return file;            // non-images: leave as-is
+    if (/heic|heif/i.test(file.type || '')) return file;            // browsers can't canvas-decode HEIC
+    try {
+      var bmp = await createImageBitmap(file);
+      var MAXDIM = 1600, w = bmp.width, h = bmp.height;
+      if (w > MAXDIM || h > MAXDIM) { var sc = Math.min(MAXDIM / w, MAXDIM / h); w = Math.round(w * sc); h = Math.round(h * sc); }
+      var canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(bmp, 0, 0, w, h);
+      var blob = await new Promise(function(res){ canvas.toBlob(res, 'image/jpeg', 0.85); });
+      if (blob && blob.size > 0 && blob.size < file.size) return blob;  // only swap in if actually smaller
+      return file;
+    } catch(e){ return file; }
+  }
+
   async function sendPhoto(cid, file){
     cid = +cid; if (!cid) { toast('Open a contact first', 'er'); return; }
     var c = (typeof D !== 'undefined') ? D.find(function(x){ return +x.id === cid; }) : null;
     if (!c || !c.phone) { toast('No phone number on file', 'er'); return; }
-    if (file.size > MAXB) { toast('File too large (5MB max for text)', 'er'); return; }
-    var ext = ((file.type.split('/')[1] || 'jpg')).replace(/[^a-z0-9]/gi, '') || 'jpg';
-    toast('Uploading photo…', 'ok');
-    var pub, ctype = file.type || 'image/jpeg';
+    if (file.size > MAXB) { toast('That file is huge (25MB max) — try a smaller one', 'er'); return; }
+    toast('Optimizing photo\u2026', 'ok');
+    var sendFile = await compressImage(file);
+    if (sendFile.size > 5 * 1024 * 1024) { toast('Still over 5MB after shrink — carriers cap MMS there', 'er'); return; }
+    var ctype = sendFile.type || file.type || 'image/jpeg';
+    var ext = ((ctype.split('/')[1] || 'jpg')).replace(/[^a-z0-9]/gi, '') || 'jpg';
+    toast('Uploading photo\u2026', 'ok');
+    var pub;
     try {
-      var up = await fetch(UPLOAD + '?ext=' + ext, { method: 'POST', headers: { 'Content-Type': ctype }, body: file });
+      var up = await fetch(UPLOAD + '?ext=' + ext, { method: 'POST', headers: { 'Content-Type': ctype }, body: sendFile });
       var uj = await up.json().catch(function(){ return {}; });
       if (!up.ok || !uj.url) { toast('Upload failed (' + (uj.error || up.status) + ')', 'er'); return; }
       pub = uj.url;
@@ -8803,7 +8823,7 @@ async function dpDownloadPDF(){
 
     var bodyEl = document.getElementById('fpBody');
     var caption = (bodyEl ? bodyEl.value : '').trim();
-    toast('Sending photo…', 'ok');
+    toast('Sending photo\u2026', 'ok');
     try {
       var r = await fetch(SEND, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
