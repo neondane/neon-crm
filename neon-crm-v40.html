@@ -8971,25 +8971,28 @@ async function dpDownloadPDF(){
 
   // Wire the Payouts Due view to actually SEND the gift card via Tremendous.
   // The base UI only had "Mark paid" (local bookkeeping). We add a "💳 Send $X"
-  // button beside each unpaid payout that calls /api/sendPayout (which holds the
-  // Tremendous production key in the Pages env), then marks it paid on success.
+  // button beside each unpaid payout that calls /api/sendPayout, then marks it
+  // paid on success. The button disables on click so it can never be double-fired.
 
   var ENDPOINT = 'https://refer.neongiantmoving.com/api/sendPayout';
+  var inflight = {};   // keys currently sending or already sent (never re-fire)
 
   function toast(m,k){ if(typeof tt==='function'){ try{ tt(m,k||'ok'); }catch(e){} } }
-
   function items(){ try{ return (typeof _poItems==='function')? (_poItems()||[]) : []; }catch(e){ return []; } }
   function contacts(){ try{ return (typeof D!=='undefined'&&Array.isArray(D))?D:[]; }catch(e){ return []; } }
 
   function resolveEmail(it){
     var d=contacts(), c=null;
-    // match by realtor contact id first, then by name
     c = d.find(function(x){ return String(x.id)===String(it.partnerId) || (+x.id===+it.partnerId); });
     if(!c && it.partner){ c = d.find(function(x){ return (x.name||'')===it.partner || (x.company||'')===it.partner; }); }
     return (c && c.email) || '';
   }
 
-  window.ngPayGiftCard = async function(key){
+  function lock(btn, label){ if(btn){ btn.disabled=true; btn.style.opacity='0.6'; btn.style.cursor='default'; if(label!=null) btn.textContent=label; } }
+  function unlock(btn, label){ if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; if(label!=null) btn.textContent=label; } }
+
+  window.ngPayGiftCard = async function(key, btn){
+    if (inflight[key]) return;                       // already sending / sent this one
     var it = items().find(function(x){ return x.key===key; });
     if(!it){ toast('Payout item not found','er'); return; }
     if(it.paid){ toast('Already paid','ok'); return; }
@@ -8999,20 +9002,24 @@ async function dpDownloadPDF(){
       return;
     }
     if(!confirm('Send a $'+it.amount+' gift card to '+it.partner+' ('+email+')?\n\nThis sends REAL money via Tremendous.')) return;
-    toast('Sending $'+it.amount+' gift card…','ok');
+
+    inflight[key] = true;                            // hard guard against re-fire
+    var amt = it.amount;
+    lock(btn, 'Sending…');
+    toast('Sending $'+amt+' gift card…','ok');
     try{
       var r = await fetch(ENDPOINT, {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          leadId: it.id, realtorName: it.partner, realtorEmail: email,
-          amount: it.amount, customerName: it.customer || ''
-        })
+        body: JSON.stringify({ leadId: it.id, realtorName: it.partner, realtorEmail: email, amount: amt, customerName: it.customer || '' })
       });
       var j = await r.json().catch(function(){ return {}; });
       if(j && j.ok){
-        toast('💳 $'+it.amount+' sent to '+it.partner+(j.env==='test'?' [TEST]':''),'ok');
-        if(typeof poMarkPaid==='function') poMarkPaid(key);   // mark paid + re-render
-      } else if(j && j.configured===false){
+        toast('💳 $'+amt+' sent to '+it.partner+(j.env==='test'?' [TEST]':''),'ok');
+        lock(btn, '✓ Sent');                          // stays disabled
+        if(typeof poMarkPaid==='function') poMarkPaid(key);   // re-renders; row leaves the "due" list
+        return;                                       // keep inflight[key]=true so it can't refire
+      }
+      if(j && j.configured===false){
         alert('Tremendous isn’t live yet — the API key isn’t loaded. (Redeploy the portal after setting the key.)');
       } else {
         var err = (j && (j.error || (j.details && JSON.stringify(j.details)))) || ('HTTP '+r.status);
@@ -9020,10 +9027,12 @@ async function dpDownloadPDF(){
         console.warn('[v162] sendPayout failed', j);
       }
     }catch(e){ toast('Payout error: '+(e.message||e),'er'); }
+    // failure path only: allow a retry
+    inflight[key] = false;
+    unlock(btn, '💳 Send $'+amt);
   };
 
-  // Inject a "Send" button next to each unpaid "Mark paid" button whenever the
-  // Payouts view is on screen.
+  // Inject a "Send" button next to each unpaid "Mark paid" button.
   function decorate(){
     var btns = document.querySelectorAll('button[onclick*="poMarkPaid("]');
     btns.forEach(function(b){
@@ -9038,14 +9047,16 @@ async function dpDownloadPDF(){
       send.title = 'Send the gift card now via Tremendous';
       send.style.cssText = 'background:linear-gradient(135deg,#ff6ec7,#a06bff);color:#fff;border:none;border-radius:5px;'
         + 'padding:6px 11px;font-size:11px;cursor:pointer;flex-shrink:0;white-space:nowrap;margin-right:6px;font-weight:700';
-      send.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); window.ngPayGiftCard(key); });
+      // if this one was already sent in this session, show it locked
+      if(inflight[key]){ lock(send, '✓ Sent'); }
+      send.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); window.ngPayGiftCard(key, send); });
       if(b.parentNode) b.parentNode.insertBefore(send, b);
     });
   }
   setInterval(decorate, 1200);
   setTimeout(decorate, 600);
 
-  console.log('[v162] tremendous pay button active');
+  console.log('[v162] tremendous pay button active (single-fire guarded)');
 })();
 
 </script>
