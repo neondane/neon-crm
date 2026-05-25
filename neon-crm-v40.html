@@ -8882,5 +8882,74 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v161-quickaction-modals*/
+(function(){
+  'use strict';
+  if (window.__v161) return;
+  window.__v161 = true;
+
+  // The profile Quick Actions buttons call old drawer-era modal openers
+  // (showQV/showAddRem/showAddRef/showEdit/showCompose) that write into host
+  // elements (#qvArea/#remArea/#refArea/#editArea/#composeArea). Those hosts
+  // only exist in the old drawer, so on the full-profile page the openers hit
+  // a null element and silently fail. This wraps each opener: if its host is
+  // missing, we pop a modal overlay that CONTAINS the host, run the original,
+  // and show it. If the host already exists (drawer open), we just run as-is.
+
+  function closeOverlay(){ var o=document.getElementById('ngqaOv'); if(o) o.remove(); }
+
+  function host(areaId, orig, args){
+    if (document.getElementById(areaId)) {            // drawer already provides the host
+      try { return orig.apply(null, args); } catch(e){ if(window.tt) tt('Could not open','er'); }
+      return;
+    }
+    closeOverlay();
+    var ov = document.createElement('div');
+    ov.id = 'ngqaOv';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(2,8,18,0.62);z-index:100000;display:flex;'
+      + 'align-items:flex-start;justify-content:center;padding:48px 16px;overflow:auto';
+    var panel = document.createElement('div');
+    panel.style.cssText = 'background:#0c1626;border:1px solid rgba(127,224,255,0.22);border-radius:14px;'
+      + 'max-width:580px;width:100%;padding:14px 16px 18px;box-shadow:0 24px 70px rgba(0,0,0,0.6);position:relative';
+    var x = document.createElement('button');
+    x.textContent = '✕';
+    x.style.cssText = 'position:absolute;top:8px;right:10px;background:none;border:none;color:#9fb3c8;'
+      + 'font-size:18px;cursor:pointer;line-height:1;z-index:2';
+    x.addEventListener('click', closeOverlay);
+    var area = document.createElement('div');
+    area.id = areaId;
+    panel.appendChild(x); panel.appendChild(area); ov.appendChild(panel);
+    ov.addEventListener('click', function(e){ if(e.target===ov) closeOverlay(); });
+    document.body.appendChild(ov);
+    try { orig.apply(null, args); }
+    catch(e){ closeOverlay(); if(window.tt) tt('Could not open','er'); return; }
+    if (!area.innerHTML.trim()) closeOverlay();        // original produced nothing -> no empty modal
+  }
+
+  function wrap(name, areaId){
+    var orig = window[name];
+    if (typeof orig !== 'function' || orig.__v161) return;
+    var w = function(){ return host(areaId, orig, Array.prototype.slice.call(arguments)); };
+    w.__v161 = true;
+    window[name] = w;
+  }
+
+  function install(){
+    wrap('showQV',      'qvArea');
+    wrap('showAddRem',  'remArea');
+    wrap('showAddRef',  'refArea');
+    wrap('showEdit',    'editArea');
+    wrap('showCompose', 'composeArea');
+  }
+
+  install();
+  var n=0; var iv=setInterval(function(){ install(); if(++n>8) clearInterval(iv); }, 1000);
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeOverlay(); });
+
+  console.log('[v161] quick-action modal host active');
+})();
+
+</script>
 </body>
 </html>
