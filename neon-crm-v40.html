@@ -8924,7 +8924,18 @@ async function dpDownloadPDF(){
     document.body.appendChild(ov);
     try { orig.apply(null, args); }
     catch(e){ closeOverlay(); if(window.tt) tt('Could not open','er'); return; }
-    if (!area.innerHTML.trim()) closeOverlay();        // original produced nothing -> no empty modal
+    if (!area.innerHTML.trim()) { closeOverlay(); return; }   // original produced nothing -> no empty modal
+    // Auto-close when the form clears itself (its own Cancel button or a successful save).
+    try {
+      area.querySelectorAll('button').forEach(function(b){
+        if (/^\s*cancel\s*$/i.test(b.textContent||'')) b.addEventListener('click', function(){ setTimeout(closeOverlay, 60); });
+      });
+      var mo = new MutationObserver(function(){
+        clearTimeout(ov.__t);
+        ov.__t = setTimeout(function(){ if (document.body.contains(ov) && !area.innerHTML.trim()) closeOverlay(); }, 220);
+      });
+      mo.observe(area, { childList:true, subtree:true });
+    } catch(e){}
   }
 
   function wrap(name, areaId){
