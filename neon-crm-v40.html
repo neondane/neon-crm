@@ -9553,5 +9553,41 @@ async function dpDownloadPDF(){
 /* end v168 */
 
 </script>
+<script>
+/*v169-referral-count-sync*/
+(function(){
+  'use strict';
+  if (window.__v169) return;
+  window.__v169 = true;
+
+  // The profile header pill ("X referrals") and the Referrals stat tile both
+  // read a stale stored field (c.referrals) instead of the real referral list.
+  // That's why they showed 0 even when the Referrals tab listed real ones.
+  // Refresh the contact's count from the real source (gR -> JR) right before
+  // each profile render so the header matches the tab. Note: this only reflects
+  // referrals that ARE logged; it does not create missing ones (that's the sync).
+  function patch(){
+    var orig = window._fpRender;
+    if (typeof orig !== 'function' || orig.__v169) return;
+    var w = function(){
+      try{
+        var id = window._fpContactId;
+        if (id != null && typeof D !== 'undefined' && Array.isArray(D) && typeof window.gR === 'function'){
+          var c = D.find(function(x){ return +x.id === +id; });
+          if (c){ var n = window.gR(id).length; if (typeof n === 'number') c.referrals = n; }
+        }
+      }catch(e){}
+      return orig.apply(this, arguments);
+    };
+    w.__v169 = true;
+    window._fpRender = w;
+  }
+  patch();
+  var n=0; var iv=setInterval(function(){ patch(); if(++n>6) clearInterval(iv); }, 1000);
+  console.log('[v169] profile referral count reflects the real referral list (JR), not the stale stored field');
+})();
+/* end v169 */
+
+</script>
 </body>
 </html>
