@@ -9308,5 +9308,155 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v166-fullprofile-default*/
+(function(){
+  'use strict';
+  if (window.__v166) return;
+  window.__v166 = true;
+
+  // ============================================================
+  // A) Open a NEW contact on the Conversation tab ("first page").
+  //    The full profile already opens on a single contact click; this just
+  //    makes sure each fresh open lands on Conversation instead of inheriting
+  //    whatever tab was left active on the previous contact. The quick drawer
+  //    stays available behind the in-profile "Quick" button (oP, untouched).
+  // ============================================================
+  function wrapOpen(){
+    var orig = window.openContact;
+    if (typeof orig !== 'function' || orig.__v166) return;
+    var w = function(id){
+      try { if (+window._fpContactId !== +id) window._fpTab = 'conv'; } catch(e){}
+      return orig.apply(this, arguments);
+    };
+    w.__v166 = true;
+    window.openContact = w;
+  }
+  wrapOpen();
+
+  // ============================================================
+  // B) Referrals: the full profile read referrals out of the REMINDERS array.
+  //    gR() filtered R (reminders) instead of JR (referrals), so the Referrals
+  //    tab + count always showed 0. Point gR at JR so it matches the quick view.
+  // ============================================================
+  window.gR = function(i){
+    try {
+      return (typeof JR !== 'undefined' && Array.isArray(JR))
+        ? JR.filter(function(r){ return +r.contactId === +i; })
+        : [];
+    } catch(e){ return []; }
+  };
+
+  function _esc(s){ return (window._fpEsc || function(x){ return String(x==null?'':x); })(s); }
+
+  function refsHTML(c){
+    var refs = window.gR(c.id);
+    if (!refs.length) return '<div style="padding:32px;text-align:center;color:#888">No referrals from '+_esc(c.name||'this contact')+' yet.</div>';
+    return refs.map(function(r){
+      var label = (r.status==='completed') ? '\u{1F389} Completed' : (r.status==='booked' ? '✅ Booked' : 'Referred');
+      var badge = (r.status==='completed') ? 'background:#ffaa0033;color:#ffcc66' : (r.status==='booked' ? 'background:#33cc6622;color:#7CFFB0' : 'background:#1f3a5a;color:#9aa');
+      return '<div style="background:#0a1428;border:1px solid #1f3a5a;border-radius:8px;padding:12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px">' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-weight:700;color:#fff">'+_esc(r.jobName||r.contactName||'(unnamed)')+'</div>' +
+          '<div style="color:#888;font-size:11px;margin-top:4px">'+_esc(r.date||'')+(r.amount?(' · $'+_esc(r.amount)):'')+(r.notes?(' · '+_esc(r.notes)):'')+'</div>' +
+        '</div>' +
+        '<span style="padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;white-space:nowrap;'+badge+'">'+label+'</span>' +
+      '</div>';
+    }).join('');
+  }
+
+  // ============================================================
+  // C2) Visits tab: add a Delete button so duplicate visits can be removed.
+  //     (The base full-profile Visits tab had no delete control.)
+  // ============================================================
+  function visitsHTML(c, cv){
+    if (!cv.length) return '<div style="padding:32px;text-align:center;color:#888">No visits yet.</div>';
+    return cv.map(function(v){
+      var when = (typeof fd==='function') ? fd(v.date) : _esc(v.date);
+      return '<div style="background:#0a1428;border:1px solid #1f3a5a;border-radius:8px;padding:12px;margin-bottom:8px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+          '<span style="color:#9fe;font-weight:600">'+when+'</span>' +
+          '<span style="display:flex;align-items:center;gap:10px">' +
+            '<span style="color:#888;font-size:11px">\u{1F464} '+_esc(v.handler||'')+'</span>' +
+            '<button onclick="ngFpDelVisit('+v.id+','+c.id+')" title="Delete visit" style="background:none;border:none;color:#ff6b81;cursor:pointer;font-size:14px;padding:2px 4px;line-height:1">\u{1F5D1}️</button>' +
+          '</span>' +
+        '</div>' +
+        '<div style="color:#cfc;font-size:13px">'+(v.notes ? _esc(v.notes).replace(/\n/g,'<br>') : '<i style="color:#666">No notes</i>')+'</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  window.ngFpDelVisit = async function(id, cid){
+    if (!confirm('Delete this visit? This cannot be undone.')) return;
+    try { if (window.tt) tt('Deleting…','ok'); } catch(e){}
+    try {
+      await aP({action:'deleteVisit', id:id});
+      if (typeof V !== 'undefined'){ var i=V.findIndex(function(x){ return +x.id===+id; }); if(i>=0) V.splice(i,1); }
+      if (window.tt) tt('✅ Visit deleted','ok');
+    } catch(e){ if(window.tt) tt('Error: '+(e.message||e),'er'); return; }
+    try { window._fpTab='visits'; if (typeof window._fpRender==='function') window._fpRender(); } catch(e){}
+  };
+
+  // ----- Wrap fpTabBody so refs + visits render correctly -----
+  function wrapTabBody(){
+    var orig = window.fpTabBody;
+    if (typeof orig !== 'function' || orig.__v166) return;
+    var w = function(tab, c, cv, cr){
+      try {
+        if (tab === 'refs')   return refsHTML(c);
+        if (tab === 'visits') return visitsHTML(c, cv||[]);
+      } catch(e){}
+      return orig.apply(this, arguments);
+    };
+    w.__v166 = true;
+    window.fpTabBody = w;
+  }
+  wrapTabBody();
+
+  // ============================================================
+  // C1) Visit save (sQV): on the full profile the check-in form lives inside
+  //     v161's modal (#ngqaOv). sQV closed only the old drawer overlay, so the
+  //     form stayed open and a second click double-saved. Add a double-submit
+  //     guard and clear #qvArea on completion (which lets v161 auto-close).
+  // ============================================================
+  function wrapSQV(){
+    var orig = window.sQV;
+    if (typeof orig !== 'function' || orig.__v166) return;
+    var busy = false;
+    var w = async function(cid){
+      if (busy) return;                                   // ignore accidental 2nd click
+      var qn = document.getElementById('qN');
+      var hasNotes = qn && String(qn.value||'').trim();
+      if (!hasNotes) { return orig.call(this, cid); }     // empty -> let it warn, keep form open
+      busy = true;
+      var locked = [];
+      try {
+        document.querySelectorAll('button').forEach(function(b){
+          if (/save check-?in/i.test(String(b.textContent||'').trim())) { b.disabled=true; b.style.opacity='0.5'; locked.push(b); }
+        });
+      } catch(e){}
+      try {
+        await orig.call(this, cid);
+      } finally {
+        busy = false;
+        try { var qa=document.getElementById('qvArea'); if (qa) qa.innerHTML=''; } catch(e){}  // triggers v161 auto-close
+        try { var ov=document.getElementById('ngqaOv'); if (ov) ov.remove(); } catch(e){}       // belt + suspenders
+        try { if (window._fpContactId && typeof window._fpRender==='function') window._fpRender(); } catch(e){}
+        locked.forEach(function(b){ b.disabled=false; b.style.opacity=''; });
+      }
+    };
+    w.__v166 = true;
+    window.sQV = w;
+  }
+  wrapSQV();
+
+  // Re-apply wraps in case the base fns are (re)defined after us.
+  var n=0; var iv=setInterval(function(){ wrapOpen(); wrapTabBody(); wrapSQV(); if(++n>6) clearInterval(iv); }, 1000);
+
+  console.log('[v166] full profile: default tab=conv on open, referrals from JR, visit save closes + no double-save, visit delete button');
+})();
+/* end v166 */
+
+</script>
 </body>
 </html>
