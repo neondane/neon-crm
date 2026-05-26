@@ -9494,5 +9494,64 @@ async function dpDownloadPDF(){
 /* end v167 */
 
 </script>
+<script>
+/*v168-profile-sidebar-default*/
+(function(){
+  'use strict';
+  if (window.__v168) return;
+  window.__v168 = true;
+
+  // Open every contact through the PRO renderer (_fpRender), which keeps the
+  // contact sidebar (Contact / Details / Referral Portal / Quick Actions)
+  // visible on EVERY tab, including Conversation. The legacy openContact used a
+  // conversation-only layout that hid the whole sidebar until you clicked
+  // another tab — which is why the profile looked empty on open.
+  function cidFromUrl(){ try{ return +((new URL(location.href)).searchParams.get('c'))||0; }catch(e){ return 0; } }
+  function exists(id){ try{ return typeof D!=='undefined' && Array.isArray(D) && !!D.find(function(x){ return +x.id===+id; }); }catch(e){ return false; } }
+
+  function openPro(id){
+    id = +id;
+    if (!exists(id)) return;
+    if (+window._fpContactId !== id) window._fpTab = 'conv';   // land on Conversation for a new contact
+    window._fpContactId = id;
+    if (cidFromUrl() !== id) { try{ var u=new URL(location.href); u.searchParams.set('c',id); history.pushState({contactId:id},'',u); }catch(e){} }
+    if (typeof window._fpRender === 'function') window._fpRender();
+    if (window._fpTab==='conv' && typeof window.fpLoadThread === 'function') { try{ window.fpLoadThread(id); }catch(e){} }
+    try{ var c=D.find(function(x){ return +x.id===id; }); if(c) document.title=(c.name||'Contact')+' · Neon CRM'; }catch(e){}
+  }
+  window.openContact = openPro;
+  window.openContact.__v166 = true;   // keep older guards satisfied
+  window.openContact.__v168 = true;
+
+  // Back / forward navigation
+  window.addEventListener('popstate', function(){
+    var id = cidFromUrl();
+    if (id && exists(id)) {
+      window._fpContactId = id;
+      if (typeof window._fpRender === 'function') window._fpRender();
+      if (window._fpTab==='conv' && typeof window.fpLoadThread === 'function') { try{ window.fpLoadThread(id); }catch(e){} }
+    }
+  });
+
+  // Direct load / refresh at ?c=ID: once contact data is in, upgrade whatever
+  // the legacy path rendered to the pro layout (with the sidebar).
+  var tries = 0;
+  var iv = setInterval(function(){
+    tries++;
+    var id = cidFromUrl();
+    if (id && exists(id)) {
+      var mc = document.getElementById('mc');
+      var hasSidebar = mc && /Quick actions/i.test(mc.textContent||'');
+      if (+window._fpContactId === id && hasSidebar) { clearInterval(iv); return; }
+      openPro(id);
+    }
+    if (tries > 20) clearInterval(iv);
+  }, 400);
+
+  console.log('[v168] profile opens with sidebar on every tab (pro renderer)');
+})();
+/* end v168 */
+
+</script>
 </body>
 </html>
