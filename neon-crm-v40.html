@@ -9458,5 +9458,41 @@ async function dpDownloadPDF(){
 /* end v166 */
 
 </script>
+<script>
+/*v167-singleclick-profile*/
+(function(){
+  'use strict';
+  if (window.__v167) return;
+  window.__v167 = true;
+
+  // Make a SINGLE click on a dashboard contact row open the FULL PROFILE
+  // (which v166 lands on the Conversation tab). Runs in window-capture so it
+  // wins over older handlers that required a double-click. Buttons / links
+  // inside the row are left alone (Quick drawer, Edit, Call/Text/Email, etc.),
+  // so the quick drawer is still reachable from its own button.
+  function handler(e){
+    var t = e.target;
+    if (!t || !t.closest) return;
+    if (t.closest('button, a, input, select, textarea, label')) return;
+    var row = t.closest('.cd');
+    if (!row) return;
+    var oc = row.getAttribute('onclick') || '';
+    var m = oc.match(/oP\((\d+)\)/);
+    if (!m) return;
+    var id = +m[1];
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+    try {
+      if (typeof window.openContact === 'function') window.openContact(id);   // v166 wrap forces conv tab
+      else if (typeof window.oP === 'function') window.oP(id);
+    } catch(err){}
+  }
+  window.addEventListener('click', handler, true);
+  console.log('[v167] single-click contact row -> full profile (conversation)');
+})();
+/* end v167 */
+
+</script>
 </body>
 </html>
