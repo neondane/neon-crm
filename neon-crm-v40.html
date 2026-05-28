@@ -10311,79 +10311,8 @@ async function dpDownloadPDF(){
 </script>
 <script>
 /*v172-leaderboard-v2*/
-/* Leaderboard fix v2: show the individual realtor's name as the primary
- * label, with their brokerage as the subtitle. Facilities (Self-Storage,
- * Assisted Living, Other) keep showing the business name. Fetches its own
- * contacts list because window.D is not exposed by the CRM build.
- */
-(function(){
-  if (window.__ngmV172bLoaded) return; window.__ngmV172bLoaded = true;
-
-  var APPS = 'https://script.google.com/macros/s/AKfycbxh1ecAF9yWN91w04SHROy5T9N-PehvpF29LTFu8M6vjnp1PRyhgxUYf7bfU5DKzbq_nA/exec';
-  var contacts = [];
-  var byId = {};
-
-  function loadContacts(){
-    return fetch(APPS+'?action=getAll', { redirect:'follow' })
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(d){
-        if (d && Array.isArray(d.contacts)){
-          contacts = d.contacts;
-          byId = {};
-          for (var i=0;i<contacts.length;i++){ byId[+contacts[i].id] = contacts[i]; }
-        }
-      })
-      .catch(function(){});
-  }
-
-  function fixCard(cd){
-    try{
-      if (cd.dataset.ngmFixed) return;
-      var oc = cd.getAttribute('onclick') || '';
-      var m = oc.match(/oP\(\s*(\d+)\s*\)/);
-      if (!m) return;
-      var c = byId[+m[1]];
-      if (!c) return;
-      var isRealtor = /realtor/i.test(String(c.type||''));
-      if (!isRealtor) { cd.dataset.ngmFixed='1'; return; }
-      var nm = cd.querySelector('.nm');
-      if (!nm) return;
-      var current = (nm.textContent||'').trim();
-      var name = String(c.name||'').trim();
-      var biz = String(c.business||'').trim();
-      if (current && name && current === biz && name !== biz){
-        nm.textContent = name;
-        var bz = cd.querySelector('.bz');
-        if (bz) bz.textContent = biz;
-      }
-      cd.dataset.ngmFixed = '1';
-    }catch(e){}
-  }
-
-  function scan(){
-    if (!contacts.length) return;
-    try{
-      var cards = document.querySelectorAll('.cd');
-      for (var i=0;i<cards.length;i++) fixCard(cards[i]);
-    }catch(e){}
-  }
-
-  // Load contacts once, then scan + observe.
-  loadContacts().then(function(){
-    scan();
-    try{
-      var obs = new MutationObserver(function(muts){
-        for (var i=0;i<muts.length;i++){
-          if (muts[i].addedNodes && muts[i].addedNodes.length){ scan(); return; }
-        }
-      });
-      obs.observe(document.body, { childList:true, subtree:true });
-    }catch(e){}
-    // Refresh the contacts list every 5 minutes so newly added partners get picked up.
-    setInterval(function(){ loadContacts().then(scan); }, 300000);
-  });
-})();
-
+(function(){})();
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
 </script>
 <script>
 /*v179-loud-notify*/
