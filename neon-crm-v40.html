@@ -10389,7 +10389,7 @@ async function dpDownloadPDF(){
 <script>
 /*v176-profile-clickable*/
 (function(){
-  if (window.__ngmV176v5) return; window.__ngmV176v5 = true;
+  if (window.__ngmV176v6) return; window.__ngmV176v6 = true;
 
   var st = document.createElement('style');
   st.textContent = ''
@@ -10399,14 +10399,20 @@ async function dpDownloadPDF(){
     + 'cursor:pointer;border:2px solid #0a0a14;box-shadow:0 3px 10px #ff00ff66;'
     + 'transition:transform .15s;z-index:5;font-size:13px;}'
     + '.ngm-cam:hover{transform:scale(1.12);}'
-    + '.ngm-pen{display:inline-flex;align-items:center;justify-content:center;'
-    + 'width:18px;height:18px;border-radius:5px;background:#ff66ff22;'
-    + 'border:1px solid #ff66ff66;color:#ff66ff;cursor:pointer;'
-    + 'font-size:10px;margin-left:6px;vertical-align:middle;flex-shrink:0;}'
-    + '.ngm-pen:hover{background:#ff66ff44;}'
+    + '.ngm-pen{position:absolute;top:12px;right:12px;'
+    + 'width:24px;height:24px;border-radius:6px;background:#ff66ff14;'
+    + 'border:1px solid #ff66ff44;color:#ff66ff;cursor:pointer;'
+    + 'display:flex;align-items:center;justify-content:center;'
+    + 'transition:all .12s;z-index:3;}'
+    + '.ngm-pen:hover{background:#ff66ff33;border-color:#ff66ff;'
+    + 'box-shadow:0 0 8px #ff00ff66;}'
+    + '.ngm-pen svg{width:12px;height:12px;display:block;}'
     + '.ngm-jump{cursor:pointer !important;transition:transform .12s;}'
     + '.ngm-jump:hover{transform:scale(1.04);box-shadow:0 0 10px #ff66ff66;}';
   document.head.appendChild(st);
+
+  // Angled pencil SVG, tip pointing down-right at 45deg
+  var PENCIL_SVG = '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M11.5 1.2l3.3 3.3-9 9-3.7.4.4-3.7 9-9zM10.4 2.3L2.6 10.1l-.3 2.7 2.7-.3L12.8 4.7l-2.4-2.4z"/></svg>';
 
   function getCid(){
     try{ var u=new URL(location.href); var c=u.searchParams.get('c'); return c?+c:null; }catch(e){ return null; }
@@ -10421,14 +10427,13 @@ async function dpDownloadPDF(){
   function gotoTab(tab){ try{ window._fpTab=tab; if (typeof window._fpRender==='function') window._fpRender(); }catch(e){} }
 
   function makePen(cid, title){
-    var pen = document.createElement('span');
-    pen.className='ngm-pen'; pen.textContent='✏'; pen.title=title||'Edit';
+    var pen = document.createElement('div');
+    pen.className='ngm-pen'; pen.title=title||'Edit';
+    pen.innerHTML = PENCIL_SVG;
     pen.onclick = function(ev){ ev.preventDefault(); ev.stopPropagation(); callEdit(cid); };
     return pen;
   }
 
-  // Case-insensitive header search. Headers in the source are mixed-case
-  // ("Contact", "Details", "Quick actions") and rendered as uppercase via CSS.
   function findHeaderByText(targetLower){
     var els = document.querySelectorAll('div,span,h3,h4,h5,p,strong,label');
     for (var i=0;i<els.length;i++){
@@ -10438,6 +10443,19 @@ async function dpDownloadPDF(){
       if (t === targetLower) return el;
     }
     return null;
+  }
+
+  // Walk up from the header to find the card container — the first ancestor
+  // div that's noticeably bigger than the header itself.
+  function findCard(header){
+    var el = header.parentElement;
+    var headerH = header.clientHeight || 16;
+    while (el && el !== document.body){
+      var h = el.clientHeight;
+      if (h > headerH * 3 && el.clientWidth > 150) return el;
+      el = el.parentElement;
+    }
+    return header.parentElement;
   }
 
   function decorate(){
@@ -10463,17 +10481,21 @@ async function dpDownloadPDF(){
       }
     }
 
-    // Pencils on Contact + Details + Quick Actions rename (case-insensitive)
-    var contactHdr = findHeaderByText('contact');
-    if (contactHdr && !contactHdr.dataset.ngmCp){
-      contactHdr.dataset.ngmCp = '1';
-      contactHdr.appendChild(makePen(cid, 'Edit contact info'));
+    // Place pencils in the TOP-RIGHT of the Contact + Details cards
+    function placePencilOnCard(labelLower, dataAttr, title){
+      var hdr = findHeaderByText(labelLower);
+      if (!hdr) return;
+      var card = findCard(hdr);
+      if (!card) return;
+      if (card.dataset[dataAttr]) return;
+      card.dataset[dataAttr] = '1';
+      if (window.getComputedStyle(card).position === 'static') card.style.position = 'relative';
+      card.appendChild(makePen(cid, title));
     }
-    var detailsHdr = findHeaderByText('details');
-    if (detailsHdr && !detailsHdr.dataset.ngmDp){
-      detailsHdr.dataset.ngmDp = '1';
-      detailsHdr.appendChild(makePen(cid, 'Edit details (Tier, Owner, Type)'));
-    }
+    placePencilOnCard('contact', 'ngmCp', 'Edit contact info');
+    placePencilOnCard('details', 'ngmDp', 'Edit details (Tier, Owner, Type)');
+
+    // Rename "Quick actions" -> "Actions"
     var qaHdr = findHeaderByText('quick actions');
     if (qaHdr && !qaHdr.dataset.ngmRen){
       qaHdr.dataset.ngmRen = '1';
@@ -10499,7 +10521,7 @@ async function dpDownloadPDF(){
       };})(act);
     }
 
-    // Pills: "X referrals" -> Referrals tab; "Xd since visit" -> Visits
+    // Pills clickable
     var spans = document.querySelectorAll('span');
     for (var i=0;i<spans.length;i++){
       var el = spans[i];
@@ -10520,7 +10542,6 @@ async function dpDownloadPDF(){
     }
   }
 
-  // Repeated scan covers initial profile-render latency.
   var tickCount = 0;
   var ticker = setInterval(function(){
     try{ decorate(); }catch(e){}
