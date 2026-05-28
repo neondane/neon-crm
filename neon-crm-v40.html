@@ -10582,8 +10582,8 @@ async function dpDownloadPDF(){
 </script>
 <script>
 /*v180-recruit-board*/
-/* Recruit Board: ranked NWMLS realtors with status pills. Isolated - just
- * a button + overlay. No MutationObserver. Polls only for the Pulse bar
+/* Recruit Board: ranked NWMLS realtors. Lives as a sidebar nav row under
+ * Calendar (no top-bar clutter). No MutationObserver — polls for the nav
  * via setTimeout until it appears.
  */
 (function(){
@@ -10612,11 +10612,7 @@ async function dpDownloadPDF(){
 
   var st = document.createElement('style');
   st.textContent =
-    '#ngmRBBtn{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#ff00ff33,#00ffff33);'
-    + 'border:1px solid #ff66ff88;color:#fff;padding:6px 12px;border-radius:9px;'
-    + 'font-size:12px;font-weight:600;cursor:pointer;margin-left:8px;}'
-    + '#ngmRBBtn:hover{transform:scale(1.04);}'
-    + '#ngmRB{position:fixed;inset:0;z-index:9700;background:rgba(5,0,15,0.92);display:none;'
+      '#ngmRB{position:fixed;inset:0;z-index:9700;background:rgba(5,0,15,0.92);display:none;'
     + 'backdrop-filter:blur(8px);overflow:auto;}'
     + '#ngmRB.open{display:block;}'
     + '#ngmRB .shell{max-width:1180px;margin:32px auto;padding:0 24px 60px;}'
@@ -10650,18 +10646,32 @@ async function dpDownloadPDF(){
     + '#ngmRB .footnote{color:#666;font-size:11px;margin-top:14px;}';
   document.head.appendChild(st);
 
+  function removeOldButton(){
+    var b = document.getElementById('ngmRBBtn'); if (b) b.remove();
+  }
+
   var tries = 0;
-  function mountButton(){
-    if (tries++ > 20) return;
-    var pulse = document.getElementById('ngmBar');
-    if (!pulse) { setTimeout(mountButton, 800); return; }
-    if (document.getElementById('ngmRBBtn')) return;
-    var b = document.createElement('button'); b.id='ngmRBBtn';
-    b.innerHTML = '🎯 Recruit Board';
-    b.title = 'NWMLS top realtors - recruit board';
-    b.onclick = function(ev){ ev.stopPropagation(); openRB(); };
-    var sw = pulse.querySelector('.search-wrap');
-    if (sw) pulse.insertBefore(b, sw); else pulse.appendChild(b);
+  function mountSidebar(){
+    removeOldButton();
+    if (tries++ > 25) return;
+    var calendarRow = null;
+    document.querySelectorAll('.v149-row').forEach(function(r){
+      if (r.getAttribute('data-v149tab') === 'cal') calendarRow = r;
+    });
+    if (!calendarRow) { setTimeout(mountSidebar, 800); return; }
+    if (document.getElementById('ngmRBRow')) return;
+
+    var row = document.createElement('div');
+    row.id = 'ngmRBRow';
+    row.className = 'v149-row';
+    row.setAttribute('data-v149tab', 'ngm-recruit');
+    row.innerHTML = '<div class="v149-icon">🎯</div>'
+      + '<div class="v149-meta">'
+      + '<div class="v149-name">Recruit Board</div>'
+      + '<div class="v149-desc">NWMLS top realtors · status pills</div>'
+      + '</div>';
+    row.onclick = function(ev){ ev.stopPropagation(); openRB(); };
+    calendarRow.parentElement.insertBefore(row, calendarRow.nextSibling);
   }
 
   function ensureOverlay(){
@@ -10735,8 +10745,8 @@ async function dpDownloadPDF(){
   }
 
   loadContacts().then(function(){
-    if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', mountButton);
-    else mountButton();
+    if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', mountSidebar);
+    else mountSidebar();
   });
   document.addEventListener('keydown', function(e){ if (e.key==='Escape') closeRB(); });
 })();
