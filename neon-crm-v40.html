@@ -9589,5 +9589,183 @@ async function dpDownloadPDF(){
 /* end v169 */
 
 </script>
+<script>
+/*v170-partner-pulse*/
+/* Partner Pulse: live queue of partner-sourced referrals at the top of
+ * the Dashboard. Pulls window.JR rows tagged enteredBy "SmartMoving Sync"
+ * from the last 14 days, shows stage pills (Referred In / Booked / Completed),
+ * customer, amount, and how-fresh. Click a row to open that partner's full
+ * profile, where the existing Thank-by-Text, Thank-by-Email, Send Reward,
+ * and Invite to Portal buttons all live.
+ */
+(function(){
+  if (window.__ngmPulseLoaded) return; window.__ngmPulseLoaded = true;
+
+  var css = document.createElement('style');
+  css.textContent = ''
+    + '#ngmPulse{margin:0 0 14px 0;background:linear-gradient(135deg,#1a0d2e,#0d1a2e);'
+    + 'border:1px solid #ff66ff44;border-radius:12px;padding:14px 16px;'
+    + 'box-shadow:0 0 24px #ff00ff22,inset 0 0 24px #00ffff11;}'
+    + '#ngmPulse h3{margin:0 0 10px 0;font-size:13px;letter-spacing:.12em;'
+    + 'text-transform:uppercase;color:#ff66ff;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}'
+    + '#ngmPulse h3 .ngp-sublabel{font-weight:400;color:#888;font-size:11px;text-transform:none;letter-spacing:0;}'
+    + '#ngmPulse .ngp-empty{color:#aaa;font-size:13px;padding:8px 2px;line-height:1.45;}'
+    + '#ngmPulse .ngp-row{display:grid;grid-template-columns:auto 1fr auto auto;'
+    + 'gap:12px;align-items:center;padding:9px 11px;border-radius:9px;'
+    + 'cursor:pointer;transition:background .12s,border-color .12s;border:1px solid transparent;margin-top:4px;}'
+    + '#ngmPulse .ngp-row:hover{background:#ff66ff14;border-color:#ff66ff55;}'
+    + '#ngmPulse .ngp-av{width:34px;height:34px;border-radius:50%;'
+    + 'background:linear-gradient(135deg,#ff00ff,#00ffff);color:#0a0a0f;'
+    + 'font-weight:700;font-size:12.5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}'
+    + '#ngmPulse .ngp-name{font-weight:600;color:#fff;font-size:14px;line-height:1.2;}'
+    + '#ngmPulse .ngp-sub{font-size:12px;color:#bbb;margin-top:3px;}'
+    + '#ngmPulse .ngp-pill{font-size:10.5px;font-weight:700;letter-spacing:.08em;'
+    + 'text-transform:uppercase;padding:4px 10px;border-radius:999px;white-space:nowrap;}'
+    + '#ngmPulse .ngp-pill.referred{background:#00ffff22;color:#00ffff;border:1px solid #00ffff66;}'
+    + '#ngmPulse .ngp-pill.booked{background:#ff66ff22;color:#ff66ff;border:1px solid #ff66ff66;}'
+    + '#ngmPulse .ngp-pill.completed{background:#33ff8822;color:#33ff88;border:1px solid #33ff8866;}'
+    + '#ngmPulse .ngp-arrow{color:#888;font-size:20px;line-height:1;}'
+    + '#ngmPulse .ngp-foot{text-align:right;margin-top:8px;font-size:12px;color:#888;}';
+  document.head.appendChild(css);
+
+  function initials(n){
+    var s=String(n||'').replace(/\([^)]*\)/g,'').trim();
+    var p=s.split(/[\s,]+/).filter(Boolean);
+    var a=(p[0]||'?').charAt(0); var b=p.length>1?p[p.length-1].charAt(0):'';
+    return (a+b).toUpperCase();
+  }
+  function money(n){ var v=Number(n)||0; return '$'+v.toLocaleString('en-US',{maximumFractionDigits:0}); }
+  function daysAgo(iso){
+    if(!iso) return '';
+    var d=new Date(iso); if(isNaN(d)) return '';
+    var diff=Math.floor((Date.now()-d.getTime())/86400000);
+    if(diff<=0) return 'today';
+    if(diff===1) return 'yesterday';
+    if(diff<7) return diff+'d ago';
+    if(diff<30) return Math.floor(diff/7)+'w ago';
+    return Math.floor(diff/30)+'mo ago';
+  }
+
+  function collectRecent(){
+    var JR=window.JR||[];
+    var cutoff=Date.now()-14*86400000;
+    var rows=[];
+    for (var i=0;i<JR.length;i++){
+      var r=JR[i];
+      if (String(r.enteredBy||'').indexOf('SmartMoving Sync')<0) continue;
+      var t=Date.parse(r.date||''); if (isNaN(t)||t<cutoff) continue;
+      rows.push(r);
+    }
+    rows.sort(function(a,b){ return (Date.parse(b.date)||0)-(Date.parse(a.date)||0); });
+    return rows;
+  }
+
+  function buildCard(rows){
+    var card=document.createElement('div'); card.id='ngmPulse';
+    var head=document.createElement('h3');
+    var fresh=rows.filter(function(r){ var t=Date.parse(r.date||''); return !isNaN(t)&&(Date.now()-t)<2*86400000; }).length;
+    head.innerHTML = '💌 Partner Pulse'
+      + (fresh?'<span class="ngp-pill referred" style="font-size:10px;padding:3px 8px;">'+fresh+' fresh</span>':'')
+      + '<span class="ngp-sublabel">last 14 days · click a row to open the partner profile</span>';
+    card.appendChild(head);
+    if(!rows.length){
+      var e=document.createElement('div'); e.className='ngp-empty';
+      e.textContent='Nothing in the last 14 days yet. New partner referrals show up here the moment SmartMoving sees them.';
+      card.appendChild(e);
+      return card;
+    }
+    var shown=rows.slice(0,6);
+    for (var i=0;i<shown.length;i++){
+      (function(r){
+        var row=document.createElement('div'); row.className='ngp-row';
+        row.title='Open '+(r.contactName||'partner')+'’s profile';
+        row.onclick=function(){ try{
+          if (typeof window.openContact==='function') window.openContact(+r.contactId);
+          else window.location.href='?c='+r.contactId;
+        }catch(e){} };
+        var av=document.createElement('div'); av.className='ngp-av'; av.textContent=initials(r.contactName);
+        var mid=document.createElement('div');
+        var nm=document.createElement('div'); nm.className='ngp-name'; nm.textContent=r.contactName||'Partner';
+        var sub=document.createElement('div'); sub.className='ngp-sub';
+        sub.textContent=(r.jobName||'Job')+'  ·  '+money(r.amount)+'  ·  '+daysAgo(r.date);
+        mid.appendChild(nm); mid.appendChild(sub);
+        var pill=document.createElement('div');
+        var st=String(r.status||'referred').toLowerCase();
+        pill.className='ngp-pill '+st;
+        pill.textContent = st==='referred'?'Referred In':(st==='booked'?'Booked':(st==='completed'?'Completed':st));
+        var arr=document.createElement('div'); arr.className='ngp-arrow'; arr.textContent='›';
+        row.appendChild(av); row.appendChild(mid); row.appendChild(pill); row.appendChild(arr);
+        card.appendChild(row);
+      })(shown[i]);
+    }
+    if(rows.length>shown.length){
+      var f=document.createElement('div'); f.className='ngp-foot';
+      f.textContent='+ '+(rows.length-shown.length)+' more in the last 14 days';
+      card.appendChild(f);
+    }
+    return card;
+  }
+
+  function mountInto(mc){
+    if(!mc) return;
+    var card=buildCard(collectRecent());
+    var existing=document.getElementById('ngmPulse');
+    if(existing) existing.replaceWith(card);
+    else mc.insertBefore(card, mc.firstChild);
+  }
+
+  function tryHookRD(){
+    if (typeof window.rD !== 'function') return false;
+    if (window._ngmRDHooked) return true;
+    window._ngmRDHooked = true;
+    var orig=window.rD;
+    window.rD=function(mc){ var rv=orig.apply(this,arguments); try{ mountInto(mc||document.getElementById('mc')); }catch(e){} return rv; };
+    return true;
+  }
+  function tryHookRen(){
+    if (typeof window.ren !== 'function') return false;
+    if (window._ngmRenHooked) return true;
+    window._ngmRenHooked = true;
+    var orig=window.ren;
+    window.ren=function(){
+      var rv=orig.apply(this,arguments);
+      try{
+        // Only mount when we believe we're on the Dashboard.
+        var onDash = (typeof window.tb!=='undefined' && window.tb==='d');
+        if (onDash) mountInto(document.getElementById('mc'));
+      }catch(e){}
+      return rv;
+    };
+    return true;
+  }
+
+  // Attempt the precise hook first; fall back to ren-hook if rD isn't visible.
+  function install(){
+    var rdOk = tryHookRD();
+    var renOk = tryHookRen();
+    if (!rdOk && !renOk) return false;
+    // First paint on next tick.
+    setTimeout(function(){ try{
+      if (rdOk || (typeof window.tb!=='undefined' && window.tb==='d')){
+        mountInto(document.getElementById('mc'));
+      }
+    }catch(e){} }, 400);
+    return true;
+  }
+  if (!install()){
+    var n=0; var iv=setInterval(function(){ if (install() || ++n>40) clearInterval(iv); }, 300);
+  }
+
+  // Light refresh while sitting on the Dashboard, so new arrivals show up without a click.
+  setInterval(function(){
+    try{
+      var card=document.getElementById('ngmPulse');
+      var onDash=(typeof window.tb!=='undefined' && window.tb==='d');
+      if (card && onDash) mountInto(document.getElementById('mc'));
+    }catch(e){}
+  }, 30000);
+})();
+
+</script>
 </body>
 </html>
