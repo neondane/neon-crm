@@ -10606,99 +10606,77 @@ async function dpDownloadPDF(){
 
   var st = document.createElement('style');
   st.textContent =
-      '#ngmRB{position:fixed;inset:0;z-index:9700;background:rgba(5,0,15,0.92);display:none;'
-    + 'backdrop-filter:blur(8px);overflow:auto;}'
-    + '#ngmRB.open{display:block;}'
-    + '#ngmRB .shell{max-width:1180px;margin:32px auto;padding:0 24px 60px;}'
-    + '#ngmRB .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}'
-    + '#ngmRB .ttl{color:#ff66ff;font-size:18px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;}'
-    + '#ngmRB .close{background:#0a0a14;border:1px solid #ff66ff66;color:#fff;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:13px;}'
-    + '#ngmRB .tabs{display:flex;gap:6px;border-bottom:1px solid #ff66ff44;margin-bottom:14px;}'
-    + '#ngmRB .tab{padding:9px 18px;cursor:pointer;color:#888;font-weight:600;font-size:13px;border-bottom:2px solid transparent;}'
-    + '#ngmRB .tab.on{color:#ff66ff;border-bottom-color:#ff66ff;}'
-    + '#ngmRB .stats{display:flex;gap:12px;margin-bottom:14px;}'
-    + '#ngmRB .stat{flex:1;background:#0d1a2e;border:1px solid #ff66ff44;border-radius:9px;padding:12px 14px;}'
-    + '#ngmRB .stat .num{font-size:22px;font-weight:800;color:#fff;}'
-    + '#ngmRB .stat .lab{color:#888;font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;margin-top:2px;}'
-    + '#ngmRB .stat.partners .num{color:#33ff88;}'
-    + '#ngmRB .stat.incrm .num{color:#ffcc66;}'
-    + '#ngmRB .stat.targets .num{color:#ff66ff;}'
-    + '#ngmRB table{width:100%;border-collapse:collapse;}'
-    + '#ngmRB th{text-align:left;color:#888;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;padding:9px 12px;border-bottom:1px solid #ff66ff33;}'
-    + '#ngmRB td{padding:11px 12px;border-bottom:1px solid #1a1a2a;font-size:13px;color:#ddd;}'
-    + '#ngmRB tr.has-contact{cursor:pointer;}'
-    + '#ngmRB tr.has-contact:hover{background:#ff66ff14;}'
-    + '#ngmRB .rk{color:#ff66ff;font-weight:700;width:42px;}'
-    + '#ngmRB .nm{font-weight:600;color:#fff;}'
-    + '#ngmRB .br{color:#aaa;font-size:11.5px;}'
-    + '#ngmRB .vol{font-variant-numeric:tabular-nums;color:#fff;font-weight:600;}'
-    + '#ngmRB .tx{font-variant-numeric:tabular-nums;color:#bbb;}'
-    + '#ngmRB .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;}'
-    + '#ngmRB .pill.p{background:#33ff8822;color:#33ff88;border:1px solid #33ff8888;}'
-    + '#ngmRB .pill.i{background:#ffcc6622;color:#ffcc66;border:1px solid #ffcc6688;}'
-    + '#ngmRB .pill.t{background:#ff66ff22;color:#ff66ff;border:1px solid #ff66ff88;}'
-    + '#ngmRB .footnote{color:#666;font-size:11px;margin-top:14px;}';
+      'body.ngm-bar-on{padding-top:62px !important;}'
+    + '#ngmRBInline{padding:8px 4px;color:#ddd;}'
+    + '#ngmRBInline .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}'
+    + '#ngmRBInline .ttl{color:#ff66ff;font-size:18px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;text-shadow:0 0 10px #ff00ff66;}'
+    + '#ngmRBInline .tabs{display:flex;gap:6px;border-bottom:1px solid #ff66ff44;margin-bottom:14px;}'
+    + '#ngmRBInline .tab{padding:9px 18px;cursor:pointer;color:#888;font-weight:600;font-size:13px;border-bottom:2px solid transparent;}'
+    + '#ngmRBInline .tab.on{color:#ff66ff;border-bottom-color:#ff66ff;}'
+    + '#ngmRBInline .stats{display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap;}'
+    + '#ngmRBInline .stat{flex:1;min-width:140px;background:#0d1a2e;border:1px solid #ff66ff44;border-radius:9px;padding:12px 14px;}'
+    + '#ngmRBInline .stat .num{font-size:22px;font-weight:800;color:#fff;}'
+    + '#ngmRBInline .stat .lab{color:#888;font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;margin-top:2px;}'
+    + '#ngmRBInline .stat.partners .num{color:#33ff88;}'
+    + '#ngmRBInline .stat.incrm .num{color:#ffcc66;}'
+    + '#ngmRBInline .stat.targets .num{color:#ff66ff;}'
+    + '#ngmRBInline table{width:100%;border-collapse:collapse;background:#0a1428;border:1px solid #1f3a5a;border-radius:9px;overflow:hidden;}'
+    + '#ngmRBInline th{text-align:left;color:#888;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;padding:9px 12px;border-bottom:1px solid #ff66ff33;background:#0d1a2e;}'
+    + '#ngmRBInline td{padding:11px 12px;border-bottom:1px solid #1a1a2a;font-size:13px;color:#ddd;}'
+    + '#ngmRBInline tr.has-contact{cursor:pointer;}'
+    + '#ngmRBInline tr.has-contact:hover{background:#ff66ff14;}'
+    + '#ngmRBInline .rk{color:#ff66ff;font-weight:700;width:42px;}'
+    + '#ngmRBInline .nm{font-weight:600;color:#fff;}'
+    + '#ngmRBInline .br{color:#aaa;font-size:11.5px;}'
+    + '#ngmRBInline .vol{font-variant-numeric:tabular-nums;color:#fff;font-weight:600;}'
+    + '#ngmRBInline .tx{font-variant-numeric:tabular-nums;color:#bbb;}'
+    + '#ngmRBInline .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;}'
+    + '#ngmRBInline .pill.p{background:#33ff8822;color:#33ff88;border:1px solid #33ff8888;}'
+    + '#ngmRBInline .pill.i{background:#ffcc6622;color:#ffcc66;border:1px solid #ffcc6688;}'
+    + '#ngmRBInline .pill.t{background:#ff66ff22;color:#ff66ff;border:1px solid #ff66ff88;}'
+    + '#ngmRBInline .footnote{color:#666;font-size:11px;margin-top:14px;}';
   document.head.appendChild(st);
 
   function removeOldStuff(){
     var b = document.getElementById('ngmRBBtn'); if (b) b.remove();
     var sidebarRow = document.getElementById('ngmRBRow'); if (sidebarRow) sidebarRow.remove();
+    var oldOverlay = document.getElementById('ngmRB'); if (oldOverlay) oldOverlay.remove();
   }
 
-  // Target/bullseye SVG matching the existing nav icon style (stroke line-art).
   var ICON_SVG = '<svg class="ng-ic" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">'
     + '<circle cx="12" cy="12" r="9"></circle>'
     + '<circle cx="12" cy="12" r="5.5"></circle>'
     + '<circle cx="12" cy="12" r="2"></circle>'
     + '</svg>';
 
-  var tries = 0;
-  function mountNav(){
-    removeOldStuff();
-    if (tries++ > 25) return;
-    var calBtn = document.querySelector('button.navitem[data-tab="cal"]');
-    if (!calBtn) { setTimeout(mountNav, 800); return; }
-    if (document.getElementById('ngmRBNav')) return;
-
-    var btn = document.createElement('button');
-    btn.id = 'ngmRBNav';
-    btn.className = 'navitem';
-    btn.setAttribute('data-tab', 'ngm-recruit');
-    btn.innerHTML = '<span class="ni-ic" data-ng="1">' + ICON_SVG + '</span>Recruit Board';
-    btn.onclick = function(ev){ ev.preventDefault(); ev.stopPropagation(); openRB(); };
-    calBtn.parentElement.insertBefore(btn, calBtn.nextSibling);
-  }
-
-  function ensureOverlay(){
-    if (document.getElementById('ngmRB')) return;
-    var o = document.createElement('div'); o.id='ngmRB';
-    o.innerHTML = '<div class="shell">'
-      + '<div class="hd"><div class="ttl">🎯 RECRUIT BOARD</div>'
-      + '<button class="close">Close</button></div>'
-      + '<div class="tabs"><div class="tab on" data-county="skagit">Skagit (155)</div>'
-      + '<div class="tab" data-county="whatcom">Whatcom (75)</div></div>'
-      + '<div class="stats"></div>'
-      + '<div id="ngmRBList"></div>'
-      + '<div class="footnote">Data: NWMLS sold rankings, rolling 12 months (refreshed 2026-05-19).</div>'
-      + '</div>';
-    document.body.appendChild(o);
-    o.querySelector('.close').onclick = closeRB;
-    o.addEventListener('click', function(e){ if (e.target===o) closeRB(); });
-    o.querySelectorAll('.tab').forEach(function(t){
-      t.onclick = function(){
-        o.querySelectorAll('.tab').forEach(function(x){x.classList.remove('on');});
-        t.classList.add('on');
-        render(t.getAttribute('data-county'));
-      };
-    });
-  }
-  function openRB(){ ensureOverlay(); document.getElementById('ngmRB').classList.add('open'); render('skagit'); }
-  function closeRB(){ var o=document.getElementById('ngmRB'); if(o) o.classList.remove('open'); }
+  var currentCounty = 'skagit';
 
   function fmtMoney(n){ if (n>=1e6) return '$'+(n/1e6).toFixed(1)+'M'; if (n>=1000) return '$'+(n/1000).toFixed(0)+'K'; return '$'+n; }
 
-  function render(county){
-    var rows = DATA[county] || [];
+  function renderInto(mc){
+    if (!mc) return;
+    mc.innerHTML = '<div id="ngmRBInline">'
+      + '<div class="hd"><div class="ttl">🎯 RECRUIT BOARD</div></div>'
+      + '<div class="tabs">'
+      + '<div class="tab' + (currentCounty==='skagit'?' on':'') + '" data-county="skagit">Skagit (155)</div>'
+      + '<div class="tab' + (currentCounty==='whatcom'?' on':'') + '" data-county="whatcom">Whatcom (75)</div>'
+      + '</div>'
+      + '<div class="stats" id="ngmRBStats"></div>'
+      + '<div id="ngmRBList"></div>'
+      + '<div class="footnote">Data: NWMLS sold rankings, rolling 12 months (refreshed 2026-05-19).</div>'
+      + '</div>';
+    var wrap = document.getElementById('ngmRBInline');
+    wrap.querySelectorAll('.tab').forEach(function(t){
+      t.onclick = function(){
+        currentCounty = t.getAttribute('data-county');
+        wrap.querySelectorAll('.tab').forEach(function(x){x.classList.toggle('on', x===t);});
+        renderTable();
+      };
+    });
+    renderTable();
+  }
+  function renderTable(){
+    var rows = DATA[currentCounty] || [];
     var out = rows.map(function(r){
       var c = matchContact(r.n);
       var status = 't', pill = 'TARGET';
@@ -10710,12 +10688,11 @@ async function dpDownloadPDF(){
     var targets = out.filter(function(x){return x.status==='t';}).length;
     var top50 = out.slice(0,50);
     var top50p = top50.filter(function(x){return x.status==='p';}).length;
-    var statsHTML =
+    document.getElementById('ngmRBStats').innerHTML =
       '<div class="stat partners"><div class="num">'+partners+'</div><div class="lab">Active partners</div></div>'
       + '<div class="stat incrm"><div class="num">'+incrm+'</div><div class="lab">In CRM (not portal)</div></div>'
       + '<div class="stat targets"><div class="num">'+targets+'</div><div class="lab">Recruit targets</div></div>'
       + '<div class="stat"><div class="num">'+top50p+' / 50</div><div class="lab">Top 50 covered</div></div>';
-    document.querySelector('#ngmRB .stats').innerHTML = statsHTML;
     var tbl = '<table><thead><tr><th class="rk">#</th><th>Realtor</th><th>Brokerage</th>'
       + '<th style="text-align:right">Txns</th><th style="text-align:right">Volume</th><th>Status</th>'
       + '</tr></thead><tbody>';
@@ -10731,19 +10708,42 @@ async function dpDownloadPDF(){
     });
     tbl += '</tbody></table>';
     document.getElementById('ngmRBList').innerHTML = tbl;
-    document.querySelectorAll('#ngmRB tr.has-contact').forEach(function(tr){
+    document.querySelectorAll('#ngmRBInline tr.has-contact').forEach(function(tr){
       tr.onclick = function(){
         var cid = tr.getAttribute('data-cid');
-        if (cid){ closeRB(); window.location.href = '?c=' + cid; }
+        if (cid){ window.location.href = '?c=' + cid; }
       };
     });
+  }
+
+  function activate(){
+    document.querySelectorAll('button.navitem').forEach(function(b){ b.classList.remove('on'); });
+    var myBtn = document.getElementById('ngmRBNav');
+    if (myBtn) myBtn.classList.add('on');
+    var mc = document.getElementById('mc');
+    renderInto(mc);
+  }
+
+  var tries = 0;
+  function mountNav(){
+    removeOldStuff();
+    if (tries++ > 25) return;
+    var calBtn = document.querySelector('button.navitem[data-tab="cal"]');
+    if (!calBtn) { setTimeout(mountNav, 800); return; }
+    if (document.getElementById('ngmRBNav')) return;
+    var btn = document.createElement('button');
+    btn.id = 'ngmRBNav';
+    btn.className = 'navitem';
+    btn.setAttribute('data-tab', 'ngm-recruit');
+    btn.innerHTML = '<span class="ni-ic" data-ng="1">' + ICON_SVG + '</span>Recruit Board';
+    btn.onclick = function(ev){ ev.preventDefault(); ev.stopPropagation(); activate(); };
+    calBtn.parentElement.insertBefore(btn, calBtn.nextSibling);
   }
 
   loadContacts().then(function(){
     if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', mountNav);
     else mountNav();
   });
-  document.addEventListener('keydown', function(e){ if (e.key==='Escape') closeRB(); });
 })();
 
 </script>
