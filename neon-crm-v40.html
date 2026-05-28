@@ -1453,7 +1453,7 @@ function rLB(mc){
     let canonNm=rawNm, key=rawNm.toLowerCase().trim();
     if(r.contactId){
       const matched=(D||[]).find(x=>+x.id===+r.contactId);
-      if(matched){canonNm=matched.name||matched.business||rawNm;key='cid:'+r.contactId;}
+      if(matched){var _isRealtor=(String(matched.type||'').toLowerCase()==='realtor');canonNm=_isRealtor?(matched.name||matched.business||rawNm):(matched.business||matched.name||rawNm);key='cid:'+r.contactId;}
     }
     if(!key)return;
     if(!byName[key])byName[key]={name:canonNm,refs:[],booked:0,completed:0,total:0,revenue:0};
