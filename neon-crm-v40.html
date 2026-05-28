@@ -10389,7 +10389,7 @@ async function dpDownloadPDF(){
 <script>
 /*v176-profile-clickable*/
 (function(){
-  if (window.__ngmV176v3) return; window.__ngmV176v3 = true;
+  if (window.__ngmV176v4) return; window.__ngmV176v4 = true;
 
   var st = document.createElement('style');
   st.textContent = ''
@@ -10427,13 +10427,26 @@ async function dpDownloadPDF(){
     return pen;
   }
 
+  // Find any element across the whole document body whose own (trimmed) text
+  // is exactly the given label, and that has no element children (so it's a
+  // header div, not the whole card).
+  function findHeaderByText(label){
+    var els = document.querySelectorAll('div,span,h3,h4,h5,p,strong,label');
+    for (var i=0;i<els.length;i++){
+      var el = els[i];
+      if (el.children.length > 0) continue;
+      var t = (el.textContent||'').trim();
+      if (t === label) return el;
+    }
+    return null;
+  }
+
   function decorate(){
     var cid = getCid(); if(!cid) return;
-    var mc = document.getElementById('mc'); if(!mc) return;
 
-    // Camera button on the big hero avatar (calls photo-only crop modal)
-    if (!mc.querySelector('.ngm-cam')){
-      var imgs = mc.querySelectorAll('img');
+    // Camera button on a big hero avatar anywhere on the page.
+    if (!document.querySelector('.ngm-cam')){
+      var imgs = document.querySelectorAll('img');
       for (var i=0;i<imgs.length;i++){
         var im = imgs[i];
         var r = im.getBoundingClientRect();
@@ -10451,45 +10464,25 @@ async function dpDownloadPDF(){
       }
     }
 
-    // Find header divs by their UPPERCASE label, regardless of children count.
-    // We look for divs whose direct text content starts with an exact label.
-    var allDivs = mc.querySelectorAll('div');
-    for (var i=0;i<allDivs.length;i++){
-      var el = allDivs[i];
-      // Get the FIRST non-empty text node, not deep textContent
-      var firstText = '';
-      for (var n=0;n<el.childNodes.length;n++){
-        var nd = el.childNodes[n];
-        if (nd.nodeType === 3){ var t=(nd.nodeValue||'').trim(); if (t){ firstText = t; break; } }
-        else if (nd.nodeType === 1){ break; }
-      }
-      // Allow either: pure text node match (no children), or div whose own textContent is exactly the label
-      var ownText = (el.textContent||'').trim();
-      var isContact = (firstText==='CONTACT' || ownText==='CONTACT');
-      var isDetails = (firstText==='DETAILS' || ownText==='DETAILS');
-      var isQA = (firstText==='QUICK ACTIONS' || ownText==='QUICK ACTIONS' || firstText==='Quick Actions');
-
-      if (isContact && !el.dataset.ngmCp){
-        // Only do this when the element looks like a small header (not the whole card)
-        if (el.clientHeight < 60){
-          el.dataset.ngmCp='1';
-          el.appendChild(makePen(cid, 'Edit contact info'));
-        }
-      } else if (isDetails && !el.dataset.ngmDp){
-        if (el.clientHeight < 60){
-          el.dataset.ngmDp='1';
-          el.appendChild(makePen(cid, 'Edit details (Tier, Owner, Type)'));
-        }
-      } else if (isQA && !el.dataset.ngmRen){
-        if (el.clientHeight < 60){
-          el.dataset.ngmRen='1';
-          el.textContent = 'ACTIONS';
-        }
-      }
+    // Pencils on CONTACT and DETAILS headers, plus rename QUICK ACTIONS.
+    var contactHdr = findHeaderByText('CONTACT');
+    if (contactHdr && !contactHdr.dataset.ngmCp){
+      contactHdr.dataset.ngmCp = '1';
+      contactHdr.appendChild(makePen(cid, 'Edit contact info'));
+    }
+    var detailsHdr = findHeaderByText('DETAILS');
+    if (detailsHdr && !detailsHdr.dataset.ngmDp){
+      detailsHdr.dataset.ngmDp = '1';
+      detailsHdr.appendChild(makePen(cid, 'Edit details (Tier, Owner, Type)'));
+    }
+    var qaHdr = findHeaderByText('QUICK ACTIONS');
+    if (qaHdr && !qaHdr.dataset.ngmRen){
+      qaHdr.dataset.ngmRen = '1';
+      qaHdr.textContent = 'ACTIONS';
     }
 
-    // Repair Set Reminder / Log Visit / Edit Info buttons
-    var btns = mc.querySelectorAll('button');
+    // Repair Set Reminder / Log Visit / Edit Info buttons (whole document).
+    var btns = document.querySelectorAll('button');
     for (var i=0;i<btns.length;i++){
       var b = btns[i];
       if (b.dataset.ngmFix) continue;
@@ -10507,8 +10500,8 @@ async function dpDownloadPDF(){
       };})(act);
     }
 
-    // Clickable pills: "X referrals" -> Referrals tab; "Xd since visit" -> Visits tab
-    var spans = mc.querySelectorAll('span');
+    // Pills: "X referrals" -> Referrals tab; "Xd since visit" -> Visits.
+    var spans = document.querySelectorAll('span');
     for (var i=0;i<spans.length;i++){
       var el = spans[i];
       if (el.children.length > 0) continue;
@@ -10528,31 +10521,31 @@ async function dpDownloadPDF(){
     }
   }
 
+  // Short repeated scan covers initial profile-render latency, then the hook
+  // takes over for subsequent renders.
+  var tickCount = 0;
+  var ticker = setInterval(function(){
+    try{ decorate(); }catch(e){}
+    if (++tickCount > 40){ clearInterval(ticker); }
+  }, 600);
+
   function hook(){
     if (typeof window._fpRender !== 'function') return false;
     if (window._fpRender.__ngmV176) return true;
     var orig = window._fpRender;
     var wrapped = function(){
       var rv = orig.apply(this, arguments);
-      try{ setTimeout(decorate, 60); }catch(e){}
+      try{ setTimeout(decorate, 80); }catch(e){}
       return rv;
     };
     wrapped.__ngmV176 = true;
     window._fpRender = wrapped;
     return true;
   }
-
-  function install(){
-    var n=0;
-    var iv = setInterval(function(){
-      if (hook() || ++n > 30){
-        clearInterval(iv);
-        setTimeout(decorate, 500);
-      }
-    }, 300);
-  }
-  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', install);
-  else install();
+  var hookTries = 0;
+  var hookIv = setInterval(function(){
+    if (hook() || ++hookTries > 40) clearInterval(hookIv);
+  }, 400);
 })();
 
 </script>
