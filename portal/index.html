@@ -3,145 +3,393 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Neon Giant Moving — Referral Partner Portal</title>
-<meta name="description" content="Realtor and partner referral portal for Neon Giant Moving &amp; Junk Removal.">
-<meta name="theme-color" content="#1a0033">
+<title>Neon Giant Moving — Referral Partner Program</title>
+<meta name="description" content="The referral partner program for realtors and pros across Skagit and Snohomish County. Refer a move, earn $50, your client saves $50.">
+<meta name="theme-color" content="#000000">
 <link rel="icon" href="/logo.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Audiowide&display=swap" rel="stylesheet">
 <style>
-  *, *::before, *::after { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    background: linear-gradient(135deg, #1a0033 0%, #4a0080 50%, #ff0080 100%);
-    background-attachment: fixed;
-    min-height: 100vh;
-    color: #fff;
-    padding: 20px 16px;
-    -webkit-font-smoothing: antialiased;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .card {
-    max-width: 480px;
-    width: 100%;
-    background: #0a0a0a;
-    border-radius: 14px;
-    overflow: hidden;
-    box-shadow: 0 16px 48px rgba(0,0,0,0.5);
-  }
-  .hdr {
-    background: linear-gradient(135deg, #1a0033 0%, #4a0080 50%, #ff0080 100%);
-    padding: 28px 22px 22px;
-    text-align: center;
-  }
-  .hdr img { width: 64px; height: 64px; border-radius: 12px; background: #000; padding: 4px; }
-  .hdr .brand { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; margin-top: 12px; opacity: 0.85; }
-  .hdr h1 { font-size: 22px; font-weight: 800; margin: 6px 0 0; }
-  .body { padding: 24px 22px; }
-  .body p { color: #ccc; line-height: 1.6; font-size: 14px; margin: 0 0 14px; }
-  .cta {
-    display: block;
-    width: 100%;
-    padding: 14px;
-    background: linear-gradient(135deg, #ff0080, #ff8000);
-    color: #fff;
-    border: none;
-    border-radius: 10px;
-    font-size: 15px;
-    font-weight: 700;
-    text-decoration: none;
-    text-align: center;
-    margin-top: 8px;
-  }
-  .cta.secondary {
-    background: #1a1a1a;
-    border: 1px solid #333;
-    margin-top: 10px;
+  :root { --neon-cyan:#22BFE7; --neon-cyan-2:#00E5FF; --neon-pink:#FF1493; --neon-pink-2:#FF4FB6; --neon-yellow:#FFD23F; --bg-0:#050008; --bg-1:#0d0014; --text:#f4f4ff; --muted:#8a8aa3; }
+  *,*::before,*::after { box-sizing:border-box; }
+  html,body { margin:0; padding:0; }
+  html { scroll-behavior:smooth; }
+  body { font-family:'Space Grotesk',-apple-system,sans-serif; background:var(--bg-0); color:var(--text); min-height:100vh; -webkit-font-smoothing:antialiased; overflow-x:hidden; position:relative; }
+
+  /* scroll progress bar */
+  .progress { position:fixed; top:0; left:0; height:3px; width:0%; z-index:99; background:linear-gradient(90deg, var(--neon-cyan), var(--neon-pink)); box-shadow:0 0 12px rgba(255,20,147,0.7); transition:width 0.1s linear; }
+
+  /* animated outrun grid */
+  .bg-grid { position:fixed; inset:0; z-index:0; pointer-events:none; background: radial-gradient(ellipse 90% 50% at 50% 100%, rgba(255,20,147,0.28), transparent 60%), radial-gradient(ellipse 80% 50% at 50% 0%, rgba(34,191,231,0.20), transparent 65%), linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 55%, var(--bg-0) 100%); }
+  .bg-grid::after { content:''; position:absolute; left:-50%; right:-50%; bottom:0; height:75%; background-image: linear-gradient(0deg, rgba(34,191,231,0.13) 2px, transparent 2px), linear-gradient(90deg, rgba(34,191,231,0.13) 2px, transparent 2px); background-size:70px 70px; mask-image:linear-gradient(180deg, transparent 0%, black 90%); -webkit-mask-image:linear-gradient(180deg, transparent 0%, black 90%); transform:perspective(420px) rotateX(68deg); transform-origin:50% 100%; animation:grid-run 2.6s linear infinite; }
+  @keyframes grid-run { from { background-position:0 0; } to { background-position:0 70px; } }
+
+  /* drifting particles */
+  .particles { position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+  .particle { position:absolute; width:3px; height:3px; border-radius:50%; background:var(--neon-cyan); box-shadow:0 0 8px var(--neon-cyan); opacity:0.5; animation:drift linear infinite; }
+  .particle.pink { background:var(--neon-pink); box-shadow:0 0 8px var(--neon-pink); }
+  @keyframes drift { from { transform:translateY(105vh) scale(0.6); opacity:0; } 10% { opacity:0.6; } 90% { opacity:0.6; } to { transform:translateY(-10vh) scale(1); opacity:0; } }
+
+  .scanlines { position:fixed; inset:0; z-index:1; pointer-events:none; background:repeating-linear-gradient(0deg, rgba(255,255,255,0.022) 0 1px, transparent 1px 3px); mix-blend-mode:overlay; }
+  .wrap { position:relative; z-index:2; max-width:680px; margin:0 auto; padding:36px 20px 60px; }
+
+  /* reveal-on-scroll base */
+  .reveal { opacity:0; transform:translateY(34px); transition:opacity 0.7s cubic-bezier(.16,1,.3,1), transform 0.7s cubic-bezier(.16,1,.3,1); will-change:opacity, transform; }
+  .reveal.in { opacity:1; transform:none; }
+  .reveal.from-left { transform:translateX(-40px); }
+  .reveal.from-left.in { transform:none; }
+
+  /* hero */
+  .hero { text-align:center; margin-bottom:36px; }
+  .hero .mark { width:150px; height:180px; margin:0 auto 10px; background:url('/bigfoot-mark.png') center/contain no-repeat; filter:drop-shadow(0 0 18px rgba(255,20,147,0.55)) drop-shadow(0 0 36px rgba(34,191,231,0.35)); animation:gentle-float 6s ease-in-out infinite; will-change:transform; }
+  @keyframes gentle-float { 0%,100% { transform:translateY(0) rotate(-1deg); } 50% { transform:translateY(-9px) rotate(1deg); } }
+  .hero .brand { font-family:'Audiowide',cursive; font-size:14px; letter-spacing:6px; text-transform:uppercase; color:var(--neon-cyan); text-shadow:0 0 10px rgba(34,191,231,0.6), 0 0 20px rgba(34,191,231,0.3); }
+  .hero .biz { font-size:11px; letter-spacing:2.5px; color:var(--muted); text-transform:uppercase; margin-top:4px; }
+  .hero h1 { font-family:'Audiowide',cursive; font-size:clamp(32px, 8vw, 52px); margin:18px 0 0; line-height:1.05; background:linear-gradient(110deg, var(--neon-cyan-2) 0%, #ffffff 35%, var(--neon-pink-2) 70%, var(--neon-cyan-2) 100%); background-size:280% 100%; -webkit-background-clip:text; background-clip:text; color:transparent; filter:drop-shadow(0 0 26px rgba(255,20,147,0.4)); text-transform:uppercase; letter-spacing:-0.5px; animation:hue-slide 6s linear infinite; }
+  @keyframes hue-slide { from { background-position:0% 0; } to { background-position:280% 0; } }
+  .hero .tagline { margin-top:14px; font-size:16px; color:#d6d6e6; line-height:1.55; max-width:480px; margin-left:auto; margin-right:auto; }
+  .hero .tagline b { color:var(--neon-cyan); text-shadow:0 0 8px rgba(34,191,231,0.5); }
+  .scroll-hint { margin-top:22px; font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); animation:bob 1.8s ease-in-out infinite; }
+  @keyframes bob { 0%,100% { transform:translateY(0); opacity:0.5; } 50% { transform:translateY(5px); opacity:1; } }
+
+  /* deal banner */
+  .deal { margin:34px 0; padding:24px 20px; border-radius:18px; text-align:center; background: linear-gradient(135deg, rgba(255,20,147,0.12), rgba(34,191,231,0.10)), rgba(13,0,20,0.6); border:1px solid rgba(255,20,147,0.4); box-shadow:0 0 0 1px rgba(34,191,231,0.15) inset, 0 10px 40px rgba(255,20,147,0.2); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); transition:box-shadow 0.4s, transform 0.4s; }
+  .deal:hover { box-shadow:0 0 0 1px rgba(34,191,231,0.3) inset, 0 16px 56px rgba(255,20,147,0.38); transform:translateY(-3px); }
+  .deal .big { font-family:'Audiowide',cursive; font-size:clamp(36px,9vw,52px); color:var(--neon-pink); text-shadow:0 0 16px rgba(255,20,147,0.75), 0 0 36px rgba(255,20,147,0.45); letter-spacing:1px; }
+  .deal .split { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; margin-top:10px; font-size:15px; }
+  .deal .split .arrow { color:var(--neon-cyan); font-size:22px; text-shadow:0 0 8px rgba(34,191,231,0.6); animation:arrow-pulse 1.8s ease-in-out infinite; }
+  @keyframes arrow-pulse { 0%,100% { transform:scale(1); opacity:0.8; } 50% { transform:scale(1.18); opacity:1; } }
+  .deal .split b.cyan { color:var(--neon-cyan); }
+  .deal .split b.pink { color:var(--neon-pink); }
+  .deal .fine { margin-top:12px; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); }
+
+  /* sections */
+  .section { margin:48px 0; }
+  .section .eyebrow { font-family:'Audiowide',cursive; font-size:13px; letter-spacing:3px; text-transform:uppercase; color:var(--neon-cyan); text-shadow:0 0 10px rgba(34,191,231,0.45); text-align:center; margin-bottom:8px; }
+  .section h2 { font-family:'Audiowide',cursive; font-size:clamp(22px,5vw,30px); text-align:center; margin:0 0 20px; color:#fff; text-shadow:0 0 18px rgba(255,20,147,0.3); }
+
+  /* steps */
+  .steps { display:grid; gap:12px; }
+  .step { display:flex; gap:14px; align-items:flex-start; padding:16px 18px; border-radius:14px; background:rgba(13,0,20,0.6); border:1px solid rgba(34,191,231,0.15); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); transition:transform 0.3s cubic-bezier(.16,1,.3,1), border-color 0.3s, box-shadow 0.3s; }
+  .step:hover { transform:translateX(8px) scale(1.015); border-color:rgba(34,191,231,0.5); box-shadow:-6px 0 24px rgba(34,191,231,0.18); }
+  .step .n { flex:none; width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Audiowide',cursive; font-size:16px; color:#fff; background:linear-gradient(135deg, var(--neon-pink), var(--neon-cyan)); box-shadow:0 0 16px rgba(255,20,147,0.5); transition:transform 0.3s, box-shadow 0.3s; }
+  .step:hover .n { transform:rotate(-8deg) scale(1.12); box-shadow:0 0 26px rgba(255,20,147,0.85); }
+  .step .txt h3 { margin:0 0 4px; font-size:15px; color:#fff; }
+  .step .txt p { margin:0; font-size:13.5px; color:var(--muted); line-height:1.5; }
+
+  /* about */
+  .about { padding:24px 20px; border-radius:16px; background:rgba(13,0,20,0.6); border:1px solid rgba(34,191,231,0.15); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); transition:border-color 0.3s, box-shadow 0.3s; }
+  .about:hover { border-color:rgba(34,191,231,0.4); box-shadow:0 12px 40px rgba(34,191,231,0.15); }
+  .about p { font-size:14.5px; line-height:1.7; color:#cfcfe0; margin:0 0 12px; }
+  .about p:last-child { margin-bottom:0; }
+  .about b { color:#fff; }
+
+  /* perks - 3D tilt */
+  .perks { display:grid; grid-template-columns:1fr 1fr; gap:12px; perspective:900px; }
+  @media (max-width:480px) { .perks { grid-template-columns:1fr; } }
+  .perk { padding:18px 16px; border-radius:14px; background:rgba(13,0,20,0.6); border:1px solid rgba(255,20,147,0.18); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); transition:box-shadow 0.3s, border-color 0.3s; transform-style:preserve-3d; will-change:transform; }
+  .perk:hover { border-color:rgba(255,20,147,0.55); box-shadow:0 18px 48px rgba(255,20,147,0.25); }
+  .perk .ic { font-size:26px; margin-bottom:8px; transition:transform 0.3s; display:inline-block; }
+  .perk:hover .ic { transform:scale(1.25) translateZ(30px); }
+  .perk h3 { margin:0 0 4px; font-size:14px; color:var(--neon-cyan); text-shadow:0 0 8px rgba(34,191,231,0.4); }
+  .perk p { margin:0; font-size:13px; color:var(--muted); line-height:1.5; }
+
+  /* join */
+  .join { margin-top:48px; padding:28px 22px; border-radius:18px; text-align:center; background: linear-gradient(135deg, rgba(34,191,231,0.10), rgba(255,20,147,0.10)), rgba(13,0,20,0.65); border:1px solid rgba(34,191,231,0.3); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+  .join h2 { font-family:'Audiowide',cursive; font-size:22px; margin:0 0 10px; color:#fff; }
+  .join p { font-size:14px; color:#cfcfe0; line-height:1.6; margin:0 0 8px; }
+  .join .have-link { font-size:13px; color:var(--muted); margin-top:6px; }
+  .join code { background:rgba(0,0,0,0.55); color:var(--neon-pink); padding:2px 6px; border-radius:4px; font-size:12px; }
+  .cta-row { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top:16px; }
+  .cta { display:inline-block; padding:14px 22px; border-radius:11px; font-family:'Audiowide',cursive; font-size:13px; letter-spacing:1.5px; text-transform:uppercase; text-decoration:none; transition:transform 0.12s cubic-bezier(.16,1,.3,1), box-shadow 0.3s; will-change:transform; }
+  .cta.primary { background:linear-gradient(135deg, var(--neon-pink) 0%, #ff5da7 100%); color:#fff; box-shadow:0 0 22px rgba(255,20,147,0.5); }
+  .cta.primary:hover { box-shadow:0 0 38px rgba(255,20,147,0.85); }
+  .cta.secondary { background:rgba(34,191,231,0.10); border:1px solid rgba(34,191,231,0.4); color:var(--neon-cyan); text-shadow:0 0 8px rgba(34,191,231,0.4); }
+  .cta.secondary:hover { box-shadow:0 0 26px rgba(34,191,231,0.5); border-color:rgba(34,191,231,0.8); }
+  .cta:active { transform:scale(0.96); }
+
+  .footer { text-align:center; margin-top:40px; padding:14px; color:rgba(255,255,255,0.45); font-size:11px; }
+  .footer a { color:rgba(34,191,231,0.85); text-decoration:none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity:1 !important; transform:none !important; }
+    .bg-grid::after, .hero .mark, .hero h1, .deal .split .arrow, .scroll-hint, .particle { animation:none !important; }
   }
 
   /* ============ SOCIAL CTA ============ */
-  .social-card{
-    margin-top:18px;padding:18px 16px;border-radius:14px;
-    background:linear-gradient(135deg,rgba(0,212,255,0.10) 0%,rgba(255,0,176,0.10) 100%),#0e0e14;
-    border:1px solid rgba(0,212,255,0.35);
-    box-shadow:0 0 24px rgba(0,212,255,0.18),inset 0 0 30px rgba(255,0,176,0.06);
-    position:relative;overflow:hidden;text-align:center;
-    animation:socialFloat 6s ease-in-out infinite;
-  }
-  .social-card::before{
-    content:'';position:absolute;inset:-2px;border-radius:14px;padding:1px;
-    background:linear-gradient(135deg,#00d4ff,#ff00b0,#00d4ff);
-    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
-    -webkit-mask-composite:xor;mask-composite:exclude;
-    opacity:0.6;animation:socialBorder 4s linear infinite;pointer-events:none;
-  }
-  @keyframes socialFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
-  @keyframes socialBorder{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-  .social-eyebrow{
-    font-size:10px;font-weight:800;letter-spacing:3px;text-transform:uppercase;
-    color:#00d4ff;text-shadow:0 0 12px rgba(0,212,255,0.5);
-  }
-  .social-title{
-    font-size:20px;font-weight:900;margin-top:4px;
-    background:linear-gradient(135deg,#00d4ff,#ff00b0);
-    -webkit-background-clip:text;background-clip:text;color:transparent;
-    text-shadow:0 0 30px rgba(0,212,255,0.3);
-  }
-  .social-sub{font-size:12px;color:#bbb;margin:6px 0 14px;line-height:1.5;max-width:300px;margin-left:auto;margin-right:auto}
-  .social-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
-  .sbtn{
-    display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:9px;
-    font-size:13px;font-weight:700;text-decoration:none;color:#fff;
-    transition:all .2s ease;cursor:pointer;border:1px solid transparent;
-    min-width:130px;justify-content:center;
-  }
-  .sbtn svg{flex-shrink:0}
-  .sbtn-ig{background:linear-gradient(135deg,#f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%);box-shadow:0 4px 14px rgba(220,39,67,0.35)}
-  .sbtn-ig:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(220,39,67,0.55)}
-  .sbtn-fb{background:#1877f2;box-shadow:0 4px 14px rgba(24,119,242,0.35)}
-  .sbtn-fb:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(24,119,242,0.55)}
+  .social-section{margin-top:40px;padding:28px 22px;border-radius:18px;position:relative;overflow:hidden;text-align:center;background:linear-gradient(135deg,rgba(34,191,231,0.10) 0%,rgba(255,20,147,0.10) 100%),rgba(13,0,20,0.65);border:1px solid rgba(34,191,231,0.35);box-shadow:0 0 32px rgba(34,191,231,0.15),inset 0 0 36px rgba(255,20,147,0.06);animation:socialPulse 5s ease-in-out infinite}
+  .social-section::before{content:'';position:absolute;inset:-1px;border-radius:18px;padding:1px;background:linear-gradient(135deg,var(--neon-cyan-2),var(--neon-pink-2),var(--neon-cyan-2));background-size:280% 100%;-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:0.7;animation:hue-slide 6s linear infinite;pointer-events:none}
+  @keyframes socialPulse{0%,100%{box-shadow:0 0 32px rgba(34,191,231,0.15),inset 0 0 36px rgba(255,20,147,0.06)}50%{box-shadow:0 0 50px rgba(255,20,147,0.25),inset 0 0 48px rgba(34,191,231,0.10)}}
+  .social-eyebrow{font-family:'Audiowide',cursive;font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--neon-cyan);text-shadow:0 0 12px rgba(34,191,231,0.55)}
+  .social-title{font-family:'Audiowide',cursive;font-size:clamp(22px,5vw,30px);font-weight:900;margin-top:6px;background:linear-gradient(110deg,var(--neon-cyan-2) 0%,#fff 35%,var(--neon-pink-2) 70%,var(--neon-cyan-2) 100%);background-size:280% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:hue-slide 6s linear infinite;text-transform:uppercase;letter-spacing:.5px}
+  .social-sub{font-size:13px;color:var(--muted);margin:8px auto 18px;line-height:1.6;max-width:360px}
+  .social-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .sbtn{display:inline-flex;align-items:center;gap:9px;padding:13px 22px;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none;color:#fff;transition:all .25s cubic-bezier(.16,1.15,.3,1);cursor:pointer;border:1px solid transparent;min-width:140px;justify-content:center;position:relative;overflow:hidden}
+  .sbtn svg{flex-shrink:0;transition:transform .3s}
+  .sbtn:hover svg{transform:scale(1.15) rotate(-5deg)}
+  .sbtn-ig{background:linear-gradient(135deg,#f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%);box-shadow:0 4px 16px rgba(220,39,67,0.4)}
+  .sbtn-ig:hover{transform:translateY(-3px) scale(1.03);box-shadow:0 10px 28px rgba(220,39,67,0.6)}
+  .sbtn-fb{background:linear-gradient(135deg,#1877f2 0%,#0a5cc7 100%);box-shadow:0 4px 16px rgba(24,119,242,0.4)}
+  .sbtn-fb:hover{transform:translateY(-3px) scale(1.03);box-shadow:0 10px 28px rgba(24,119,242,0.6)}
+  @media (prefers-reduced-motion:reduce){.social-section,.social-section::before,.social-title{animation:none}.sbtn:hover{transform:none}}
 
 </style>
 </head>
 <body>
-<div class="card">
-  <div class="hdr">
-    <img src="/logo.jpg" alt="Neon Giant" onerror="this.style.display='none'">
-    <div class="brand">Partner Portal</div>
-    <h1>Neon Giant Moving</h1>
-  </div>
-  <div class="body">
-    <p>This is the referral partner portal for Neon Giant Moving &amp; Junk Removal in the Skagit Valley, WA.</p>
-    <p>If you're an existing referral partner, your <b>personal portal link</b> looks like:<br>
-    <code style="color:#ff8aaa;font-size:12px">refer.neongiantmoving.com/?r=your-name-XX</code></p>
-    <p>Check the email or text you received from Dane for your link — that's your bookmark to your dashboard, your referral history, and the form to send us your next customer.</p>
-    <a class="cta" href="https://neongiantmoving.com">Visit neongiantmoving.com</a>
-    <a class="cta secondary" href="tel:+13605884700">Call (360) 588-4700</a>
+<div class="progress" id="progress"></div>
+<div class="bg-grid"></div>
+<div class="particles" id="particles"></div>
+<div class="scanlines"></div>
+<div class="wrap">
 
-    <div class="social-card">
-      <div class="social-eyebrow">See Us In Action</div>
-      <div class="social-title">Bigfoot On The Move</div>
-      <div class="social-sub">Behind-the-scenes moves, neon trucks, and the crew making it happen.</div>
-      <div class="social-btns">
-        <a class="sbtn sbtn-ig" href="https://www.instagram.com/neongiantmoving/" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="none" width="22" height="22"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"/></svg>
-          <span>Instagram</span>
-        </a>
-        <a class="sbtn sbtn-fb" href="https://www.facebook.com/neongiantmoving/" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M22 12a10 10 0 1 0-11.5 9.9v-7H8v-2.9h2.5V9.4c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.3 0-1.7.8-1.7 1.6V12H16l-.4 2.9h-2.1v7A10 10 0 0 0 22 12z"/></svg>
-          <span>Facebook</span>
-        </a>
+  <div class="hero">
+    <div class="mark" id="bigfoot" aria-hidden="true"></div>
+    <div class="brand reveal">Neon Giant</div>
+    <div class="biz reveal">Moving &amp; Junk Removal &middot; Skagit &amp; Snohomish County</div>
+    <h1 class="reveal">Refer a Move,<br>Get Paid</h1>
+    <div class="tagline reveal">The partner program for realtors, property managers, and anyone who knows someone on the move. You earn <b>$50</b>. Your client saves <b>$50</b>. Everybody wins.</div>
+    <div class="scroll-hint reveal">&darr; Scroll &darr;</div>
+  </div>
+
+  <div class="deal reveal" id="deal">
+    <div class="big"><span id="dealA">$0</span> / <span id="dealB">$0</span></div>
+    <div class="split">
+      <div><b class="cyan">$50 gift card</b><br>to you</div>
+      <div class="arrow">&harr;</div>
+      <div><b class="pink">$50 off</b><br>for your client</div>
+    </div>
+    <div class="fine">On every completed move over $1,000</div>
+  </div>
+
+  <div class="section">
+    <div class="eyebrow reveal">Dead Simple</div>
+    <h2 class="reveal">How It Works</h2>
+    <div class="steps">
+      <div class="step reveal from-left">
+        <div class="n">1</div>
+        <div class="txt">
+          <h3>Get your link</h3>
+          <p>We set you up with a personal referral page — your own dashboard with a link to bookmark. Takes us two minutes.</p>
+        </div>
+      </div>
+      <div class="step reveal from-left">
+        <div class="n">2</div>
+        <div class="txt">
+          <h3>Share it</h3>
+          <p>Text it, email it, hand it out at closings. Anyone moving across Skagit or Snohomish County can submit their move in 60 seconds.</p>
+        </div>
+      </div>
+      <div class="step reveal from-left">
+        <div class="n">3</div>
+        <div class="txt">
+          <h3>Get paid</h3>
+          <p>When their move completes, your $50 gift card ships at the end of the month. Track every referral live from your dashboard.</p>
+        </div>
       </div>
     </div>
   </div>
+
+  <div class="section">
+    <div class="eyebrow reveal">Who's The Giant</div>
+    <h2 class="reveal">About Neon Giant</h2>
+    <div class="about reveal">
+      <p>Neon Giant Moving &amp; Junk Removal is a moving company rooted in the <b>Skagit Valley</b> and serving the wider <b>Skagit &amp; Snohomish County</b> region. We treat every home like it matters — because it does.</p>
+      <p>From studio apartments to four-bedroom houses, full-service moves to a single heavy item, we show up on time, wrap it like it's our own, and get it done right. We also <b>haul junk</b> — so when your client needs the garage cleared before a listing photo shoot, that's us too.</p>
+      <p>When you send someone our way, you're not rolling the dice. You're handing them to a crew that's going to make <b>you</b> look good.</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="eyebrow reveal">What's In It For You</div>
+    <h2 class="reveal">Why Partner With Us</h2>
+    <div class="perks">
+      <div class="perk reveal tilt">
+        <div class="ic">&#128737;&#65039;</div>
+        <h3>Your reputation is safe</h3>
+        <p>We treat your client the way you'd want them treated — careful, friendly, on time.</p>
+      </div>
+      <div class="perk reveal tilt">
+        <div class="ic">&#127873;</div>
+        <h3>You look good</h3>
+        <p>A $50 discount from "your mover" is a closing-gift touch your clients remember.</p>
+      </div>
+      <div class="perk reveal tilt">
+        <div class="ic">&#128184;</div>
+        <h3>You earn — every time</h3>
+        <p>$50 per completed move over $1,000. No cap, no limit on how many you send.</p>
+      </div>
+      <div class="perk reveal tilt">
+        <div class="ic">&#9889;</div>
+        <h3>Zero hassle</h3>
+        <p>One link. We handle scheduling, the move, and the follow-up. You just connect us.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="join reveal">
+    <h2>Want In?</h2>
+    <p>We hand-pick our referral partners. If you work with people on the move across Skagit or Snohomish County, let's talk.</p>
+    <div class="cta-row">
+      <a class="cta primary magnetic" href="tel:+13605884700">Call (360) 588-4700</a>
+      <a class="cta secondary magnetic" href="mailto:info@neongiantmoving.com">Email Us</a>
+    </div>
+    <div class="have-link">Already a partner? Check your email or text for your personal link — it looks like <code>refer.neongiantmoving.com/?r=your-name-XX</code></div>
+  </div>
+
+  <div class="social-section reveal">
+    <div class="social-eyebrow">See Us In Action</div>
+    <div class="social-title">Bigfoot On The Move</div>
+    <div class="social-sub">Behind-the-scenes moves, neon trucks, and the crew making it happen. Tag us when you spot the giant.</div>
+    <div class="social-btns">
+      <a class="sbtn sbtn-ig" href="https://www.instagram.com/neongiantmoving/" target="_blank" rel="noopener" aria-label="Instagram">
+        <svg viewBox="0 0 24 24" fill="none" width="22" height="22"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"/></svg>
+        <span>Instagram</span>
+      </a>
+      <a class="sbtn sbtn-fb" href="https://www.facebook.com/neongiantmoving/" target="_blank" rel="noopener" aria-label="Facebook">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M22 12a10 10 0 1 0-11.5 9.9v-7H8v-2.9h2.5V9.4c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.3 0-1.7.8-1.7 1.6V12H16l-.4 2.9h-2.1v7A10 10 0 0 0 22 12z"/></svg>
+        <span>Facebook</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="footer reveal">
+    Neon Giant Moving &amp; Junk Removal &middot; Skagit &amp; Snohomish County, WA<br>
+    <a href="tel:+13605884700">(360) 588-4700</a> &middot;
+    <a href="mailto:info@neongiantmoving.com">info@neongiantmoving.com</a> &middot;
+    <a href="https://neongiantmoving.com">neongiantmoving.com</a>
+  </div>
+
 </div>
 <script>
-  // If ?r=slug is in URL, redirect to /portal?r=slug for a real dashboard.
+  // redirect partners with a slug straight to their dashboard
   (function(){
-    const slug = new URLSearchParams(location.search).get('r');
-    if (slug) location.replace('/portal?r=' + encodeURIComponent(slug));
+    var slug = new URLSearchParams(location.search).get('r');
+    if (slug) { location.replace('/portal?r=' + encodeURIComponent(slug)); return; }
   })();
+
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ---- scroll progress bar ----
+  var progress = document.getElementById('progress');
+  function updateProgress() {
+    var h = document.documentElement;
+    var scrolled = h.scrollTop / (h.scrollHeight - h.clientHeight);
+    progress.style.width = (scrolled * 100) + '%';
+  }
+
+  // ---- reveal on scroll (staggered) ----
+  var reveals = Array.prototype.slice.call(document.querySelectorAll('.reveal'));
+  if ('IntersectionObserver' in window && !reduceMotion) {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if (e.isIntersecting) {
+          var el = e.target;
+          // stagger siblings within the same parent
+          var sibs = Array.prototype.slice.call(el.parentNode.children).filter(function(c){ return c.classList.contains('reveal'); });
+          var idx = sibs.indexOf(el);
+          el.style.transitionDelay = (Math.max(0, idx) * 90) + 'ms';
+          el.classList.add('in');
+          io.unobserve(el);
+        }
+      });
+    }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
+    reveals.forEach(function(el){ io.observe(el); });
+  } else {
+    reveals.forEach(function(el){ el.classList.add('in'); });
+  }
+
+  // ---- parallax bigfoot ----
+  var bigfoot = document.getElementById('bigfoot');
+  var ticking = false;
+  function onScroll() {
+    updateProgress();
+    if (!reduceMotion && bigfoot) {
+      var y = window.scrollY;
+      bigfoot.style.transform = 'translateY(' + (y * -0.18) + 'px)';
+    }
+    ticking = false;
+  }
+  window.addEventListener('scroll', function(){
+    if (!ticking) { requestAnimationFrame(onScroll); ticking = true; }
+  }, { passive: true });
+  updateProgress();
+
+  // ---- count-up on the deal banner ----
+  var dealDone = false;
+  function countUp(el, target, prefix) {
+    var start = performance.now(), dur = 1100;
+    function tick(now){
+      var p = Math.min(1, (now - start) / dur);
+      p = 1 - Math.pow(1 - p, 3);
+      el.textContent = prefix + Math.round(target * p);
+      if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+  var deal = document.getElementById('deal');
+  if ('IntersectionObserver' in window) {
+    var dealIO = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if (e.isIntersecting && !dealDone) {
+          dealDone = true;
+          if (reduceMotion) {
+            document.getElementById('dealA').textContent = '$50';
+            document.getElementById('dealB').textContent = '$50';
+          } else {
+            countUp(document.getElementById('dealA'), 50, '$');
+            countUp(document.getElementById('dealB'), 50, '$');
+          }
+          dealIO.disconnect();
+        }
+      });
+    }, { threshold: 0.4 });
+    dealIO.observe(deal);
+  } else {
+    document.getElementById('dealA').textContent = '$50';
+    document.getElementById('dealB').textContent = '$50';
+  }
+
+  // ---- 3D tilt on perk cards ----
+  if (!reduceMotion && window.matchMedia('(hover: hover)').matches) {
+    document.querySelectorAll('.tilt').forEach(function(card){
+      card.addEventListener('mousemove', function(ev){
+        var r = card.getBoundingClientRect();
+        var px = (ev.clientX - r.left) / r.width - 0.5;
+        var py = (ev.clientY - r.top) / r.height - 0.5;
+        card.style.transform = 'rotateY(' + (px * 12) + 'deg) rotateX(' + (-py * 12) + 'deg) translateZ(6px)';
+      });
+      card.addEventListener('mouseleave', function(){
+        card.style.transform = '';
+      });
+    });
+
+    // ---- magnetic buttons ----
+    document.querySelectorAll('.magnetic').forEach(function(btn){
+      btn.addEventListener('mousemove', function(ev){
+        var r = btn.getBoundingClientRect();
+        var px = (ev.clientX - r.left) / r.width - 0.5;
+        var py = (ev.clientY - r.top) / r.height - 0.5;
+        btn.style.transform = 'translate(' + (px * 14) + 'px,' + (py * 10) + 'px)';
+      });
+      btn.addEventListener('mouseleave', function(){ btn.style.transform = ''; });
+    });
+  }
+
+  // ---- drifting particles ----
+  if (!reduceMotion) {
+    var pc = document.getElementById('particles');
+    for (var i = 0; i < 16; i++) {
+      var p = document.createElement('div');
+      p.className = 'particle' + (Math.random() > 0.5 ? ' pink' : '');
+      p.style.left = (Math.random() * 100) + '%';
+      p.style.animationDuration = (9 + Math.random() * 14) + 's';
+      p.style.animationDelay = (-Math.random() * 20) + 's';
+      var s = 0.5 + Math.random() * 1.6;
+      p.style.width = s + 'px'; p.style.height = s + 'px';
+      pc.appendChild(p);
+    }
+  }
 </script>
 </body>
 </html>

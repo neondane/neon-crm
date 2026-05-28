@@ -4,180 +4,107 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Refer a Move | Neon Giant Moving</title>
-<meta name="description" content="Submit a referral to Neon Giant Moving &amp; Junk Removal. Earn $50 per completed move.">
-<meta name="theme-color" content="#1a0033">
+<meta name="description" content="Submit a referral to Neon Giant Moving and Junk Removal. Earn $50 per completed move over $1,000.">
+<meta name="theme-color" content="#000000">
 <link rel="icon" href="/logo.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Audiowide&display=swap" rel="stylesheet">
 <style>
-  *, *::before, *::after { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    background: linear-gradient(135deg, #1a0033 0%, #4a0080 50%, #ff0080 100%);
-    background-attachment: fixed;
-    min-height: 100vh;
-    color: #fff;
-    padding: 16px 12px;
-    -webkit-font-smoothing: antialiased;
-  }
-  .card {
-    max-width: 540px;
-    margin: 20px auto;
-    background: #0a0a0a;
-    border-radius: 14px;
-    overflow: hidden;
-    box-shadow: 0 16px 48px rgba(0,0,0,0.5);
-  }
-  .hdr {
-    background: linear-gradient(135deg, #1a0033 0%, #4a0080 50%, #ff0080 100%);
-    padding: 24px;
-    text-align: center;
-  }
-  .hdr img { width: 64px; height: 64px; border-radius: 12px; background: #000; padding: 4px; object-fit: contain; }
-  .hdr h1 { margin: 12px 0 4px; font-size: 22px; font-weight: 800; letter-spacing: 0.5px; }
-  .hdr .sub { font-size: 11px; opacity: 0.85; letter-spacing: 2px; text-transform: uppercase; }
-  .hdr .greet { margin-top: 14px; font-size: 16px; font-weight: 500; min-height: 22px; }
-  .body { padding: 22px; }
-  .field { margin-bottom: 14px; }
-  .field label { display: block; font-size: 11px; letter-spacing: 1px; color: #ff0080; text-transform: uppercase; margin-bottom: 5px; font-weight: 600; }
-  .field input, .field select, .field textarea {
-    width: 100%;
-    padding: 12px 14px;
-    background: #1a1a1a;
-    color: #fff;
-    border: 1px solid #333;
-    border-radius: 8px;
-    font-size: 15px;
-    font-family: inherit;
-    -webkit-appearance: none;
-  }
-  .field input:focus, .field select:focus, .field textarea:focus {
-    outline: none;
-    border-color: #ff0080;
-    box-shadow: 0 0 0 2px rgba(255,0,128,0.3);
-  }
-  .field textarea { min-height: 80px; resize: vertical; }
-  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  @media (max-width: 460px) { .row { grid-template-columns: 1fr; } }
-  .reward {
-    background: linear-gradient(135deg, #4a0080, #ff0080);
-    padding: 14px;
-    border-radius: 10px;
-    margin: 0 0 18px;
-    text-align: center;
-    font-size: 13px;
-    line-height: 1.5;
-  }
-  .reward b { font-size: 18px; display: block; margin-bottom: 4px; }
-  .submit {
-    width: 100%;
-    padding: 16px;
-    background: linear-gradient(135deg, #ff0080, #ff8000);
-    color: #fff;
-    border: none;
-    border-radius: 10px;
-    font-size: 16px;
-    font-weight: 700;
-    cursor: pointer;
-    margin-top: 8px;
-    font-family: inherit;
-    transition: opacity 0.15s, transform 0.05s;
-  }
-  .submit:hover:not(:disabled) { opacity: 0.92; }
-  .submit:active:not(:disabled) { transform: translateY(1px); }
-  .submit:disabled { opacity: 0.5; cursor: not-allowed; }
-  .err {
-    color: #ff6b6b;
-    font-size: 13px;
-    padding: 10px;
-    background: rgba(255,107,107,0.1);
-    border-radius: 6px;
-    margin-top: 10px;
-    border: 1px solid rgba(255,107,107,0.3);
-  }
-  .thank-you { text-align: center; padding: 30px 10px; }
-  .thank-you .check { font-size: 60px; margin-bottom: 14px; }
-  .thank-you h2 { font-size: 22px; margin: 0 0 8px; }
-  .thank-you p { color: #aaa; font-size: 14px; line-height: 1.6; margin: 10px 0; }
-  .thank-you b { color: #fff; }
-  .skeleton-greet {
-    display: inline-block;
-    width: 200px;
-    height: 18px;
-    background: linear-gradient(90deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.25) 50%, rgba(255,255,255,0.1) 100%);
-    background-size: 200% 100%;
-    animation: shimmer 1.4s ease-in-out infinite;
-    border-radius: 4px;
-  }
-  @keyframes shimmer { 0% { background-position: -100% 0; } 100% { background-position: 100% 0; } }
-  .footer { text-align: center; padding: 14px; color: rgba(255,255,255,0.6); font-size: 11px; }
-  .footer a { color: rgba(255,255,255,0.8); text-decoration: none; }
-  .back-link {
-    display: inline-block;
-    margin-bottom: 8px;
-    font-size: 13px;
-    color: rgba(255,255,255,0.7);
-    text-decoration: none;
-  }
-  .back-link:hover { color: #fff; }
+  :root { --neon-cyan:#22BFE7; --neon-cyan-2:#00E5FF; --neon-pink:#FF1493; --neon-pink-2:#FF4FB6; --bg-0:#050008; --bg-1:#0d0014; --text:#f4f4ff; --muted:#8a8aa3; }
+  *,*::before,*::after { box-sizing:border-box; }
+  html,body { margin:0; padding:0; }
+  body { font-family:'Space Grotesk',-apple-system,sans-serif; background:var(--bg-0); color:var(--text); min-height:100vh; -webkit-font-smoothing:antialiased; overflow-x:hidden; position:relative; }
+  .bg-grid { position:fixed; inset:0; z-index:0; pointer-events:none; background: radial-gradient(ellipse 80% 60% at 50% 100%, rgba(255,20,147,0.30), transparent 60%), radial-gradient(ellipse 80% 60% at 50% 0%, rgba(34,191,231,0.20), transparent 65%), linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 60%, var(--bg-0) 100%); }
+  .bg-grid::after { content:''; position:absolute; inset:0; background-image: linear-gradient(0deg, rgba(34,191,231,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(34,191,231,0.08) 1px, transparent 1px); background-size:64px 64px; mask-image:linear-gradient(180deg, transparent 0%, transparent 50%, black 100%); -webkit-mask-image:linear-gradient(180deg, transparent 0%, transparent 50%, black 100%); transform:perspective(600px) rotateX(60deg) translateY(20%); transform-origin:50% 100%; opacity:0.65; }
+  .scanlines { position:fixed; inset:0; z-index:1; pointer-events:none; background:repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 3px); mix-blend-mode:overlay; }
+  .wrap { position:relative; z-index:2; max-width:560px; margin:0 auto; padding:28px 18px 80px; }
+  .hero { text-align:center; margin-bottom:22px; position:relative; }
+  .hero .mark { width:110px; height:132px; margin:0 auto 8px; background:url('/bigfoot-mark.png') center/contain no-repeat; filter: drop-shadow(0 0 14px rgba(255,20,147,0.55)) drop-shadow(0 0 28px rgba(34,191,231,0.35)); animation:gentle-float 6s ease-in-out infinite; }
+  @keyframes gentle-float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-6px); } }
+  .hero .brand { font-family:'Audiowide',cursive; font-size:13px; letter-spacing:4px; text-transform:uppercase; color:var(--neon-cyan); text-shadow:0 0 8px rgba(34,191,231,0.55), 0 0 16px rgba(34,191,231,0.3); margin-bottom:4px; }
+  .hero h1 { font-family:'Audiowide',cursive; font-size:clamp(26px, 6vw, 36px); margin:0; line-height:1.08; background:linear-gradient(135deg, var(--neon-cyan-2) 0%, #ffffff 50%, var(--neon-pink-2) 100%); -webkit-background-clip:text; background-clip:text; color:transparent; filter:drop-shadow(0 0 22px rgba(255,20,147,0.35)); }
+  .hero .sub { margin-top:10px; font-size:14px; color:var(--muted); min-height:20px; }
+  .hero .sub b { color:var(--neon-cyan); text-shadow:0 0 8px rgba(34,191,231,0.55); }
+  .skel { display:inline-block; width:220px; height:16px; border-radius:3px; background:linear-gradient(90deg, rgba(255,255,255,0.05), rgba(255,255,255,0.18), rgba(255,255,255,0.05)); background-size:200% 100%; animation:shimmer 1.4s ease-in-out infinite; }
+  @keyframes shimmer { from { background-position:100% 0; } to { background-position:-100% 0; } }
+  .reward { position:relative; margin:18px 0 22px; padding:18px 16px 14px; border-radius:14px; background: linear-gradient(135deg, rgba(255,20,147,0.10), rgba(34,191,231,0.10)), rgba(255,255,255,0.02); border:1px solid rgba(255,20,147,0.35); box-shadow:0 0 0 1px rgba(34,191,231,0.18) inset, 0 8px 30px rgba(255,20,147,0.18); text-align:center; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
+  .reward .big { font-family:'Audiowide',cursive; font-size:30px; letter-spacing:1px; color:var(--neon-pink); text-shadow:0 0 12px rgba(255,20,147,0.7), 0 0 28px rgba(255,20,147,0.45); margin-bottom:4px; }
+  .reward .row { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:8px; font-size:13px; color:var(--text); margin-top:4px; }
+  .reward .row .arrow { color:var(--neon-cyan); font-size:18px; text-shadow:0 0 8px rgba(34,191,231,0.55); }
+  .reward .fine { margin-top:8px; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); }
+  .back-link { display:inline-flex; align-items:center; gap:6px; margin-bottom:14px; font-size:12px; letter-spacing:1.5px; text-transform:uppercase; color:var(--neon-cyan); text-shadow:0 0 6px rgba(34,191,231,0.4); text-decoration:none; transition:opacity 0.15s; }
+  .back-link:hover { opacity:0.75; }
+  .card { background:rgba(13,0,20,0.65); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border:1px solid rgba(34,191,231,0.18); border-radius:18px; padding:22px 18px 18px; box-shadow:0 0 0 1px rgba(255,20,147,0.08) inset, 0 20px 60px rgba(0,0,0,0.6); }
+  .field { margin-bottom:14px; }
+  .field label { display:block; font-size:10px; letter-spacing:2px; color:var(--neon-cyan); text-shadow:0 0 6px rgba(34,191,231,0.4); text-transform:uppercase; margin-bottom:6px; font-weight:700; }
+  .field input, .field select, .field textarea { width:100%; padding:13px 14px; background:rgba(0,0,0,0.55); color:var(--text); border:1px solid rgba(34,191,231,0.20); border-radius:10px; font-size:15px; font-family:'Space Grotesk',inherit; -webkit-appearance:none; transition:border-color 0.15s, box-shadow 0.15s, background 0.15s; }
+  .field input:focus, .field select:focus, .field textarea:focus { outline:none; border-color:var(--neon-pink); box-shadow:0 0 0 3px rgba(255,20,147,0.18), 0 0 18px rgba(255,20,147,0.25); background:rgba(0,0,0,0.75); }
+  .field textarea { min-height:84px; resize:vertical; font-family:inherit; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:460px) { .row { grid-template-columns:1fr; } }
+  .submit { position:relative; width:100%; padding:16px; background:linear-gradient(135deg, var(--neon-pink) 0%, #ff5da7 100%); color:#fff; border:0; border-radius:12px; font-family:'Audiowide',cursive; font-size:15px; letter-spacing:3px; text-transform:uppercase; cursor:pointer; margin-top:6px; box-shadow:0 0 0 1px rgba(255,255,255,0.08) inset, 0 0 22px rgba(255,20,147,0.55), 0 8px 26px rgba(255,20,147,0.35); transition:transform 0.06s, box-shadow 0.2s, opacity 0.15s; animation:cta-pulse 2.6s ease-in-out infinite; }
+  @keyframes cta-pulse { 0%,100% { box-shadow:0 0 0 1px rgba(255,255,255,0.08) inset, 0 0 22px rgba(255,20,147,0.55), 0 8px 26px rgba(255,20,147,0.35); } 50% { box-shadow:0 0 0 1px rgba(255,255,255,0.10) inset, 0 0 38px rgba(255,20,147,0.85), 0 10px 32px rgba(255,20,147,0.55); } }
+  .submit:hover:not(:disabled) { opacity:0.95; }
+  .submit:active:not(:disabled) { transform:translateY(1px) scale(0.99); }
+  .submit:disabled { background:#2a1a2a; color:#888; box-shadow:none; animation:none; cursor:not-allowed; }
+  .err { color:#ff8a8a; font-size:13px; padding:10px 12px; background:rgba(255,40,80,0.10); border-radius:8px; margin-top:12px; border:1px solid rgba(255,40,80,0.4); }
+  .thank-you { text-align:center; padding:30px 14px; animation:pop-in 0.45s cubic-bezier(.16,1.15,.3,1) backwards; }
+  @keyframes pop-in { from { opacity:0; transform:translateY(8px) scale(0.97); } to { opacity:1; transform:none; } }
+  .thank-you .check { width:92px; height:92px; margin:0 auto 18px; border-radius:50%; background:radial-gradient(circle at 35% 35%, rgba(34,191,231,0.95), rgba(255,20,147,0.85)); display:flex; align-items:center; justify-content:center; color:#fff; font-size:50px; box-shadow:0 0 28px rgba(34,191,231,0.65), 0 0 56px rgba(255,20,147,0.5); }
+  .thank-you h2 { font-family:'Audiowide',cursive; font-size:24px; letter-spacing:1.5px; margin:0 0 10px; color:var(--neon-cyan); text-shadow:0 0 14px rgba(34,191,231,0.6); }
+  .thank-you p { color:var(--muted); font-size:14px; line-height:1.6; margin:8px 18px; }
+  .thank-you b { color:#fff; }
+  .footer { text-align:center; margin-top:26px; padding:12px; color:rgba(255,255,255,0.45); font-size:11px; letter-spacing:0.5px; }
+  .footer a { color:rgba(34,191,231,0.85); text-decoration:none; }
+  .footer a:hover { text-shadow:0 0 6px rgba(34,191,231,0.6); }
+  .ac-wrap { position:relative; }
+  .ac-list { position:absolute; top:100%; left:0; right:0; background:rgba(13,0,20,0.96); border:1px solid rgba(34,191,231,0.30); border-top:none; border-radius:0 0 10px 10px; max-height:220px; overflow-y:auto; z-index:50; box-shadow:0 12px 24px rgba(0,0,0,0.6); display:none; }
+  .ac-list.open { display:block; }
+  .ac-item { padding:10px 14px; cursor:pointer; font-size:13px; color:#ddd; border-bottom:1px solid rgba(34,191,231,0.10); }
+  .ac-item:last-child { border-bottom:none; }
+  .ac-item:hover, .ac-item.active { background:rgba(255,20,147,0.15); color:#fff; }
 
   /* ============ SOCIAL CTA ============ */
-  .social-card{
-    margin-top:18px;padding:18px 16px;border-radius:14px;
-    background:linear-gradient(135deg,rgba(0,212,255,0.10) 0%,rgba(255,0,176,0.10) 100%),#0e0e14;
-    border:1px solid rgba(0,212,255,0.35);
-    box-shadow:0 0 24px rgba(0,212,255,0.18),inset 0 0 30px rgba(255,0,176,0.06);
-    position:relative;overflow:hidden;text-align:center;
-    animation:socialFloat 6s ease-in-out infinite;
-  }
-  .social-card::before{
-    content:'';position:absolute;inset:-2px;border-radius:14px;padding:1px;
-    background:linear-gradient(135deg,#00d4ff,#ff00b0,#00d4ff);
-    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
-    -webkit-mask-composite:xor;mask-composite:exclude;
-    opacity:0.6;animation:socialBorder 4s linear infinite;pointer-events:none;
-  }
-  @keyframes socialFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
-  @keyframes socialBorder{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-  .social-eyebrow{
-    font-size:10px;font-weight:800;letter-spacing:3px;text-transform:uppercase;
-    color:#00d4ff;text-shadow:0 0 12px rgba(0,212,255,0.5);
-  }
-  .social-title{
-    font-size:20px;font-weight:900;margin-top:4px;
-    background:linear-gradient(135deg,#00d4ff,#ff00b0);
-    -webkit-background-clip:text;background-clip:text;color:transparent;
-    text-shadow:0 0 30px rgba(0,212,255,0.3);
-  }
-  .social-sub{font-size:12px;color:#bbb;margin:6px 0 14px;line-height:1.5;max-width:300px;margin-left:auto;margin-right:auto}
+  @keyframes social-hue{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+  @keyframes social-pulse{0%,100%{box-shadow:0 0 28px rgba(34,191,231,0.15)}50%{box-shadow:0 0 44px rgba(255,20,147,0.22)}}
+  .social-section{margin-top:22px;padding:22px 18px;border-radius:16px;position:relative;overflow:hidden;text-align:center;background:linear-gradient(135deg,rgba(34,191,231,0.10) 0%,rgba(255,20,147,0.10) 100%),rgba(13,0,20,0.7);border:1px solid rgba(34,191,231,0.35);animation:social-pulse 5s ease-in-out infinite}
+  .social-eyebrow{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#22BFE7;font-weight:800;text-shadow:0 0 10px rgba(34,191,231,0.5)}
+  .social-title{font-size:22px;font-weight:900;margin-top:6px;background:linear-gradient(110deg,#00E5FF 0%,#fff 35%,#FF4FB6 70%,#00E5FF 100%);background-size:280% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:social-hue 6s linear infinite;text-transform:uppercase;letter-spacing:.5px}
+  .social-sub{font-size:12px;color:#9999b3;margin:8px auto 16px;line-height:1.55;max-width:320px}
   .social-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
-  .sbtn{
-    display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:9px;
-    font-size:13px;font-weight:700;text-decoration:none;color:#fff;
-    transition:all .2s ease;cursor:pointer;border:1px solid transparent;
-    min-width:130px;justify-content:center;
-  }
-  .sbtn svg{flex-shrink:0}
-  .sbtn-ig{background:linear-gradient(135deg,#f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%);box-shadow:0 4px 14px rgba(220,39,67,0.35)}
-  .sbtn-ig:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(220,39,67,0.55)}
-  .sbtn-fb{background:#1877f2;box-shadow:0 4px 14px rgba(24,119,242,0.35)}
-  .sbtn-fb:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(24,119,242,0.55)}
+  .sbtn{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:9px;font-size:13px;font-weight:700;text-decoration:none;color:#fff;transition:all .25s ease;cursor:pointer;border:1px solid transparent;min-width:130px;justify-content:center}
+  .sbtn svg{flex-shrink:0;transition:transform .3s}
+  .sbtn:hover svg{transform:scale(1.15) rotate(-5deg)}
+  .sbtn-ig{background:linear-gradient(135deg,#f09433 0%,#dc2743 50%,#bc1888 100%);box-shadow:0 4px 14px rgba(220,39,67,0.4)}
+  .sbtn-ig:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(220,39,67,0.6)}
+  .sbtn-fb{background:linear-gradient(135deg,#1877f2,#0a5cc7);box-shadow:0 4px 14px rgba(24,119,242,0.4)}
+  .sbtn-fb:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(24,119,242,0.6)}
+  @media (prefers-reduced-motion:reduce){.social-section,.social-title{animation:none}.sbtn:hover{transform:none}}
 
 </style>
 </head>
 <body>
-<div class="card">
-  <div class="hdr">
-    <img src="/logo.jpg" alt="Neon Giant" onerror="this.style.display='none'">
-    <div class="sub">Refer a Move</div>
-    <h1>Neon Giant Moving &amp; Junk Removal</h1>
-    <div class="greet" id="greet"><span class="skeleton-greet"></span></div>
+<div class="bg-grid"></div>
+<div class="scanlines"></div>
+<div class="wrap">
+  <a id="backLink" class="back-link" href="#" style="display:none">&larr; Back to your dashboard</a>
+  <div class="hero">
+    <div class="mark" aria-hidden="true"></div>
+    <div class="brand">Neon Giant Moving</div>
+    <h1>Refer a Move</h1>
+    <div class="sub" id="greet"><span class="skel"></span></div>
   </div>
-  <div class="body" id="body">
-    <a id="backLink" class="back-link" href="#" style="display:none">&larr; Back to your dashboard</a>
-    <div class="reward">
-      <b>$50 / $50</b>
-      $50 gift card to you after the move completes &middot; $50 off the customer's bill
+  <div class="reward">
+    <div class="big">$50 / $50</div>
+    <div class="row">
+      <div>Gift card to <b style="color:var(--neon-cyan)">you</b></div>
+      <div class="arrow">&harr;</div>
+      <div><b style="color:var(--neon-pink)">$50 off</b> for them</div>
     </div>
+    <div class="fine">On completed moves over $1,000</div>
+  </div>
+  <div class="card" id="body">
     <form id="referForm" onsubmit="return submitForm(event)" novalidate>
       <div class="field">
         <label for="fName">Customer name *</label>
@@ -193,13 +120,15 @@
           <input id="fEmail" name="email" type="email" inputmode="email" autocomplete="email">
         </div>
       </div>
-      <div class="field">
-        <label for="fFrom">From address</label>
-        <input id="fFrom" name="fromAddress" placeholder="123 Main St, Bellingham" autocomplete="off">
+      <div class="field ac-wrap">
+        <label for="fFrom">Moving from</label>
+        <input id="fFrom" name="fromAddress" placeholder="Start typing the address..." autocomplete="off">
+        <div class="ac-list" id="fFrom-ac" role="listbox"></div>
       </div>
-      <div class="field">
-        <label for="fTo">To address</label>
-        <input id="fTo" name="toAddress" placeholder="456 Pine Ave, Mt Vernon" autocomplete="off">
+      <div class="field ac-wrap">
+        <label for="fTo">Moving to</label>
+        <input id="fTo" name="toAddress" placeholder="Start typing the address..." autocomplete="off">
+        <div class="ac-list" id="fTo-ac" role="listbox"></div>
       </div>
       <div class="row">
         <div class="field">
@@ -209,158 +138,124 @@
         <div class="field">
           <label for="fSize">Move size</label>
           <select id="fSize" name="moveSize">
-            <option value="">&mdash; select &mdash;</option>
+            <option value="">Select...</option>
             <option>Studio</option>
             <option>1 BR</option>
             <option>2 BR</option>
             <option>3 BR</option>
             <option>4 BR+</option>
-            <option>Junk removal</option>
-            <option>Packing only</option>
+            <option>Office</option>
+            <option>Single Item</option>
+            <option>Junk Removal</option>
+            <option>Not sure</option>
           </select>
         </div>
       </div>
       <div class="field">
         <label for="fNotes">Anything else?</label>
-        <textarea id="fNotes" name="notes" placeholder="Stairs, piano, timing notes&hellip;"></textarea>
+        <textarea id="fNotes" name="notes" placeholder="Stairs, piano, timing notes..."></textarea>
       </div>
       <button class="submit" type="submit" id="submitBtn">Send referral &rarr;</button>
       <div id="err" class="err" style="display:none" role="alert"></div>
     </form>
   </div>
-</div>
 
-<div class="social-card" style="max-width:480px;margin:18px auto 0">
+<div class="social-section">
   <div class="social-eyebrow">See Us In Action</div>
   <div class="social-title">Bigfoot On The Move</div>
-  <div class="social-sub">Check out our moves on Instagram and Facebook before you send your referral!</div>
+  <div class="social-sub">Follow the giant on Instagram and Facebook — share with your clients!</div>
   <div class="social-btns">
-    <a class="sbtn sbtn-ig" href="https://www.instagram.com/neongiantmoving/" target="_blank" rel="noopener">
+    <a class="sbtn sbtn-ig" href="https://www.instagram.com/neongiantmoving/" target="_blank" rel="noopener" aria-label="Instagram">
       <svg viewBox="0 0 24 24" fill="none" width="22" height="22"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"/></svg>
       <span>Instagram</span>
     </a>
-    <a class="sbtn sbtn-fb" href="https://www.facebook.com/neongiantmoving/" target="_blank" rel="noopener">
+    <a class="sbtn sbtn-fb" href="https://www.facebook.com/neongiantmoving/" target="_blank" rel="noopener" aria-label="Facebook">
       <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M22 12a10 10 0 1 0-11.5 9.9v-7H8v-2.9h2.5V9.4c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.3 0-1.7.8-1.7 1.6V12H16l-.4 2.9h-2.1v7A10 10 0 0 0 22 12z"/></svg>
       <span>Facebook</span>
     </a>
   </div>
 </div>
 
-<div class="footer">
-  Neon Giant Moving &amp; Junk Removal &middot; Skagit Valley, WA &middot;
-  <a href="tel:+13605884700">(360) 588-4700</a>
+  <div class="footer">
+    Neon Giant Moving &amp; Junk Removal &middot; Skagit Valley, WA &middot;
+    <a href="tel:+13605884700">(360) 588-4700</a> &middot;
+    <a href="mailto:info@neongiantmoving.com">info@neongiantmoving.com</a>
+  </div>
 </div>
-
 <script>
 'use strict';
-
-// ----------- API helper ----------------------------------------------------
-// All requests go through the Cloudflare Pages Function proxy at /api/<action>.
-// The proxy talks server-to-server to Apps Script and returns proper CORS JSON.
 async function api(action, payload) {
-  const resp = await fetch('/api/' + encodeURIComponent(action), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload || {}),
-  });
+  const resp = await fetch('/api/' + encodeURIComponent(action), { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload||{}) });
   if (!resp.ok) {
     let body = null;
-    try { body = await resp.json(); } catch { /* non-JSON error */ }
+    try { body = await resp.json(); } catch(e) {}
     const msg = (body && body.error) || ('HTTP ' + resp.status);
     throw new Error(msg);
   }
   return resp.json();
 }
-
-// ----------- URL helpers ---------------------------------------------------
-function getSlug() {
-  return new URLSearchParams(location.search).get('r') || '';
+function getSlug() { return new URLSearchParams(location.search).get('r') || ''; }
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+  });
 }
-
-// ----------- Realtor lookup ------------------------------------------------
-let realtor = null;
-const greetEl = document.getElementById('greet');
-
+function showError(msg) { var el = document.getElementById('err'); el.textContent = msg; el.style.display = 'block'; }
+function clearError() { var el = document.getElementById('err'); el.style.display = 'none'; el.textContent = ''; }
+function reenable() {
+  var btn = document.getElementById('submitBtn');
+  if (btn) { btn.disabled = false; btn.innerHTML = 'Send referral &rarr;'; }
+  return false;
+}
+var realtor = null;
 async function loadRealtor() {
-  const slug = getSlug();
-  if (!slug) {
-    greetEl.textContent = 'Send us a referral';
-    return;
-  }
+  var slug = getSlug();
+  var greetEl = document.getElementById('greet');
+  if (!slug) { greetEl.textContent = 'Send us a referral'; return; }
   try {
-    const r = await api('getRealtorBySlug', { slug });
-    if (r.ok && r.realtor) {
+    var r = await api('getRealtorBySlug', { slug: slug });
+    if (r && r.ok && r.realtor) {
       realtor = r.realtor;
-      greetEl.textContent = 'Hey ' + (realtor.firstName || realtor.name || 'there') + ' — send us a referral';
-      const backLink = document.getElementById('backLink');
-      backLink.href = '/portal?r=' + encodeURIComponent(slug);
-      backLink.style.display = 'inline-block';
-    } else {
-      greetEl.textContent = 'Send us a referral';
-    }
-  } catch (err) {
-    console.error('loadRealtor failed', err);
-    greetEl.textContent = 'Send us a referral';
-  }
+      var first = realtor.firstName || (String(realtor.name||'').split(' ')[0]) || 'your contact';
+      greetEl.innerHTML = 'Sent on behalf of <b>' + escapeHtml(first) + '</b>';
+      var back = document.getElementById('backLink');
+      if (back) { back.href = '/portal?r=' + encodeURIComponent(slug); back.style.display = 'inline-flex'; }
+    } else { greetEl.textContent = 'Send us a referral'; }
+  } catch (err) { console.error('loadRealtor failed', err); greetEl.textContent = 'Send us a referral'; }
 }
-
-// ----------- Submission ----------------------------------------------------
-function showError(msg) {
-  const el = document.getElementById('err');
-  el.textContent = msg;
-  el.style.display = 'block';
-}
-function clearError() {
-  document.getElementById('err').style.display = 'none';
-}
-
 async function submitForm(e) {
   e.preventDefault();
   clearError();
-
-  if (!realtor) {
-    showError('No realtor link found. Please open the link your Neon Giant contact sent you.');
-    return false;
-  }
-
-  const btn = document.getElementById('submitBtn');
+  if (!realtor) { showError('No realtor link found. Please open the link your Neon Giant contact sent you.'); return false; }
+  var btn = document.getElementById('submitBtn');
   btn.disabled = true;
-  btn.textContent = 'Sending…';
-
-  const customer = {
-    name:         document.getElementById('fName').value.trim(),
-    phone:        document.getElementById('fPhone').value.trim(),
-    email:        document.getElementById('fEmail').value.trim(),
-    fromAddress:  document.getElementById('fFrom').value.trim(),
-    toAddress:    document.getElementById('fTo').value.trim(),
-    moveDate:     document.getElementById('fDate').value,
-    moveSize:     document.getElementById('fSize').value,
-    notes:        document.getElementById('fNotes').value.trim(),
+  btn.textContent = 'Sending...';
+  var customer = {
+    name:        document.getElementById('fName').value.trim(),
+    phone:       document.getElementById('fPhone').value.trim(),
+    email:       document.getElementById('fEmail').value.trim(),
+    fromAddress: document.getElementById('fFrom').value.trim(),
+    toAddress:   document.getElementById('fTo').value.trim(),
+    moveDate:    document.getElementById('fDate').value,
+    moveSize:    document.getElementById('fSize').value,
+    notes:       document.getElementById('fNotes').value.trim(),
   };
-
-  // Basic client-side validation
-  if (!customer.name) { showError('Customer name is required.'); return reenable(); }
+  if (!customer.name)  { showError('Customer name is required.'); return reenable(); }
   if (!customer.phone) { showError('Customer phone is required.'); return reenable(); }
-  if (customer.email && !/^\S+@\S+\.\S+$/.test(customer.email)) {
-    showError('Email looks invalid.'); return reenable();
-  }
-
+  if (customer.email && !/^\S+@\S+\.\S+$/.test(customer.email)) { showError('Email looks invalid.'); return reenable(); }
   try {
-    const r = await api('submitReferralLead', {
-      realtorId: realtor.id,
-      customer: customer,
-    });
+    var r = await api('submitReferralLead', { realtorId: realtor.id, customer: customer });
     if (r.ok) {
+      var newId  = (r.lead && r.lead.id) || r.leadId || '';
+      var dashUrl = '/portal?r=' + encodeURIComponent(getSlug()) + (newId ? '&just=' + encodeURIComponent(newId) : '&just=1');
+      var firstName = realtor.firstName || (String(realtor.name||'').split(' ')[0]) || 'there';
       document.getElementById('body').innerHTML =
         '<div class="thank-you">' +
-          '<div class="check">✅</div>' +
-          '<h2>Got it, ' + escapeHtml(realtor.firstName || realtor.name || 'there') + '!</h2>' +
-          '<p>We received your referral for <b>' + escapeHtml(customer.name) + '</b>. ' +
-          'The Neon Giant team will reach out within 24 hours.</p>' +
-          '<p>Your <b>$50 gift card</b> will be sent at the end of the month after the move completes.</p>' +
-          '<a class="submit" href="/portal?r=' + encodeURIComponent(getSlug()) + '" style="display:inline-block;text-decoration:none;text-align:center;max-width:280px;margin-top:18px">View your dashboard</a>' +
-          '<button class="submit" onclick="location.reload()" style="margin-top:10px;max-width:280px;background:#2a2a2a">Send another referral</button>' +
-          '<div class="social-card" style="margin-top:22px">' +
+          '<div class="check">&#10003;</div>' +
+          '<h2>Got it, ' + escapeHtml(firstName) + '!</h2>' +
+          '<p>We received your referral for <b>' + escapeHtml(customer.name) + '</b>. The Neon Giant team will reach out within 24 hours.</p>' +
+          '<p>Your <b>$50 gift card</b> ships at the end of the month after the move completes (moves over $1,000).</p>' +
+          '<div class="social-section" style="margin-top:22px">' +
             '<div class="social-eyebrow">See Us In Action</div>' +
             '<div class="social-title">Bigfoot On The Move</div>' +
             '<div class="social-sub">Follow Neon Giant on Instagram and Facebook \u2014 share with your clients!</div>' +
@@ -375,34 +270,12 @@ async function submitForm(e) {
               '</a>' +
             '</div>' +
           '</div>' +
+          '<p style="color:#9999b3;font-size:12px;margin-top:18px">Taking you to your dashboard in a moment...</p>' +
         '</div>';
-    } else {
-      showError(r.error || 'Something went wrong. Try again in a minute.');
-      reenable();
-    }
-  } catch (err) {
-    console.error('submit failed', err);
-    showError('Submit failed: ' + err.message);
-    reenable();
-  }
+      setTimeout(function(){ location.href = dashUrl; }, 6000);
+    } else { showError(r.error || 'Something went wrong. Try again in a minute.'); reenable(); }
+  } catch (err) { console.error('submit failed', err); showError('Submit failed: ' + err.message); reenable(); }
   return false;
 }
 
-function reenable() {
-  const btn = document.getElementById('submitBtn');
-  btn.disabled = false;
-  btn.textContent = 'Send referral →';
-  return false;
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, function(c){
-    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[c];
-  });
-}
-
-// Kick off
-loadRealtor();
-</script>
-</body>
-</html>
+// ---------- Google Places address auto
