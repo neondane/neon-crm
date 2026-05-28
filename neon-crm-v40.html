@@ -10226,5 +10226,88 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v173-profile-actions-fix*/
+/* Profile Actions cleanup. Renames the "Quick Actions" sidebar header to
+ * "Actions" and repoints Set Reminder, Log Visit, Edit Info to the proper
+ * standalone modals (the originals went through showQV which is dead).
+ * Quick drawer button is hidden on desktop (≥768px) but kept on mobile.
+ * Add Note, Add Business Card, Add Profile Photo, Delete Contact stay as-is.
+ */
+(function(){
+  if (window.__ngmV173Loaded) return; window.__ngmV173Loaded = true;
+
+  var st = document.createElement('style');
+  st.textContent = '@media (min-width:768px){ .ngm-hide-desktop{display:none !important;} }';
+  document.head.appendChild(st);
+
+  function call(fn, arg){
+    try{ if (typeof window[fn]==='function') return window[fn](arg); }catch(e){}
+    try{ var f = new Function('return typeof '+fn+'==="function" ? '+fn+'('+JSON.stringify(arg)+') : null;'); return f(); }catch(e){}
+    return null;
+  }
+
+  function pickCidFrom(el){
+    var oc = el.getAttribute('onclick')||'';
+    var m = oc.match(/\b(?:showQV|showEdit|oP|showAddRem|showAddVisit)\(\s*(\d+)\b/);
+    return m ? +m[1] : null;
+  }
+
+  function rewireButton(btn, label){
+    // Find the contact id from the button's own onclick first, else from any sibling that has one.
+    var cid = pickCidFrom(btn);
+    if (cid == null){
+      var sib = btn.parentElement && btn.parentElement.querySelectorAll('button');
+      if (sib){ for (var i=0;i<sib.length;i++){ var c = pickCidFrom(sib[i]); if (c!=null){ cid=c; break; } } }
+    }
+    if (cid == null) return false;
+    var t = label.toLowerCase();
+    btn.removeAttribute('onclick');
+    btn.onclick = function(e){
+      e.preventDefault(); e.stopPropagation();
+      if (t.indexOf('set reminder')>=0){ call('showAddRem', cid); return; }
+      if (t.indexOf('log visit')>=0){ call('showAddVisit', cid); return; }
+      if (t.indexOf('edit info')>=0){ call('showEdit', cid); return; }
+    };
+    return true;
+  }
+
+  function processSidebar(root){
+    try{
+      // Rename the header.
+      var heads = root.querySelectorAll('div,span,h3,h4');
+      for (var i=0;i<heads.length;i++){
+        var txt = (heads[i].textContent||'').trim();
+        if (txt === 'QUICK ACTIONS' || txt === 'Quick Actions'){
+          heads[i].textContent = 'ACTIONS';
+        }
+      }
+      // Repair the three broken buttons.
+      var btns = root.querySelectorAll('button');
+      for (var j=0;j<btns.length;j++){
+        var label = (btns[j].textContent||'').trim();
+        var L = label.toLowerCase();
+        if (L.indexOf('set reminder')>=0 || L.indexOf('log visit')>=0 || L.indexOf('edit info')>=0){
+          rewireButton(btns[j], label);
+        }
+        if (L.indexOf('quick drawer')>=0){
+          btns[j].classList.add('ngm-hide-desktop');
+        }
+      }
+    }catch(e){}
+  }
+
+  function scan(){ processSidebar(document.body); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scan);
+  else scan();
+  try{
+    var obs = new MutationObserver(function(muts){
+      for (var i=0;i<muts.length;i++){ if (muts[i].addedNodes && muts[i].addedNodes.length){ scan(); return; } }
+    });
+    obs.observe(document.body, { childList:true, subtree:true });
+  }catch(e){}
+})();
+
+</script>
 </body>
 </html>
