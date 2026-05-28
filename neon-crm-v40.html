@@ -178,7 +178,7 @@ input,select,textarea{transition:border-color .12s ease,box-shadow .12s ease}
 ::-webkit-scrollbar{width:9px;height:9px}
 ::-webkit-scrollbar-track{background:var(--d)}
 ::-webkit-scrollbar-thumb{background:#2a3648;border-radius:5px;border:2px solid var(--d)}
-::-webkit-scrollbar-thumb:hover{background:#22aee488}
+::-webkit-scrollbar-thumb:hover{background:#22aee488}select{background:var(--d3) !important;color:#fff !important;border:1px solid rgba(0,229,255,0.30) !important;}select option{background:var(--d2);color:#fff;}select:focus{outline:none;border-color:var(--b) !important;box-shadow:0 0 0 2px rgba(0,229,255,0.25) !important;}
 
 /* ============ v100 — SCI-FI COMMAND CENTER REDESIGN ============ */
 body{overflow-x:hidden}
@@ -1471,7 +1471,7 @@ function rLB(mc){
   const totalCompleted=yrRefs.filter(r=>r.status==='completed').length;
   const _fmtRng=(s)=>{const p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2]).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});};
   const _rangeLabel=_fmtRng(lbFrom)+' – '+_fmtRng(lbTo);
-  let h=`<div style="margin:14px 0 8px;font-size:15px;font-weight:700;color:var(--p)">🏆 Referral Leaderboard</div>`;
+  let h=`<div style="margin:14px 0 8px;font-size:15px;font-weight:700;color:var(--p)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px;filter:drop-shadow(0 0 6px currentColor)"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3a2 2 0 0 1 0 4h-3"/><path d="M7 5H4a2 2 0 0 0 0 4h3"/></svg>Referral Leaderboard</div>`;
   h+=`<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;font-size:12px"><label style="color:var(--g)">From</label><input type="date" value="${lbFrom}" onchange="lbFrom=this.value;ren()" style="padding:5px;border-radius:5px;background:var(--d);color:#fff;border:1px solid var(--bd)"><label style="color:var(--g)">To</label><input type="date" value="${lbTo}" onchange="lbTo=this.value;ren()" style="padding:5px;border-radius:5px;background:var(--d);color:#fff;border:1px solid var(--bd)"><button onclick="setLbRange('thisMonth')" style="background:var(--d3);color:#fff;border:1px solid var(--bd);border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer">This Month</button><button onclick="setLbRange('lastMonth')" style="background:var(--d3);color:#fff;border:1px solid var(--bd);border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer">Last Month</button><button onclick="setLbRange('last7')" style="background:var(--d3);color:#fff;border:1px solid var(--bd);border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer">Last 7 Days</button><button onclick="setLbRange('thisYear')" style="background:var(--d3);color:#fff;border:1px solid var(--bd);border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer">This Year</button><button onclick="setLbRange('lastYear')" style="background:var(--d3);color:#fff;border:1px solid var(--bd);border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer">Last Year</button><button onclick="setLbRange('all')" style="background:var(--d3);color:#fff;border:1px solid var(--bd);border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer">All Time</button><button onclick="emailReferralReport()" style="background:linear-gradient(135deg,var(--p),var(--b));color:#fff;border:none;border-radius:5px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;margin-left:auto">📧 Email me this report</button></div>`;
   h+=`<div style="color:var(--g);font-size:11px;margin-bottom:8px">${_rangeLabel}</div>`;
   h+=`<div style="margin-bottom:10px"><select onchange="lbSort=this.value;ren()" style="padding:6px 10px;border-radius:6px;font-size:12px"><option value="total"${lbSort==='total'?' selected':''}>Sort: Total jobs referred</option><option value="booked"${lbSort==='booked'?' selected':''}>Sort: Jobs booked</option><option value="completed"${lbSort==='completed'?' selected':''}>Sort: Jobs completed</option><option value="revenue"${lbSort==='revenue'?' selected':''}>Sort: Total revenue</option></select></div>`;
@@ -1479,9 +1479,9 @@ function rLB(mc){
   if(!ranked.length){h+=`<div style="text-align:center;padding:40px;color:var(--g)">No referrals logged in this range.<br>Open a contact and tap "Referral" to log one.</div>`;mc.innerHTML=h;return}
   ranked.forEach(([nm,data],i)=>{
     const c=data.contact;
-    const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+    const _medalColors=['#FF1493','#22BFE7','#7F77DD'];const medal=i<3?'<span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:'+_medalColors[i]+'22;color:'+_medalColors[i]+';font-size:11px;font-weight:800;border:1px solid '+_medalColors[i]+'77;box-shadow:0 0 10px '+_medalColors[i]+'66;margin-right:4px">'+(i+1)+'</span>':'';
     const pct=data.total>0?Math.round(data.booked/data.total*100):0;
-    h+=`<div class="cd" style="border-left-color:${i<3?'var(--gold)':'var(--b)'}${c?' ;cursor:pointer':''}" ${c?'onclick="oP('+c.id+')"':''}>
+    h+=`<div class="cd" style="border-left-color:${i<3?'var(--p)':'var(--b)'}${c?' ;cursor:pointer':''}" ${c?'onclick="oP('+c.id+')"':''}>
       <div class="cd-t"><div style="flex:1"><div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:20px;min-width:30px">${medal||'#'+(i+1)}</span>
         <div><span class="nm">${data.name}</span>
@@ -1490,7 +1490,7 @@ function rLB(mc){
         <div class="mt" style="margin-top:4px;flex-wrap:wrap"><span>📊 ${data.total} referred</span><span style="color:var(--gn)">✅ ${data.booked} booked</span><span style="color:#ffcc66">🎉 ${data.completed} done</span><span style="color:var(--p)">$${(data.revenue||0).toLocaleString('en-US')}</span></div>
         <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${data.refs.map(r=>`<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${r.status==='completed'?'#ffaa0033;color:#ffcc66;border:1px solid #ffaa0066':r.status==='booked'?'#33cc6622;color:var(--gn);border:1px solid #33cc6644':'var(--d3);color:var(--g);border:1px solid var(--d4)'}">${r.jobName||'Unnamed'}${r.status==='completed'?' 🎉':r.status==='booked'?' ✓':''}</span>`).join('')}</div>
       </div>
-      <div class="dy"><b style="color:${i<3?'var(--gold)':'var(--b)'}">${lbSort==='revenue'?'$'+(data.revenue||0).toLocaleString('en-US'):data[sortKey]}</b><small>${lbSort==='revenue'?'revenue':lbSort==='completed'?'completed':lbSort==='booked'?'booked':'referrals'}</small></div>
+      <div class="dy"><b style="color:${i<3?'var(--p)':'var(--b)'};text-shadow:0 0 12px ${i<3?'rgba(255,20,147,0.55)':'rgba(0,229,255,0.55)'}">${lbSort==='revenue'?'$'+(data.revenue||0).toLocaleString('en-US'):data[sortKey]}</b><small>${lbSort==='revenue'?'revenue':lbSort==='completed'?'completed':lbSort==='booked'?'booked':'referrals'}</small></div>
     </div></div>`;
   });
   mc.innerHTML=h;
