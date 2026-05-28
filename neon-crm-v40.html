@@ -10577,29 +10577,23 @@ async function dpDownloadPDF(){
 </script>
 <script>
 /*v174-referral-details*/
-/* On every profile load, refresh window.JR from Apps Script so referrals
- * created/advanced by the live SmartMoving sync show up immediately. Then
- * decorate each referral row in the Referrals tab so clicking a row expands
- * an inline panel with the SmartMoving job details (customer, service date,
- * stage, amount, leadStatus, etc.). No MutationObserver.
- */
 (function(){
-  if (window.__ngmV174v2) return; window.__ngmV174v2 = true;
+  if (window.__ngmV174v3) return; window.__ngmV174v3 = true;
 
   var APPS = 'https://script.google.com/macros/s/AKfycbxh1ecAF9yWN91w04SHROy5T9N-PehvpF29LTFu8M6vjnp1PRyhgxUYf7bfU5DKzbq_nA/exec';
   var WORKER = 'https://neon-sm-sync.dane-bc3.workers.dev';
   var detailCache = {};
-  var lastJRRefresh = 0;
+  var lastRefresh = 0;
+  var myRefs = null;
+  var origGR = null;
 
   var st = document.createElement('style');
   st.textContent = ''
     + '.ngm-ref-row{cursor:pointer;transition:border-color .12s;}'
     + '.ngm-ref-row:hover{border-color:#ff66ff !important;}'
-    + '.ngm-chev{display:inline-block;color:#ff66ff;font-size:14px;margin-left:8px;'
-    + 'transition:transform .15s;}'
+    + '.ngm-chev{display:inline-block;color:#ff66ff;font-size:14px;margin-left:8px;transition:transform .15s;}'
     + '.ngm-ref-row.open .ngm-chev{transform:rotate(90deg);}'
-    + '.ngm-jdetails{background:#0a0a14;border:1px solid #ff66ff44;'
-    + 'border-radius:8px;margin:-2px 0 10px;padding:14px 16px;display:none;}'
+    + '.ngm-jdetails{background:#0a0a14;border:1px solid #ff66ff44;border-radius:8px;margin:-2px 0 10px;padding:14px 16px;display:none;}'
     + '.ngm-jdetails.open{display:block;animation:ngmFadeIn .2s ease-out;}'
     + '@keyframes ngmFadeIn{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}'
     + '.ngm-jd-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 18px;}'
@@ -10635,35 +10629,33 @@ async function dpDownloadPDF(){
       .trim();
   }
 
-  function refreshJR(force){
+  function installGRoverride(){
+    if (!origGR && typeof window.gR === 'function') origGR = window.gR;
+    window.gR = function(cid){
+      if (myRefs) return myRefs.filter(function(r){ return +r.contactId === +cid; });
+      if (origGR) return origGR.call(this, cid);
+      return [];
+    };
+  }
+
+  function refresh(force){
     var now = Date.now();
-    if (!force && (now - lastJRRefresh) < 20000) return Promise.resolve(false);
-    lastJRRefresh = now;
+    if (!force && (now - lastRefresh) < 20000) return Promise.resolve(false);
+    lastRefresh = now;
     return fetch(APPS+'?action=getAll', { redirect:'follow' })
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(d){
-        if (!d) return false;
-        var changed = false;
-        if (Array.isArray(d.referrals)){
-          try{
-            if (typeof window.JR !== 'undefined' && Array.isArray(window.JR)){
-              if (window.JR.length !== d.referrals.length) changed = true;
-              window.JR.length = 0;
-              for (var i=0;i<d.referrals.length;i++) window.JR.push(d.referrals[i]);
-            } else {
-              window.JR = d.referrals; changed = true;
-            }
-          }catch(e){}
-        }
+        if (!d || !Array.isArray(d.referrals)) return false;
+        var changed = !myRefs || myRefs.length !== d.referrals.length;
+        myRefs = d.referrals;
+        installGRoverride();
         return changed;
       })
       .catch(function(){ return false; });
   }
 
   function panelHTML(d){
-    if (!d || (d.ok===false)){
-      return '<div class="ngm-jd-err">Could not load SmartMoving details.</div>';
-    }
+    if (!d || d.ok===false) return '<div class="ngm-jd-err">Could not load SmartMoving details.</div>';
     var cells = [
       ['Customer', d.customer || '—'],
       ['Service date', fmtDate(d.serviceDate)],
@@ -10690,7 +10682,6 @@ async function dpDownloadPDF(){
 
   function decorate(){
     try{
-      // Only look at rows inside #mc (current main area).
       var mc = document.getElementById('mc'); if (!mc) return;
       var rows = mc.querySelectorAll('div[style*="border:1px solid #1f3a5a"]');
       rows.forEach(function(row){
@@ -10705,7 +10696,7 @@ async function dpDownloadPDF(){
         meta.textContent = cleanMetaText(raw);
         var title = row.querySelector('div[style*="font-weight:700"]');
         if (title && !title.querySelector('.ngm-chev')){
-          var chev = document.createElement('span'); chev.className = 'ngm-chev'; chev.textContent = '›';
+          var chev = document.createElement('span'); chev.className='ngm-chev'; chev.textContent='›';
           title.appendChild(chev);
         }
         var panel = document.createElement('div');
@@ -10724,7 +10715,6 @@ async function dpDownloadPDF(){
     }catch(e){}
   }
 
-  // Hook _fpRender so JR is refreshed + rows decorated after each profile render.
   function hook(){
     if (typeof window._fpRender !== 'function') return false;
     if (window._fpRender.__ngmV174) return true;
@@ -10733,7 +10723,7 @@ async function dpDownloadPDF(){
       var rv = orig.apply(this, arguments);
       try{
         setTimeout(decorate, 80);
-        refreshJR(false).then(function(changed){
+        refresh(false).then(function(changed){
           if (changed){
             try{ orig.apply(window, []); setTimeout(decorate, 80); }catch(e){}
           }
@@ -10751,16 +10741,14 @@ async function dpDownloadPDF(){
     var iv = setInterval(function(){
       if (hook() || ++n > 40) clearInterval(iv);
     }, 400);
-    // Repeated scan covers initial render latency.
     var tickN = 0;
     var ticker = setInterval(function(){
       try{ decorate(); }catch(e){}
       if (++tickN > 40) clearInterval(ticker);
     }, 600);
-    // Force initial JR refresh on first arrival at a profile.
     setTimeout(function(){
       if (/[?&]c=\d+/.test(location.search)){
-        refreshJR(true).then(function(changed){
+        refresh(true).then(function(changed){
           if (changed && typeof window._fpRender==='function') window._fpRender();
         });
       }
