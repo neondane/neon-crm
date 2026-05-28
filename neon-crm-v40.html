@@ -9767,5 +9767,402 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v171-partner-pulse-banner*/
+/* Pinned top bar, always visible on every tab. Left side: Partner Pulse —
+ * fresh affiliate referrals with a sound + celebration toast when something
+ * new lands. Right side: SmartMoving-style global search across every contact
+ * (realtor, facility, customer) so you never have to bounce back to Dashboard.
+ *
+ * Self-contained: does NOT depend on rD / tb / ren — works regardless of tab
+ * routing internals. Both Pulse and Search keep their own cached copy of the
+ * data, refreshed every 90s, so they are live wherever you are.
+ */
+(function(){
+  if (window.__ngmPulseBarLoaded) return; window.__ngmPulseBarLoaded = true;
+
+  var APPS = 'https://script.google.com/macros/s/AKfycbxh1ecAF9yWN91w04SHROy5T9N-PehvpF29LTFu8M6vjnp1PRyhgxUYf7bfU5DKzbq_nA/exec';
+  var myJR = Array.isArray(window.JR) ? window.JR.slice() : [];
+  var myC  = Array.isArray(window.D)  ? window.D.slice()  : [];
+  try{ if(!myJR.length && Array.isArray(window.JR)) myJR=window.JR.slice(); }catch(e){}
+  try{ if(!myC.length && Array.isArray(window.D))   myC =window.D.slice(); }catch(e){}
+  var origTitle = document.title;
+  var titleFlashTimer = null;
+
+  var st = document.createElement('style');
+  st.textContent = ''
+    + '#ngmBar{position:fixed;top:0;left:0;right:0;z-index:9000;'
+    + 'background:linear-gradient(90deg,#160a26 0%,#1a0d2e 50%,#0d1a2e 100%);'
+    + 'border-bottom:1px solid #ff66ff88;box-shadow:0 4px 24px #ff00ff33,inset 0 0 30px #00ffff11;'
+    + 'padding:8px 16px;display:flex;align-items:center;gap:14px;'
+    + 'font:13px system-ui,sans-serif;color:#fff;user-select:none;}'
+    + '#ngmBar .lab{font-weight:700;letter-spacing:.14em;color:#ff66ff;'
+    + 'text-transform:uppercase;font-size:11.5px;flex-shrink:0;text-shadow:0 0 8px #ff00ff66;cursor:pointer;}'
+    + '#ngmBar .list{display:flex;gap:8px;overflow:hidden;flex:1;cursor:pointer;}'
+    + '#ngmBar .pill{display:inline-flex;align-items:center;gap:6px;'
+    + 'padding:5px 11px;border-radius:999px;background:#0d1a2e;'
+    + 'border:1px solid #ff66ff55;font-size:12.5px;white-space:nowrap;}'
+    + '#ngmBar .pill.referred{border-color:#00ffff88;color:#dffaff;}'
+    + '#ngmBar .pill.booked{border-color:#ff66ff88;color:#ffdfff;}'
+    + '#ngmBar .pill.completed{border-color:#33ff8888;color:#dfffea;}'
+    + '#ngmBar .pill.referred::before{content:"⚡ ";}'
+    + '#ngmBar .pill.booked::before{content:"📦 ";}'
+    + '#ngmBar .pill.completed::before{content:"✅ ";}'
+    + '#ngmBar .empty{color:#888;font-size:12.5px;font-style:italic;cursor:pointer;}'
+    + '#ngmBar .fresh{background:#ff00ff;color:#fff;padding:3px 10px;'
+    + 'border-radius:999px;font-weight:800;font-size:11px;letter-spacing:.06em;'
+    + 'animation:ngmGlow 1.4s ease-in-out infinite;cursor:pointer;}'
+    + '#ngmBar .chev{color:#ff66ff;font-size:16px;cursor:pointer;}'
+    + '@keyframes ngmGlow{0%,100%{box-shadow:0 0 0 0 #ff00ffaa,0 0 12px #ff00ff;}50%{box-shadow:0 0 0 10px #ff00ff00,0 0 24px #ff00ff;}}'
+    + '#ngmBar .search-wrap{position:relative;flex-shrink:0;}'
+    + '#ngmBar input.search{width:320px;max-width:38vw;background:#0a0a14;'
+    + 'color:#fff;border:1px solid #ff66ff66;border-radius:9px;padding:7px 12px 7px 32px;'
+    + 'font:13px system-ui,sans-serif;outline:none;transition:border-color .15s,box-shadow .15s;}'
+    + '#ngmBar input.search:focus{border-color:#00ffff;box-shadow:0 0 0 3px #00ffff33;}'
+    + '#ngmBar input.search::placeholder{color:#888;}'
+    + '#ngmBar .search-ico{position:absolute;left:10px;top:50%;transform:translateY(-50%);'
+    + 'color:#ff66ff;font-size:14px;pointer-events:none;}'
+    + 'body.ngm-bar-on{padding-top:50px !important;}'
+    + '#ngmDrop{position:fixed;top:50px;left:0;right:0;z-index:8999;'
+    + 'background:#0a0a14;border-bottom:1px solid #ff66ff66;max-height:62vh;overflow:auto;'
+    + 'box-shadow:0 12px 32px #000a;display:none;}'
+    + '#ngmDrop.open{display:block;}'
+    + '#ngmDrop .inner{max-width:1100px;margin:0 auto;padding:14px 18px 18px;}'
+    + '#ngmDrop h4{margin:0 0 10px;color:#ff66ff;font-size:12px;letter-spacing:.12em;text-transform:uppercase;}'
+    + '#ngmDrop .row{display:grid;grid-template-columns:auto 1fr auto auto;'
+    + 'gap:12px;align-items:center;padding:10px 12px;border-radius:9px;'
+    + 'cursor:pointer;border:1px solid transparent;margin-top:5px;}'
+    + '#ngmDrop .row:hover{background:#ff66ff14;border-color:#ff66ff55;}'
+    + '#ngmDrop .av{width:36px;height:36px;border-radius:50%;'
+    + 'background:linear-gradient(135deg,#ff00ff,#00ffff);color:#0a0a0f;'
+    + 'font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}'
+    + '#ngmDrop .nm{font-weight:600;color:#fff;font-size:14px;}'
+    + '#ngmDrop .sub{font-size:12px;color:#bbb;margin-top:3px;}'
+    + '#ngmDrop .stage{font-size:10.5px;font-weight:700;letter-spacing:.08em;'
+    + 'text-transform:uppercase;padding:4px 10px;border-radius:999px;white-space:nowrap;}'
+    + '#ngmDrop .stage.referred{background:#00ffff22;color:#00ffff;border:1px solid #00ffff66;}'
+    + '#ngmDrop .stage.booked{background:#ff66ff22;color:#ff66ff;border:1px solid #ff66ff66;}'
+    + '#ngmDrop .stage.completed{background:#33ff8822;color:#33ff88;border:1px solid #33ff8866;}'
+    + '#ngmSearchDrop{position:fixed;top:50px;right:18px;z-index:8998;'
+    + 'width:380px;max-width:90vw;background:#0a0a14;border:1px solid #ff66ff66;border-top:0;'
+    + 'border-radius:0 0 12px 12px;max-height:70vh;overflow:auto;'
+    + 'box-shadow:0 12px 32px #000a;display:none;}'
+    + '#ngmSearchDrop.open{display:block;}'
+    + '#ngmSearchDrop .sh{padding:10px 14px;color:#888;font-size:11px;text-transform:uppercase;letter-spacing:.12em;border-bottom:1px solid #222;}'
+    + '#ngmSearchDrop .sr{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:9px 14px;cursor:pointer;border-left:3px solid transparent;}'
+    + '#ngmSearchDrop .sr:hover,#ngmSearchDrop .sr.act{background:#ff66ff14;border-left-color:#ff66ff;}'
+    + '#ngmSearchDrop .sav{width:32px;height:32px;border-radius:50%;'
+    + 'background:linear-gradient(135deg,#ff00ff,#00ffff);color:#0a0a0f;'
+    + 'font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}'
+    + '#ngmSearchDrop .snm{color:#fff;font-weight:600;font-size:13.5px;line-height:1.2;}'
+    + '#ngmSearchDrop .ssub{color:#aaa;font-size:11.5px;margin-top:2px;}'
+    + '#ngmSearchDrop .stp{color:#888;font-size:10px;text-transform:uppercase;letter-spacing:.08em;}'
+    + '#ngmSearchDrop .none{color:#888;font-style:italic;padding:18px;font-size:13px;}'
+    + '#ngmToast{position:fixed;top:64px;right:18px;z-index:9999;'
+    + 'background:linear-gradient(135deg,#ff00ff,#00ffff);color:#0a0a14;'
+    + 'padding:14px 18px;border-radius:14px;font-weight:700;font-size:14px;'
+    + 'box-shadow:0 0 32px #ff00ffaa,0 8px 30px #000a;'
+    + 'animation:ngmIn .35s ease-out;display:none;max-width:380px;}'
+    + '#ngmToast.show{display:block;}'
+    + '@keyframes ngmIn{from{transform:translateY(-20px) scale(.95);opacity:0;}'
+    + 'to{transform:translateY(0) scale(1);opacity:1;}}'
+    + '#ngmToast .head{font-size:15px;}'
+    + '#ngmToast .sub{font-size:12px;margin-top:4px;font-weight:500;opacity:.82;}'
+    + '#ngmToast .act{margin-top:10px;display:flex;gap:8px;}'
+    + '#ngmToast button{background:#0a0a14;color:#fff;border:0;padding:6px 12px;'
+    + 'border-radius:7px;font-weight:700;cursor:pointer;font-size:12px;}'
+    + '#ngmToast button.x{background:#ffffff44;}';
+  document.head.appendChild(st);
+
+  // helpers
+  function init(n){
+    var s=String(n||'').replace(/\([^)]*\)/g,'').trim();
+    var p=s.split(/[\s,]+/).filter(Boolean);
+    return ((p[0]||'?').charAt(0)+(p.length>1?p[p.length-1].charAt(0):'')).toUpperCase();
+  }
+  function money(n){ var v=Number(n)||0; return '$'+v.toLocaleString('en-US',{maximumFractionDigits:0}); }
+  function daysAgo(iso){
+    if(!iso) return '';
+    var d=new Date(iso); if(isNaN(d)) return '';
+    var diff=Math.floor((Date.now()-d.getTime())/86400000);
+    if(diff<=0) return 'today'; if(diff===1) return 'yesterday';
+    if(diff<7) return diff+'d ago';
+    if(diff<30) return Math.floor(diff/7)+'w ago';
+    return Math.floor(diff/30)+'mo ago';
+  }
+  function partnerRowsFrom(arr, days){
+    var cutoff=Date.now()-days*86400000;
+    var rows=[];
+    for(var i=0;i<arr.length;i++){
+      var r=arr[i];
+      if(String(r.enteredBy||'').indexOf('SmartMoving Sync')<0) continue;
+      var t=Date.parse(r.date||''); if(isNaN(t)||t<cutoff) continue;
+      rows.push(r);
+    }
+    rows.sort(function(a,b){return (Date.parse(b.date)||0)-(Date.parse(a.date)||0);});
+    return rows;
+  }
+  function openProfile(cid){
+    try{
+      if (typeof window.openContact==='function') window.openContact(+cid);
+      else window.location.href='?c='+cid;
+    }catch(e){ window.location.href='?c='+cid; }
+  }
+
+  // bar + dropdown DOM
+  function ensureBar(){
+    var b=document.getElementById('ngmBar');
+    if(!b){
+      b=document.createElement('div'); b.id='ngmBar';
+      b.innerHTML=''
+        + '<div id="ngmPulseSlot" style="display:flex;align-items:center;gap:14px;flex:1;min-width:0;"></div>'
+        + '<div class="search-wrap">'
+        + '<span class="search-ico">🔍</span>'
+        + '<input class="search" id="ngmSearch" placeholder="Search contacts, businesses, phone, email…" autocomplete="off" spellcheck="false">'
+        + '</div>';
+      document.body.appendChild(b);
+      document.body.classList.add('ngm-bar-on');
+      var d=document.createElement('div'); d.id='ngmDrop';
+      d.innerHTML='<div class="inner"><h4>💌 Partner Pulse · last 30 days · click a row to open the partner profile</h4><div id="ngmList"></div></div>';
+      document.body.appendChild(d);
+      var sd=document.createElement('div'); sd.id='ngmSearchDrop'; document.body.appendChild(sd);
+      wireSearch();
+    }
+    return b;
+  }
+
+  function renderPulse(){
+    var slot=document.getElementById('ngmPulseSlot'); if(!slot) return;
+    var rowsAll = partnerRowsFrom(myJR, 30);
+    var rowsFresh = partnerRowsFrom(myJR, 7);
+    var html='<div class="lab" data-toggle="drop">💌 Partner Pulse</div>';
+    if (!rowsFresh.length && !rowsAll.length){
+      html+='<div class="empty" data-toggle="drop">All quiet. New affiliate referrals show up here the second SmartMoving sees them.</div>';
+    } else {
+      var top=(rowsFresh.length?rowsFresh:rowsAll).slice(0,3);
+      html+='<div class="list" data-toggle="drop">';
+      for(var i=0;i<top.length;i++){
+        var r=top[i]; var s=String(r.status||'referred').toLowerCase();
+        var lab=s==='referred'?'Referred In':(s==='booked'?'Booked':(s==='completed'?'Completed':s));
+        html += '<div class="pill '+s+'">'+(r.contactName||'Partner')+' · '+lab+' · '+money(r.amount)+'</div>';
+      }
+      html+='</div>';
+      var fresh=rowsAll.filter(function(r){var t=Date.parse(r.date||'');return !isNaN(t)&&(Date.now()-t)<2*86400000;}).length;
+      if (fresh) html+='<div class="fresh" data-toggle="drop">'+fresh+' fresh</div>';
+    }
+    html+='<div class="chev" data-toggle="drop">▾</div>';
+    slot.innerHTML=html;
+    var togglers=slot.querySelectorAll('[data-toggle="drop"]');
+    for (var i=0;i<togglers.length;i++) togglers[i].onclick=toggleDrop;
+    var list=document.getElementById('ngmList');
+    if(list){
+      if(!rowsAll.length){ list.innerHTML='<div style="color:#888;padding:14px;font-style:italic;">No partner-sourced jobs in the last 30 days.</div>'; }
+      else {
+        var inner='';
+        for(var i=0;i<rowsAll.length;i++){
+          var r=rowsAll[i]; var s=String(r.status||'referred').toLowerCase();
+          var lab=s==='referred'?'Referred In':(s==='booked'?'Booked':(s==='completed'?'Completed':s));
+          inner += '<div class="row" data-cid="'+r.contactId+'">'
+            + '<div class="av">'+init(r.contactName)+'</div>'
+            + '<div><div class="nm">'+(r.contactName||'Partner')+'</div>'
+            + '<div class="sub">'+(r.jobName||'Job')+'  ·  '+money(r.amount)+'  ·  '+daysAgo(r.date)+'</div></div>'
+            + '<div class="stage '+s+'">'+lab+'</div>'
+            + '<div style="color:#888;font-size:18px;">›</div></div>';
+        }
+        list.innerHTML=inner;
+        var rs=list.querySelectorAll('.row');
+        for(var j=0;j<rs.length;j++){
+          (function(el){ el.onclick=function(){ openProfile(+el.getAttribute('data-cid')); var d=document.getElementById('ngmDrop'); if(d) d.classList.remove('open'); }; })(rs[j]);
+        }
+      }
+    }
+  }
+  function toggleDrop(){ var d=document.getElementById('ngmDrop'); if(d) d.classList.toggle('open'); }
+
+  // Search
+  var searchActive = -1;
+  function normq(s){ return String(s||'').toLowerCase().trim(); }
+  function searchMatches(q){
+    q = normq(q);
+    if (q.length<2) return [];
+    var out=[];
+    for (var i=0;i<myC.length;i++){
+      var c=myC[i];
+      var hay = String(c.name||'')+' '+String(c.business||'')+' '+String(c.email||'')+' '+String(c.phone||'');
+      hay = hay.toLowerCase();
+      if (hay.indexOf(q)<0) continue;
+      // rank: exact name match > business match > else
+      var score = 0;
+      if ((c.name||'').toLowerCase().indexOf(q)===0) score += 5;
+      if ((c.business||'').toLowerCase().indexOf(q)===0) score += 3;
+      if ((c.name||'').toLowerCase().indexOf(q)>=0) score += 2;
+      if ((c.business||'').toLowerCase().indexOf(q)>=0) score += 1;
+      out.push({c:c, score:score});
+    }
+    out.sort(function(a,b){ return b.score-a.score; });
+    return out.slice(0,10).map(function(x){return x.c;});
+  }
+  function renderSearch(q){
+    var sd=document.getElementById('ngmSearchDrop'); if(!sd) return;
+    if (!q || q.length<2){ sd.classList.remove('open'); sd.innerHTML=''; return; }
+    var matches = searchMatches(q);
+    sd.classList.add('open');
+    if (!matches.length){
+      sd.innerHTML='<div class="sh">No matches</div><div class="none">Nothing matches “'+q.replace(/</g,'&lt;')+'”. Try a different keyword.</div>';
+      return;
+    }
+    var inner='<div class="sh">'+matches.length+' match'+(matches.length>1?'es':'')+'</div>';
+    for (var i=0;i<matches.length;i++){
+      var c=matches[i];
+      var nm=c.name||'(no name)';
+      var biz=c.business||'';
+      var sub=[biz, c.type||'', c.phone||'', c.email||''].filter(Boolean).join(' · ');
+      inner += '<div class="sr" data-cid="'+c.id+'" data-idx="'+i+'">'
+        + '<div class="sav">'+init(nm)+'</div>'
+        + '<div><div class="snm">'+nm.replace(/</g,'&lt;')+'</div><div class="ssub">'+sub.replace(/</g,'&lt;')+'</div></div>'
+        + '<div class="stp">'+(c.type||'').replace(/</g,'&lt;')+'</div></div>';
+    }
+    sd.innerHTML=inner;
+    var rs=sd.querySelectorAll('.sr');
+    for (var i=0;i<rs.length;i++){
+      (function(el){ el.onclick=function(){ openProfile(+el.getAttribute('data-cid')); closeSearch(); }; })(rs[i]);
+    }
+    searchActive = -1;
+  }
+  function closeSearch(){
+    var sd=document.getElementById('ngmSearchDrop'); if(sd){sd.classList.remove('open');sd.innerHTML='';}
+    var inp=document.getElementById('ngmSearch'); if(inp){inp.blur();}
+  }
+  function moveActive(delta){
+    var sd=document.getElementById('ngmSearchDrop'); if(!sd) return;
+    var rs=sd.querySelectorAll('.sr'); if(!rs.length) return;
+    searchActive = (searchActive + delta + rs.length) % rs.length;
+    for (var i=0;i<rs.length;i++) rs[i].classList.toggle('act', i===searchActive);
+    rs[searchActive].scrollIntoView({block:'nearest'});
+  }
+  function wireSearch(){
+    var inp=document.getElementById('ngmSearch'); if(!inp) return;
+    var deb=null;
+    inp.addEventListener('input', function(e){
+      if(deb) clearTimeout(deb);
+      var q=e.target.value;
+      deb=setTimeout(function(){ renderSearch(q); }, 90);
+    });
+    inp.addEventListener('focus', function(e){ if(e.target.value.length>=2) renderSearch(e.target.value); });
+    inp.addEventListener('keydown', function(e){
+      if (e.key==='ArrowDown'){ e.preventDefault(); moveActive(1); }
+      else if (e.key==='ArrowUp'){ e.preventDefault(); moveActive(-1); }
+      else if (e.key==='Enter'){
+        var sd=document.getElementById('ngmSearchDrop'); var rs=sd.querySelectorAll('.sr');
+        var pick = searchActive>=0 ? rs[searchActive] : rs[0];
+        if (pick){ openProfile(+pick.getAttribute('data-cid')); closeSearch(); inp.value=''; }
+      }
+      else if (e.key==='Escape'){ closeSearch(); inp.value=''; }
+    });
+    // Global hotkey: "/" focuses search.
+    document.addEventListener('keydown', function(e){
+      if (e.key==='/' && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement&&document.activeElement.tagName)||'')){
+        e.preventDefault(); inp.focus(); inp.select();
+      }
+    });
+  }
+
+  function flashTitle(label){
+    try{
+      if(titleFlashTimer){ clearInterval(titleFlashTimer); titleFlashTimer=null; }
+      var on=true;
+      titleFlashTimer = setInterval(function(){
+        document.title = on ? ('🟣 '+label) : origTitle; on=!on;
+      }, 1200);
+      function stop(){
+        if(titleFlashTimer){clearInterval(titleFlashTimer);titleFlashTimer=null;}
+        document.title = origTitle;
+        window.removeEventListener('focus', stop);
+      }
+      window.addEventListener('focus', stop);
+      setTimeout(stop, 60000);
+    }catch(e){}
+  }
+  function ding(){
+    try{
+      var AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+      var ctx=new AC(); var o=ctx.createOscillator(); var g=ctx.createGain();
+      o.type='sine'; g.gain.value=0.06; o.connect(g); g.connect(ctx.destination);
+      o.frequency.value=880; o.start();
+      o.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime+0.20);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.36);
+      o.stop(ctx.currentTime+0.38);
+    }catch(e){}
+  }
+  function celebrate(row){
+    var t=document.getElementById('ngmToast');
+    if(!t){ t=document.createElement('div'); t.id='ngmToast'; document.body.appendChild(t); }
+    var s=String(row.status||'referred').toLowerCase();
+    var head = s==='completed'?'✅ Completed for '+(row.contactName||'partner')
+      : s==='booked'?'📦 Booked from '+(row.contactName||'partner')
+      : '🟣 New referral from '+(row.contactName||'partner');
+    t.innerHTML = '<div class="head">'+head+'</div>'
+      + '<div class="sub">'+(row.jobName||'Job')+' · '+money(row.amount)+'</div>'
+      + '<div class="act"><button data-go="1">Open profile</button><button class="x">Dismiss</button></div>';
+    t.classList.add('show');
+    var btns=t.querySelectorAll('button');
+    btns[0].onclick=function(){ openProfile(+row.contactId); t.classList.remove('show'); };
+    btns[1].onclick=function(){ t.classList.remove('show'); };
+    ding(); flashTitle('New referral!');
+    setTimeout(function(){ try{t.classList.remove('show');}catch(e){} }, 22000);
+  }
+
+  function refresh(){
+    return fetch(APPS+'?action=getAll', {redirect:'follow'}).then(function(r){
+      return r.ok ? r.json() : null;
+    }).then(function(d){
+      if (d){
+        if (Array.isArray(d.referrals)) myJR = d.referrals;
+        if (Array.isArray(d.contacts))  myC  = d.contacts;
+      }
+    }).catch(function(){});
+  }
+  function seenSet(){ try{ return new Set(JSON.parse(localStorage.getItem('ngm_pulse_seen')||'[]')); }catch(e){ return new Set(); } }
+  function saveSeen(s){ try{ localStorage.setItem('ngm_pulse_seen', JSON.stringify(Array.from(s))); }catch(e){} }
+  function keyFor(r){ return String(r.id||(r.contactId+'|'+r.jobName+'|'+r.date+'|'+r.status)); }
+  function detectAndCelebrate(){
+    var rows = partnerRowsFrom(myJR, 30);
+    var seen = seenSet();
+    var fresh=[];
+    for (var i=0;i<rows.length;i++){
+      var k=keyFor(rows[i]);
+      if (!seen.has(k)){ fresh.push(rows[i]); seen.add(k); }
+    }
+    saveSeen(seen);
+    return fresh;
+  }
+
+  function bootstrap(){
+    try{
+      ensureBar();
+      if (Array.isArray(window.JR) && window.JR.length && !myJR.length) myJR=window.JR.slice();
+      try{ if (Array.isArray(window.D) && window.D.length && !myC.length) myC=window.D.slice(); }catch(e){}
+      renderPulse();
+      // Prime seen so existing rows don't celebrate on first load.
+      var seen=seenSet(); var rows=partnerRowsFrom(myJR, 30);
+      if (seen.size===0 && rows.length){ for (var i=0;i<rows.length;i++) seen.add(keyFor(rows[i])); saveSeen(seen); }
+      setTimeout(function(){ refresh().then(function(){ var f=detectAndCelebrate(); renderPulse(); for(var i=0;i<f.length;i++) celebrate(f[i]); }); }, 3500);
+      setInterval(function(){ refresh().then(function(){ var f=detectAndCelebrate(); renderPulse(); for(var i=0;i<f.length;i++) celebrate(f[i]); }); }, 90000);
+      setInterval(renderPulse, 30000);
+    }catch(e){}
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootstrap);
+  else bootstrap();
+
+  document.addEventListener('click', function(e){
+    var d=document.getElementById('ngmDrop');
+    if (d && d.classList.contains('open') && !e.target.closest('#ngmBar') && !e.target.closest('#ngmDrop')) d.classList.remove('open');
+    var sd=document.getElementById('ngmSearchDrop');
+    if (sd && sd.classList.contains('open') && !e.target.closest('#ngmBar') && !e.target.closest('#ngmSearchDrop')) closeSearch();
+  }, true);
+})();
+
+</script>
 </body>
 </html>
