@@ -10578,7 +10578,7 @@ async function dpDownloadPDF(){
 <script>
 /*v174-referral-details*/
 (function(){
-  if (window.__ngmV174v3) return; window.__ngmV174v3 = true;
+  if (window.__ngmV174v4) return; window.__ngmV174v4 = true;
 
   var APPS = 'https://script.google.com/macros/s/AKfycbxh1ecAF9yWN91w04SHROy5T9N-PehvpF29LTFu8M6vjnp1PRyhgxUYf7bfU5DKzbq_nA/exec';
   var WORKER = 'https://neon-sm-sync.dane-bc3.workers.dev';
@@ -10601,7 +10601,8 @@ async function dpDownloadPDF(){
     + '.ngm-jd-lab{color:#888;text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;margin-bottom:2px;}'
     + '.ngm-jd-val{color:#fff;font-weight:500;word-wrap:break-word;}'
     + '.ngm-jd-loading{color:#888;font-style:italic;font-size:12.5px;}'
-    + '.ngm-jd-err{color:#ff6b81;font-size:12.5px;}';
+    + '.ngm-jd-err{color:#ffcc66;font-size:12.5px;line-height:1.5;}'
+    + '.ngm-jd-err-title{color:#ffcc66;font-weight:700;margin-bottom:4px;}';
   document.head.appendChild(st);
 
   function fmtDate(d){
@@ -10655,7 +10656,11 @@ async function dpDownloadPDF(){
   }
 
   function panelHTML(d){
-    if (!d || d.ok===false) return '<div class="ngm-jd-err">Could not load SmartMoving details.</div>';
+    if (!d) return '<div class="ngm-jd-err">Could not load SmartMoving details.</div>';
+    if (d.ok === false){
+      var msg = d.note || ('Could not load (HTTP ' + (d.status||'?') + ').');
+      return '<div class="ngm-jd-err"><div class="ngm-jd-err-title">No live SmartMoving record</div>' + msg + '</div>';
+    }
     var cells = [
       ['Customer', d.customer || '—'],
       ['Service date', fmtDate(d.serviceDate)],
