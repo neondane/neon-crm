@@ -10577,8 +10577,199 @@ async function dpDownloadPDF(){
 </script>
 <script>
 /*v174-referral-details*/
-(function(){})();
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+/* On every profile load, refresh window.JR from Apps Script so referrals
+ * created/advanced by the live SmartMoving sync show up immediately. Then
+ * decorate each referral row in the Referrals tab so clicking a row expands
+ * an inline panel with the SmartMoving job details (customer, service date,
+ * stage, amount, leadStatus, etc.). No MutationObserver.
+ */
+(function(){
+  if (window.__ngmV174v2) return; window.__ngmV174v2 = true;
+
+  var APPS = 'https://script.google.com/macros/s/AKfycbxh1ecAF9yWN91w04SHROy5T9N-PehvpF29LTFu8M6vjnp1PRyhgxUYf7bfU5DKzbq_nA/exec';
+  var WORKER = 'https://neon-sm-sync.dane-bc3.workers.dev';
+  var detailCache = {};
+  var lastJRRefresh = 0;
+
+  var st = document.createElement('style');
+  st.textContent = ''
+    + '.ngm-ref-row{cursor:pointer;transition:border-color .12s;}'
+    + '.ngm-ref-row:hover{border-color:#ff66ff !important;}'
+    + '.ngm-chev{display:inline-block;color:#ff66ff;font-size:14px;margin-left:8px;'
+    + 'transition:transform .15s;}'
+    + '.ngm-ref-row.open .ngm-chev{transform:rotate(90deg);}'
+    + '.ngm-jdetails{background:#0a0a14;border:1px solid #ff66ff44;'
+    + 'border-radius:8px;margin:-2px 0 10px;padding:14px 16px;display:none;}'
+    + '.ngm-jdetails.open{display:block;animation:ngmFadeIn .2s ease-out;}'
+    + '@keyframes ngmFadeIn{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}'
+    + '.ngm-jd-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 18px;}'
+    + '.ngm-jd-cell{font-size:12.5px;}'
+    + '.ngm-jd-lab{color:#888;text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;margin-bottom:2px;}'
+    + '.ngm-jd-val{color:#fff;font-weight:500;word-wrap:break-word;}'
+    + '.ngm-jd-loading{color:#888;font-style:italic;font-size:12.5px;}'
+    + '.ngm-jd-err{color:#ff6b81;font-size:12.5px;}';
+  document.head.appendChild(st);
+
+  function fmtDate(d){
+    if (!d) return '';
+    var s=String(d);
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return new Date(s.slice(0,10)+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    return s;
+  }
+  function money(n){ var v=Number(n)||0; return '$'+v.toLocaleString('en-US',{maximumFractionDigits:0}); }
+
+  function extractSmId(text){
+    var m = (text||'').match(/\[SM:([0-9a-f-]{6,})(?:[,0-9a-f-]*)?\]/i);
+    return m ? m[1] : null;
+  }
+  function cleanMetaText(text){
+    if (!text) return '';
+    return text
+      .replace(/\[SM:[^\]]+\]\s*/gi, '')
+      .replace(/\d+\s*line\s*item\(s\)/gi, '')
+      .replace(/\s*\|\s*live->\w+/gi, '')
+      .replace(/\s*\|\s*live sync\s*·\s*[^|·]*$/gi, '')
+      .replace(/\s+·\s+·\s+/g, ' · ')
+      .replace(/·\s*$/, '')
+      .replace(/^\s*·\s*/, '')
+      .trim();
+  }
+
+  function refreshJR(force){
+    var now = Date.now();
+    if (!force && (now - lastJRRefresh) < 20000) return Promise.resolve(false);
+    lastJRRefresh = now;
+    return fetch(APPS+'?action=getAll', { redirect:'follow' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        if (!d) return false;
+        var changed = false;
+        if (Array.isArray(d.referrals)){
+          try{
+            if (typeof window.JR !== 'undefined' && Array.isArray(window.JR)){
+              if (window.JR.length !== d.referrals.length) changed = true;
+              window.JR.length = 0;
+              for (var i=0;i<d.referrals.length;i++) window.JR.push(d.referrals[i]);
+            } else {
+              window.JR = d.referrals; changed = true;
+            }
+          }catch(e){}
+        }
+        return changed;
+      })
+      .catch(function(){ return false; });
+  }
+
+  function panelHTML(d){
+    if (!d || (d.ok===false)){
+      return '<div class="ngm-jd-err">Could not load SmartMoving details.</div>';
+    }
+    var cells = [
+      ['Customer', d.customer || '—'],
+      ['Service date', fmtDate(d.serviceDate)],
+      ['Stage', d.leadStatus || d.stage || '—'],
+      ['Estimated total', money(d.estimatedFinalTotal)],
+      ['Affiliate / Source', d.affiliateName || (d.referralSource && (d.referralSource.name||d.referralSource)) || '—'],
+      ['Quote #', d.quoteNumber || '—'],
+      ['Jobs on opportunity', d.jobCount || 0],
+      ['Created', fmtDate((d.createdAtUtc||'').slice(0,10))]
+    ];
+    return '<div class="ngm-jd-grid">' + cells.map(function(c){
+      return '<div class="ngm-jd-cell"><div class="ngm-jd-lab">'+c[0]+'</div><div class="ngm-jd-val">'+String(c[1]).replace(/</g,'&lt;')+'</div></div>';
+    }).join('') + '</div>';
+  }
+
+  function loadDetails(id, panel){
+    if (detailCache[id]){ panel.innerHTML = panelHTML(detailCache[id]); return; }
+    panel.innerHTML = '<div class="ngm-jd-loading">Loading job details from SmartMoving…</div>';
+    fetch(WORKER + '/look?id=' + encodeURIComponent(id))
+      .then(function(r){ return r.json(); })
+      .then(function(j){ detailCache[id] = j; panel.innerHTML = panelHTML(j); })
+      .catch(function(e){ panel.innerHTML = '<div class="ngm-jd-err">Network error: '+(e.message||e)+'</div>'; });
+  }
+
+  function decorate(){
+    try{
+      // Only look at rows inside #mc (current main area).
+      var mc = document.getElementById('mc'); if (!mc) return;
+      var rows = mc.querySelectorAll('div[style*="border:1px solid #1f3a5a"]');
+      rows.forEach(function(row){
+        if (row.dataset.ngmRefDec) return;
+        var meta = row.querySelector('div[style*="color:#888"]');
+        if (!meta) return;
+        var raw = meta.textContent || '';
+        var smId = extractSmId(raw);
+        if (!smId) return;
+        row.dataset.ngmRefDec = '1';
+        row.classList.add('ngm-ref-row');
+        meta.textContent = cleanMetaText(raw);
+        var title = row.querySelector('div[style*="font-weight:700"]');
+        if (title && !title.querySelector('.ngm-chev')){
+          var chev = document.createElement('span'); chev.className = 'ngm-chev'; chev.textContent = '›';
+          title.appendChild(chev);
+        }
+        var panel = document.createElement('div');
+        panel.className = 'ngm-jdetails';
+        panel.dataset.ngmOpp = smId;
+        row.insertAdjacentElement('afterend', panel);
+        row.addEventListener('click', function(ev){
+          if (ev.target.closest('button,a,input,select')) return;
+          ev.preventDefault();
+          ev.stopPropagation();
+          var open = panel.classList.toggle('open');
+          row.classList.toggle('open', open);
+          if (open) loadDetails(smId, panel);
+        });
+      });
+    }catch(e){}
+  }
+
+  // Hook _fpRender so JR is refreshed + rows decorated after each profile render.
+  function hook(){
+    if (typeof window._fpRender !== 'function') return false;
+    if (window._fpRender.__ngmV174) return true;
+    var orig = window._fpRender;
+    var wrapped = function(){
+      var rv = orig.apply(this, arguments);
+      try{
+        setTimeout(decorate, 80);
+        refreshJR(false).then(function(changed){
+          if (changed){
+            try{ orig.apply(window, []); setTimeout(decorate, 80); }catch(e){}
+          }
+        });
+      }catch(e){}
+      return rv;
+    };
+    wrapped.__ngmV174 = true;
+    window._fpRender = wrapped;
+    return true;
+  }
+
+  function install(){
+    var n=0;
+    var iv = setInterval(function(){
+      if (hook() || ++n > 40) clearInterval(iv);
+    }, 400);
+    // Repeated scan covers initial render latency.
+    var tickN = 0;
+    var ticker = setInterval(function(){
+      try{ decorate(); }catch(e){}
+      if (++tickN > 40) clearInterval(ticker);
+    }, 600);
+    // Force initial JR refresh on first arrival at a profile.
+    setTimeout(function(){
+      if (/[?&]c=\d+/.test(location.search)){
+        refreshJR(true).then(function(changed){
+          if (changed && typeof window._fpRender==='function') window._fpRender();
+        });
+      }
+    }, 1500);
+  }
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', install);
+  else install();
+})();
+
 </script>
 <script>
 /*v180-recruit-board*/
