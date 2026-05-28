@@ -10582,10 +10582,6 @@ async function dpDownloadPDF(){
 </script>
 <script>
 /*v180-recruit-board*/
-/* Recruit Board: ranked NWMLS realtors. Lives as a sidebar nav row under
- * Calendar (no top-bar clutter). No MutationObserver — polls for the nav
- * via setTimeout until it appears.
- */
 (function(){
   if (window.__ngmV180Loaded) return; window.__ngmV180Loaded = true;
 
@@ -10594,14 +10590,12 @@ async function dpDownloadPDF(){
   var contacts = [];
 
   function norm(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
-
   function loadContacts(){
     return fetch(APPS+'?action=getAll',{redirect:'follow'})
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(d){ if (d && Array.isArray(d.contacts)) contacts = d.contacts; })
       .catch(function(){});
   }
-
   function matchContact(name){
     var t = norm(name); if(!t) return null;
     return contacts.find(function(c){
@@ -10646,32 +10640,33 @@ async function dpDownloadPDF(){
     + '#ngmRB .footnote{color:#666;font-size:11px;margin-top:14px;}';
   document.head.appendChild(st);
 
-  function removeOldButton(){
+  function removeOldStuff(){
     var b = document.getElementById('ngmRBBtn'); if (b) b.remove();
+    var sidebarRow = document.getElementById('ngmRBRow'); if (sidebarRow) sidebarRow.remove();
   }
 
-  var tries = 0;
-  function mountSidebar(){
-    removeOldButton();
-    if (tries++ > 25) return;
-    var calendarRow = null;
-    document.querySelectorAll('.v149-row').forEach(function(r){
-      if (r.getAttribute('data-v149tab') === 'cal') calendarRow = r;
-    });
-    if (!calendarRow) { setTimeout(mountSidebar, 800); return; }
-    if (document.getElementById('ngmRBRow')) return;
+  // Target/bullseye SVG matching the existing nav icon style (stroke line-art).
+  var ICON_SVG = '<svg class="ng-ic" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">'
+    + '<circle cx="12" cy="12" r="9"></circle>'
+    + '<circle cx="12" cy="12" r="5.5"></circle>'
+    + '<circle cx="12" cy="12" r="2"></circle>'
+    + '</svg>';
 
-    var row = document.createElement('div');
-    row.id = 'ngmRBRow';
-    row.className = 'v149-row';
-    row.setAttribute('data-v149tab', 'ngm-recruit');
-    row.innerHTML = '<div class="v149-icon">🎯</div>'
-      + '<div class="v149-meta">'
-      + '<div class="v149-name">Recruit Board</div>'
-      + '<div class="v149-desc">NWMLS top realtors · status pills</div>'
-      + '</div>';
-    row.onclick = function(ev){ ev.stopPropagation(); openRB(); };
-    calendarRow.parentElement.insertBefore(row, calendarRow.nextSibling);
+  var tries = 0;
+  function mountNav(){
+    removeOldStuff();
+    if (tries++ > 25) return;
+    var calBtn = document.querySelector('button.navitem[data-tab="cal"]');
+    if (!calBtn) { setTimeout(mountNav, 800); return; }
+    if (document.getElementById('ngmRBNav')) return;
+
+    var btn = document.createElement('button');
+    btn.id = 'ngmRBNav';
+    btn.className = 'navitem';
+    btn.setAttribute('data-tab', 'ngm-recruit');
+    btn.innerHTML = '<span class="ni-ic" data-ng="1">' + ICON_SVG + '</span>Recruit Board';
+    btn.onclick = function(ev){ ev.preventDefault(); ev.stopPropagation(); openRB(); };
+    calBtn.parentElement.insertBefore(btn, calBtn.nextSibling);
   }
 
   function ensureOverlay(){
@@ -10745,8 +10740,8 @@ async function dpDownloadPDF(){
   }
 
   loadContacts().then(function(){
-    if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', mountSidebar);
-    else mountSidebar();
+    if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', mountNav);
+    else mountNav();
   });
   document.addEventListener('keydown', function(e){ if (e.key==='Escape') closeRB(); });
 })();
