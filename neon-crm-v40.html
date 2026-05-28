@@ -10389,20 +10389,20 @@ async function dpDownloadPDF(){
 <script>
 /*v176-profile-clickable*/
 (function(){
-  if (window.__ngmV176v2) return; window.__ngmV176v2 = true;
+  if (window.__ngmV176v3) return; window.__ngmV176v3 = true;
 
   var st = document.createElement('style');
   st.textContent = ''
-    + '.ngm-cam{position:absolute;bottom:6px;right:6px;width:34px;height:34px;'
+    + '.ngm-cam{position:absolute;bottom:6px;right:6px;width:30px;height:30px;'
     + 'border-radius:50%;background:linear-gradient(135deg,#ff00ff,#00ffff);'
     + 'color:#0a0a14;display:flex;align-items:center;justify-content:center;'
-    + 'cursor:pointer;border:2px solid #0a0a14;box-shadow:0 4px 12px #ff00ff66;'
-    + 'transition:transform .15s;z-index:5;font-size:15px;}'
+    + 'cursor:pointer;border:2px solid #0a0a14;box-shadow:0 3px 10px #ff00ff66;'
+    + 'transition:transform .15s;z-index:5;font-size:13px;}'
     + '.ngm-cam:hover{transform:scale(1.12);}'
     + '.ngm-pen{display:inline-flex;align-items:center;justify-content:center;'
-    + 'width:22px;height:22px;border-radius:6px;background:#ff66ff22;'
+    + 'width:18px;height:18px;border-radius:5px;background:#ff66ff22;'
     + 'border:1px solid #ff66ff66;color:#ff66ff;cursor:pointer;'
-    + 'font-size:12px;margin-left:8px;vertical-align:middle;}'
+    + 'font-size:10px;margin-left:6px;vertical-align:middle;flex-shrink:0;}'
     + '.ngm-pen:hover{background:#ff66ff44;}'
     + '.ngm-jump{cursor:pointer !important;transition:transform .12s;}'
     + '.ngm-jump:hover{transform:scale(1.04);box-shadow:0 0 10px #ff66ff66;}';
@@ -10411,14 +10411,27 @@ async function dpDownloadPDF(){
   function getCid(){
     try{ var u=new URL(location.href); var c=u.searchParams.get('c'); return c?+c:null; }catch(e){ return null; }
   }
+  function callPhoto(cid){
+    try{
+      if (typeof window.ngmPickAndCropProfile==='function') return window.ngmPickAndCropProfile(cid);
+      if (typeof window.showEdit==='function') return window.showEdit(cid);
+    }catch(e){}
+  }
   function callEdit(cid){ try{ if (typeof window.showEdit==='function') window.showEdit(cid); }catch(e){} }
   function gotoTab(tab){ try{ window._fpTab=tab; if (typeof window._fpRender==='function') window._fpRender(); }catch(e){} }
+
+  function makePen(cid, title){
+    var pen = document.createElement('span');
+    pen.className='ngm-pen'; pen.textContent='✏'; pen.title=title||'Edit';
+    pen.onclick = function(ev){ ev.preventDefault(); ev.stopPropagation(); callEdit(cid); };
+    return pen;
+  }
 
   function decorate(){
     var cid = getCid(); if(!cid) return;
     var mc = document.getElementById('mc'); if(!mc) return;
 
-    // Camera button on the big hero avatar
+    // Camera button on the big hero avatar (calls photo-only crop modal)
     if (!mc.querySelector('.ngm-cam')){
       var imgs = mc.querySelectorAll('img');
       for (var i=0;i<imgs.length;i++){
@@ -10430,7 +10443,7 @@ async function dpDownloadPDF(){
             if (window.getComputedStyle(p).position === 'static') p.style.position = 'relative';
             var cam = document.createElement('div');
             cam.className='ngm-cam'; cam.textContent='\u{1F4F7}'; cam.title='Change photo';
-            cam.onclick = function(ev){ ev.preventDefault(); ev.stopPropagation(); callEdit(cid); };
+            cam.onclick = function(ev){ ev.preventDefault(); ev.stopPropagation(); callPhoto(cid); };
             p.appendChild(cam);
             break;
           }
@@ -10438,25 +10451,44 @@ async function dpDownloadPDF(){
       }
     }
 
-    // Pencil on CONTACT card header + rename Quick Actions
-    var cards = mc.querySelectorAll('div');
-    for (var i=0;i<cards.length;i++){
-      var el = cards[i];
-      if (el.children.length > 0) continue;
-      var txt = (el.textContent||'').trim();
-      if (txt === 'CONTACT' && !el.dataset.ngmCp){
-        el.dataset.ngmCp = '1';
-        var pen = document.createElement('span');
-        pen.className='ngm-pen'; pen.textContent='✏'; pen.title='Edit contact info';
-        pen.onclick = function(ev){ ev.preventDefault(); ev.stopPropagation(); callEdit(cid); };
-        el.appendChild(pen);
-      } else if ((txt === 'QUICK ACTIONS' || txt === 'Quick Actions') && !el.dataset.ngmRen){
-        el.dataset.ngmRen = '1';
-        el.textContent = 'ACTIONS';
+    // Find header divs by their UPPERCASE label, regardless of children count.
+    // We look for divs whose direct text content starts with an exact label.
+    var allDivs = mc.querySelectorAll('div');
+    for (var i=0;i<allDivs.length;i++){
+      var el = allDivs[i];
+      // Get the FIRST non-empty text node, not deep textContent
+      var firstText = '';
+      for (var n=0;n<el.childNodes.length;n++){
+        var nd = el.childNodes[n];
+        if (nd.nodeType === 3){ var t=(nd.nodeValue||'').trim(); if (t){ firstText = t; break; } }
+        else if (nd.nodeType === 1){ break; }
+      }
+      // Allow either: pure text node match (no children), or div whose own textContent is exactly the label
+      var ownText = (el.textContent||'').trim();
+      var isContact = (firstText==='CONTACT' || ownText==='CONTACT');
+      var isDetails = (firstText==='DETAILS' || ownText==='DETAILS');
+      var isQA = (firstText==='QUICK ACTIONS' || ownText==='QUICK ACTIONS' || firstText==='Quick Actions');
+
+      if (isContact && !el.dataset.ngmCp){
+        // Only do this when the element looks like a small header (not the whole card)
+        if (el.clientHeight < 60){
+          el.dataset.ngmCp='1';
+          el.appendChild(makePen(cid, 'Edit contact info'));
+        }
+      } else if (isDetails && !el.dataset.ngmDp){
+        if (el.clientHeight < 60){
+          el.dataset.ngmDp='1';
+          el.appendChild(makePen(cid, 'Edit details (Tier, Owner, Type)'));
+        }
+      } else if (isQA && !el.dataset.ngmRen){
+        if (el.clientHeight < 60){
+          el.dataset.ngmRen='1';
+          el.textContent = 'ACTIONS';
+        }
       }
     }
 
-    // Repair Set Reminder / Log Visit / Edit Info buttons (formerly v173)
+    // Repair Set Reminder / Log Visit / Edit Info buttons
     var btns = mc.querySelectorAll('button');
     for (var i=0;i<btns.length;i++){
       var b = btns[i];
@@ -10496,7 +10528,6 @@ async function dpDownloadPDF(){
     }
   }
 
-  // Hook _fpRender. Runs once per profile render. No MutationObserver.
   function hook(){
     if (typeof window._fpRender !== 'function') return false;
     if (window._fpRender.__ngmV176) return true;
