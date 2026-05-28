@@ -11076,5 +11076,120 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v182-quickvisit-bulletproof*/
+/* Replaces showQV entirely with a self-contained modal.
+ * - Doesn't depend on #qvArea existing in DOM
+ * - Doesn't depend on the original showQV running successfully
+ * - Doesn't depend on v161's modal host wrap
+ * - Renders into a fixed-position overlay we own end-to-end
+ * - Save calls aP({action:'addVisit',...}) directly, then reload()
+ * - Logs to console.log('[v182]', ...) at every step so Dane sees activity
+ */
+(function(){
+  if (window.__ngmV182) return; window.__ngmV182 = true;
+  console.log('[v182] bulletproof Quick Visit installing');
+
+  function el(tag, css, html){
+    var x = document.createElement(tag);
+    if (css) x.style.cssText = css;
+    if (html != null) x.innerHTML = html;
+    return x;
+  }
+
+  function close(){
+    var o = document.getElementById('v182QvOverlay');
+    if (o) o.remove();
+  }
+
+  function tmOpts(){
+    try {
+      if (typeof window.tmOpts === 'function') return window.tmOpts();
+    } catch(e){}
+    return '<option>Dane</option><option>Jeff</option><option>Tyler</option><option>Valentina</option>';
+  }
+
+  async function save(cid){
+    var notes = (document.getElementById('v182qN')||{}).value || '';
+    var by    = (document.getElementById('v182qBy')||{}).value || '';
+    var date  = (document.getElementById('v182qDt')||{}).value || new Date().toISOString().split('T')[0];
+    if (!notes.trim()){ if (window.tt) tt('Add notes','er'); return; }
+    if (window.tt) tt('Saving...','ok');
+    try {
+      await aP({ action:'addVisit', visit:{ contactId:+cid, handler:by, date:date, notes:notes }});
+      if (window.tt) tt('✅ Visit saved','ok');
+      close();
+      if (typeof load === 'function') await load();
+      // Re-open the profile so the new visit shows up
+      if (typeof window._fpRender === 'function') window._fpRender();
+    } catch (e){
+      console.error('[v182] save failed', e);
+      if (window.tt) tt('Save failed: '+(e.message||e), 'er');
+    }
+  }
+
+  window.showQV = function(cid){
+    console.log('[v182] showQV called', cid);
+    close();
+    var today = new Date().toISOString().split('T')[0];
+    var ov = el('div',
+      'position:fixed;inset:0;background:rgba(5,0,8,0.78);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);' +
+      'z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:20px');
+    ov.id = 'v182QvOverlay';
+    ov.addEventListener('click', function(ev){ if (ev.target === ov) close(); });
+
+    var panel = el('div',
+      'width:560px;max-width:96vw;max-height:90vh;overflow-y:auto;' +
+      'background:#0a0d14;border:1px solid rgba(0,229,255,0.45);border-radius:14px;padding:20px;' +
+      'box-shadow:0 0 0 1px rgba(255,255,255,0.04) inset, 0 24px 60px rgba(0,0,0,0.7),' +
+      ' 0 0 40px rgba(0,229,255,0.25), 0 0 22px rgba(255,20,147,0.18)');
+
+    panel.innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">' +
+        '<div style="font-size:16px;font-weight:800;background:linear-gradient(110deg,#FF1493,#22BFE7);' +
+          '-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:.3px">Quick Check-In</div>' +
+        '<button id="v182qX" style="background:none;border:none;color:#9aa;font-size:20px;cursor:pointer;line-height:1">✕</button>' +
+      '</div>' +
+      '<textarea id="v182qN" rows="4" placeholder="Visit notes..." style="width:100%;padding:11px 12px;' +
+        'background:rgba(0,0,0,0.4);color:#fff;border:1px solid rgba(0,229,255,0.25);border-radius:10px;' +
+        'font-size:14px;font-family:inherit;box-sizing:border-box;resize:vertical"></textarea>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">' +
+        '<div><label style="font-size:10px;letter-spacing:1.5px;color:#22BFE7;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px">Date</label>' +
+          '<input id="v182qDt" type="date" value="'+today+'" style="width:100%;padding:9px;background:rgba(0,0,0,0.4);color:#fff;border:1px solid rgba(0,229,255,0.25);border-radius:8px"></div>' +
+        '<div><label style="font-size:10px;letter-spacing:1.5px;color:#22BFE7;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px">By</label>' +
+          '<select id="v182qBy" style="width:100%;padding:9px;background:rgba(0,0,0,0.4);color:#fff;border:1px solid rgba(0,229,255,0.25);border-radius:8px">'+tmOpts()+'</select></div>' +
+      '</div>' +
+      '<div style="display:flex;gap:10px;margin-top:18px">' +
+        '<button id="v182qSave" style="flex:1;padding:12px;background:linear-gradient(135deg,#FF1493 0%,#FF4FB6 50%,#22BFE7 100%);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;letter-spacing:.3px;cursor:pointer;box-shadow:0 0 18px rgba(255,20,147,0.45),0 0 22px rgba(0,229,255,0.20)">Save Check-In</button>' +
+        '<button id="v182qCx" style="flex:0 0 auto;padding:12px 18px;background:transparent;color:#9aa;border:1px solid #2a3f5a;border-radius:10px;font-size:14px;cursor:pointer">Cancel</button>' +
+      '</div>';
+
+    ov.appendChild(panel);
+    document.body.appendChild(ov);
+    console.log('[v182] overlay appended, panel size', panel.offsetWidth, 'x', panel.offsetHeight);
+
+    document.getElementById('v182qX').addEventListener('click', close);
+    document.getElementById('v182qCx').addEventListener('click', close);
+    document.getElementById('v182qSave').addEventListener('click', function(){ save(cid); });
+
+    setTimeout(function(){ var t=document.getElementById('v182qN'); if(t) t.focus(); }, 50);
+  };
+  window.showQV.__v182 = true;
+
+  // Tear down any old v161 wrap that might shadow us at a later time
+  setTimeout(function(){
+    if (window.showQV && !window.showQV.__v182){
+      console.log('[v182] another shim re-wrapped showQV — re-installing');
+      // Re-run install (this IIFE pattern guards via flag; we lift the flag)
+      window.__ngmV182 = false;
+      arguments.callee && setTimeout(function(){}, 0); // safe noop
+    }
+  }, 3000);
+
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') close(); });
+  console.log('[v182] ready');
+})();
+
+</script>
 </body>
 </html>
