@@ -10385,5 +10385,143 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v179-loud-notify*/
+/* Loud, attention-grabbing notifications when a new affiliate referral lands.
+ * Replaces v171's subtle chime with a 4-note rising fanfare at higher volume,
+ * repeats up to three times until acknowledged, and adds a floating bell
+ * toggle in the bottom-right corner so you can mute it anytime. State is
+ * stored in localStorage so the preference sticks across sessions.
+ */
+(function(){
+  if (window.__ngmLoudLoaded) return; window.__ngmLoudLoaded = true;
+
+  // CSS for the floating bell toggle.
+  var st = document.createElement('style');
+  st.textContent = ''
+    + '#ngmBell{position:fixed;bottom:20px;right:20px;z-index:9500;'
+    + 'width:52px;height:52px;border-radius:50%;cursor:pointer;'
+    + 'background:linear-gradient(135deg,#1a0d2e,#0d1a2e);'
+    + 'border:2px solid #ff66ff88;'
+    + 'box-shadow:0 4px 20px #ff00ff44,inset 0 0 16px #ff00ff22;'
+    + 'display:flex;align-items:center;justify-content:center;'
+    + 'font-size:24px;transition:all .2s;user-select:none;}'
+    + '#ngmBell:hover{transform:scale(1.08);box-shadow:0 6px 28px #ff00ff66;}'
+    + '#ngmBell.on{color:#ff66ff;text-shadow:0 0 12px #ff00ff;}'
+    + '#ngmBell.off{color:#666;border-color:#444;box-shadow:none;}'
+    + '#ngmBell.ringing{animation:ngmBellRing .4s ease-in-out infinite;}'
+    + '@keyframes ngmBellRing{0%,100%{transform:rotate(-12deg);}50%{transform:rotate(12deg);}}'
+    + '#ngmBellTip{position:fixed;bottom:80px;right:20px;z-index:9501;'
+    + 'background:#0a0a14;color:#fff;padding:8px 12px;border-radius:8px;'
+    + 'border:1px solid #ff66ff66;font-size:12px;display:none;}'
+    + '#ngmBell:hover + #ngmBellTip{display:block;}';
+  document.head.appendChild(st);
+
+  // Preference state.
+  function isOn(){
+    try{ var v=localStorage.getItem('ngm_notify_on'); return v==null || v==='1'; }
+    catch(e){ return true; }
+  }
+  function setOn(on){
+    try{ localStorage.setItem('ngm_notify_on', on?'1':'0'); }catch(e){}
+    paintBell();
+  }
+  function paintBell(){
+    var b=document.getElementById('ngmBell'); if(!b) return;
+    var on=isOn();
+    b.className = on ? 'on' : 'off';
+    b.textContent = on ? '🔔' : '🔕';
+    b.title = on ? 'Notifications ON — click to mute' : 'Notifications muted — click to enable';
+  }
+  function mountBell(){
+    if (document.getElementById('ngmBell')) return;
+    var b=document.createElement('div'); b.id='ngmBell';
+    b.onclick=function(){ setOn(!isOn()); };
+    document.body.appendChild(b);
+    paintBell();
+  }
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', mountBell);
+  else mountBell();
+
+  // The fanfare. 4-note rising chord, louder than the v171 single beep.
+  // We play three repeats spaced 700ms apart so even if you're in another tab
+  // and just glance over it grabs you. Stops on click or page focus.
+  var stopAlarm = null;
+  function fanfare(){
+    if (!isOn()) return;
+    try{
+      var AC = window.AudioContext || window.webkitAudioContext; if(!AC) return;
+      var ctx = new AC();
+      var bell = document.getElementById('ngmBell'); if (bell) bell.classList.add('ringing');
+      var notes = [523.25, 659.25, 783.99, 1046.50]; // C5 E5 G5 C6
+      function playOnce(startTime){
+        for (var i=0;i<notes.length;i++){
+          (function(idx){
+            var o=ctx.createOscillator(); var g=ctx.createGain();
+            o.type='triangle';
+            o.frequency.value = notes[idx];
+            o.connect(g); g.connect(ctx.destination);
+            var t = startTime + idx*0.10;
+            g.gain.setValueAtTime(0, t);
+            g.gain.linearRampToValueAtTime(0.18, t+0.02);
+            g.gain.exponentialRampToValueAtTime(0.001, t+0.42);
+            o.start(t); o.stop(t+0.44);
+          })(i);
+        }
+      }
+      var t0 = ctx.currentTime + 0.02;
+      playOnce(t0);
+      var rep1 = setTimeout(function(){ playOnce(ctx.currentTime + 0.02); }, 900);
+      var rep2 = setTimeout(function(){ playOnce(ctx.currentTime + 0.02); }, 1800);
+      var clear = setTimeout(function(){ if(bell) bell.classList.remove('ringing'); }, 3400);
+      stopAlarm = function(){
+        try{ clearTimeout(rep1); clearTimeout(rep2); clearTimeout(clear); }catch(e){}
+        if (bell) bell.classList.remove('ringing');
+        try{ ctx.close(); }catch(e){}
+        stopAlarm=null;
+      };
+      // Vibrate on mobile if supported.
+      try{ if (navigator.vibrate) navigator.vibrate([200,100,200,100,200]); }catch(e){}
+    }catch(e){}
+  }
+  function ack(){ if (stopAlarm) stopAlarm(); }
+  // Click anywhere on the bell, or focus the window, cancels the alarm.
+  document.addEventListener('click', function(e){
+    if (e.target.closest('#ngmBell')) ack();
+  }, true);
+  window.addEventListener('focus', ack);
+
+  // Hook into v171's celebrate path by listening for the toast appearance.
+  // v171 calls a ding() then shows the toast; we layer the fanfare on top.
+  // We also expose window.ngmLoudFire(row) so v171 (or anything) can call it.
+  window.ngmLoudFire = function(row){
+    if (!isOn()) return;
+    fanfare();
+    // Also flash the bell for several seconds.
+    var b=document.getElementById('ngmBell');
+    if (b){ b.classList.add('ringing'); setTimeout(function(){ b.classList.remove('ringing'); }, 3400); }
+  };
+
+  // Patch v171's celebrate() so it fires the loud version too.
+  // v171 puts the toast in #ngmToast; we observe show class additions.
+  try{
+    var obs = new MutationObserver(function(muts){
+      for (var i=0;i<muts.length;i++){
+        var m=muts[i];
+        if (m.target && m.target.id==='ngmToast' && m.attributeName==='class'){
+          if (m.target.classList.contains('show')) window.ngmLoudFire(null);
+        }
+      }
+    });
+    var attach = function(){
+      var t=document.getElementById('ngmToast');
+      if (t) obs.observe(t, { attributes:true, attributeFilter:['class'] });
+      else setTimeout(attach, 600);
+    };
+    attach();
+  }catch(e){}
+})();
+
+</script>
 </body>
 </html>
