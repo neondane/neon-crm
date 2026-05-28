@@ -9358,7 +9358,7 @@ async function dpDownloadPDF(){
       return '<div style="background:#0a1428;border:1px solid #1f3a5a;border-radius:8px;padding:12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px">' +
         '<div style="flex:1;min-width:0">' +
           '<div style="font-weight:700;color:#fff">'+_esc(r.jobName||r.contactName||'(unnamed)')+'</div>' +
-          '<div style="color:#888;font-size:11px;margin-top:4px">'+_esc(r.date||'')+(r.amount?(' · $'+_esc(r.amount)):'')+(r.notes?(' · '+_esc(r.notes)):'')+'</div>' +
+          '<div style="color:#888;font-size:11px;margin-top:4px">'+(r.date?new Date(String(r.date).slice(0,10)+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'')+(r.amount?(' · $'+(+r.amount).toLocaleString('en-US')):'')+(r.notes?(' · '+_esc(String(r.notes).replace(/\[SM:[^\]]+\]\s*/gi,'').replace(/\d+\s*line\s*item\(s\)/gi,'').replace(/\s+\|\s+/g,' · ').replace(/^\s*·\s*/,'').replace(/\s*·\s*$/,'').trim())):'')+'</div>' +
         '</div>' +
         '<span style="padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;white-space:nowrap;'+badge+'">'+label+'</span>' +
       '</div>';
