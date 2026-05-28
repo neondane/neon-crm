@@ -178,7 +178,7 @@ input,select,textarea{transition:border-color .12s ease,box-shadow .12s ease}
 ::-webkit-scrollbar{width:9px;height:9px}
 ::-webkit-scrollbar-track{background:var(--d)}
 ::-webkit-scrollbar-thumb{background:#2a3648;border-radius:5px;border:2px solid var(--d)}
-::-webkit-scrollbar-thumb:hover{background:#22aee488}select{background:var(--d3) !important;color:#fff !important;border:1px solid rgba(0,229,255,0.30) !important;}select option{background:var(--d2);color:#fff;}select:focus{outline:none;border-color:var(--b) !important;box-shadow:0 0 0 2px rgba(0,229,255,0.25) !important;}
+::-webkit-scrollbar-thumb:hover{background:#22aee488}select{background:var(--d3) !important;color:#fff !important;border:1px solid rgba(0,229,255,0.30) !important;}.vb.on{background:linear-gradient(135deg,#FF1493 0%,#FF4FB6 50%,#22BFE7 100%) !important;color:#fff !important;box-shadow:0 0 0 1px rgba(255,255,255,0.08) inset, 0 0 18px rgba(255,20,147,0.45), 0 4px 14px rgba(0,229,255,0.20) !important;font-weight:700 !important;letter-spacing:.3px}.vb{transition:all .15s ease}select option{background:var(--d2);color:#fff;}select:focus{outline:none;border-color:var(--b) !important;box-shadow:0 0 0 2px rgba(0,229,255,0.25) !important;}
 
 /* ============ v100 — SCI-FI COMMAND CENTER REDESIGN ============ */
 body{overflow-x:hidden}
@@ -1191,21 +1191,21 @@ const tc={},tw={};_filteredD.forEach(c=>{if(!c.territory)return;tc[c.territory]=
 // TIERS TAB
 function rTi(mc){
   const realtors=D.filter(c=>c.type==='Realtor');
-  let h='<div style="margin:14px 0 8px;font-size:15px;font-weight:700;color:var(--p)">🏠 Realtor Tier Program</div><div style="color:var(--g);font-size:12px;margin-bottom:8px">'+realtors.length+' realtors across your network</div>';
+  let h='<div style="margin:14px 0 8px;font-size:18px;font-weight:800;display:flex;align-items:center;gap:10px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF1493" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 8px rgba(255,20,147,0.7))"><path d="M3 12L12 3l9 9"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg><span style="background:linear-gradient(110deg,#FF1493 0%,#FF4FB6 35%,#22BFE7 70%,#00E5FF 100%);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:.3px">Realtor Tier Program</span></div><div style="color:var(--g);font-size:12px;margin-bottom:8px">'+realtors.length+' realtors across your network</div>';
   h+='<div style="background:var(--d);border:1px solid var(--bd);border-radius:8px;padding:10px;margin-bottom:14px"><div style="font-size:12px;color:var(--g);margin-bottom:6px">⚙️ Auto-classifier — runs against the Referrals sheet (last 12 months by default)</div><div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:11px"><label style="color:var(--g)">T1 min refs <input id="tcMinRefs" type="number" value="3" min="1" max="20" style="width:50px;padding:3px 5px;background:var(--d3);color:#fff;border:1px solid var(--bd);border-radius:4px"></label><label style="color:var(--g)">T1 min $ <input id="tcMinRev" type="number" value="1500" min="0" step="500" style="width:80px;padding:3px 5px;background:var(--d3);color:#fff;border:1px solid var(--bd);border-radius:4px"></label><label style="color:var(--g)">Lookback days <input id="tcDays" type="number" value="365" min="30" max="730" step="30" style="width:60px;padding:3px 5px;background:var(--d3);color:#fff;border:1px solid var(--bd);border-radius:4px"></label><button onclick="runTierClassifier()" style="background:linear-gradient(135deg,var(--p),var(--b));color:#fff;border:none;border-radius:5px;padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer;margin-left:auto">🤖 Auto-classify now</button></div><div id="tcResult" style="margin-top:6px;font-size:11px;color:var(--g)"></div></div>';
   const tierData=[
-    {t:'Tier 1',name:'Core Partners',desc:'Strongest referral relationships. Consistently send business.',color:'var(--gold)',stars:'⭐⭐⭐⭐'},
-    {t:'Tier 2',name:'Active Referrers',desc:'Have referred before. Growing relationships.',color:'var(--p)',stars:'⭐⭐⭐'},
-    {t:'Tier 3',name:'Warm Relationships',desc:'Know them, have met. Earning trust and first referral.',color:'var(--b)',stars:'⭐⭐'},
-    {t:'Tier 4',name:'Prospects',desc:'Want to build relationships with. New contacts to recruit.',color:'var(--g)',stars:'⭐'}
+    {t:'Tier 1',name:'Core Partners',desc:'Strongest referral relationships. Consistently send business.',color:'#FF1493',pips:4},
+    {t:'Tier 2',name:'Active Referrers',desc:'Have referred before. Growing relationships.',color:'#FF4FB6',pips:3},
+    {t:'Tier 3',name:'Warm Relationships',desc:'Know them, have met. Earning trust and first referral.',color:'#22BFE7',pips:2},
+    {t:'Tier 4',name:'Prospects',desc:'Want to build relationships with. New contacts to recruit.',color:'#7F77DD',pips:1}
   ];
-  tierData.forEach(({t,name,desc,color,stars})=>{
+  tierData.forEach(({t,name,desc,color,pips})=>{const stars=Array.from({length:4}).map((_,k)=>`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px;background:${k<pips?color:'rgba(255,255,255,0.08)'};${k<pips?'box-shadow:0 0 6px '+color+'cc':''}"></span>`).join('');
     const inTier=realtors.filter(c=>c.tier===t);
     h+=`<div class="tier-sec"><div class="tier-hdr" style="flex-direction:column;align-items:flex-start"><div style="display:flex;align-items:center;gap:10px;width:100%"><b style="color:${color};font-size:16px">${t}</b><span style="font-size:14px;font-weight:700;color:${color}">${name}</span><span class="tier-stars">${stars}</span><span style="margin-left:auto;color:var(--g);font-size:12px">${inTier.length}</span></div><div style="font-size:11px;color:var(--g);margin-top:3px">${desc}</div></div>`;
     if(inTier.length){
       const byTerr={};inTier.forEach(c=>{const t2=c.territory||'Unknown';if(!byTerr[t2])byTerr[t2]=[];byTerr[t2].push(c)});
       Object.entries(byTerr).sort().forEach(([terr,cs])=>{
-        h+=`<div style="font-size:11px;color:var(--b);margin:8px 0 4px;padding-left:8px">📍 ${terr}</div>`;
+        h+=`<div style="font-size:11px;color:var(--b);margin:8px 0 4px;padding-left:8px;display:flex;align-items:center;gap:6px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 4px currentColor)"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${terr}</div>`;
         h+=cs.map(c=>cH(c)).join('');
       });
     } else h+=`<div style="color:var(--d4);font-size:12px;padding:12px 8px;font-style:italic">No realtors in ${t} yet</div>`;
