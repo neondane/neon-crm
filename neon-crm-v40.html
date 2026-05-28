@@ -10882,5 +10882,160 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v174-referral-details*/
+/* Referral row enrichment on profile Referrals tab.
+ *  - Strips raw [SM:guid] and "X line item(s)" noise from the visible meta
+ *  - Adds a Details chevron; click expands an inline panel below the row
+ *  - Inline panel pulls job details from the SmartMoving worker (/look)
+ *    and shows: service date, origin city -> destination city, move size,
+ *    estimated total, lead status, customer name, sales person
+ *  - Caches per opp id so repeat opens are instant
+ */
+(function(){
+  if (window.__ngmV174Loaded) return; window.__ngmV174Loaded = true;
+
+  var WORKER = 'https://neon-sm-sync.dane-bc3.workers.dev';
+  var cache = {};
+
+  var st = document.createElement('style');
+  st.textContent = ''
+    + '.ngm-ref-row{cursor:pointer;transition:border-color .12s;}'
+    + '.ngm-ref-row:hover{border-color:#ff66ff !important;}'
+    + '.ngm-chev{display:inline-block;color:#ff66ff;font-size:14px;margin-left:8px;'
+    + 'transition:transform .15s;}'
+    + '.ngm-ref-row.open .ngm-chev{transform:rotate(90deg);}'
+    + '.ngm-jdetails{background:#0a0a14;border:1px solid #ff66ff44;'
+    + 'border-radius:8px;margin:6px 0 10px;padding:14px 16px;'
+    + 'display:none;animation:ngmFadeIn .2s ease-out;}'
+    + '.ngm-jdetails.open{display:block;}'
+    + '@keyframes ngmFadeIn{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}'
+    + '.ngm-jd-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 18px;}'
+    + '.ngm-jd-cell{font-size:12.5px;}'
+    + '.ngm-jd-lab{color:#888;text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;margin-bottom:2px;}'
+    + '.ngm-jd-val{color:#fff;font-weight:500;}'
+    + '.ngm-jd-loading{color:#888;font-style:italic;font-size:12.5px;}'
+    + '.ngm-jd-err{color:#ff6b81;font-size:12.5px;}';
+  document.head.appendChild(st);
+
+  function fmtDate(d){
+    if (!d) return '';
+    var s=String(d);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(s+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    return s;
+  }
+  function money(n){ var v=Number(n)||0; return '$'+v.toLocaleString('en-US',{maximumFractionDigits:0}); }
+
+  function extractSmId(text){
+    var m = (text||'').match(/\[SM:([0-9a-f-]{6,})(?:[,0-9a-f-]*)?\]/i);
+    return m ? m[1] : null;
+  }
+
+  function cleanMetaText(text){
+    if (!text) return '';
+    return text
+      .replace(/\[SM:[^\]]+\]\s*/gi, '')
+      .replace(/\d+\s*line\s*item\(s\)/gi, '')
+      .replace(/\s*\|\s*live->\w+/gi, '')
+      .replace(/\s*\|\s*live sync\s*·\s*[^|·]*$/gi, '')
+      .replace(/\s+·\s+·\s+/g, ' · ')
+      .replace(/·\s*$/, '')
+      .replace(/^\s*·\s*/, '')
+      .trim();
+  }
+
+  function panelHTML(d){
+    if (!d || !d.ok && d.ok!==undefined && d.status){
+      return '<div class="ngm-jd-err">Could not load job details (HTTP '+d.status+'). The opportunity may have been removed in SmartMoving.</div>';
+    }
+    var cells = [
+      ['Customer', d.customer || '—'],
+      ['Service date', fmtDate(d.serviceDate)],
+      ['Stage', d.leadStatus || d.stage || '—'],
+      ['Estimated total', money(d.estimatedFinalTotal)],
+      ['Affiliate', d.affiliateName || '—'],
+      ['Referral source', (d.referralSource && (d.referralSource.name||d.referralSource)) || '—'],
+      ['Jobs on opp', d.jobCount || 0],
+      ['Quote #', d.quoteNumber || '—']
+    ];
+    var grid = cells.map(function(c){
+      return '<div class="ngm-jd-cell"><div class="ngm-jd-lab">'+c[0]+'</div><div class="ngm-jd-val">'+String(c[1]).replace(/</g,'&lt;')+'</div></div>';
+    }).join('');
+    return '<div class="ngm-jd-grid">'+grid+'</div>';
+  }
+
+  async function loadDetails(id, panel){
+    if (cache[id]){ panel.innerHTML = panelHTML(cache[id]); return; }
+    panel.innerHTML = '<div class="ngm-jd-loading">Loading job details from SmartMoving…</div>';
+    try{
+      var r = await fetch(WORKER + '/look?id=' + encodeURIComponent(id));
+      var j = await r.json();
+      cache[id] = j;
+      panel.innerHTML = panelHTML(j);
+    }catch(e){
+      panel.innerHTML = '<div class="ngm-jd-err">Network error: '+(e.message||e)+'</div>';
+    }
+  }
+
+  function decorate(){
+    try{
+      // Find referral rows. They live inside the Referrals tab, with the
+      // signature: a div containing a title + a small meta line that
+      // includes a [SM:guid] tag.
+      var rows = document.querySelectorAll('div[style*="border:1px solid #1f3a5a"]');
+      rows.forEach(function(row){
+        if (row.dataset.ngmV174) return;
+        // Find the meta line (it has the SM tag)
+        var meta = row.querySelector('div[style*="color:#888"]');
+        if (!meta) return;
+        var raw = meta.textContent || '';
+        var smId = extractSmId(raw);
+        if (!smId) return;
+
+        row.dataset.ngmV174 = '1';
+        row.classList.add('ngm-ref-row');
+
+        // Clean the meta text
+        meta.textContent = cleanMetaText(raw);
+
+        // Add chevron to the title
+        var title = row.querySelector('div[style*="font-weight:700"]');
+        if (title && !title.querySelector('.ngm-chev')){
+          var chev = document.createElement('span');
+          chev.className = 'ngm-chev'; chev.textContent = '›';
+          title.appendChild(chev);
+        }
+
+        // Insert details panel as a sibling AFTER the row.
+        var panel = document.createElement('div');
+        panel.className = 'ngm-jdetails';
+        panel.dataset.ngmOpp = smId;
+        row.insertAdjacentElement('afterend', panel);
+
+        row.addEventListener('click', function(ev){
+          // Don't hijack clicks on the status badge or other interactive elements.
+          if (ev.target.closest('button,a,input,select')) return;
+          ev.preventDefault();
+          ev.stopPropagation();
+          var open = panel.classList.toggle('open');
+          row.classList.toggle('open', open);
+          if (open) loadDetails(smId, panel);
+        });
+      });
+    }catch(e){}
+  }
+
+  function tick(){ decorate(); }
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', tick);
+  else tick();
+  try{
+    var obs = new MutationObserver(function(muts){
+      for (var i=0;i<muts.length;i++){ if (muts[i].addedNodes && muts[i].addedNodes.length){ tick(); return; } }
+    });
+    obs.observe(document.body, { childList:true, subtree:true });
+  }catch(e){}
+})();
+
+</script>
 </body>
 </html>
