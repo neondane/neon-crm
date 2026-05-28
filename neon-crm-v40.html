@@ -10658,5 +10658,229 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v175-pulse-controls*/
+/* Partner Pulse controls. Adds a toolbar to the dropdown with sort, stage
+ * filter, and time window. Adds a per-row checkmark to mark items thanked,
+ * which removes them from the default view. A "Show thanked" toggle at the
+ * bottom can bring them back. All state is persisted in localStorage.
+ */
+(function(){
+  if (window.__ngmV175Loaded) return; window.__ngmV175Loaded = true;
+
+  var st = document.createElement('style');
+  st.textContent = ''
+    + '.ngm-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 12px;}'
+    + '.ngm-tools select,.ngm-tools .chip{background:#0a0a14;color:#fff;'
+    + 'border:1px solid #ff66ff44;border-radius:7px;padding:5px 10px;'
+    + 'font-size:12px;font-family:inherit;cursor:pointer;}'
+    + '.ngm-tools .chip{user-select:none;transition:all .12s;}'
+    + '.ngm-tools .chip.on{background:#ff66ff44;border-color:#ff66ff;}'
+    + '.ngm-tools .chip:hover{border-color:#ff66ff88;}'
+    + '.ngm-tools .lab{color:#888;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-right:2px;}'
+    + '#ngmDrop .row{position:relative;}'
+    + '#ngmDrop .ngm-thanker{position:absolute;top:50%;right:42px;transform:translateY(-50%);'
+    + 'width:28px;height:28px;border-radius:50%;background:#0a0a14;border:1px solid #33ff8866;'
+    + 'color:#33ff88;display:flex;align-items:center;justify-content:center;cursor:pointer;'
+    + 'font-size:13px;transition:all .12s;}'
+    + '#ngmDrop .ngm-thanker:hover{background:#33ff8822;}'
+    + '#ngmDrop .row.thanked{opacity:.4;}'
+    + '#ngmDrop .row.thanked .ngm-thanker{background:#33ff8844;color:#fff;}'
+    + '#ngmDrop .ngm-foot{padding:10px 14px;text-align:center;border-top:1px solid #222;'
+    + 'color:#888;font-size:12px;cursor:pointer;}'
+    + '#ngmDrop .ngm-foot:hover{color:#ff66ff;}';
+  document.head.appendChild(st);
+
+  function getStore(){
+    try{ return JSON.parse(localStorage.getItem('ngm_pulse_v175')||'{}'); }catch(e){ return {}; }
+  }
+  function saveStore(s){
+    try{ localStorage.setItem('ngm_pulse_v175', JSON.stringify(s)); }catch(e){}
+  }
+  function thankedSet(){
+    try{ return new Set(JSON.parse(localStorage.getItem('ngm_thanked_ids')||'[]')); }
+    catch(e){ return new Set(); }
+  }
+  function saveThanked(s){
+    try{ localStorage.setItem('ngm_thanked_ids', JSON.stringify(Array.from(s))); }catch(e){}
+  }
+
+  // Parse SM id from a row by inspecting the customer name + stage label
+  // plus the .av initials, hashed into a stable key (since v171 doesn't put
+  // the SM id directly on the row). We use a combo of the partner+job+amount
+  // as the key, matching what v171's "seen set" uses.
+  function rowKey(row){
+    try{
+      var nm = (row.querySelector('.nm')||{}).textContent || '';
+      var sub = (row.querySelector('.sub')||{}).textContent || '';
+      return (nm+'|'+sub).trim().replace(/\s+/g,' ');
+    }catch(e){ return ''; }
+  }
+
+  // Inject toolbar into the dropdown's inner section, once per render.
+  function ensureTools(inner){
+    if (!inner || inner.querySelector('.ngm-tools')) return;
+    var s = getStore();
+    var tools = document.createElement('div');
+    tools.className = 'ngm-tools';
+    tools.innerHTML =
+      '<span class="lab">Sort</span>'
+      + '<select data-k="sort">'
+      + '<option value="newest">Newest</option>'
+      + '<option value="amount">Biggest amount</option>'
+      + '<option value="stage">Stage</option>'
+      + '<option value="partner">Partner A-Z</option>'
+      + '</select>'
+      + '<span class="lab" style="margin-left:8px">Stage</span>'
+      + '<div class="chip" data-k="filter" data-v="all">All</div>'
+      + '<div class="chip" data-k="filter" data-v="referred">Referred</div>'
+      + '<div class="chip" data-k="filter" data-v="booked">Booked</div>'
+      + '<div class="chip" data-k="filter" data-v="completed">Completed</div>'
+      + '<span class="lab" style="margin-left:8px">Window</span>'
+      + '<select data-k="window">'
+      + '<option value="7">7 days</option>'
+      + '<option value="14">14 days</option>'
+      + '<option value="30">30 days</option>'
+      + '<option value="90">90 days</option>'
+      + '</select>';
+    var h = inner.querySelector('h4');
+    if (h) h.insertAdjacentElement('afterend', tools);
+    else inner.prepend(tools);
+
+    var sortSel = tools.querySelector('select[data-k="sort"]');
+    sortSel.value = s.sort || 'newest';
+    sortSel.onchange = function(){ s.sort = sortSel.value; saveStore(s); applyAll(); };
+
+    var winSel = tools.querySelector('select[data-k="window"]');
+    winSel.value = String(s.window||30);
+    winSel.onchange = function(){ s.window = +winSel.value; saveStore(s); applyAll(); };
+
+    var chips = tools.querySelectorAll('.chip[data-k="filter"]');
+    var current = s.filter || 'all';
+    chips.forEach(function(c){
+      if (c.getAttribute('data-v') === current) c.classList.add('on');
+      c.onclick = function(){
+        s.filter = c.getAttribute('data-v'); saveStore(s);
+        chips.forEach(function(x){ x.classList.toggle('on', x.getAttribute('data-v')===s.filter); });
+        applyAll();
+      };
+    });
+  }
+
+  function ensureFoot(inner){
+    if (!inner || inner.querySelector('.ngm-foot')) return;
+    var s = getStore();
+    var f = document.createElement('div');
+    f.className = 'ngm-foot';
+    f.textContent = s.showThanked ? 'Hide thanked items' : 'Show thanked items';
+    f.onclick = function(){
+      s.showThanked = !s.showThanked; saveStore(s);
+      f.textContent = s.showThanked ? 'Hide thanked items' : 'Show thanked items';
+      applyAll();
+    };
+    inner.appendChild(f);
+  }
+
+  function decorateRow(row){
+    if (!row || row.dataset.ngmDecorated) return;
+    row.dataset.ngmDecorated = '1';
+    var b = document.createElement('div');
+    b.className = 'ngm-thanker'; b.textContent = '✓';
+    b.title = 'Mark as thanked';
+    b.onclick = function(ev){
+      ev.preventDefault(); ev.stopPropagation();
+      var key = rowKey(row); if (!key) return;
+      var t = thankedSet();
+      if (t.has(key)) t.delete(key); else t.add(key);
+      saveThanked(t);
+      applyAll();
+    };
+    row.appendChild(b);
+  }
+
+  function applyAll(){
+    var drop = document.getElementById('ngmDrop'); if (!drop) return;
+    var inner = drop.querySelector('.inner');
+    if (inner){
+      ensureTools(inner);
+      // Move .ngm-foot to the end if footers got rebuilt.
+      var existingFoot = inner.querySelector('.ngm-foot');
+      if (existingFoot) existingFoot.remove();
+      ensureFoot(inner);
+    }
+    var rows = drop.querySelectorAll('.row');
+    var s = getStore();
+    var sort = s.sort || 'newest';
+    var filter = s.filter || 'all';
+    var winDays = +s.window || 30;
+    var showThanked = !!s.showThanked;
+    var th = thankedSet();
+    var cutoff = Date.now() - winDays*86400000;
+
+    var arr = Array.prototype.slice.call(rows);
+    arr.forEach(function(r){ decorateRow(r); });
+
+    // Score for sorting + visibility.
+    arr.forEach(function(r){
+      var nm = (r.querySelector('.nm')||{}).textContent || '';
+      var stageEl = r.querySelector('.stage');
+      var st = stageEl ? (stageEl.textContent||'').toLowerCase().trim() : '';
+      var key = rowKey(r);
+      var isThanked = th.has(key);
+      r.classList.toggle('thanked', isThanked);
+
+      // Filter
+      var showByFilter = (filter==='all')
+        || (filter==='referred' && /referred/.test(st))
+        || (filter==='booked' && /booked/.test(st))
+        || (filter==='completed' && /completed/.test(st));
+      var showByThanked = showThanked || !isThanked;
+      // Window: extract days-ago from sub text
+      var subEl = r.querySelector('.sub');
+      var subTxt = subEl ? (subEl.textContent||'') : '';
+      var ageDays = 0;
+      var m = subTxt.match(/(\d+)d ago/); if (m) ageDays = +m[1];
+      else if (/today|yesterday/i.test(subTxt)) ageDays = 0;
+      else { var w = subTxt.match(/(\d+)w ago/); if (w) ageDays = (+w[1])*7;
+        else { var mo = subTxt.match(/(\d+)mo ago/); if (mo) ageDays = (+mo[1])*30; } }
+      var showByWindow = ageDays <= winDays;
+
+      r.style.display = (showByFilter && showByThanked && showByWindow) ? '' : 'none';
+
+      // Tag with sort keys
+      r.dataset.ngmAmount = (function(){ var a=subTxt.match(/\$([0-9,]+)/); return a?+a[1].replace(/,/g,''):0; })();
+      r.dataset.ngmStageRank = (st==='completed'?3:st==='booked'?2:st==='referred'?1:0);
+      r.dataset.ngmPartner = nm.toLowerCase();
+    });
+
+    // Sort
+    var parent = arr[0] && arr[0].parentNode;
+    if (parent){
+      var visible = arr.filter(function(r){ return r.style.display !== 'none'; });
+      visible.sort(function(a,b){
+        if (sort==='amount') return (+b.dataset.ngmAmount) - (+a.dataset.ngmAmount);
+        if (sort==='stage') return (+b.dataset.ngmStageRank) - (+a.dataset.ngmStageRank);
+        if (sort==='partner') return a.dataset.ngmPartner.localeCompare(b.dataset.ngmPartner);
+        return 0;
+      });
+      visible.forEach(function(r){ parent.appendChild(r); });
+    }
+  }
+
+  // Observe the dropdown for re-renders (v171 rebuilds on poll).
+  function attach(){
+    var drop = document.getElementById('ngmDrop');
+    if (!drop){ setTimeout(attach, 500); return; }
+    applyAll();
+    try{
+      var obs = new MutationObserver(function(){ applyAll(); });
+      obs.observe(drop, { childList:true, subtree:true });
+    }catch(e){}
+  }
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', attach);
+  else attach();
+})();
+
+</script>
 </body>
 </html>
