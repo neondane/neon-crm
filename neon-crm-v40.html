@@ -10320,31 +10320,38 @@ async function dpDownloadPDF(){
   if (window.__ngmLoudLoaded) return; window.__ngmLoudLoaded = true;
   var st = document.createElement('style');
   st.textContent = ''
-    + '#ngmBell{position:fixed;bottom:20px;right:20px;z-index:9500;'
-    + 'width:52px;height:52px;border-radius:50%;cursor:pointer;'
-    + 'background:linear-gradient(135deg,#1a0d2e,#0d1a2e);'
-    + 'border:2px solid #ff66ff88;'
-    + 'box-shadow:0 4px 20px #ff00ff44;'
-    + 'display:flex;align-items:center;justify-content:center;'
-    + 'font-size:24px;user-select:none;}'
-    + '#ngmBell:hover{transform:scale(1.08);}'
-    + '#ngmBell.on{color:#ff66ff;}'
-    + '#ngmBell.off{color:#666;border-color:#444;}';
+    + '#ngmBell{display:inline-flex;align-items:center;justify-content:center;'
+    + 'width:34px;height:34px;border-radius:8px;cursor:pointer;'
+    + 'background:transparent;border:1px solid #ff66ff44;'
+    + 'margin-right:8px;flex-shrink:0;transition:all .15s;}'
+    + '#ngmBell:hover{background:#ff66ff14;border-color:#ff66ff88;}'
+    + '#ngmBell svg{width:18px;height:18px;}'
+    + '#ngmBell.on svg{fill:#ff66ff;}'
+    + '#ngmBell.off svg{fill:#666;}'
+    + '#ngmBell.on{box-shadow:0 0 8px #ff00ff44;}'
+    + '#ngmBell.off{opacity:.6;}';
   document.head.appendChild(st);
+  var SVG_ON = '<svg viewBox="0 0 24 24"><path d="M12 2a1.5 1.5 0 011.5 1.5v.71A6.001 6.001 0 0118 10v4.586l1.707 1.707A1 1 0 0119 18H5a1 1 0 01-.707-1.707L6 14.586V10a6.001 6.001 0 014.5-5.79V3.5A1.5 1.5 0 0112 2zm-2 17a2 2 0 104 0H10z"/></svg>';
+  var SVG_OFF = '<svg viewBox="0 0 24 24"><path d="M3.71 2.29a1 1 0 011.42 0l16 16a1 1 0 11-1.42 1.42l-2.41-2.42-.59.71H5a1 1 0 01-.71-1.71L6 14.59V10c0-.69.12-1.36.34-1.99L2.29 3.71a1 1 0 010-1.42zM18 14.59l-.7.71-9.93-9.93A6 6 0 0118 10v4.59zM10 19a2 2 0 104 0h-4z"/></svg>';
   function isOn(){ try{ var v=localStorage.getItem('ngm_notify_on'); return v==null || v==='1'; }catch(e){ return true; } }
   function setOn(on){ try{ localStorage.setItem('ngm_notify_on', on?'1':'0'); }catch(e){} paint(); }
   function paint(){
     var b=document.getElementById('ngmBell'); if(!b) return;
     var on=isOn();
     b.className = on ? 'on' : 'off';
-    b.textContent = on ? 'BELL' : 'MUTE';
-    b.title = on ? 'Notifications ON. Click to mute.' : 'Notifications OFF. Click to enable.';
+    b.innerHTML = on ? SVG_ON : SVG_OFF;
+    b.title = on ? 'Notifications on. Click to mute.' : 'Notifications muted. Click to enable.';
   }
+  var tries = 0;
   function mount(){
+    if (tries++ > 25) return;
+    var bar = document.getElementById('ngmBar');
+    if (!bar) { setTimeout(mount, 700); return; }
     if (document.getElementById('ngmBell')) return;
-    var b=document.createElement('div'); b.id='ngmBell';
-    b.onclick=function(){ setOn(!isOn()); };
-    document.body.appendChild(b);
+    var b = document.createElement('div'); b.id='ngmBell';
+    b.onclick = function(ev){ ev.stopPropagation(); setOn(!isOn()); };
+    var sw = bar.querySelector('.search-wrap');
+    if (sw) bar.insertBefore(b, sw); else bar.appendChild(b);
     paint();
   }
   if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', mount);
