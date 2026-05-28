@@ -10577,15 +10577,21 @@ async function dpDownloadPDF(){
 </script>
 <script>
 /*v174-referral-details*/
+/* SAFE rewrite: never re-renders the profile. The previous version called
+ * orig _fpRender after refresh which reset the active tab and caused the
+ * Conversation→Notes strobe. This one only decorates referral rows in place,
+ * overrides gR() so freshly-synced referrals appear when the tab is rendered,
+ * and lazy-loads SmartMoving details on click. Falls back to local CRM data
+ * (jobName/date/amount/status) when SM has no live record for that id. */
 (function(){
-  if (window.__ngmV174v5) return; window.__ngmV174v5 = true;
+  if (window.__ngmV174v6) return; window.__ngmV174v6 = true;
 
   var APPS = 'https://script.google.com/macros/s/AKfycbxh1ecAF9yWN91w04SHROy5T9N-PehvpF29LTFu8M6vjnp1PRyhgxUYf7bfU5DKzbq_nA/exec';
   var WORKER = 'https://neon-sm-sync.dane-bc3.workers.dev';
   var detailCache = {};
-  var lastRefresh = 0;
   var myRefs = null;
   var origGR = null;
+  var fetchedOnce = false;
 
   var st = document.createElement('style');
   st.textContent = ''
@@ -10601,7 +10607,7 @@ async function dpDownloadPDF(){
     + '.ngm-jd-lab{color:#888;text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;margin-bottom:2px;}'
     + '.ngm-jd-val{color:#fff;font-weight:500;word-wrap:break-word;}'
     + '.ngm-jd-loading{color:#888;font-style:italic;font-size:12.5px;}'
-    + '.ngm-jd-src{margin-top:10px;padding-top:8px;border-top:1px solid #ff66ff22;color:#888;font-size:10.5px;font-style:italic;}'
+    + '.ngm-jd-src{margin-top:10px;padding-top:8px;border-top:1px solid #ff66ff22;font-size:10.5px;font-style:italic;}'
     + '.ngm-jd-src-live{color:#66ffaa;}'
     + '.ngm-jd-src-local{color:#ffcc66;}';
   document.head.appendChild(st);
@@ -10631,29 +10637,31 @@ async function dpDownloadPDF(){
       .trim();
   }
 
+  // gR override — return our fresher cache when we have it; else fall through.
   function installGRoverride(){
-    if (!origGR && typeof window.gR === 'function') origGR = window.gR;
+    if (origGR) return;
+    if (typeof window.gR !== 'function') return;
+    origGR = window.gR;
     window.gR = function(cid){
-      if (myRefs) return myRefs.filter(function(r){ return +r.contactId === +cid; });
-      if (origGR) return origGR.call(this, cid);
-      return [];
+      if (myRefs){
+        var ours = myRefs.filter(function(r){ return +r.contactId === +cid; });
+        if (ours.length) return ours;
+      }
+      return origGR.call(this, cid);
     };
   }
 
-  function refresh(force){
-    var now = Date.now();
-    if (!force && (now - lastRefresh) < 20000) return Promise.resolve(false);
-    lastRefresh = now;
-    return fetch(APPS+'?action=getAll', { redirect:'follow' })
+  // Fetch myRefs ONCE in the background. Never trigger a re-render.
+  function fetchOnce(){
+    if (fetchedOnce) return;
+    fetchedOnce = true;
+    installGRoverride();
+    fetch(APPS+'?action=getAll', { redirect:'follow' })
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(d){
-        if (!d || !Array.isArray(d.referrals)) return false;
-        var changed = !myRefs || myRefs.length !== d.referrals.length;
-        myRefs = d.referrals;
-        installGRoverride();
-        return changed;
+        if (d && Array.isArray(d.referrals)) myRefs = d.referrals;
       })
-      .catch(function(){ return false; });
+      .catch(function(){});
   }
 
   function findLocalRef(smId){
@@ -10672,7 +10680,6 @@ async function dpDownloadPDF(){
       return '<div class="ngm-jd-cell"><div class="ngm-jd-lab">'+c[0]+'</div><div class="ngm-jd-val">'+String(c[1]).replace(/</g,'&lt;')+'</div></div>';
     }).join('') + '</div>';
   }
-
   function livePanelHTML(d){
     var cells = [
       ['Customer', d.customer || '—'],
@@ -10686,7 +10693,6 @@ async function dpDownloadPDF(){
     ];
     return renderCells(cells) + '<div class="ngm-jd-src ngm-jd-src-live">Live from SmartMoving</div>';
   }
-
   function localPanelHTML(r){
     var cells = [
       ['Customer', r.jobName || '—'],
@@ -10697,10 +10703,8 @@ async function dpDownloadPDF(){
       ['Source', r.enteredBy || '—']
     ];
     return renderCells(cells)
-      + '<div class="ngm-jd-src ngm-jd-src-local">From your CRM records — this is a pre-sync job id, '
-      + 'so live SmartMoving details aren’t available. Open the customer in SmartMoving for current status.</div>';
+      + '<div class="ngm-jd-src ngm-jd-src-local">From your CRM records — pre-sync id, no live SmartMoving record.</div>';
   }
-
   function panelHTML(d, smId){
     if (d && d.ok !== false) return livePanelHTML(d);
     var local = findLocalRef(smId);
@@ -10708,25 +10712,24 @@ async function dpDownloadPDF(){
     var msg = (d && d.note) || 'Could not load SmartMoving details.';
     return '<div class="ngm-jd-val" style="color:#ffcc66;">' + msg + '</div>';
   }
-
   function loadDetails(id, panel){
     if (detailCache[id]){ panel.innerHTML = panelHTML(detailCache[id], id); return; }
     panel.innerHTML = '<div class="ngm-jd-loading">Loading job details from SmartMoving…</div>';
     fetch(WORKER + '/look?id=' + encodeURIComponent(id))
       .then(function(r){ return r.json(); })
       .then(function(j){ detailCache[id] = j; panel.innerHTML = panelHTML(j, id); })
-      .catch(function(e){
-        // Network error — still try local fallback
+      .catch(function(){
         var local = findLocalRef(id);
         if (local){ panel.innerHTML = localPanelHTML(local); return; }
-        panel.innerHTML = '<div class="ngm-jd-val" style="color:#ffcc66;">Network error: '+(e.message||e)+'</div>';
+        panel.innerHTML = '<div class="ngm-jd-val" style="color:#ffcc66;">Could not reach SmartMoving and no local record found.</div>';
       });
   }
 
   function decorate(){
     try{
-      var mc = document.getElementById('mc'); if (!mc) return;
+      var mc = document.getElementById('mc'); if (!mc) return 0;
       var rows = mc.querySelectorAll('div[style*="border:1px solid #1f3a5a"]');
+      var n=0;
       rows.forEach(function(row){
         if (row.dataset.ngmRefDec) return;
         var meta = row.querySelector('div[style*="color:#888"]');
@@ -10754,49 +10757,44 @@ async function dpDownloadPDF(){
           row.classList.toggle('open', open);
           if (open) loadDetails(smId, panel);
         });
+        n++;
       });
-    }catch(e){}
+      return n;
+    }catch(e){ return 0; }
   }
 
-  function hook(){
-    if (typeof window._fpRender !== 'function') return false;
-    if (window._fpRender.__ngmV174) return true;
-    var orig = window._fpRender;
-    var wrapped = function(){
-      var rv = orig.apply(this, arguments);
-      try{
-        setTimeout(decorate, 80);
-        refresh(false).then(function(changed){
-          if (changed){
-            try{ orig.apply(window, []); setTimeout(decorate, 80); }catch(e){}
-          }
-        });
-      }catch(e){}
-      return rv;
-    };
-    wrapped.__ngmV174 = true;
-    window._fpRender = wrapped;
-    return true;
+  // No _fpRender wrap. No re-render. Just install the gR override the first
+  // time we see _fpRender, kick the background fetch, and lazily decorate.
+  // Decorate is event-driven: on click anywhere inside #mc that lands on a
+  // referral-shaped row, and on a small handful of polled passes at startup.
+  function maybeWireGR(){
+    if (typeof window.gR === 'function') installGRoverride();
   }
 
   function install(){
+    fetchOnce();
+
+    // Try to install the gR override quickly, then stop polling.
     var n=0;
     var iv = setInterval(function(){
-      if (hook() || ++n > 40) clearInterval(iv);
-    }, 400);
+      maybeWireGR();
+      if (origGR || ++n > 30) clearInterval(iv);
+    }, 500);
+
+    // Decorate a few times to catch lazy renders. Stops after 8 passes (~6s).
     var tickN = 0;
     var ticker = setInterval(function(){
       try{ decorate(); }catch(e){}
-      if (++tickN > 40) clearInterval(ticker);
-    }, 600);
-    setTimeout(function(){
-      if (/[?&]c=\d+/.test(location.search)){
-        refresh(true).then(function(changed){
-          if (changed && typeof window._fpRender==='function') window._fpRender();
-        });
-      }
-    }, 1500);
+      if (++tickN > 8) clearInterval(ticker);
+    }, 800);
+
+    // Whenever the user clicks inside the main column, give decorate one
+    // more chance — covers tab switches and dynamic content without polling.
+    document.addEventListener('click', function(){
+      setTimeout(decorate, 80);
+    }, true);
   }
+
   if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', install);
   else install();
 })();
