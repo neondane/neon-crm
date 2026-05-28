@@ -44,7 +44,7 @@ a{color:var(--b);text-decoration:none}
 .dy{text-align:right;flex-shrink:0}.dy b{font-size:17px;font-weight:800;display:block}.dy small{font-size:9px;color:var(--g)}
 .bg{display:inline-block;font-size:9px;padding:2px 7px;border-radius:8px;font-weight:600;margin-left:5px}
 .tb{display:inline-block;font-size:9px;padding:2px 7px;border-radius:8px;font-weight:700;margin-left:4px;background:#22aee422;color:var(--b);border:1px solid #22aee444}
-.rb{display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:2px 7px;border-radius:7px;background:#ff993322;color:var(--o);border:1px solid #ff993344;margin-top:3px}
+.rb{display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:3px 8px;border-radius:999px;background:rgba(255,20,147,0.15);color:#FF4FB6;border:1px solid rgba(255,20,147,0.45);box-shadow:0 0 8px rgba(255,20,147,0.20);margin-top:3px;font-weight:700}
 .tt{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--d2);border:1px solid var(--d3);color:var(--w);padding:10px 20px;border-radius:10px;font-size:13px;z-index:2000;display:none;box-shadow:0 4px 20px rgba(0,0,0,.5)}
 .tt.ok{border-color:var(--gn);color:var(--gn)}.tt.er{border-color:var(--r);color:var(--r)}
 .ld{text-align:center;padding:60px}.sp{width:40px;height:40px;margin:0 auto 14px;border:3px solid var(--d3);border-top-color:var(--b);border-radius:50%;animation:spin .8s linear infinite}
@@ -115,7 +115,7 @@ a{color:var(--b);text-decoration:none}
 .tier-sec{margin-bottom:20px}
 .tier-hdr{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:8px 0;border-bottom:1px solid var(--d3)}
 .tier-hdr b{font-size:14px}.tier-hdr small{color:var(--g);font-size:11px}
-.tier-stars{color:var(--gold)}
+.tier-stars{color:#FF1493;letter-spacing:1px}
 
 /* Map */
 #mapBox{width:100%;height:420px;border-radius:11px;overflow:hidden;border:1px solid var(--d3);margin:12px 0}
@@ -338,7 +338,7 @@ function setCK(){ tt && tt('Key is now stored on the server — no browser key n
 const TR=['All','Whatcom — Bellingham','Whatcom — North of Bellingham','Skagit — Mount Vernon area','Skagit — Anacortes','Snohomish County','Whidbey Island'];
 const TY=["Realtor","Self-Storage Facility","Assisted Living","Senior Living","Apartment Complex","Property Management","Other"];
 const TM=["Dane","Tyler","Valentina","Jeff","Luke","Carlos","Marshall","Samuel","Ryan","William","Charles","Michael"];
-const SC=[{l:"Hot",c:"#ff3366",e:"🔥"},{l:"Warm",c:"#ff9933",e:"☀️"},{l:"Cool",c:"#22aee4",e:"❄️"},{l:"New",c:"#8888aa",e:"🆕"}];
+const SC=[{l:"Hot",c:"#FF1493",e:""},{l:"Warm",c:"#FF4FB6",e:""},{l:"Cool",c:"#00E5FF",e:""},{l:"New",c:"#7F77DD",e:""}];
 const TI=["—","Tier 1","Tier 2","Tier 3","Tier 4"];const TID={"Tier 1":"Core Partners","Tier 2":"Active Referrers","Tier 3":"Warm Relationships","Tier 4":"Prospects"};
 const TERR_COORDS={"Whatcom — Bellingham":[48.7519,-122.4787],"Whatcom — North of Bellingham":[48.86,-122.51],"Skagit — Mount Vernon area":[48.4201,-122.334],"Skagit — Anacortes":[48.5126,-122.6127],"Snohomish County":[48.166,-122.22],"Whidbey Island":[48.2932,-122.6433]};
 const TC={"Anacortes":[48.5126,-122.6127],"Burlington":[48.4757,-122.3254],"Oak Harbor":[48.2932,-122.6433],"Mt. Vernon":[48.4201,-122.334],"Sedro-Woolley":[48.5037,-122.2366],"Bellingham":[48.7519,-122.4787],"North of Bellingham":[48.86,-122.51],"Snohomish":[48.166,-122.22],"South Whidbey":[48.12,-122.68],"Arlington":[48.1987,-122.1254],"Stanwood":[48.2404,-122.3706],"La Conner":[48.3921,-122.4932]};
@@ -546,7 +546,7 @@ async function load(){
 }
 
 function ds(d){const FLOOR=new Date('2026-01-01T00:00:00');let dt=d?new Date(d):null;if(!dt||isNaN(dt)||dt<FLOOR)dt=FLOOR;return Math.floor((new Date()-dt)/864e5)}
-function uc(d){return d<=14?'var(--gn)':d<=30?'var(--b)':d<=60?'var(--o)':'var(--r)'}
+function uc(d){return d<=14?'#00E5FF':d<=30?'#FF4FB6':d<=60?'#FF1493':'#FF3366'}
 function uh(d){return d<=14?'#33cc66':d<=30?'#22aee4':d<=60?'#ff9933':'#ff3366'}
 function fd(d){if(!d)return'—';return new Date(d+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}
 function gR(i){return R.filter(r=>+r.contactId===+i)}
@@ -1201,7 +1201,7 @@ function rTi(mc){
   ];
   tierData.forEach(({t,name,desc,color,pips})=>{const stars=Array.from({length:4}).map((_,k)=>`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px;background:${k<pips?color:'rgba(255,255,255,0.08)'};${k<pips?'box-shadow:0 0 6px '+color+'cc':''}"></span>`).join('');
     const inTier=realtors.filter(c=>c.tier===t);
-    h+=`<div class="tier-sec"><div class="tier-hdr" style="flex-direction:column;align-items:flex-start"><div style="display:flex;align-items:center;gap:10px;width:100%"><b style="color:${color};font-size:16px">${t}</b><span style="font-size:14px;font-weight:700;color:${color}">${name}</span><span class="tier-stars">${stars}</span><span style="margin-left:auto;color:var(--g);font-size:12px">${inTier.length}</span></div><div style="font-size:11px;color:var(--g);margin-top:3px">${desc}</div></div>`;
+    h+=`<div class="tier-sec"><div class="tier-hdr" style="flex-direction:column;align-items:flex-start"><div style="display:flex;align-items:center;gap:10px;width:100%"><b style="font-size:16px;color:${color};letter-spacing:.3px">${t}</b><span style="font-size:14px;font-weight:800;background:linear-gradient(110deg,#FF1493 0%,#FF4FB6 40%,#22BFE7 75%,#00E5FF 100%);-webkit-background-clip:text;background-clip:text;color:transparent">${name}</span><span class="tier-stars">${stars}</span><span style="margin-left:auto;color:var(--g);font-size:12px">${inTier.length}</span></div><div style="font-size:11px;color:var(--g);margin-top:3px">${desc}</div></div>`;
     if(inTier.length){
       const byTerr={};inTier.forEach(c=>{const t2=c.territory||'Unknown';if(!byTerr[t2])byTerr[t2]=[];byTerr[t2].push(c)});
       Object.entries(byTerr).sort().forEach(([terr,cs])=>{
