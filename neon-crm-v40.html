@@ -11191,5 +11191,74 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>
+/*v183-qv-diagnostic*/
+/* Cannot-miss diagnostic for the Log Visit click. Replaces showQV with a
+ * function that (a) logs prominently, (b) drops a bright red banner across
+ * the very top of the screen for 6s, and (c) THEN tries to open the v182
+ * modal. If after clicking Log visit no red banner appears, the click never
+ * reached showQV at all and the problem is upstream of our shims. */
+(function(){
+  if (window.__ngmV183) return; window.__ngmV183 = true;
+
+  function banner(msg, color){
+    color = color || '#FF1493';
+    var existing = document.getElementById('v183Banner');
+    if (existing) existing.remove();
+    var b = document.createElement('div');
+    b.id = 'v183Banner';
+    b.style.cssText =
+      'position:fixed;top:0;left:0;right:0;z-index:2147483646;' +
+      'background:'+color+';color:#fff;padding:14px 20px;font-size:16px;font-weight:800;' +
+      'text-align:center;letter-spacing:.3px;box-shadow:0 4px 14px rgba(0,0,0,.4);' +
+      'font-family:system-ui,-apple-system,sans-serif';
+    b.textContent = msg;
+    document.body.appendChild(b);
+    setTimeout(function(){ try{ b.remove(); }catch(e){} }, 6000);
+  }
+
+  var origShowQV = window.showQV;
+  console.log('[v183] installing diagnostic, current showQV =', typeof origShowQV, origShowQV && (origShowQV.__v182?'v182':origShowQV.__v161?'v161 wrap':'unknown'));
+
+  window.showQV = function(cid){
+    console.log('[v183] showQV called for cid', cid);
+    banner('✓ Log visit clicked for cid=' + cid + ' — opening modal...');
+    setTimeout(function(){
+      try {
+        if (origShowQV && typeof origShowQV === 'function'){
+          console.log('[v183] forwarding to original showQV');
+          origShowQV.call(this, cid);
+        } else {
+          banner('⚠ No original showQV to call', '#ff3366');
+          console.error('[v183] no orig showQV');
+        }
+      } catch(e){
+        banner('⚠ showQV threw: ' + (e.message||e), '#ff3366');
+        console.error('[v183] showQV threw', e);
+      }
+    }, 300);
+  };
+  window.showQV.__v183 = true;
+
+  // Re-protect against future re-wrapping by other shims
+  var n = 0;
+  var iv = setInterval(function(){
+    if (window.showQV && !window.showQV.__v183){
+      console.log('[v183] showQV was re-wrapped — re-installing diagnostic');
+      var prev = window.showQV;
+      window.showQV = function(cid){
+        console.log('[v183] (re-installed) showQV called for cid', cid);
+        banner('✓ Log visit clicked (after re-wrap) cid=' + cid);
+        setTimeout(function(){ try{ prev.call(this, cid); }catch(e){ banner('⚠ '+e.message,'#ff3366'); } }, 300);
+      };
+      window.showQV.__v183 = true;
+    }
+    if (++n > 20) clearInterval(iv);
+  }, 500);
+
+  console.log('[v183] diagnostic installed');
+})();
+
+</script>
 </body>
 </html>
