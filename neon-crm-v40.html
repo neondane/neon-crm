@@ -10577,14 +10577,15 @@ async function dpDownloadPDF(){
 </script>
 <script>
 /*v174-referral-details*/
-/* SAFE rewrite: never re-renders the profile. The previous version called
- * orig _fpRender after refresh which reset the active tab and caused the
- * Conversation→Notes strobe. This one only decorates referral rows in place,
- * overrides gR() so freshly-synced referrals appear when the tab is rendered,
- * and lazy-loads SmartMoving details on click. Falls back to local CRM data
- * (jobName/date/amount/status) when SM has no live record for that id. */
+/* SAFE + NICE: same as v174safe, plus
+ *  - capture-phase click handler with stopImmediatePropagation so other
+ *    shims' name-clickability handlers can't yank the page to another
+ *    profile when the user just wanted to expand the referral row.
+ *  - format the meta preview (ISO date → 'Mar 24, 2026', amount → '$1,715')
+ *    so the row shows a human preview instead of raw timestamp.
+ */
 (function(){
-  if (window.__ngmV174v6) return; window.__ngmV174v6 = true;
+  if (window.__ngmV174v7) return; window.__ngmV174v7 = true;
 
   var APPS = 'https://script.google.com/macros/s/AKfycbxh1ecAF9yWN91w04SHROy5T9N-PehvpF29LTFu8M6vjnp1PRyhgxUYf7bfU5DKzbq_nA/exec';
   var WORKER = 'https://neon-sm-sync.dane-bc3.workers.dev';
@@ -10624,20 +10625,36 @@ async function dpDownloadPDF(){
     var m = (text||'').match(/\[SM:([0-9a-f-]{6,})(?:[,0-9a-f-]*)?\]/i);
     return m ? m[1] : null;
   }
-  function cleanMetaText(text){
+
+  // Format the meta preview line. Replaces raw ISO timestamps with short
+  // dates, formats $amounts, strips internal markers.
+  function prettyMetaText(text){
     if (!text) return '';
-    return text
-      .replace(/\[SM:[^\]]+\]\s*/gi, '')
-      .replace(/\d+\s*line\s*item\(s\)/gi, '')
-      .replace(/\s*\|\s*live->\w+/gi, '')
-      .replace(/\s*\|\s*live sync\s*·\s*[^|·]*$/gi, '')
-      .replace(/\s+·\s+·\s+/g, ' · ')
-      .replace(/·\s*$/, '')
-      .replace(/^\s*·\s*/, '')
-      .trim();
+    var t = text;
+    // Remove internal markers / debug noise
+    t = t.replace(/\[SM:[^\]]+\]\s*/gi, '')
+         .replace(/\d+\s*line\s*item\(s\)/gi, '')
+         .replace(/\s*\|\s*live->\w+/gi, '')
+         .replace(/\s*\|\s*live sync\s*·\s*[^|·]*$/gi, '');
+    // ISO timestamps → 'Mar 24, 2026'
+    t = t.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?/g, function(m){
+      try { return fmtDate(m); } catch(e){ return m; }
+    });
+    // Bare YYYY-MM-DD → 'Mar 24, 2026'
+    t = t.replace(/\b(\d{4}-\d{2}-\d{2})\b/g, function(m){ return fmtDate(m); });
+    // $1715 → $1,715 (only if no comma present)
+    t = t.replace(/\$(\d{4,})\b/g, function(m, n){
+      return '$' + Number(n).toLocaleString('en-US');
+    });
+    // Collapse separator/whitespace messes
+    t = t.replace(/\s+·\s+·\s+/g, ' · ')
+         .replace(/·\s*$/, '')
+         .replace(/^\s*·\s*/, '')
+         .replace(/\s{2,}/g, ' ')
+         .trim();
+    return t;
   }
 
-  // gR override — return our fresher cache when we have it; else fall through.
   function installGRoverride(){
     if (origGR) return;
     if (typeof window.gR !== 'function') return;
@@ -10651,7 +10668,6 @@ async function dpDownloadPDF(){
     };
   }
 
-  // Fetch myRefs ONCE in the background. Never trigger a re-render.
   function fetchOnce(){
     if (fetchedOnce) return;
     fetchedOnce = true;
@@ -10738,8 +10754,9 @@ async function dpDownloadPDF(){
         var smId = extractSmId(raw);
         if (!smId) return;
         row.dataset.ngmRefDec = '1';
+        row.dataset.ngmSmId = smId;
         row.classList.add('ngm-ref-row');
-        meta.textContent = cleanMetaText(raw);
+        meta.textContent = prettyMetaText(raw);
         var title = row.querySelector('div[style*="font-weight:700"]');
         if (title && !title.querySelector('.ngm-chev')){
           var chev = document.createElement('span'); chev.className='ngm-chev'; chev.textContent='›';
@@ -10749,50 +10766,56 @@ async function dpDownloadPDF(){
         panel.className = 'ngm-jdetails';
         panel.dataset.ngmOpp = smId;
         row.insertAdjacentElement('afterend', panel);
-        row.addEventListener('click', function(ev){
-          if (ev.target.closest('button,a,input,select')) return;
-          ev.preventDefault();
-          ev.stopPropagation();
-          var open = panel.classList.toggle('open');
-          row.classList.toggle('open', open);
-          if (open) loadDetails(smId, panel);
-        });
         n++;
       });
       return n;
     }catch(e){ return 0; }
   }
 
-  // No _fpRender wrap. No re-render. Just install the gR override the first
-  // time we see _fpRender, kick the background fetch, and lazily decorate.
-  // Decorate is event-driven: on click anywhere inside #mc that lands on a
-  // referral-shaped row, and on a small handful of polled passes at startup.
-  function maybeWireGR(){
-    if (typeof window.gR === 'function') installGRoverride();
+  // Single document-level CAPTURE handler. Fires before any name-clickability
+  // shim. If the click is inside a decorated referral row (and not on a
+  // button/anchor inside it), we eat the click and toggle the panel.
+  function onCaptureClick(ev){
+    try{
+      var row = ev.target.closest && ev.target.closest('.ngm-ref-row');
+      if (!row) return;
+      // Let buttons/anchors/inputs inside the row work normally.
+      if (ev.target.closest('button,a,input,select,textarea')) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+      var smId = row.dataset.ngmSmId;
+      var panel = row.nextElementSibling;
+      if (!panel || !panel.classList || !panel.classList.contains('ngm-jdetails')) return;
+      var open = panel.classList.toggle('open');
+      row.classList.toggle('open', open);
+      if (open && smId) loadDetails(smId, panel);
+    }catch(e){}
   }
 
   function install(){
     fetchOnce();
 
-    // Try to install the gR override quickly, then stop polling.
-    var n=0;
-    var iv = setInterval(function(){
-      maybeWireGR();
-      if (origGR || ++n > 30) clearInterval(iv);
-    }, 500);
-
-    // Decorate a few times to catch lazy renders. Stops after 8 passes (~6s).
+    // One short startup pass to catch the first render, then stop.
     var tickN = 0;
     var ticker = setInterval(function(){
       try{ decorate(); }catch(e){}
-      if (++tickN > 8) clearInterval(ticker);
-    }, 800);
+      if (++tickN > 6) clearInterval(ticker);
+    }, 700);
 
-    // Whenever the user clicks inside the main column, give decorate one
-    // more chance — covers tab switches and dynamic content without polling.
-    document.addEventListener('click', function(){
-      setTimeout(decorate, 80);
-    }, true);
+    // Capture-phase click → beats every other handler on the page.
+    document.addEventListener('click', onCaptureClick, true);
+
+    // After ANY click, scan once more to catch newly-rendered rows
+    // (e.g. tab switches into Referrals).
+    document.addEventListener('click', function(){ setTimeout(decorate, 90); }, false);
+
+    // Install gR override as soon as gR exists. Stop polling once installed.
+    var n=0;
+    var iv = setInterval(function(){
+      installGRoverride();
+      if (origGR || ++n > 20) clearInterval(iv);
+    }, 600);
   }
 
   if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', install);
