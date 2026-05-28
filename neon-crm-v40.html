@@ -10578,7 +10578,7 @@ async function dpDownloadPDF(){
 <script>
 /*v174-referral-details*/
 (function(){
-  if (window.__ngmV174v4) return; window.__ngmV174v4 = true;
+  if (window.__ngmV174v5) return; window.__ngmV174v5 = true;
 
   var APPS = 'https://script.google.com/macros/s/AKfycbxh1ecAF9yWN91w04SHROy5T9N-PehvpF29LTFu8M6vjnp1PRyhgxUYf7bfU5DKzbq_nA/exec';
   var WORKER = 'https://neon-sm-sync.dane-bc3.workers.dev';
@@ -10601,8 +10601,9 @@ async function dpDownloadPDF(){
     + '.ngm-jd-lab{color:#888;text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;margin-bottom:2px;}'
     + '.ngm-jd-val{color:#fff;font-weight:500;word-wrap:break-word;}'
     + '.ngm-jd-loading{color:#888;font-style:italic;font-size:12.5px;}'
-    + '.ngm-jd-err{color:#ffcc66;font-size:12.5px;line-height:1.5;}'
-    + '.ngm-jd-err-title{color:#ffcc66;font-weight:700;margin-bottom:4px;}';
+    + '.ngm-jd-src{margin-top:10px;padding-top:8px;border-top:1px solid #ff66ff22;color:#888;font-size:10.5px;font-style:italic;}'
+    + '.ngm-jd-src-live{color:#66ffaa;}'
+    + '.ngm-jd-src-local{color:#ffcc66;}';
   document.head.appendChild(st);
 
   function fmtDate(d){
@@ -10655,12 +10656,24 @@ async function dpDownloadPDF(){
       .catch(function(){ return false; });
   }
 
-  function panelHTML(d){
-    if (!d) return '<div class="ngm-jd-err">Could not load SmartMoving details.</div>';
-    if (d.ok === false){
-      var msg = d.note || ('Could not load (HTTP ' + (d.status||'?') + ').');
-      return '<div class="ngm-jd-err"><div class="ngm-jd-err-title">No live SmartMoving record</div>' + msg + '</div>';
+  function findLocalRef(smId){
+    if (!myRefs || !smId) return null;
+    var needle = String(smId).toLowerCase();
+    for (var i=0; i<myRefs.length; i++){
+      var r = myRefs[i];
+      var notes = (r.notes || '').toLowerCase();
+      if (notes.indexOf(needle) !== -1) return r;
     }
+    return null;
+  }
+
+  function renderCells(cells){
+    return '<div class="ngm-jd-grid">' + cells.map(function(c){
+      return '<div class="ngm-jd-cell"><div class="ngm-jd-lab">'+c[0]+'</div><div class="ngm-jd-val">'+String(c[1]).replace(/</g,'&lt;')+'</div></div>';
+    }).join('') + '</div>';
+  }
+
+  function livePanelHTML(d){
     var cells = [
       ['Customer', d.customer || '—'],
       ['Service date', fmtDate(d.serviceDate)],
@@ -10671,18 +10684,43 @@ async function dpDownloadPDF(){
       ['Jobs on opportunity', d.jobCount || 0],
       ['Created', fmtDate((d.createdAtUtc||'').slice(0,10))]
     ];
-    return '<div class="ngm-jd-grid">' + cells.map(function(c){
-      return '<div class="ngm-jd-cell"><div class="ngm-jd-lab">'+c[0]+'</div><div class="ngm-jd-val">'+String(c[1]).replace(/</g,'&lt;')+'</div></div>';
-    }).join('') + '</div>';
+    return renderCells(cells) + '<div class="ngm-jd-src ngm-jd-src-live">Live from SmartMoving</div>';
+  }
+
+  function localPanelHTML(r){
+    var cells = [
+      ['Customer', r.jobName || '—'],
+      ['Service date', fmtDate(r.date)],
+      ['Stage', r.status || '—'],
+      ['Estimated total', money(r.amount)],
+      ['Partner', r.contactName || '—'],
+      ['Source', r.enteredBy || '—']
+    ];
+    return renderCells(cells)
+      + '<div class="ngm-jd-src ngm-jd-src-local">From your CRM records — this is a pre-sync job id, '
+      + 'so live SmartMoving details aren’t available. Open the customer in SmartMoving for current status.</div>';
+  }
+
+  function panelHTML(d, smId){
+    if (d && d.ok !== false) return livePanelHTML(d);
+    var local = findLocalRef(smId);
+    if (local) return localPanelHTML(local);
+    var msg = (d && d.note) || 'Could not load SmartMoving details.';
+    return '<div class="ngm-jd-val" style="color:#ffcc66;">' + msg + '</div>';
   }
 
   function loadDetails(id, panel){
-    if (detailCache[id]){ panel.innerHTML = panelHTML(detailCache[id]); return; }
+    if (detailCache[id]){ panel.innerHTML = panelHTML(detailCache[id], id); return; }
     panel.innerHTML = '<div class="ngm-jd-loading">Loading job details from SmartMoving…</div>';
     fetch(WORKER + '/look?id=' + encodeURIComponent(id))
       .then(function(r){ return r.json(); })
-      .then(function(j){ detailCache[id] = j; panel.innerHTML = panelHTML(j); })
-      .catch(function(e){ panel.innerHTML = '<div class="ngm-jd-err">Network error: '+(e.message||e)+'</div>'; });
+      .then(function(j){ detailCache[id] = j; panel.innerHTML = panelHTML(j, id); })
+      .catch(function(e){
+        // Network error — still try local fallback
+        var local = findLocalRef(id);
+        if (local){ panel.innerHTML = localPanelHTML(local); return; }
+        panel.innerHTML = '<div class="ngm-jd-val" style="color:#ffcc66;">Network error: '+(e.message||e)+'</div>';
+      });
   }
 
   function decorate(){
