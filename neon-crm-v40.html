@@ -11260,5 +11260,59 @@ async function dpDownloadPDF(){
 })();
 
 </script>
+<script>/*v184-logvisit-fix*/
+(function(){
+  function openVisit(id){
+    var old=document.getElementById('ngQvOverlay'); if(old) old.remove();
+    var today=new Date().toISOString().split('T')[0];
+    var ov=document.createElement('div'); ov.id='ngQvOverlay';
+    ov.style.cssText='position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center';
+    ov.innerHTML='<div style="background:#0e1b33;border:1px solid #FF1493;border-radius:14px;max-width:430px;width:92%;padding:18px;box-shadow:0 0 30px rgba(255,20,147,.45);color:#fff;font-family:inherit">'
+      +'<h3 style="margin:0 0 12px;font-size:18px">📍 Log Visit</h3>'
+      +'<textarea id="qN" rows="3" placeholder="Visit notes..." style="width:100%;box-sizing:border-box;background:#0a1426;border:1px solid #24406a;color:#fff;border-radius:8px;padding:8px;font-family:inherit"></textarea>'
+      +'<div style="display:flex;gap:8px;margin-top:8px">'
+      +'<div style="flex:1"><label style="font-size:11px;color:#9fb3d1">Date</label><input id="qDt" type="date" value="'+today+'" style="width:100%;box-sizing:border-box;background:#0a1426;border:1px solid #24406a;color:#fff;border-radius:8px;padding:6px"></div>'
+      +'<div style="flex:1"><label style="font-size:11px;color:#9fb3d1">By</label><input id="qBy" placeholder="Who visited" style="width:100%;box-sizing:border-box;background:#0a1426;border:1px solid #24406a;color:#fff;border-radius:8px;padding:6px"></div>'
+      +'</div>'
+      +'<div style="margin-top:8px"><label style="font-size:11px;color:#9fb3d1">Reminder (optional)</label><input id="qRm" placeholder="Optional follow-up" style="width:100%;box-sizing:border-box;background:#0a1426;border:1px solid #24406a;color:#fff;border-radius:8px;padding:6px"></div>'
+      +'<div style="display:flex;gap:8px;margin-top:14px">'
+      +'<button id="qvSave" style="flex:1;background:linear-gradient(90deg,#FF1493,#00E5FF);border:none;color:#06131f;font-weight:700;border-radius:8px;padding:10px;cursor:pointer">Save Visit</button>'
+      +'<button id="qvCancel" style="background:#24406a;border:none;color:#fff;border-radius:8px;padding:10px 14px;cursor:pointer">Cancel</button>'
+      +'</div></div>';
+    document.body.appendChild(ov);
+    ov.querySelector('#qvCancel').onclick=function(){ov.remove();};
+    ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+    ov.querySelector('#qvSave').onclick=async function(){
+      var n=document.getElementById('qN').value, by=document.getElementById('qBy').value, dt=document.getElementById('qDt').value||today, rm=document.getElementById('qRm').value;
+      if(!n){ (window.tt?tt('Add notes','er'):alert('Add notes')); return; }
+      var b=this; b.disabled=true; b.textContent='Saving…';
+      try{
+        await window.aP({action:'addVisit',visit:{contactId:+id,handler:by,date:dt,notes:n}});
+        if(rm) await window.aP({action:'addReminder',reminder:{contactId:+id,text:rm}});
+        if(window.tt) tt('✅ Saved!','ok');
+        ov.remove();
+        if(window.cP) try{cP();}catch(e){}
+        if(window.load) try{await load();}catch(e){}
+      }catch(e){ if(window.tt) tt('Error','er'); b.disabled=false; b.textContent='Save Visit'; alert('Save failed: '+e); }
+    };
+  }
+  window.__ngOpenVisit=openVisit;
+  window.showQV=function(id){ return openVisit(id); };
+  window.showQV.__ngfix=true;
+  if(!window.__ngLogVisitDelegated){
+    document.addEventListener('click', function(e){
+      var btn = e.target && e.target.closest ? e.target.closest('button,a,[role=button]') : null;
+      if(!btn || !/log\s*visit/i.test(btn.textContent||'')) return;
+      e.preventDefault(); e.stopPropagation();
+      var id=null, d=btn.closest('[data-id]');
+      if(d && d.getAttribute('data-id')) id=+d.getAttribute('data-id');
+      else { var c=new URLSearchParams(location.search).get('c'); if(c) id=+c; else if(window.C && window.C.id) id=+window.C.id; }
+      if(id!=null) window.__ngOpenVisit(id);
+    }, true);
+    window.__ngLogVisitDelegated=true;
+  }
+})();
+</script>
+
 </body>
 </html>
