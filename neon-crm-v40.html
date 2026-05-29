@@ -2210,7 +2210,7 @@ async function saveEdit(id){
   const patch={id,name:document.getElementById('eNm').value,role:document.getElementById('eRl').value,business:document.getElementById('eBz').value,phone:document.getElementById('ePh').value,email:document.getElementById('eEm').value,territory:document.getElementById('eTr').value,type:document.getElementById('eTy').value,handler:document.getElementById('eBy').value,score:+document.getElementById('eSc').value,tier:document.getElementById('eTi').value,referrals:+document.getElementById('eRef').value,notes:document.getElementById('eNt').value};
   if(eProfileData!==undefined)patch.profilePic=eProfileData;
   if(eCardData!==undefined)patch.cardImage=eCardData;
-  try{await aP({action:'updateContact',contact:patch});tt('✅ Updated!','ok');cP();await load()}catch(e){tt('Error','er')}
+  try{await aP({action:'updateContact',contact:patch});tt('✅ Updated!','ok');var _ea=document.getElementById('editArea');if(_ea)_ea.innerHTML='';cP();await load()}catch(e){tt('Error','er')}
 }
 async function delContact(id){tt('Deleting...','ok');try{await aP({action:'deleteContact',id});tt('✅ Deleted','ok');cP();await load()}catch(e){tt('Error','er')}}
 // Edit form photo readers
