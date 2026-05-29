@@ -11287,7 +11287,7 @@ async function dpDownloadPDF(){
       if(!n){ (window.tt?tt('Add notes','er'):alert('Add notes')); return; }
       var b=this; b.disabled=true; b.textContent='Saving…';
       try{
-        await window.aP({action:'addVisit',visit:{contactId:+id,handler:by,date:dt,notes:n}});
+        await window.aP({action:'addVisit',visit:{contactId:+id,handler:by,date:dt,notes:n}});try{var _c=(window.__D||[]).find(function(x){return +x.id===+id;});if(!_c||!_c.lastVisit||new Date(dt)>=new Date(_c.lastVisit)){await window.aP({action:'updateContact',contact:{id:+id,lastVisit:dt}});}}catch(e){}
         if(rm) await window.aP({action:'addReminder',reminder:{contactId:+id,text:rm}});
         if(window.tt) tt('✅ Saved!','ok');
         ov.remove();
