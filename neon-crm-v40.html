@@ -11338,27 +11338,19 @@ async function dpDownloadPDF(){
 (function(){
   if(window.__ngConvModule) return; window.__ngConvModule=1;
   function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];});}
-  function fmtWhen(w){if(!w)return '';var d=new Date(w);if(isNaN(d))return '';return d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});}
-  var TYPE={text:{i:'\u{1F4AC}',l:'Text',c:'#00E5FF'},email:{i:'\u{1F4E7}',l:'Email',c:'#FF1493'},call:{i:'\u{1F4DE}',l:'Call',c:'#7CFC00'},note:{i:'\u{1F4DD}',l:'Note',c:'#FFD400'},visit:{i:'\u{1F4CD}',l:'Visit',c:'#00E5FF'},followup:{i:'⏰',l:'Follow-up',c:'#FF8C00'},referral:{i:'⭐',l:'Referral',c:'#FF1493'}};
+  function fmtTime(w){if(!w)return '';var d=new Date(w);if(isNaN(d))return '';return d.toLocaleString('en-US',{month:'numeric',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});}
+  function monthKey(w){var d=new Date(w);if(isNaN(d))return 'Earlier';return d.toLocaleDateString('en-US',{month:'long',year:'numeric'});}
+  function nowISO(){return new Date().toISOString();}
+  var TYPE={text:{i:'💬',l:'Text',c:'#00E5FF'},email:{i:'📧',l:'Email',c:'#FF1493'},call:{i:'📞',l:'Call',c:'#7CFC00'},note:{i:'📝',l:'Note',c:'#FFD400'},visit:{i:'📍',l:'Visit',c:'#00E5FF'},followup:{i:'⏰',l:'Follow-up',c:'#FF8C00'},referral:{i:'⭐',l:'Referral',c:'#FF1493'}};
   var FILTERS=[['all','All'],['note','Notes'],['email','Emails'],['call','Calls'],['text','Texts'],['followup','Follow-ups']];
-  window.__ngFilter = window.__ngFilter || 'all';
+  var COMPOSE=[['note','📝 Note'],['email','📧 Email'],['call','📞 Call'],['text','💬 Text']];
+  window.__ngFilter=window.__ngFilter||'all';
+  window.__ngCompose=window.__ngCompose||'text';
 
-  function parseMMS(body){
-    body=body||'';
-    var idx=body.indexOf('::NGMMS::');
-    if(idx<0) return {text:body,images:[]};
-    var pre=body.slice(0,idx).trim();
-    try{ var arr=JSON.parse(body.slice(idx+9)); var imgs=arr.map(function(a){return a.u||a.url||a;}).filter(Boolean); return {text:pre,images:imgs}; }
-    catch(e){ return {text:pre||'[Photo]',images:[]}; }
-  }
-  function readSet(cid){ try{ return JSON.parse(localStorage.getItem('ng_read_v1_'+cid)||'[]'); }catch(e){ return []; } }
-  function isUnread(it,cid){ return it.dir==='in' && readSet(cid).indexOf(it.id)<0; }
-  window.__ngToggleRead=function(cid,id,makeRead){
-    var s=readSet(cid); var i=s.indexOf(id);
-    if(makeRead){ if(i<0) s.push(id); } else { if(i>=0) s.splice(i,1); }
-    try{ localStorage.setItem('ng_read_v1_'+cid, JSON.stringify(s)); }catch(e){}
-    window.__ngRenderFeed(cid);
-  };
+  function parseMMS(body){body=body||'';var idx=body.indexOf('::NGMMS::');if(idx<0)return{text:body,images:[]};var pre=body.slice(0,idx).trim();try{var arr=JSON.parse(body.slice(idx+9));return{text:pre,images:arr.map(function(a){return a.u||a.url||a;}).filter(Boolean)};}catch(e){return{text:pre||'[Photo]',images:[]};}}
+  function readSet(cid){try{return JSON.parse(localStorage.getItem('ng_read_v1_'+cid)||'[]');}catch(e){return[];}}
+  function isUnread(it,cid){return it.dir==='in'&&readSet(cid).indexOf(it.id)<0;}
+  window.__ngToggleRead=function(cid,id,mk){var s=readSet(cid);var i=s.indexOf(id);if(mk){if(i<0)s.push(id);}else{if(i>=0)s.splice(i,1);}try{localStorage.setItem('ng_read_v1_'+cid,JSON.stringify(s));}catch(e){}window.__ngRenderFeed(cid);};
 
   window.__ngBuildItems=async function(cid){
     cid=+cid; var c=(window.__D||[]).find(function(x){return +x.id===cid;})||{};
@@ -11368,93 +11360,73 @@ async function dpDownloadPDF(){
       (typeof _sbGet==='function')?_sbGet('reminders?contact_id=eq.'+cid+'&select=*&limit=200').catch(function(){return[];}):[]
     ]);
     var items=[];
-    (r[0]||[]).forEach(function(m){ var k=(m.kind==='call')?'call':'text'; items.push({type:k,dir:m.direction,when:m.sent_at||m.received_at||m.created_at,body:m.body||'',id:'sms-'+m.id}); });
-    (r[1]||[]).forEach(function(e){ items.push({type:'email',dir:e.direction,when:e.sent_at||e.received_at||e.created_at,subject:e.subject||'',body:e.body||'',id:'em-'+e.id}); });
-    (r[2]||[]).forEach(function(rm){ items.push({type:'followup',dir:'sys',when:rm.created_at||rm.date,body:rm.text||rm.note||rm.title||'',id:'rm-'+rm.id}); });
-    (window.V||[]).filter(function(v){return +v.contactId===cid;}).forEach(function(v){ items.push({type:'visit',dir:'sys',when:(v.date&&(''+v.date).indexOf('T')>=0?v.date:(v.date||'')+'T12:00:00Z'),body:v.notes||'',handler:v.handler,id:'v-'+v.id}); });
-    try{(window.R||[]).filter(function(rf){return +rf.contactId===cid;}).forEach(function(rf){ items.push({type:'referral',dir:'sys',when:rf.date||rf.createdAt,body:(rf.contactName||rf.jobName||''),status:rf.status,id:'rf-'+rf.id}); });}catch(e){}
-    if(c.notes){ items.push({type:'note',dir:'sys',when:c.dateAdded||c.createdAt||'',body:c.notes,id:'note-'+cid}); }
-    items.sort(function(a,b){ return new Date(b.when||0)-new Date(a.when||0); });
+    (r[0]||[]).forEach(function(m){var k=(m.kind==='call')?'call':(m.kind==='note')?'note':'text';items.push({type:k,dir:m.direction,when:m.sent_at||m.received_at||m.created_at,body:m.body||'',id:'sms-'+m.id});});
+    (r[1]||[]).forEach(function(e){items.push({type:'email',dir:e.direction,when:e.sent_at||e.received_at||e.created_at,subject:e.subject||'',body:e.body||'',id:'em-'+e.id});});
+    (r[2]||[]).forEach(function(rm){items.push({type:'followup',dir:'sys',when:rm.created_at||rm.date,body:rm.text||rm.note||rm.title||'',id:'rm-'+rm.id});});
+    (window.V||[]).filter(function(v){return +v.contactId===cid;}).forEach(function(v){items.push({type:'visit',dir:'sys',when:(v.date&&(''+v.date).indexOf('T')>=0?v.date:(v.date||'')+'T12:00:00Z'),body:v.notes||'',handler:v.handler,id:'v-'+v.id});});
+    try{(window.R||[]).filter(function(rf){return +rf.contactId===cid;}).forEach(function(rf){items.push({type:'referral',dir:'sys',when:rf.date||rf.createdAt,body:(rf.contactName||rf.jobName||''),status:rf.status,id:'rf-'+rf.id});});}catch(e){}
+    if(c.notes && (''+c.notes).trim()){items.push({type:'note',dir:'sys',when:c.dateAdded||c.createdAt||'',body:c.notes,id:'note-legacy-'+cid});}
+    items.sort(function(a,b){return new Date(b.when||0)-new Date(a.when||0);});
     return items;
   };
 
-  function renderCard(it,cid){
-    var t=TYPE[it.type]||{i:'•',l:it.type,c:'#9fb3d1'};
-    var unread=isUnread(it,cid);
-    var dir=it.dir==='out'?'Sent':(it.dir==='in'?'Received':'');
-    var title=t.l+(it.type==='email'&&it.subject?(': '+esc(it.subject)):'')+(dir?(' · '+dir):'')+(it.handler?(' · '+esc(it.handler)):'');
-    var mms=parseMMS(it.body);
-    var bodyHtml='';
-    if(mms.images.length){ var pre=mms.text?('<div style="color:#cfe0f5;font-size:13px;margin-bottom:6px">'+esc(mms.text).replace(/\n/g,'<br>')+'</div>'):''; bodyHtml=pre+mms.images.map(function(u){return '<img src="'+esc(u)+'" style="max-width:160px;max-height:160px;border-radius:8px;margin:4px 6px 0 0;border:1px solid #24406a">';}).join(''); }
-    else { var b=esc(mms.text||'').replace(/\n/g,'<br>'); if(b.length>700)b=b.slice(0,700)+'…'; bodyHtml=b?('<div style="color:#cfe0f5;font-size:13px;line-height:1.45">'+b+'</div>'):''; }
-    return '<div class="ngActCard" data-id="'+esc(it.id)+'" data-type="'+it.type+'" style="background:'+(unread?'#13294d':'#0e1b33')+';border:1px solid '+(unread?t.c:'#24406a')+';border-left:3px solid '+t.c+';border-radius:10px;padding:12px 14px;margin-bottom:10px;position:relative">'
-      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
-      +'<span style="font-weight:700;color:#fff;font-size:13px">'+t.i+' '+title+(unread?' <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+t.c+';margin-left:4px;vertical-align:middle"></span>':'')+'</span>'
-      +'<span style="display:flex;align-items:center;gap:10px"><span style="color:#7d93b3;font-size:11px">'+fmtWhen(it.when)+'</span>'
-      +'<span class="ngDots" data-id="'+esc(it.id)+'" data-unread="'+(unread?1:0)+'" style="cursor:pointer;color:#7d93b3;font-weight:700;font-size:18px;line-height:1;padding:0 4px">⋮</span></span>'
-      +'</div>'+bodyHtml+'</div>';
+  function cardLabel(it){
+    if(it.type==='text') return (it.dir==='in'?'Incoming SMS':it.dir==='out'?'Outgoing SMS':'SMS');
+    if(it.type==='email') return (it.dir==='in'?'Incoming Email':'Outgoing Email');
+    if(it.type==='call') return 'Call';
+    if(it.type==='note') return 'Note';
+    if(it.type==='visit') return 'Visit'+(it.handler?(' · '+esc(it.handler)):'');
+    if(it.type==='followup') return 'Follow-up';
+    if(it.type==='referral') return 'Referral'+(it.status?(' · '+esc(it.status)):'');
+    return it.type;
+  }
+  function subLine(it,c){
+    var nm=esc(c.name||'this contact');
+    if(it.type==='text'){ return it.dir==='in'?(nm+' texted you'):('You texted '+nm+(c.phone?(' ('+esc(c.phone)+')'):'')); }
+    if(it.type==='email'){ return it.dir==='in'?(nm+' emailed you'+(it.subject?(' · '+esc(it.subject)):'')):('You emailed '+nm+(it.subject?(' · '+esc(it.subject)):'')); }
+    if(it.type==='call'){ return 'Call logged'; }
+    return '';
+  }
+
+  function renderCard(it,c){
+    var cid=c.id; var t=TYPE[it.type]||{i:'•',l:it.type,c:'#9fb3d1'};var unread=isUnread(it,cid);
+    var sub=subLine(it,c);
+    var mms=parseMMS(it.body);var bodyHtml='';
+    if(mms.images.length){var pre=mms.text?('<div style="color:#cfe0f5;font-size:13px;margin-bottom:6px">'+esc(mms.text).replace(/\n/g,'<br>')+'</div>'):'';bodyHtml=pre+mms.images.map(function(u){return '<img src="'+esc(u)+'" style="max-width:170px;max-height:170px;border-radius:8px;margin:4px 6px 0 0;border:1px solid #24406a">';}).join('');}
+    else {var b=esc(mms.text||'').replace(/\n/g,'<br>');if(b.length>800)b=b.slice(0,800)+'…';bodyHtml=b?('<div style="color:#e6eefb;font-size:13.5px;line-height:1.5">'+b+'</div>'):'';}
+    return '<div class="ngActCard" data-id="'+esc(it.id)+'" data-type="'+it.type+'" style="background:'+(unread?'#13294d':'#0e1b33')+';border:1px solid '+(unread?t.c:'#22335a')+';border-left:3px solid '+t.c+';border-radius:12px;padding:13px 15px;margin-bottom:11px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:'+(sub?'2px':'6px')+'">'
+        +'<span style="font-weight:700;color:#fff;font-size:13.5px;display:flex;align-items:center;gap:7px"><span style="width:26px;height:26px;border-radius:50%;background:'+t.c+'22;display:inline-flex;align-items:center;justify-content:center;font-size:13px">'+t.i+'</span>'+esc(cardLabel(it))+(unread?' <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+t.c+'"></span>':'')+'</span>'
+        +'<span style="display:flex;align-items:center;gap:11px;flex-shrink:0">'+(it.type==='text'||it.type==='email'?'<span class="ngReply" data-mode="'+(it.type==='email'?'email':'text')+'" title="Reply" style="cursor:pointer;color:#7d93b3;font-size:14px">↩</span>':'')+'<span style="color:#7d93b3;font-size:11px;white-space:nowrap">'+fmtTime(it.when)+'</span><span class="ngDots" data-id="'+esc(it.id)+'" data-unread="'+(unread?1:0)+'" style="cursor:pointer;color:#7d93b3;font-weight:700;font-size:18px;padding:0 2px">⋮</span></span>'
+      +'</div>'
+      +(sub?'<div style="color:#8aa0c0;font-size:11.5px;margin:0 0 7px 33px">'+sub+'</div>':'')
+      +'<div style="margin-left:33px">'+bodyHtml+'</div>'
+    +'</div>';
   }
 
   window.__ngRenderFeed=function(cid){
-    var box=document.getElementById('fpConvScroll'); if(!box) return;
-    var items=(window.__ngItems||[]);
-    var f=window.__ngFilter;
+    var box=document.getElementById('fpConvScroll');if(!box)return;
+    var c=(window.__D||[]).find(function(x){return +x.id===+cid;})||{id:cid};
+    var items=(window.__ngItems||[]);var f=window.__ngFilter;
     var shown=(f==='all')?items:items.filter(function(it){return it.type===f;});
-    box.innerHTML=shown.length?shown.map(function(it){return renderCard(it,cid);}).join(''):'<div style="padding:50px;text-align:center;color:#7d93b3">No '+(f==='all'?'activity':f+' activity')+' yet</div>';
-    box.scrollTop=0;
-    // wire three-dots
-    box.querySelectorAll('.ngDots').forEach(function(d){
-      d.onclick=function(e){ e.stopPropagation(); var id=d.getAttribute('data-id'); var wasUnread=d.getAttribute('data-unread')==='1'; window.__ngToggleRead(cid,id,wasUnread); };
-    });
-    // refresh filter bar active states
-    var bar=document.getElementById('ngFilterBar');
-    if(bar){ bar.querySelectorAll('[data-f]').forEach(function(btn){ var on=btn.getAttribute('data-f')===f; btn.style.background=on?'linear-gradient(90deg,#FF1493,#00E5FF)':'#13243f'; btn.style.color=on?'#06131f':'#9fb3d1'; }); }
+    if(!shown.length){box.innerHTML='<div style="padding:48px;text-align:center;color:#7d93b3">No '+(f==='all'?'activity':f)+' yet</div>';return;}
+    var html='';var lastMonth='';
+    shown.forEach(function(it){var mk=monthKey(it.when);if(mk!==lastMonth){html+='<div style="color:#7d93b3;font-size:12px;font-weight:700;letter-spacing:.5px;margin:6px 2px 10px">'+esc(mk)+'</div>';lastMonth=mk;}html+=renderCard(it,c);});
+    box.innerHTML=html;
+    box.querySelectorAll('.ngDots').forEach(function(d){d.onclick=function(e){e.stopPropagation();window.__ngToggleRead(cid,d.getAttribute('data-id'),d.getAttribute('data-unread')==='1');};});
+    box.querySelectorAll('.ngReply').forEach(function(rp){rp.onclick=function(e){e.stopPropagation();window.__ngSetCompose(cid,rp.getAttribute('data-mode'));var ta=document.getElementById('ngComposeBody');if(ta)ta.focus();};});
+    var bar=document.getElementById('ngFilterBar');if(bar){bar.querySelectorAll('[data-f]').forEach(function(btn){var on=btn.getAttribute('data-f')===f;btn.style.color=on?'#fff':'#7d93b3';btn.style.borderBottom=on?'2px solid #FF1493':'2px solid transparent';});}
   };
 
-  window.fpLoadThread=async function(cid){
-    var box=document.getElementById('fpConvScroll'); if(!box) return;
-    box.innerHTML='<div style="padding:40px;text-align:center;color:#9fb3d1">Loading activity…</div>';
-    try{ window.__ngItems=await window.__ngBuildItems(cid); window.__ngRenderFeed(cid); }
-    catch(e){ box.innerHTML='<div style="padding:20px;color:#f88">Error: '+esc(e.message)+'</div>'; }
-  };
-  window.__ngSetFilter=function(cid,f){ window.__ngFilter=f; window.__ngRenderFeed(cid); };
+  window.fpLoadThread=async function(cid){var box=document.getElementById('fpConvScroll');if(!box)return;box.innerHTML='<div style="padding:36px;text-align:center;color:#9fb3d1">Loading activity…</div>';try{window.__ngItems=await window.__ngBuildItems(cid);window.__ngRenderFeed(cid);window.__ngRenderStats(cid);}catch(e){box.innerHTML='<div style="padding:20px;color:#f88">Error: '+esc(e.message)+'</div>';}};
+  window.__ngSetFilter=function(cid,f){window.__ngFilter=f;window.__ngRenderFeed(cid);};
+  window.__ngSetCompose=function(cid,m){window.__ngCompose=m;var host=document.getElementById('ngComposeArea');if(host){var c=(window.__D||[]).find(function(x){return +x.id===+cid;})||{id:cid};host.innerHTML=composeInner(c);}var tabs=document.getElementById('ngComposeTabs');if(tabs){tabs.querySelectorAll('[data-m]').forEach(function(b){var on=b.getAttribute('data-m')===m;b.style.color=on?'#fff':'#9fb3d1';b.style.borderBottom=on?'2px solid #00E5FF':'2px solid transparent';b.style.background=on?'#0e1b33':'transparent';});}};
 
-  function filterBar(cid){
-    return '<div id="ngFilterBar" style="display:flex;gap:5px;padding:8px 10px;border-bottom:1px solid #24406a;flex-wrap:wrap;background:#0b1830">'
-      + FILTERS.map(function(f){ var on=window.__ngFilter===f[0]; return '<button data-f="'+f[0]+'" onclick="window.__ngSetFilter('+cid+',\''+f[0]+'\')" style="border:none;border-radius:14px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;background:'+(on?'linear-gradient(90deg,#FF1493,#00E5FF)':'#13243f')+';color:'+(on?'#06131f':'#9fb3d1')+'">'+f[1]+'</button>'; }).join('')
-      + '</div>';
-  }
-  function composeBox(c){
-    var hasPhone=!!c.phone, hasEmail=!!c.email, canSend=hasPhone||hasEmail;
-    var dm=(hasEmail&&!hasPhone)?'email':'sms';
-    return '<div style="padding:10px;background:#0e1c33;border-bottom:1px solid #24406a">'
-      +'<div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;align-items:center">'
-      +(hasPhone?'<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#9fb3d1;cursor:pointer"><input type="radio" name="fpMode" value="sms" '+(dm==='sms'?'checked':'')+'> \u{1F4AC} SMS</label>':'')
-      +(hasEmail?'<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#9fb3d1;cursor:pointer"><input type="radio" name="fpMode" value="email" '+(dm==='email'?'checked':'')+'> \u{1F4E7} Email</label>':'')
-      +(!canSend?'<span style="color:#f88;font-size:12px">No phone or email on file</span>':'')
-      +(hasEmail?'<input id="fpSubj" type="text" placeholder="Subject (email)" value="Following up" style="flex:1;min-width:120px;background:#0a1426;color:#cfe0f5;border:1px solid #24406a;border-radius:4px;padding:4px 8px;font-size:11px">':'')
-      +'</div><div style="display:flex;gap:6px">'
-      +'<textarea id="fpBody" placeholder="Type a message…" style="flex:1;min-height:50px;max-height:160px;background:#0a1426;color:#cfe0f5;border:1px solid #24406a;border-radius:6px;padding:8px 10px;font-family:inherit;font-size:13px;resize:vertical;box-sizing:border-box"></textarea>'
-      +'<button onclick="fpSendMessage('+c.id+')" '+(canSend?'':'disabled')+' style="background:linear-gradient(90deg,#FF1493,#00E5FF);color:#06131f;border:none;padding:0 18px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;'+(canSend?'':'opacity:0.4')+'">Send</button>'
-      +'</div></div>';
-  }
-
-  var _origTabBody=window.fpTabBody;
-  window.fpTabBody=function(tab,c,cv,cr){
-    if(tab==='conv'){
-      setTimeout(function(){ if(typeof window.fpLoadThread==='function') window.fpLoadThread(c.id); },30);
-      return '<div>'
-        + '<div style="position:sticky;top:0;z-index:6;background:#0a1428;border:1px solid #24406a;border-radius:10px;margin-bottom:14px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.45)">'
-          + composeBox(c)
-          + filterBar(c.id)
-        + '</div>'
-        + '<div id="fpConvScroll"></div>'
-        + '</div>';
-    }
-    return _origTabBody ? _origTabBody(tab,c,cv,cr) : '';
-  };
-})();
-</script>
+  function composeInner(c){
+    var m=window.__ngCompose;var cid=c.id;
+    var box='background:#0a1426;color:#e6eefb;border:1px solid #24406a;border-radius:8px;padding:9px 11px;font-family:inherit;font-size:13px;box-sizing:border-box;width:100%';
+    var sendBtn=function(label){return '<button onclick="window.__ngDoCompose('+cid+')" style="background:linear-gradient(90deg,#FF1493,#00E5FF);color:#06131f;border:none;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">'+label+'</button>';};
+    var followCb='<label
         
 
 </body>
