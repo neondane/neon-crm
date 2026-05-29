@@ -11529,5 +11529,26 @@ async function dpDownloadPDF(){
   };
 })();
 </script>
+
+<style id="v200-neon-theme">/*v200-neon-theme*/
+@property --ngang{syntax:"<angle>";inherits:false;initial-value:0deg}
+:root{--d:#0b1226;--d1:#0d1430;--d2:#101a34;--d3:#16233f;--d4:#22325c;--cardbg:linear-gradient(165deg,#17243f,#101a34)}
+.cd,.st{position:relative}
+.cd::before,.st::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1.4px;pointer-events:none;background:conic-gradient(from var(--ngang),var(--bd,rgba(120,150,210,.20)) 0deg,var(--p) 75deg,var(--b) 170deg,var(--bd,rgba(120,150,210,.20)) 240deg);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:.4;animation:ngang 13s linear infinite}
+@keyframes ngang{to{--ngang:360deg}}
+.cd:hover,.st:hover{transform:translateY(-3px)}
+.cd:hover::before,.st:hover::before{opacity:1;animation-duration:3s;background:conic-gradient(from var(--ngang),var(--p),var(--b),#7F77DD,var(--p2),var(--p))}
+@media(prefers-reduced-motion:reduce){.cd::before,.st::before{animation:none}}
+.ng-cta{background:linear-gradient(135deg,#FF1493,#FF4FB6 50%,#22BFE7);color:#fff;border:none;border-radius:11px;padding:12px 18px;font-weight:700;letter-spacing:.3px;cursor:pointer;box-shadow:0 0 0 1px rgba(255,255,255,.1) inset,0 0 18px rgba(255,20,147,.45),0 4px 14px rgba(0,229,255,.2);transition:transform .15s,filter .15s}
+.ng-cta:hover{filter:brightness(1.1);transform:translateY(-1px) scale(1.02)}.ng-cta:active{transform:scale(.98)}
+.ng-secondary{background:transparent;color:var(--b);border:1px solid #00e5ff6b;border-radius:11px;padding:12px 18px;font-weight:600;cursor:pointer;transition:.16s}
+.ng-secondary:hover{background:#00e5ff1a;border-color:var(--b);transform:translateY(-1px) scale(1.02);box-shadow:var(--glowb)}
+.ng-pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;font-size:12px;font-weight:600;padding:5px 12px;line-height:1}
+.ng-pill--info{color:#a7f1ff;border:1px solid #00e5ff73;background:#00e5ff17}
+.ng-pill--accent{color:#ffabd7;border:1px solid #ff149380;background:#ff14931c}
+.ng-pill--muted{color:var(--g);border:1px solid #ffffff20;background:#ffffff08}
+.ng-grad-text{background:linear-gradient(110deg,#FF1493,#FF4FB6 35%,#22BFE7 70%,#00E5FF);-webkit-background-clip:text;background-clip:text;color:transparent}
+</style>
+
 </body>
 </html>
