@@ -11427,7 +11427,7 @@ async function dpDownloadPDF(){
   function composeBox(c){
     var hasPhone=!!c.phone, hasEmail=!!c.email, canSend=hasPhone||hasEmail;
     var dm=(hasEmail&&!hasPhone)?'email':'sms';
-    return '<div style="border-top:1px solid #24406a;padding:10px;background:#0e1c33;border-radius:0 0 10px 10px">'
+    return '<div style="padding:10px;background:#0e1c33;border-bottom:1px solid #24406a">'
       +'<div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;align-items:center">'
       +(hasPhone?'<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#9fb3d1;cursor:pointer"><input type="radio" name="fpMode" value="sms" '+(dm==='sms'?'checked':'')+'> \u{1F4AC} SMS</label>':'')
       +(hasEmail?'<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#9fb3d1;cursor:pointer"><input type="radio" name="fpMode" value="email" '+(dm==='email'?'checked':'')+'> \u{1F4E7} Email</label>':'')
@@ -11443,16 +11443,19 @@ async function dpDownloadPDF(){
   window.fpTabBody=function(tab,c,cv,cr){
     if(tab==='conv'){
       setTimeout(function(){ if(typeof window.fpLoadThread==='function') window.fpLoadThread(c.id); },30);
-      return '<div style="background:#0a1428;border:1px solid #24406a;border-radius:10px;display:flex;flex-direction:column;height:'+(window.innerWidth<700?'470px':'580px')+'">'
-        + filterBar(c.id)
-        + '<div id="fpConvScroll" style="flex:1;overflow-y:auto;padding:12px"></div>'
-        + composeBox(c)
+      return '<div>'
+        + '<div style="position:sticky;top:0;z-index:6;background:#0a1428;border:1px solid #24406a;border-radius:10px;margin-bottom:14px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.45)">'
+          + composeBox(c)
+          + filterBar(c.id)
+        + '</div>'
+        + '<div id="fpConvScroll"></div>'
         + '</div>';
     }
     return _origTabBody ? _origTabBody(tab,c,cv,cr) : '';
   };
 })();
 </script>
+        
 
 </body>
 </html>
