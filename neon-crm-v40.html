@@ -11334,17 +11334,28 @@ async function dpDownloadPDF(){
 })();
 </script>
 
-<script>/*v187-conversation-rebuild*/
+<script>/*v187-conversation-rebuild*/ /*v188 compose upgrades*/
 (function(){
   if(window.__ngConvModule) return; window.__ngConvModule=1;
   function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];});}
   function fmtTime(w){if(!w)return '';var d=new Date(w);if(isNaN(d))return '';return d.toLocaleString('en-US',{month:'numeric',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});}
   function monthKey(w){var d=new Date(w);if(isNaN(d))return 'Earlier';return d.toLocaleDateString('en-US',{month:'long',year:'numeric'});}
   function nowISO(){return new Date().toISOString();}
+  function opt(list,cur){return list.map(function(o){return '<option'+(o===cur?' selected':'')+'>'+esc(o)+'</option>';}).join('');}
   var DOT='·', ELL='…', VDOTS='⋮', BULLET='•', REPLY='↩';
   var TYPE={text:{i:'\u{1F4AC}',l:'Text',c:'#00E5FF'},email:{i:'\u{1F4E7}',l:'Email',c:'#FF1493'},call:{i:'\u{1F4DE}',l:'Call',c:'#7CFC00'},note:{i:'\u{1F4DD}',l:'Note',c:'#FFD400'},visit:{i:'\u{1F4CD}',l:'Visit',c:'#00E5FF'},followup:{i:'\u{23F0}',l:'Follow-up',c:'#FF8C00'},referral:{i:'\u{2B50}',l:'Referral',c:'#FF1493'}};
   var FILTERS=[['all','All'],['note','Notes'],['email','Emails'],['call','Calls'],['text','Texts'],['followup','Follow-ups']];
   var COMPOSE=[['note','\u{1F4DD} Note'],['email','\u{1F4E7} Email'],['call','\u{1F4DE} Call'],['text','\u{1F4AC} Text']];
+  var CALL_DIRS=['Outbound','Inbound'];
+  var CALL_OUTCOMES=['Select outcome','Connected','Left voicemail','No answer','Busy','Wrong number','Scheduled callback'];
+  var CALL_DURS=['Not set','< 1 min','1-5 min','5-15 min','15-30 min','30+ min'];
+  var TEMPLATES=[
+    {l:'-- Apply template --',s:'',b:''},
+    {l:'Intro / nice to meet you',s:'Great connecting',b:'Hi {N},\n\nGreat connecting today. I run Neon Giant Moving here in the Skagit Valley -- full-service moving and junk removal. If you ever have a client who needs a reliable, fully-insured crew, I would love to be your go-to.\n\nAppreciate you,\nDane'},
+    {l:'Quote follow-up',s:'Your moving quote',b:'Hi {N},\n\nFollowing up on the quote I sent over. Happy to answer any questions or adjust the date or scope. We can usually still lock in your preferred day if we hear back this week.\n\nThanks,\nDane'},
+    {l:'Thank you + review ask',s:'Thank you from Neon Giant',b:'Hi {N},\n\nThank you for trusting us with your move -- it was a pleasure. If you have 30 seconds, a quick Google review means the world to a local crew like ours.\n\nGratefully,\nDane'},
+    {l:'Referral partner check-in',s:'Checking in',b:'Hi {N},\n\nJust checking in. If any of your clients have a move or cleanout coming up, send them our way -- we take great care of referrals and keep you posted every step.\n\nTalk soon,\nDane'}
+  ];
   window.__ngFilter=window.__ngFilter||'all';
   window.__ngCompose=window.__ngCompose||'text';
   function parseMMS(body){body=body||'';var idx=body.indexOf('::NGMMS::');if(idx<0)return{text:body,images:[]};var pre=body.slice(0,idx).trim();try{var arr=JSON.parse(body.slice(idx+9));return{text:pre,images:arr.map(function(a){return a.u||a.url||a;}).filter(Boolean)};}catch(e){return{text:pre||'[Photo]',images:[]};}}
@@ -11382,7 +11393,7 @@ async function dpDownloadPDF(){
     var nm=esc(c.name||'this contact');
     if(it.type==='text'){ return it.dir==='in'?(nm+' texted you'):('You texted '+nm+(c.phone?(' ('+esc(c.phone)+')'):'')); }
     if(it.type==='email'){ return it.dir==='in'?(nm+' emailed you'+(it.subject?(' '+DOT+' '+esc(it.subject)):'')):('You emailed '+nm+(it.subject?(' '+DOT+' '+esc(it.subject)):'')); }
-    if(it.type==='call'){ return 'Call logged'; }
+    if(it.type==='call'){ return ''; }
     return '';
   }
   function renderCard(it,c){
@@ -11416,15 +11427,35 @@ async function dpDownloadPDF(){
   window.fpLoadThread=async function(cid){var box=document.getElementById('fpConvScroll');if(!box)return;box.innerHTML='<div style="padding:36px;text-align:center;color:#9fb3d1">Loading activity'+ELL+'</div>';try{window.__ngItems=await window.__ngBuildItems(cid);window.__ngRenderFeed(cid);window.__ngRenderStats(cid);}catch(e){box.innerHTML='<div style="padding:20px;color:#f88">Error: '+esc(e.message)+'</div>';}};
   window.__ngSetFilter=function(cid,f){window.__ngFilter=f;window.__ngRenderFeed(cid);};
   window.__ngSetCompose=function(cid,m){window.__ngCompose=m;var host=document.getElementById('ngComposeArea');if(host){var c=(window.__D||[]).find(function(x){return +x.id===+cid;})||{id:cid};host.innerHTML=composeInner(c);}var tabs=document.getElementById('ngComposeTabs');if(tabs){tabs.querySelectorAll('[data-m]').forEach(function(b){var on=b.getAttribute('data-m')===m;b.style.color=on?'#fff':'#9fb3d1';b.style.borderBottom=on?'2px solid #00E5FF':'2px solid transparent';b.style.background=on?'#0e1b33':'transparent';});}};
+  window.__ngInsertText=function(kind){
+    var map={bullet:'\n• ',number:'\n1. ',divider:'\n----------\n',sign:'\n\nDane\nNeon Giant Moving & Junk Removal'};
+    var txt=map[kind]||'';var ta=document.getElementById('ngComposeBody');if(!ta)return;
+    var s=(ta.selectionStart!=null?ta.selectionStart:ta.value.length);var e=(ta.selectionEnd!=null?ta.selectionEnd:s);
+    ta.value=ta.value.slice(0,s)+txt+ta.value.slice(e);var pos=s+txt.length;ta.focus();try{ta.selectionStart=ta.selectionEnd=pos;}catch(_){}
+  };
+  window.__ngApplyTemplate=function(cid,idx){var t=TEMPLATES[+idx];if(!t||!t.b)return;var c=(window.__D||[]).find(function(x){return +x.id===+cid;})||{};var nm=((c.name||'there').trim().split(/\s+/)[0])||'there';var sub=document.getElementById('ngSubj');var ta=document.getElementById('ngComposeBody');if(sub&&t.s)sub.value=t.s;if(ta){ta.value=t.b.replace(/\{N\}/g,nm);ta.focus();}};
   function composeInner(c){
     var m=window.__ngCompose;var cid=c.id;
     var box='background:#0a1426;color:#e6eefb;border:1px solid #24406a;border-radius:8px;padding:9px 11px;font-family:inherit;font-size:13px;box-sizing:border-box;width:100%';
+    var selSt='background:#0a1426;color:#e6eefb;border:1px solid #24406a;border-radius:8px;padding:7px 9px;font-family:inherit;font-size:12.5px';
     var sendBtn=function(label){return '<button onclick="window.__ngDoCompose('+cid+')" style="background:linear-gradient(90deg,#FF1493,#00E5FF);color:#06131f;border:none;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">'+label+'</button>';};
     var followCb='<label style="display:flex;align-items:center;gap:6px;color:#9fb3d1;font-size:12px;cursor:pointer"><input type="checkbox" id="ngFollowup"> Create a follow-up</label>';
+    function tbtn(label,kind){return '<button type="button" onclick="window.__ngInsertText(\''+kind+'\')" style="background:#0e1b33;color:#9fb3d1;border:1px solid #24406a;border-radius:6px;padding:5px 8px;font-size:11.5px;cursor:pointer">'+label+'</button>';}
     var head='';
     if(m==='text') head='<div style="color:#8aa0c0;font-size:12px;margin-bottom:7px">To: <span style="color:#cfe0f5">'+esc(c.name||'')+(c.phone?(' &lt;'+esc(c.phone)+'&gt;'):' (no phone)')+'</span></div>';
-    if(m==='email') head='<div style="color:#8aa0c0;font-size:12px;margin-bottom:7px">To: <span style="color:#cfe0f5">'+esc(c.name||'')+(c.email?(' &lt;'+esc(c.email)+'&gt;'):' (no email)')+'</span></div>'+'<input id="ngSubj" placeholder="Subject" value="Following up" style="'+box+';margin-bottom:7px">';
-    var ph=(m==='note')?'Write a note'+ELL:(m==='call')?'Call notes / outcome'+ELL:(m==='email')?'Write your email'+ELL:'Type a message'+ELL;
+    if(m==='email') head='<div style="color:#8aa0c0;font-size:12px;margin-bottom:7px">To: <span style="color:#cfe0f5">'+esc(c.name||'')+(c.email?(' &lt;'+esc(c.email)+'&gt;'):' (no email)')+'</span></div>'
+      +'<input id="ngCc" placeholder="Cc (optional, comma-separated)" style="'+box+';margin-bottom:7px">'
+      +'<input id="ngSubj" placeholder="Subject" value="Following up" style="'+box+';margin-bottom:7px">'
+      +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">'
+        +'<select onchange="window.__ngApplyTemplate('+cid+',this.value)" style="'+selSt+'">'+TEMPLATES.map(function(t,ix){return '<option value="'+ix+'">'+esc(t.l)+'</option>';}).join('')+'</select>'
+        +'<span style="display:flex;gap:5px;flex-wrap:wrap">'+tbtn('• List','bullet')+tbtn('1. List','number')+tbtn('Divider','divider')+tbtn('Signature','sign')+'</span>'
+      +'</div>';
+    if(m==='call') head='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:9px">'
+        +'<select id="ngCallDir" style="'+selSt+'">'+opt(CALL_DIRS,'Outbound')+'</select>'
+        +'<select id="ngCallOutcome" style="'+selSt+'">'+opt(CALL_OUTCOMES,'Select outcome')+'</select>'
+        +'<select id="ngCallDur" style="'+selSt+'">'+opt(CALL_DURS,'Not set')+'</select>'
+      +'</div>';
+    var ph=(m==='note')?'Write a note'+ELL:(m==='call')?'Call notes (optional)'+ELL:(m==='email')?'Write your email'+ELL:'Type a message'+ELL;
     var label=(m==='note')?'Add Note':(m==='call')?'Log Call':(m==='email')?'Send Email':'Send Text';
     return head
       +'<textarea id="ngComposeBody" placeholder="'+ph+'" style="'+box+';min-height:'+(m==='note'||m==='call'?'70px':'90px')+';resize:vertical"></textarea>'
@@ -11440,7 +11471,7 @@ async function dpDownloadPDF(){
   window.__ngDoCompose=async function(cid){
     cid=+cid;var c=(window.__D||[]).find(function(x){return +x.id===cid;});if(!c)return;
     var m=window.__ngCompose;var bodyEl=document.getElementById('ngComposeBody');var body=(bodyEl?bodyEl.value:'').trim();
-    if(!body){if(typeof tt==='function')tt('Nothing to send','er');return;}
+    if(m!=='call' && !body){if(typeof tt==='function')tt('Nothing to send','er');return;}
     var follow=document.getElementById('ngFollowup');var wantFollow=follow&&follow.checked;
     var btn=document.querySelector('#ngComposeArea button[onclick^="window.__ngDoCompose"]');if(btn){btn.disabled=true;btn.textContent=ELL;}
     try{
@@ -11450,17 +11481,25 @@ async function dpDownloadPDF(){
         if(typeof tt==='function')tt(j&&j.ok?'Text sent':'Logged (Twilio not live)','ok');
       } else if(m==='email'){ if(!c.email)throw new Error('No email on file');
         var subj=(document.getElementById('ngSubj')||{}).value||'Following up';
-        var er=await aP({action:'sendEmail',to:c.email,subject:subj,body:body,contactId:cid,sender:'dane@neongiantmoving.com'});if(er&&er.error)throw new Error(er.error);
+        var ccEl=document.getElementById('ngCc');var cc=(ccEl&&ccEl.value||'').trim();
+        var pay={action:'sendEmail',to:c.email,subject:subj,body:body,contactId:cid,sender:'dane@neongiantmoving.com'};if(cc)pay.cc=cc;
+        var er=await aP(pay);if(er&&er.error)throw new Error(er.error);
         if(typeof _sbInsert==='function')await _sbInsert('email_messages',{contact_id:cid,direction:'out',from_email:'dane@neongiantmoving.com',to_email:c.email,subject:subj,body:body,status:'sent',sender:'dane',sent_at:nowISO()}).catch(function(){});
-        if(typeof tt==='function')tt('Email sent','ok');
+        if(typeof tt==='function')tt('Email sent'+(cc?' (cc added)':''),'ok');
       } else if(m==='note'){
         if(typeof _sbInsert==='function')await _sbInsert('sms_messages',{contact_id:cid,direction:'out',from_number:'note',to_number:'note',body:body,status:'logged',kind:'note',sent_at:nowISO()}).catch(function(){});
         if(typeof tt==='function')tt('Note added','ok');
       } else if(m==='call'){
-        if(typeof _sbInsert==='function')await _sbInsert('sms_messages',{contact_id:cid,direction:'out',from_number:'call',to_number:'call',body:body,status:'logged',kind:'call',sent_at:nowISO()}).catch(function(){});
+        var dir=(document.getElementById('ngCallDir')||{}).value||'Outbound';
+        var oc=(document.getElementById('ngCallOutcome')||{}).value||'';if(oc==='Select outcome')oc='';
+        var dur=(document.getElementById('ngCallDur')||{}).value||'';if(dur==='Not set')dur='';
+        if(!body && !oc){if(typeof tt==='function')tt('Pick an outcome or add notes','er');if(btn){btn.disabled=false;btn.textContent='Log Call';}return;}
+        var meta=[dir,oc,dur].filter(Boolean).join(' '+DOT+' ');
+        var stored=meta+(body?'\n'+body:'');
+        if(typeof _sbInsert==='function')await _sbInsert('sms_messages',{contact_id:cid,direction:'out',from_number:'call',to_number:'call',body:stored,status:'logged',kind:'call',sent_at:nowISO()}).catch(function(){});
         if(typeof tt==='function')tt('Call logged','ok');
       }
-      if(wantFollow){ try{ await aP({action:'addReminder',reminder:{contactId:cid,text:body.slice(0,140)}}); }catch(e){} }
+      if(wantFollow){ try{ await aP({action:'addReminder',reminder:{contactId:cid,text:(body||m).slice(0,140)}}); }catch(e){} }
       if(bodyEl)bodyEl.value='';
       await window.fpLoadThread(cid);
     }catch(e){ if(typeof tt==='function')tt('Error: '+e.message,'er'); }
