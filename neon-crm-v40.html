@@ -1184,7 +1184,7 @@ async function geocodeMissingPins(){
     }
   }catch(e){if(typeof tt==='function')tt('Geocode error: '+e.message,'er');}
 }
-function iM(){if(lm){lm.remove();lm=null}mM=[];const el=document.getElementById('mapBox');if(!el)return;lm=L.map('mapBox',{center:[48.45,-122.40],zoom:9,zoomControl:true,attributionControl:false});L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:18}).addTo(lm);
+function iM(){if(lm){lm.remove();lm=null}mM=[];const el=document.getElementById('mapBox');if(!el)return;lm=L.map('mapBox',{center:[48.45,-122.40],zoom:9,zoomControl:true,attributionControl:false});L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:18}).addTo(lm);
 // Filter contacts by selected map types
 const _allowAllTypes = mapTypes.indexOf('all')>=0;
 const _filteredD = D.filter(function(c){
@@ -11533,6 +11533,7 @@ async function dpDownloadPDF(){
 
 
 
+
 <style id="v202-neon-redesign">/*v202-neon-redesign*/
 @property --ngang{syntax:"<angle>";inherits:false;initial-value:0deg}
 :root{--d:#0b1226;--d1:#0d1430;--d2:#101a34;--d3:#16233f;--d4:#22325c;--cardbg:linear-gradient(165deg,#17243f,#101a34)}
@@ -11560,6 +11561,10 @@ function boot(){
    'html[data-theme=light] [data-ng=s]{color:#0a86a6 !important;border-color:rgba(10,134,166,.42) !important}',
    'html[data-theme=light] .navitem:hover{background:rgba(20,30,60,.06) !important}',
    'html[data-theme=light] .navitem:hover,html[data-theme=light] .navitem:hover *{color:#0e1838 !important}',
+   '.ng-logo-badge{display:inline-flex !important;align-items:center;justify-content:center;border-radius:14px}',
+   '.ng-logo-badge img.logo{width:50px !important;height:50px !important;object-fit:contain !important}',
+   'html[data-theme=light] .ng-logo-badge{background:#0b1226 !important;background-image:none !important;padding:7px !important;box-shadow:0 4px 14px rgba(20,30,60,.18) !important;border:none !important}',
+   'html[data-theme=light] .ng-logo-badge img.logo{filter:brightness(0) invert(1) !important}',
    '#ngToggle{position:fixed;left:14px;bottom:14px;z-index:2147483647;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;cursor:pointer;font-size:20px;line-height:1;background:var(--cardbg);border:1px solid var(--b,#00E5FF);color:var(--b,#00E5FF);box-shadow:0 0 14px rgba(0,229,255,.4)}'
   ].join('\n');
   var st=document.createElement('style');st.id='ngThemeCss';st.textContent=css;document.head.appendChild(st);
@@ -11577,6 +11582,7 @@ function boot(){
     var tiles=document.querySelectorAll('img[src*="'+fromT+'"]');
     for(var k=0;k<tiles.length;k++){tiles[k].src=tiles[k].src.split(fromT).join(toT);}
     if(NGLOGO.indexOf('data:')===0){var lg=document.querySelector('.side-logo img');if(lg&&!lg.__ng){lg.src=NGLOGO;lg.__ng=1;lg.style.mixBlendMode='normal';lg.style.background='transparent';}}
+    var li=document.querySelector('.side-logo img.logo');if(li&&!li.closest('.ng-logo-badge')){var w=document.createElement('span');w.className='ng-logo-badge';w.setAttribute('data-ngc','1');li.parentNode.insertBefore(w,li);w.appendChild(li);}
   }
   function pass(){
     if(mo)mo.disconnect();
