@@ -11530,7 +11530,8 @@ async function dpDownloadPDF(){
 })();
 </script>
 
-<style id="v200-neon-theme">/*v200-neon-theme*/
+
+<style id="v202-neon-redesign">/*v202-neon-redesign*/
 @property --ngang{syntax:"<angle>";inherits:false;initial-value:0deg}
 :root{--d:#0b1226;--d1:#0d1430;--d2:#101a34;--d3:#16233f;--d4:#22325c;--cardbg:linear-gradient(165deg,#17243f,#101a34)}
 .cd,.st{position:relative}
@@ -11539,16 +11540,75 @@ async function dpDownloadPDF(){
 .cd:hover,.st:hover{transform:translateY(-3px)}
 .cd:hover::before,.st:hover::before{opacity:1;animation-duration:3s;background:conic-gradient(from var(--ngang),var(--p),var(--b),#7F77DD,var(--p2),var(--p))}
 @media(prefers-reduced-motion:reduce){.cd::before,.st::before{animation:none}}
-.ng-cta{background:linear-gradient(135deg,#FF1493,#FF4FB6 50%,#22BFE7);color:#fff;border:none;border-radius:11px;padding:12px 18px;font-weight:700;letter-spacing:.3px;cursor:pointer;box-shadow:0 0 0 1px rgba(255,255,255,.1) inset,0 0 18px rgba(255,20,147,.45),0 4px 14px rgba(0,229,255,.2);transition:transform .15s,filter .15s}
-.ng-cta:hover{filter:brightness(1.1);transform:translateY(-1px) scale(1.02)}.ng-cta:active{transform:scale(.98)}
-.ng-secondary{background:transparent;color:var(--b);border:1px solid #00e5ff6b;border-radius:11px;padding:12px 18px;font-weight:600;cursor:pointer;transition:.16s}
-.ng-secondary:hover{background:#00e5ff1a;border-color:var(--b);transform:translateY(-1px) scale(1.02);box-shadow:var(--glowb)}
-.ng-pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;font-size:12px;font-weight:600;padding:5px 12px;line-height:1}
-.ng-pill--info{color:#a7f1ff;border:1px solid #00e5ff73;background:#00e5ff17}
-.ng-pill--accent{color:#ffabd7;border:1px solid #ff149380;background:#ff14931c}
-.ng-pill--muted{color:var(--g);border:1px solid #ffffff20;background:#ffffff08}
 .ng-grad-text{background:linear-gradient(110deg,#FF1493,#FF4FB6 35%,#22BFE7 70%,#00E5FF);-webkit-background-clip:text;background-clip:text;color:transparent}
 </style>
+<script>/*v202-neon-redesign*/(function(){
+function boot(){
+  if(window.__ngBoot)return; window.__ngBoot=1;
+  if(!document.querySelector('link[data-ngaw]')){var l=document.createElement('link');l.rel='stylesheet';l.setAttribute('data-ngaw','1');l.href='https://fonts.googleapis.com/css2?family=Audiowide&display=swap';document.head.appendChild(l);}
+  var css=[
+   'html[data-theme=light]{--d:#eef1fb;--d1:#e7ecf7;--d2:#ffffff;--d3:#eef2f9;--d4:#dde4f1;--g:#46577a;--w:#0e1838;--cardbg:linear-gradient(165deg,#ffffff,#f2f5fc);--bd:rgba(14,24,56,.12)}',
+   'html[data-theme=light] body{background:#eef1fb !important;color:#0e1838}',
+   'html[data-theme=light] [data-ngsurf]{background:#ffffff !important;background-image:none !important;border-color:rgba(14,24,56,.10) !important}',
+   'html[data-theme=light] [data-ngink]{color:#28344e !important}',
+   'html[data-theme=light] [data-ng=pi]{color:#0a6a85 !important;background:rgba(0,170,210,.12) !important;border-color:rgba(0,160,200,.42) !important}',
+   'html[data-theme=light] [data-ng=pa]{color:#a30060 !important;background:rgba(255,20,147,.10) !important}',
+   'html[data-theme=light] [data-ng=pm]{color:#475679 !important;background:rgba(14,24,56,.05) !important;border-color:rgba(14,24,56,.14) !important}',
+   'html[data-theme=light] [data-ng=s]{color:#0a86a6 !important;border-color:rgba(10,134,166,.42) !important}',
+   '#ngToggle{position:fixed;left:14px;bottom:14px;z-index:2147483647;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;cursor:pointer;font-size:20px;line-height:1;background:var(--cardbg);border:1px solid var(--b,#00E5FF);color:var(--b,#00E5FF);box-shadow:0 0 14px rgba(0,229,255,.4)}'
+  ].join('\n');
+  var st=document.createElement('style');st.id='ngThemeCss';st.textContent=css;document.head.appendChild(st);
+  function lumOf(c){if(!c)return -1;var r,g,b;var m=c.match(/#([0-9a-fA-F]{6})/);if(m){var h=m[1];r=parseInt(h.slice(0,2),16);g=parseInt(h.slice(2,4),16);b=parseInt(h.slice(4,6),16);}else{var rm=c.match(/(\d+)\D+(\d+)\D+(\d+)/);if(!rm)return -1;r=+rm[1];g=+rm[2];b=+rm[3];}return (0.299*r+0.587*g+0.114*b)/255;}
+  var P={info:['rgba(0,229,255,.10)','#7df0ff','1px solid rgba(0,229,255,.45)','inset 0 0 12px rgba(0,229,255,.18)','pi'],accent:['rgba(255,20,147,.13)','#ff9ed0','1px solid rgba(255,20,147,.5)','inset 0 0 12px rgba(255,20,147,.2)','pa'],muted:['rgba(255,255,255,.05)','#aeb8c9','1px solid rgba(255,255,255,.14)','none','pm']};
+  function pill(e,k){var m=P[k];e.style.backgroundImage='none';e.style.background=m[0];e.style.color=m[1];e.style.border=m[2];e.style.boxShadow=m[3];e.style.fontWeight='600';e.setAttribute('data-ng',m[4]);}
+  function clean(t){return (t||'').replace(/[^a-z]/gi,'').toLowerCase();}
+  var CTA=['activate','send','sendtext','sendemail','save','savevisit','signin','autoclassify','autoclassifynow'];
+  var SEC=['call','text','email','copy','invite'];
+  var mo=null;
+  function pass(){
+    if(mo)mo.disconnect();
+    try{
+      var els=document.querySelectorAll('span,div,button,a,section,header,aside,nav,td,li');
+      for(var i=0;i<els.length;i++){
+        var e=els[i]; var tag=e.tagName; var t=(e.textContent||'').trim(); var s=e.getAttribute('style')||'';
+        if(s){
+          if(!e.hasAttribute('data-ngsurf')){var bm=s.match(/background(?:-color)?:\s*(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\))/);if(bm){var L=lumOf(bm[1]);if(L>=0&&L<0.22)e.setAttribute('data-ngsurf','1');}}
+          if(!e.hasAttribute('data-ngink')&&!e.getAttribute('data-ng')){var cm=s.match(/(?:^|;)\s*color:\s*(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\))/);if(cm){var Lc=lumOf(cm[1]);if(Lc>=0.55)e.setAttribute('data-ngink','1');}}
+        }
+        if(e.getAttribute('data-ng'))continue;
+        if(tag==='SPAN'||tag==='DIV'){
+          if(e.children.length>1)continue; if(!t||t.length>26)continue;
+          var pillish=/border-radius:\s*(20px|999px)/.test(s)&&/padding/.test(s)&&/background/.test(s);
+          var off=/ffd700|ff8800|7F77DD22|ff0080|rgba\(255,0,128|33cc6622/.test(s);
+          if(pillish||off){
+            if(/tier/i.test(t))pill(e,'info');else if(/referral/i.test(t))pill(e,'accent');else if(/hot/i.test(t))pill(e,'accent');
+            else if(/since|visit|ago|day/i.test(t))pill(e,'info');else if(/new/i.test(t))pill(e,'muted');else if(pillish)pill(e,'muted');
+            continue;
+          }
+          if(e.children.length===0&&t.length>2&&t.length<46&&!/^[0-9]/.test(t)&&/[A-Za-z]\s/.test(t)){
+            var fs=parseFloat(getComputedStyle(e).fontSize)||0;
+            if(fs>=28){e.style.backgroundImage='linear-gradient(110deg,#FF1493,#FF4FB6 35%,#22BFE7 70%,#00E5FF)';e.style.webkitBackgroundClip='text';e.style.backgroundClip='text';e.style.color='transparent';e.style.fontFamily='Audiowide,cursive';e.style.fontWeight='500';e.setAttribute('data-ng','n');}
+          }
+        } else if(tag==='BUTTON'||tag==='A'){
+          var c=clean(t); if(!c||c.length>16)continue;
+          if(CTA.indexOf(c)>=0){e.style.background='linear-gradient(135deg,#FF1493,#FF4FB6 50%,#22BFE7)';e.style.color='#fff';e.style.border='none';e.style.boxShadow='0 0 0 1px rgba(255,255,255,.1) inset,0 0 16px rgba(255,20,147,.4),0 4px 12px rgba(0,229,255,.18)';e.setAttribute('data-ng','c');}
+          else if(SEC.indexOf(c)>=0){e.style.backgroundImage='none';e.style.background='transparent';e.style.color='#3df0ff';e.style.border='1px solid rgba(0,229,255,.42)';e.style.boxShadow='none';e.setAttribute('data-ng','s');}
+        }
+      }
+    }catch(err){}
+    if(mo)mo.observe(document.documentElement,{childList:true,subtree:true});
+  }
+  var R=document.documentElement;
+  function apply(th){R.setAttribute('data-theme',th);try{localStorage.setItem('ngTheme',th)}catch(e){}var b=document.getElementById('ngToggle');if(b)b.textContent=(th==='dark'?'☀':'☾');}
+  function ensureToggle(){if(!document.getElementById('ngToggle')){var b=document.createElement('button');b.id='ngToggle';b.type='button';b.setAttribute('aria-label','Toggle light or dark mode');b.onclick=function(){apply(R.getAttribute('data-theme')==='light'?'dark':'light');};document.body.appendChild(b);}}
+  window.__ngR=function(){pass();ensureToggle();};
+  pass();ensureToggle();
+  var saved=null;try{saved=localStorage.getItem('ngTheme')}catch(e){} apply(saved||'dark');
+  var to; mo=new MutationObserver(function(){clearTimeout(to);to=setTimeout(function(){pass();ensureToggle();},170);});
+  mo.observe(document.documentElement,{childList:true,subtree:true});
+}
+if(document.readyState!=='loading')boot();else document.addEventListener('DOMContentLoaded',boot);
+})();</script>
 
 </body>
 </html>
