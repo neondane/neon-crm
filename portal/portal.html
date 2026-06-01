@@ -26,6 +26,7 @@
   .hero .biz { font-size:11px; letter-spacing:2px; color:var(--muted); text-transform:uppercase; }
   .hero h1 { font-family:'Audiowide',cursive; font-size:clamp(38px, 11vw, 56px); margin:14px 0 0; line-height:1; background:linear-gradient(135deg, var(--neon-cyan-2) 0%, #ffffff 50%, var(--neon-pink-2) 100%); -webkit-background-clip:text; background-clip:text; color:transparent; filter:drop-shadow(0 0 26px rgba(255,20,147,0.4)); text-transform:uppercase; letter-spacing:-1px; }
   .hero .sub { margin-top:6px; font-size:14px; color:var(--muted); }
+  .rheadshot { width:84px; height:84px; border-radius:50%; margin:14px auto 0; background-size:cover; background-position:center; box-shadow:0 0 0 2px rgba(255,20,147,0.55), 0 0 22px rgba(34,191,231,0.35); }
   .tier { display:inline-flex; align-items:center; gap:6px; margin-top:10px; padding:6px 12px; border-radius:999px; background:linear-gradient(135deg, rgba(255,20,147,0.15), rgba(34,191,231,0.15)); border:1px solid rgba(255,20,147,0.4); font-family:'Audiowide',cursive; font-size:11px; letter-spacing:2px; color:#fff; text-shadow:0 0 8px rgba(255,20,147,0.6); }
   .tier .dot { width:6px; height:6px; border-radius:50%; background:var(--neon-pink); box-shadow:0 0 8px var(--neon-pink); animation:pulse-dot 1.4s ease-in-out infinite; }
   @keyframes pulse-dot { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.5; transform:scale(0.9); } }
@@ -103,6 +104,7 @@
     <div class="mark" aria-hidden="true"></div>
     <div class="brand">Neon Giant</div>
     <div class="biz">Moving &amp; Junk Removal</div>
+    <div id="rheadshot" class="rheadshot" style="display:none" aria-hidden="true"></div>
     <h1 id="greet"><span class="skel" style="width:240px;height:46px"></span></h1>
     <div class="sub" id="sub">&nbsp;</div>
   </div>
@@ -222,9 +224,14 @@ function render(view) {
   var referrals = totals.total != null ? totals.total : leads.length;
   var pending   = totals.earnedPending != null ? totals.earnedPending : 0;
   var paid      = totals.earnedPaid != null  ? totals.earnedPaid  : 0;
-  var firstName = (r.firstName || (String(r.name||'').split(' ')[0]) || 'partner');
+  var displayName = (String(r.name||'').trim() || r.firstName || 'partner');
   var tier = tierFor(totals);
-  document.getElementById('greet').textContent = firstName.toUpperCase();
+  document.getElementById('greet').textContent = displayName.toUpperCase();
+  var hs = document.getElementById('rheadshot');
+  if (hs) {
+    if (r.profilePic) { hs.style.backgroundImage = 'url("' + r.profilePic + '")'; hs.style.display = 'block'; }
+    else { hs.style.display = 'none'; }
+  }
   document.getElementById('sub').innerHTML =
     'Your referral dashboard ' +
     '<span class="tier" style="margin-left:8px;border-color:' + tier.color + ';color:' + tier.color + ';text-shadow:0 0 8px ' + tier.color + '">' +
@@ -242,7 +249,7 @@ function render(view) {
   }
   var slug = getSlug();
   var referUrl = '/refer?r=' + encodeURIComponent(slug);
-  var portalLink = location.origin + '/?r=' + encodeURIComponent(slug);
+  var portalLink = location.origin + '/move?r=' + encodeURIComponent(slug);
   var h = '';
   if (justParam) {
     h += '<div class="just-banner">Referral submitted - see it below</div>';
@@ -273,7 +280,8 @@ function render(view) {
     });
   }
   h += '<div class="linkcard">';
-  h += '<h3>Your referral link</h3>';
+  h += '<h3>Your client referral link</h3>';
+  h += '<div style="font-size:12px;color:#9aa0c8;margin:-6px 0 9px;line-height:1.5">Share with your buyers and sellers. They land on a page that shows <b>you</b> referred them, and you get the credit automatically.</div>';
   h += '<div class="url" id="urlBox">' + escapeHtml(portalLink) + '</div>';
   h += '<button onclick="copyLink()">Copy link</button>';
   h += '<button onclick="shareLink()">Share</button>';

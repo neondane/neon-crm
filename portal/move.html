@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>You've been referred to Neon Giant Moving</title>
+<meta name="description" content="Your agent referred you to Neon Giant Moving & Junk Removal. Get $50 off your move.">
+<meta name="theme-color" content="#050008">
+<link rel="icon" href="/logo.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --p:#FF1493; --p2:#FF5DA7; --b:#00E5FF; --b2:#22BFE7;
+  --bg:#050008; --surf:#0f0a1a; --surf2:#15101f; --ink:#f4f4ff; --mut:#9aa0c8;
+  --line:rgba(140,120,255,.16); --gn:#34d27b;
+  --grad:linear-gradient(135deg,#FF1493 0%,#FF5DA7 100%);
+  --gradpc:linear-gradient(110deg,#FF1493,#FF5DA7 40%,#22BFE7 80%,#00E5FF);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Space Grotesk',system-ui,sans-serif;color:var(--ink);min-height:100vh;padding:0 16px 56px;
+  background:radial-gradient(900px 520px at 82% -10%,rgba(255,20,147,.16),transparent 60%),radial-gradient(760px 480px at -6% 108%,rgba(0,229,255,.13),transparent 55%),var(--bg);
+  background-attachment:fixed;-webkit-font-smoothing:antialiased}
+.audw{font-family:'Audiowide',cursive;letter-spacing:.02em}
+.grad{background:var(--gradpc);-webkit-background-clip:text;background-clip:text;color:transparent}
+.wrap{max-width:540px;margin:0 auto}
+.cintro{text-align:center;padding:32px 0 4px}
+.cobrand{display:flex;align-items:center;justify-content:center;gap:15px;margin:4px 0 18px}
+.cobrand .x{color:var(--mut);font-size:19px;font-weight:300}
+.cavatar{width:76px;height:76px;border-radius:50%;display:grid;place-items:center;position:relative;flex:none;
+  background:var(--surf2);font-family:'Audiowide';font-size:24px;color:transparent;background-image:var(--gradpc);-webkit-background-clip:text;background-clip:text}
+.cavatar::after{content:"";position:absolute;inset:-2px;border-radius:50%;padding:2px;background:var(--gradpc);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.cavatar .ini{position:relative;z-index:1}
+.cavatar img{position:absolute;inset:2px;width:calc(100% - 4px);height:calc(100% - 4px);border-radius:50%;object-fit:cover;z-index:2}
+.blogo{width:64px;height:64px;object-fit:contain;flex:none}
+.chead{font-size:29px;line-height:1.14;margin-top:6px}
+.csub{color:var(--mut);font-size:15px;margin:13px auto 0;max-width:470px;line-height:1.55}
+.perk{display:inline-flex;align-items:center;gap:8px;margin-top:17px;padding:10px 18px;border-radius:999px;font-weight:600;font-size:14.5px;
+  background:rgba(52,210,123,.1);border:1px solid rgba(52,210,123,.4);color:#7df0b0}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:20px;padding:22px;margin-top:20px;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+form{display:grid;gap:14px}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.fld label{display:block;font-size:11px;font-weight:600;color:var(--mut);margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase}
+.fld input,.fld select,.fld textarea{width:100%;font-family:inherit;font-size:15px;color:var(--ink);background:rgba(255,255,255,.04);
+  border:1px solid var(--line);border-radius:12px;padding:13px 14px;transition:.18s;-webkit-appearance:none}
+.fld input::placeholder,.fld textarea::placeholder{color:#5a5f7e}
+.fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;border-color:var(--b);box-shadow:0 0 0 3px rgba(0,229,255,.16);background:rgba(255,255,255,.06)}
+.fld select option{background:#15101f;color:#f4f4ff}
+.fld textarea{resize:vertical;min-height:62px}
+.submit{font-family:inherit;font-weight:700;font-size:16.5px;color:#fff;cursor:pointer;border:none;border-radius:14px;padding:16px;
+  background:var(--grad);box-shadow:0 10px 28px rgba(255,20,147,.4);transition:.18s}
+.submit:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 14px 34px rgba(255,20,147,.55)}
+.submit:disabled{opacity:.55;cursor:default}
+.fineprint{text-align:center;font-size:12px;color:var(--mut);margin-top:2px;line-height:1.5}
+.err{color:#ff8a8a;font-size:13px;padding:11px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);border-radius:8px;margin-top:4px}
+.done{text-align:center;padding:34px 12px}
+.done .check{width:80px;height:80px;border-radius:50%;margin:0 auto 18px;display:grid;place-items:center;font-size:40px;background:rgba(52,210,123,.12);border:2px solid rgba(52,210,123,.45)}
+.done h2{font-size:26px;margin-bottom:12px}
+.done p{color:var(--mut);font-size:15px;line-height:1.65;max-width:410px;margin:0 auto}
+footer{text-align:center;color:var(--mut);font-size:12px;margin-top:28px;line-height:1.7;opacity:.85}
+footer a{color:#9fe9ff;text-decoration:none}
+@media(max-width:500px){.f2{grid-template-columns:1fr}.chead{font-size:23px}.cavatar{width:64px;height:64px}.blogo{width:54px;height:54px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="formWrap">
+    <div class="cintro">
+      <div class="cobrand">
+        <div class="cavatar"><span class="ini" id="rini">··</span><img id="rphoto" alt="" style="display:none"></div>
+        <span class="x">×</span>
+        <img class="blogo" src="/bigfoot-mark.png" alt="Neon Giant" onerror="this.onerror=null;this.src='/logo.jpg'">
+      </div>
+      <div class="chead audw"><span class="grad" id="rname">Your agent</span> referred you to<br>Neon Giant Moving</div>
+      <div class="csub" id="rsub">A trusted partner of ours thought we'd take great care of your move — and we'd love to. Tell us a little about it and we'll reach out with a free quote.</div>
+      <div class="perk">🎉 You get $50 off your move</div>
+    </div>
+    <div class="card">
+      <form id="refForm" novalidate>
+        <div class="fld"><label>Your name</label><input id="fName" required autocomplete="name" placeholder="Jordan Smith"></div>
+        <div class="f2">
+          <div class="fld"><label>Phone</label><input id="fPhone" required type="tel" inputmode="tel" autocomplete="tel" placeholder="(360) 555-0182"></div>
+          <div class="fld"><label>Email</label><input id="fEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com"></div>
+        </div>
+        <div class="f2">
+          <div class="fld"><label>Moving from</label><input id="fFrom" placeholder="Bellingham, WA"></div>
+          <div class="fld"><label>Moving to</label><input id="fTo" placeholder="Mount Vernon, WA"></div>
+        </div>
+        <div class="f2">
+          <div class="fld"><label>Approx. move date</label><input id="fDate" type="date"></div>
+          <div class="fld"><label>Move size</label>
+            <select id="fSize"><option value="">— select —</option><option>Studio</option><option>1 BR</option><option>2 BR</option><option>3 BR</option><option>4 BR+</option><option>Junk removal</option><option>Packing only</option></select>
+          </div>
+        </div>
+        <div class="fld"><label>Anything else? (optional)</label><textarea id="fNotes" placeholder="Big items, stairs, timing, questions…"></textarea></div>
+        <button class="submit" type="submit" id="submitBtn">Get My Free Quote →</button>
+        <div id="err" class="err" style="display:none" role="alert"></div>
+        <div class="fineprint">No spam. Neon Giant will reach out within one business day.</div>
+      </form>
+    </div>
+  </div>
+  <div id="doneWrap" style="display:none">
+    <div class="card"><div class="done">
+      <div class="check">✅</div>
+      <h2 class="audw"><span class="grad">You're all set!</span></h2>
+      <p id="doneMsg">A real human from Neon Giant will reach out within one business day with your free quote — and your <b>$50 off</b> is locked in.</p>
+    </div></div>
+  </div>
+  <footer>Neon Giant Moving &amp; Junk Removal · Skagit Valley, WA · <a href="tel:+13605884700">(360) 588-4700</a></footer>
+</div>
+<script>
+'use strict';
+async function api(action, payload){
+  const resp = await fetch('/api/' + encodeURIComponent(action), {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload||{})});
+  if(!resp.ok){ let b=null; try{b=await resp.json();}catch(e){} throw new Error((b&&b.error)||('HTTP '+resp.status)); }
+  return resp.json();
+}
+function getSlug(){ return new URLSearchParams(location.search).get('r') || ''; }
+function titleCase(s){ return s.replace(/-\d+$/,'').split('-').filter(Boolean).map(function(w){return w.charAt(0).toUpperCase()+w.slice(1);}).join(' '); }
+function initials(n){ var p=String(n||'').trim().split(/\s+/); return (((p[0]||'')[0]||'')+((p[1]||'')[0]||'')).toUpperCase()||'··'; }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];}); }
+
+var realtor = null;
+function paintRealtor(r){
+  realtor = r;
+  var name = r.name || ((r.firstName||'') + (r.lastName? ' '+r.lastName:'')).trim() || titleCase(getSlug());
+  document.getElementById('rname').textContent = name;
+  document.getElementById('rini').textContent = initials(name);
+  document.getElementById('rsub').textContent = name + ' trusts Neon Giant with their clients — and we’d love to take great care of your move too. Tell us a little about it and we’ll reach out with a free quote.';
+  var photo = r.profilePic || r.photo || r.headshot || r.photoUrl || r.image;
+  if(photo){ var im=document.getElementById('rphoto'); im.src=photo; im.style.display='block'; im.onerror=function(){this.style.display='none';}; }
+  document.title = name + ' referred you to Neon Giant Moving';
+}
+
+async function loadRealtor(){
+  var slug = getSlug();
+  if(slug){ paintRealtor({ name: titleCase(slug) }); }   // instant fallback
+  if(!slug) return;
+  try{
+    // Public-only endpoint: returns the realtor's name + headshot, never their leads.
+    var r = await api('getRealtorPublic', { slug: slug });
+    if(r && r.ok && r.realtor){ paintRealtor(r.realtor); }
+  }catch(e){
+    try{ var r2 = await api('getRealtorBySlug', { slug: slug }); if(r2 && r2.ok && r2.realtor) paintRealtor(r2.realtor); }catch(e2){}
+  }
+}
+
+function showErr(m){ var el=document.getElementById('err'); el.textContent=m; el.style.display='block'; }
+document.getElementById('refForm').addEventListener('submit', async function(e){
+  e.preventDefault();
+  document.getElementById('err').style.display='none';
+  if(!realtor || !realtor.id){ showErr('This link looks incomplete — please reopen the link your agent sent you.'); return; }
+  var customer = {
+    name: document.getElementById('fName').value.trim(),
+    phone: document.getElementById('fPhone').value.trim(),
+    email: document.getElementById('fEmail').value.trim(),
+    fromAddress: document.getElementById('fFrom').value.trim(),
+    toAddress: document.getElementById('fTo').value.trim(),
+    moveDate: document.getElementById('fDate').value,
+    moveSize: document.getElementById('fSize').value,
+    notes: document.getElementById('fNotes').value.trim()
+  };
+  if(!customer.name){ showErr('Please enter your name.'); return; }
+  if(!customer.phone){ showErr('Please enter a phone number.'); return; }
+  if(customer.email && !/^\S+@\S+\.\S+$/.test(customer.email)){ showErr('That email looks off — mind checking it?'); return; }
+  var btn=document.getElementById('submitBtn'); btn.disabled=true; btn.textContent='Sending…';
+  try{
+    var r = await api('submitReferralLead', { realtorId: realtor.id, customer: customer });
+    if(r && r.ok){
+      var nm = realtor.name || realtor.firstName || 'your agent';
+      document.getElementById('doneMsg').innerHTML = 'Thanks for trusting ' + escapeHtml(nm) + '’s recommendation. A real human from Neon Giant will reach out within one business day with your free quote — and your <b>$50 off</b> is locked in.';
+      document.getElementById('formWrap').style.display='none';
+      document.getElementById('doneWrap').style.display='block';
+      window.scrollTo({top:0,behavior:'smooth'});
+    } else { showErr((r&&r.error)||'Something went wrong — please try again in a moment.'); btn.disabled=false; btn.textContent='Get My Free Quote →'; }
+  }catch(err){ showErr('Submit failed: ' + err.message); btn.disabled=false; btn.textContent='Get My Free Quote →'; }
+});
+loadRealtor();
+</script>
+</body>
+</html>
