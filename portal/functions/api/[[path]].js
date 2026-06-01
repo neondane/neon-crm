@@ -35,7 +35,10 @@ const APPS_SCRIPT_URL =
 
 const DEFAULT_SUPABASE_URL = 'https://aoyfieswynhgqyrveqnp.supabase.co';
 
-// Actions this function answers directly from Supabase (when SUPABASE_KEY is set).
+// Actions this function answers directly from Supabase (when SUPABASE_KEY is set):
+//   getRealtorPortalView              -> realtor dashboard reads full name + headshot + leads from Supabase
+//   getRealtorPublic/getRealtorBySlug -> realtor name + headshot for the branded client page
+//   submitReferralLead                -> the client's referral lands in Supabase portal_leads
 const SUPABASE_ACTIONS = new Set([
   'getRealtorPortalView',
   'getRealtorPublic',
