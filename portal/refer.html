@@ -296,7 +296,30 @@ async function loadRealtor() {
       backLink.href = '/portal?r=' + encodeURIComponent(slug);
       backLink.style.display = 'inline-block';
     } else {
-      greetEl.textContent = 'Send us a referral';
+      // FALLBACK: slug not in PortalRealtors lookup → resolve by trailing ID via getAll
+      const _idMatch = String(slug).match(/-(\d+)$/);
+      let _matched = null;
+      if (_idMatch) {
+        try {
+          const _all = await api('getAll');
+          const _id = +_idMatch[1];
+          _matched = ((_all && _all.contacts) || []).find(function(x){ return +x.id === _id; });
+        } catch (_e) {}
+      }
+      if (_matched) {
+        realtor = {
+          id: _matched.id,
+          name: _matched.name,
+          firstName: String(_matched.name || '').split(' ')[0],
+          business: _matched.business || ''
+        };
+        greetEl.textContent = 'Hey ' + (realtor.firstName || realtor.name || 'there') + ' — send us a referral';
+        const backLink = document.getElementById('backLink');
+        backLink.href = '/portal?r=' + encodeURIComponent(slug);
+        backLink.style.display = 'inline-block';
+      } else {
+        greetEl.textContent = 'Send us a referral';
+      }
     }
   } catch (err) {
     console.error('loadRealtor failed', err);
