@@ -118,7 +118,7 @@ function firstNameOf(name) {
 // Only the realtor's public-facing identity. Never phone/email/notes/leads.
 function realtorPublic(c) {
   const name = String(c.name || '').trim();
-  const photo = c.profilePic || '';
+  const photo = c.profilePic || c.cardImage || '';
   return {
     id: c.id,
     name: name,
@@ -141,7 +141,7 @@ async function handleSupabaseAction(action, payload, baseUrl, key, origin) {
 
     const rows = await sbGet(baseUrl, key,
       'contacts?id=eq.' + id +
-      '&select=id,name,role,business,email,phone,type,profilePic,portalActivatedAt');
+      '&select=id,name,role,business,email,phone,type,profilePic,cardImage,portalActivatedAt');
     const c = rows[0];
     if (!isRealtor(c)) {
       return jsonResponse({ ok: false, error: "This referral link isn't recognized." }, 200, origin);
@@ -181,7 +181,7 @@ async function handleSupabaseAction(action, payload, baseUrl, key, origin) {
   if (action === 'getRealtorPublic' || action === 'getRealtorBySlug') {
     const id = slugToId(payload.slug);
     if (!id) return jsonResponse({ ok: false, error: 'This link is missing the realtor ID.' }, 200, origin);
-    const rows = await sbGet(baseUrl, key, 'contacts?id=eq.' + id + '&select=id,name,business,type,profilePic');
+    const rows = await sbGet(baseUrl, key, 'contacts?id=eq.' + id + '&select=id,name,business,type,profilePic,cardImage');
     const c = rows[0];
     if (!isRealtor(c)) return jsonResponse({ ok: false, error: 'Realtor not found.' }, 200, origin);
     return jsonResponse({ ok: true, realtor: realtorPublic(c) }, 200, origin);
