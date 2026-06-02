@@ -155,11 +155,41 @@ async function handleSupabaseAction(action, payload, baseUrl, key, origin) {
         '&order=submittedAt.desc');
     } catch (e) { leads = []; }
 
+    // Pending/Paid $ come ONLY from real portal_leads rewards — never from the
+    // backfilled referral history merged in below (those stay $0, per spec).
     let earnedPaid = 0, earnedPending = 0;
     leads.forEach(function (l) {
       const st = String(l.status || '').toLowerCase();
       if (l.rewardSent) earnedPaid += 50;
       else if (st === 'completed' || st === 'booked') earnedPending += 50;
+    });
+
+    // Also surface the realtor's referral history (CRM `referrals` table) as
+    // read-only pipeline entries: customer name + Completed/Referred status only.
+    // No dollars, and this table does NOT feed the auto-payout cron.
+    let refLeads = [];
+    try {
+      const refs = await sbGet(baseUrl, key,
+        'referrals?contactId=eq.' + id +
+        '&select=id,jobName,contactName,status,date&order=date.desc');
+      refLeads = refs.map(function (r) {
+        const st = String(r.status || '').toLowerCase();
+        const display = (st === 'completed') ? 'completed'
+                      : (st === 'booked') ? 'booked' : 'new';
+        return {
+          id: 'ref-' + r.id,
+          customerName: r.jobName || r.contactName || 'Referral',
+          moveSize: '',
+          moveDate: r.date || null,
+          status: display,
+          submittedAt: r.date || null,
+          historical: true,
+        };
+      });
+    } catch (e) { refLeads = []; }
+
+    const allLeads = leads.concat(refLeads).sort(function (a, b) {
+      return new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0);
     });
 
     const realtor = Object.assign(realtorPublic(c), {
@@ -172,8 +202,8 @@ async function handleSupabaseAction(action, payload, baseUrl, key, origin) {
     return jsonResponse({
       ok: true,
       realtor: realtor,
-      totals: { total: leads.length, earnedPending: earnedPending, earnedPaid: earnedPaid },
-      leads: leads,
+      totals: { total: allLeads.length, earnedPending: earnedPending, earnedPaid: earnedPaid },
+      leads: allLeads,
     }, 200, origin);
   }
 
