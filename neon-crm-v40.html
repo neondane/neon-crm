@@ -1318,8 +1318,8 @@ function ixUnarchiveSel(){
 
 // ===== PAYOUTS DUE =====
 var poMonth='all',poShowPaid=false,_poLoadTried=false;
-function _poPaidMap(){try{return JSON.parse(localStorage.getItem('ngm_paid_refs')||'{}');}catch(e){return {};}}
-function _poSavePaid(m){try{localStorage.setItem('ngm_paid_refs',JSON.stringify(m));}catch(e){}}
+function _poPaidMap(){if(window.__ngPaidShared)return window.__ngPaidShared;if(!window.__ngPaidLoading){window.__ngPaidLoading=true;_ngLoadPaid();}try{return JSON.parse(localStorage.getItem('ngm_paid_refs')||'{}');}catch(e){return {};}}function _ngLoadPaid(){try{_sbGet('paid_referrals?select=key,paid_at').then(function(rows){var m={};(rows||[]).forEach(function(x){m[x.key]=String(x.paid_at||'').slice(0,10);});try{var ls=JSON.parse(localStorage.getItem('ngm_paid_refs')||'{}');for(var k in ls){if(!(k in m))m[k]=ls[k];}}catch(e){}window.__ngPaidShared=m;window.__ngPaidPrev=Object.assign({},m);try{localStorage.setItem('ngm_paid_refs',JSON.stringify(m));}catch(e){}try{if(typeof ren==='function')ren();}catch(e){}}).catch(function(){window.__ngPaidLoading=false;});}catch(e){window.__ngPaidLoading=false;}}
+function _poSavePaid(m){try{localStorage.setItem('ngm_paid_refs',JSON.stringify(m));}catch(e){}window.__ngPaidShared=m;try{var prev=window.__ngPaidPrev||{};Object.keys(m).forEach(function(k){if(!(k in prev)){try{_sbInsert('paid_referrals',{key:k,paid_at:(m[k]||new Date().toISOString().slice(0,10))}).catch(function(){});}catch(e){}}});Object.keys(prev).forEach(function(k){if(!(k in m)){try{fetch(SB_URL+'/rest/v1/paid_referrals?key=eq.'+encodeURIComponent(k),{method:'DELETE',headers:_sbH}).catch(function(){});}catch(e){}}});window.__ngPaidPrev=Object.assign({},m);}catch(e){}}
 function _poItems(){
   // Only post-activation portal referrals count. Portal leads are inherently post-activation.
   // Manual referrals count only if the partner is portal-activated AND the referral postdates activation.
@@ -9069,7 +9069,7 @@ async function dpDownloadPDF(){
     if (inflight[key]) return;                       // already sending / sent this one
     var it = items().find(function(x){ return x.key===key; });
     if(!it){ toast('Payout item not found','er'); return; }
-    if(it.paid){ toast('Already paid','ok'); return; }
+    if(it.paid){ toast('Already paid','ok'); return; } try{var _pc=await _sbGet('paid_referrals?select=key,paid_at&key=eq.'+encodeURIComponent(it.key));if(_pc&&_pc.length){toast('Already paid (synced) - skipping','ok');var _pm=_poPaidMap();_pm[it.key]=String(_pc[0].paid_at||'').slice(0,10);_poSavePaid(_pm);try{ren();}catch(e){}return;}}catch(e){}
     var email = resolveEmail(it);
     if(!email){
       alert('No email on file for '+(it.partner||'this partner')+'.\n\nAdd an email to their contact, then try again.');
@@ -11528,6 +11528,7 @@ async function dpDownloadPDF(){
   };
 })();
 </script>
+
 
 
 
