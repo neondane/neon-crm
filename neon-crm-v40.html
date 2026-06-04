@@ -1554,7 +1554,7 @@ function copyPortalLink(url){
 async function plSetStatus(leadId, newStatus){
   if(typeof tt==='function')tt('Updating...','ok');
   try{
-    const r=await aP({action:'updatePortalLeadStatus', id:leadId, status:newStatus});
+    await _sbUpdate('portal_leads', leadId, {status:newStatus}); const r={ok:true};
     if(r&&r.ok){
       const msg='\u2192 '+newStatus.toUpperCase()+(r.emailSent?' \u00b7 \u{1F4E7} realtor notified':r.emailsPaused?' \u00b7 emails paused':'');
       if(typeof tt==='function')tt('\u2705 '+msg,'ok');
@@ -1679,7 +1679,7 @@ async function plDeleteLead(leadId){
   if(!confirm('Delete this referral lead? This cannot be undone.'))return;
   if(typeof tt==='function')tt('Deleting...','ok');
   try{
-    const r=await aP({action:'deletePortalLead', id:leadId});
+    await _sbDelete('portal_leads', leadId); const r={ok:true};
     if(r&&r.ok){
       plLeads=plLeads.filter(function(x){return +x.id!==+leadId;});
       if(typeof tt==='function')tt('✓ Lead deleted','ok');
@@ -8680,7 +8680,7 @@ async function dpDownloadPDF(){
         mc.innerHTML = '<div class="ld"><div class="sp"></div></div>';
       }
       try {
-        var r = await aP({ action: 'listPortalLeads' });
+        var r = { leads: (await _sbGet('portal_leads?select=*&order=id.desc')) || [] };
         plLeads = (r && r.leads) || [];
         plLoaded = true;
         if (curTab() === 'pl') {
@@ -11528,6 +11528,7 @@ async function dpDownloadPDF(){
   };
 })();
 </script>
+
 
 
 
