@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Quote Form Demo — Neon Giant Moving</title>
+<!-- Live demo of the new website quote form. Served from
+     refer.neongiantmoving.com, so it posts to the SAME-ORIGIN backend
+     /api/websiteLead (no CORS), which forwards to SmartMoving and then
+     this page redirects to the thank-you page. -->
+<style>
+  :root{--green:#16E0A3;--ink:#13172A;--line:#d7dce3;--muted:#5b6172;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:#0e1117;color:#e7ecf3;font-family:system-ui,Segoe UI,Arial,sans-serif;}
+  .hero{padding:30px 18px 6px;text-align:center;}
+  .hero .tag{color:var(--green);font-size:12px;font-weight:700;letter-spacing:2px;}
+  .hero h1{margin:6px 0 2px;font-size:24px;}
+  .hero p{margin:0;color:#9fb0c3;font-size:13px;}
+  .wrap{max-width:680px;margin:22px auto 60px;padding:0 18px;}
+  form{background:#fff;border-radius:14px;padding:26px 24px;color:var(--ink);}
+  .row{display:flex;gap:16px;margin-bottom:16px;}
+  .field{display:flex;flex-direction:column;flex:1;}
+  label{font-size:14px;font-weight:600;margin-bottom:6px;}
+  input,select,textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:9px;
+    font-size:15px;font-family:inherit;color:var(--ink);background:#fff;}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(22,224,163,.18);}
+  .consent{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--muted);margin:2px 0 18px;}
+  .consent input{width:18px;height:18px;margin-top:1px;accent-color:var(--green);}
+  button{width:100%;padding:15px;border:none;border-radius:10px;background:var(--green);color:var(--ink);
+    font-size:17px;font-weight:800;cursor:pointer;}
+  button:disabled{opacity:.6;}
+  .err{color:#b3261e;font-weight:600;font-size:14px;margin:14px 0 0;}
+  .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;}
+  @media(max-width:560px){.row{flex-direction:column;gap:16px;}}
+</style>
+</head>
+<body>
+  <div class="hero">
+    <div class="tag">NEON GIANT MOVING — DEMO</div>
+    <h1>Get a Free Quote</h1>
+    <p>Live demo of the new conversion-tracking quote form.</p>
+  </div>
+
+  <div class="wrap">
+    <form id="ng-quote-form" novalidate>
+      <div class="row">
+        <div class="field"><label>First name *</label><input name="firstName" autocomplete="given-name" required></div>
+        <div class="field"><label>Last name *</label><input name="lastName" autocomplete="family-name" required></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Phone *</label><input name="phone" type="tel" autocomplete="tel" required></div>
+        <div class="field"><label>Email *</label><input name="email" type="email" autocomplete="email" required></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Service needed *</label>
+          <select name="serviceType" required>
+            <option value="" disabled selected>Choose one…</option>
+            <option value="Moving">Local Move</option>
+            <option value="Moving">Long-Distance / Out-of-State Move</option>
+            <option value="MovingAndPacking">Moving &amp; Packing</option>
+            <option value="Packing">Packing Only</option>
+            <option value="Commercial">Office / Commercial Move</option>
+            <option value="JunkRemoval">Junk Removal</option>
+            <option value="Moving">Specialty Item Move</option>
+            <option value="LaborOnly">Labor Only</option>
+          </select>
+        </div>
+        <div class="field"><label>Move size</label>
+          <select name="moveSize">
+            <option value="" disabled selected>Choose one…</option>
+            <option>Studio</option><option>1 Bedroom</option><option>2 Bedroom</option>
+            <option>3 Bedroom House</option><option>4+ Bedroom House</option>
+            <option>Office / Commercial</option><option>Junk Removal</option><option>Other / Not sure</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Move date</label><input name="moveDate" type="date"></div>
+        <div class="field"><label>From (ZIP)</label><input name="originZip" inputmode="numeric" maxlength="10"></div>
+        <div class="field"><label>To (ZIP)</label><input name="destinationZip" inputmode="numeric" maxlength="10"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Anything else we should know?</label><textarea name="notes" rows="3"></textarea></div>
+      </div>
+
+      <div class="hp" aria-hidden="true"><label>Company<input type="text" name="company" tabindex="-1" autocomplete="off"></label></div>
+
+      <label class="consent"><input id="ng-consent" type="checkbox" required>
+        <span>I agree to be contacted by phone, text, or email about my request.</span></label>
+
+      <button id="ng-submit" type="submit">Get My Free Quote</button>
+      <p id="ng-error" class="err" role="alert" hidden>Sorry — something went wrong. Please call 360.588.4700 or try again.</p>
+    </form>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+  var BACKEND   = "/api/websiteLead"; /* same-origin on refer.neongiantmoving.com */
+  var THANK_YOU = "https://neongiantmoving.com/thank-you?submitted=quote";
+  var REFERRAL  = "Website (demo)";
+
+  var form = document.getElementById("ng-quote-form");
+  var button = document.getElementById("ng-submit");
+  var errorP = document.getElementById("ng-error");
+  function qp(n){ try { return new URLSearchParams(location.search).get(n) || ""; } catch(e){ return ""; } }
+  function val(n){ var el = form.elements[n]; return el ? (el.value || "").trim() : ""; }
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    errorP.hidden = true;
+    if (!form.checkValidity()) { form.reportValidity(); return; }
+    if (val("company")) return;
+
+    var payload = {
+      firstName: val("firstName"), lastName: val("lastName"),
+      phone: val("phone"), email: val("email"),
+      userOptIn: document.getElementById("ng-consent").checked ? "true" : "false",
+      serviceType: val("serviceType"), moveSize: val("moveSize"),
+      moveDate: val("moveDate"), originZip: val("originZip"), destinationZip: val("destinationZip"),
+      notes: val("notes"), referralSource: REFERRAL,
+      utmSource: qp("utm_source"), utmMedium: qp("utm_medium"), utmCampaign: qp("utm_campaign"),
+      utmContent: qp("utm_content"), utmKeyword: qp("utm_term"), utmAdGroup: qp("utm_adgroup"), gclid: qp("gclid")
+    };
+
+    button.disabled = true; var original = button.textContent; button.textContent = "Sending…";
+    function fail(){ button.disabled = false; button.textContent = original; errorP.hidden = false; }
+
+    fetch(BACKEND, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) })
+    .then(function(res){ return res.json().catch(function(){ return {}; }); })
+    .then(function(data){
+      if (data && data.ok) {
+        try { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event:"lead_submit", form:"quote_demo" }); } catch(e){}
+        window.location.href = THANK_YOU;
+      } else { fail(); }
+    })
+    .catch(function(){ fail(); });
+  });
+})();
+</script>
+</body>
+</html>
