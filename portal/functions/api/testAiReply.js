@@ -26,7 +26,8 @@ SILENT when: just "thanks", "ok", closed convo.
 OUTPUT STRICT JSON ONLY:
 { "reply": "..." } OR { "escalate": "reason" } OR { "silent": "reason" } OR { "referral": {"name","phone","email","city","moveSize","moveDate","notes"}, "reply": "Got it..." }`;
 
-const ALLOWED_ORIGINS = ['https://refer.neongiantmoving.com', 'https://crm.neongiantmoving.com', 'null'];
+const ALLOWED_ORIGINS = ['https://refer.neongiantmoving.com', 'https://crm.neongiantmoving.com',
+const ALLOWED_ORIGINS = ['https://refer.neongiantmoving.com', 'https://crm3.neongiantmoving.com', 'null'];
 
 function corsHeaders(origin) {
   let allow = ALLOWED_ORIGINS[0];
