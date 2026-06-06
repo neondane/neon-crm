@@ -432,6 +432,7 @@ function renderNav(){
 }
 function go(v){
   view=v; renderNav();
+  try{localStorage.setItem("crmNav",v);}catch(e){}
   var q=document.getElementById("q"); q.value="";
   q.placeholder = v==="contacts"?"Search contacts…":(v==="portal"?"Search leads & partners…":(v==="inbox"?"Search messages…":"Search…"));
   try{
@@ -525,19 +526,52 @@ function contactsTab(rows){ if(cTab==="tier")return tierView(rows); if(cTab==="r
 function renderContacts(filter){
   var f=(filter||"").toLowerCase().trim();
   var rows=ALL.filter(function(c){ if(!f) return true; return ((c.name||"")+" "+(c.business||"")+" "+(c.phone||"")+" "+(c.email||"")).toLowerCase().indexOf(f)>=0; });
-  var html='<div class="page"><div class="ph"><h2>'+gi("contacts")+' Contacts</h2><span class="muted" style="margin-left:auto;font-weight:600">'+rows.length+' total</span></div>'
+  var html='<div class="page"><div class="ph"><h2>'+gi("contacts")+' Contacts</h2><span class="muted" style="margin-left:auto;font-weight:600">'+rows.length+' total</span><button class="btn grad" id="addContactBtn" style="margin-left:14px">+ New Contact</button></div>'
     +'<div class="tabs"><div class="tab'+(cTab==="all"?" active":"")+'" data-ct="all">All Contacts</div><div class="tab'+(cTab==="tier"?" active":"")+'" data-ct="tier">Tier View</div><div class="tab'+(cTab==="referral"?" active":"")+'" data-ct="referral">Referral Board</div></div>'
     +'<div id="ctcontent">'+contactsTab(rows)+'</div></div>';
   document.getElementById("view").innerHTML=html;
   [].forEach.call(document.querySelectorAll("[data-ct]"),function(el){el.onclick=function(){cTab=el.getAttribute("data-ct");renderContacts(filter);};});
   [].forEach.call(document.querySelectorAll(".crow2[data-id]"),function(el){el.onclick=function(){openContact(+el.getAttribute("data-id"));};});
+  var ab=document.getElementById("addContactBtn"); if(ab)ab.onclick=addContact;
   paintAvatars();
 }
 function listContacts(filter){ renderContacts(filter); }
+/* ---- Add a new contact ---- */
+function acField(id,label,val){return '<div class="efield"><label>'+esc(label)+'</label><input id="'+id+'" value="'+esc(val||"")+'" autocomplete="off"></div>';}
+function addContact(){
+  if(document.getElementById("acModal"))return;
+  var ov=document.createElement("div"); ov.className="avmodal"; ov.id="acModal";
+  ov.innerHTML='<div class="avbox" style="width:440px;max-height:88vh;overflow:auto;text-align:left">'
+    +'<h3>'+gi("contacts")+' New contact</h3><div class="sub">Adds a contact to your live database.</div>'
+    +acField("acName","Name *","")+acField("acBiz","Business / brokerage","")
+    +'<div class="efield"><label>Type</label><select id="acType" class="esel">'+DP_TY.map(function(t){return '<option>'+esc(t)+'</option>';}).join("")+'</select></div>'
+    +acField("acRole","Role","")+acField("acPhone","Phone","")+acField("acEmail","Email","")
+    +'<div class="efield"><label>Territory</label><select id="acTerr" class="esel"><option value=""></option>'+DP_TR.map(function(t){return '<option>'+esc(t)+'</option>';}).join("")+'</select></div>'
+    +'<div class="efield"><label>Tier</label><select id="acTier" class="esel"><option value="">No tier</option>'+[1,2,3,4,5].map(function(n){return '<option>Tier '+n+'</option>';}).join("")+'</select></div>'
+    +'<div class="avact"><button class="btn grad" id="acSave">Add contact</button><button class="btn" id="acCancel">Cancel</button></div></div>';
+  document.body.appendChild(ov);
+  document.getElementById("acCancel").onclick=function(){ov.remove();};
+  ov.addEventListener("mousedown",function(e){if(e.target===ov)ov.remove();});
+  document.getElementById("acSave").onclick=acSave;
+  setTimeout(function(){var n=document.getElementById("acName");if(n)n.focus();},50);
+}
+async function acSave(){
+  var v=function(id){var e=document.getElementById(id);return e?(e.value||"").trim():"";};
+  var name=v("acName"); if(!name){ alert("Name is required."); return; }
+  var ids=ALL.map(function(c){return +c.id;}).filter(function(n){return !isNaN(n);});
+  var nid=(ids.length?Math.max.apply(null,ids):0)+1;
+  var rec={id:nid,name:name,business:v("acBiz"),type:v("acType"),role:v("acRole"),phone:v("acPhone"),email:v("acEmail"),territory:v("acTerr"),tier:v("acTier"),dateAdded:new Date().toISOString()};
+  ALL.push(rec); ALL.sort(function(a,b){return String(a.name||"").localeCompare(String(b.name||""));});
+  var m=document.getElementById("acModal"); if(m)m.remove();
+  openContact(nid);
+  try{ await sbWrite("POST","contacts",rec); banner(name+" added to your contacts."); }
+  catch(e){ banner("Added on screen — couldn't reach the database (saves once you're online/deployed)."); }
+}
 var current=null, editing=false, saveState="", saveCls="";
 var EDITABLE=[["name","Name"],["business","Business"],["type","Type"],["role","Role"],["phone","Phone"],["email","Email"],["territory","Territory"]];
 async function openContact(id){
   activeId=id; editing=false; saveState=""; saveCls=""; pTab="conversation"; cSub="text"; ACT=null;
+  try{localStorage.setItem("crmNav","c:"+id);}catch(e){}
   document.getElementById("view").innerHTML='<div class="page"><div class="noact"><span class="spin"></span></div></div>';
   current=ALL.filter(function(c){return c.id===id;})[0]||{};
   try{ var full=await sb("contacts?id=eq."+id+"&select=*"); if(full[0]) current=full[0]; }catch(e){}
@@ -776,18 +810,19 @@ async function renderPortal(){
 function payoutItems(){
   var paidMap={}; PORTAL.paid.forEach(function(p){paidMap[p.key]=p.paid_at||"1";});
   var actMap={}; PORTAL.realtors.forEach(function(c){ if(c.portalActivatedAt) actMap[String(c.id)]=String(c.portalActivatedAt).slice(0,10); });
+  var byId={}; PORTAL.realtors.forEach(function(c){ byId[String(c.id)]=c; });
   var items=[];
   PORTAL.leads.forEach(function(l){
     if(String(l.status||"").toLowerCase()!=="completed") return;
-    var key="portal:"+l.id;
-    items.push({key:key,partner:(l.realtorName||"").trim(),customer:l.customerName,source:"portal",amount:50,paid:!!paidMap[key]});
+    var key="portal:"+l.id; var rt=byId[String(l.realtorId)]||{};
+    items.push({key:key,partner:(l.realtorName||"").trim(),customer:l.customerName,source:"portal",amount:50,paid:!!paidMap[key],id:l.id,email:rt.email||""});
   });
   PORTAL.refs.forEach(function(r){
     if(String(r.status||"").toLowerCase()!=="completed") return;
     var act=actMap[String(r.contactId)]; if(!act) return;
     var d=String(r.date||"").slice(0,10); if(d && d<act) return;
-    var key="manual:"+r.id;
-    items.push({key:key,partner:(r.contactName||"").trim(),customer:r.jobName,source:"referral",amount:50,paid:!!paidMap[key]});
+    var key="manual:"+r.id; var rt=byId[String(r.contactId)]||{};
+    items.push({key:key,partner:(r.contactName||"").trim(),customer:r.jobName,source:"referral",amount:50,paid:!!paidMap[key],id:r.id,email:rt.email||""});
   });
   return items;
 }
@@ -812,8 +847,9 @@ function drawPortal(){
     if(!due.length) html+='<div class="muted" style="padding:14px">Nothing due. When a completed job matches an active partner, it shows here.</div>';
     else due.forEach(function(it){
       html+='<div class="payrow"><div><div style="font-weight:800">'+esc(it.partner||"(unknown)")+'</div><div class="meta muted" style="font-size:12px">'+esc(it.customer||"")+' · '+esc(it.source)+'</div></div>'
-        +'<div style="display:flex;align-items:center;gap:14px"><span class="due">'+money(it.amount)+' due</span>'
-        +'<button class="btn green" data-pay="'+esc(it.key)+'" data-partner="'+esc(it.partner||"")+'">Mark paid</button></div></div>';
+        +'<div style="display:flex;align-items:center;gap:10px"><span class="due">'+money(it.amount)+' due</span>'
+        +'<button class="btn grad" data-send="'+esc(it.key)+'" title="Send a Tremendous gift card now">Send $'+it.amount+'</button>'
+        +'<button class="btn green" data-pay="'+esc(it.key)+'" data-partner="'+esc(it.partner||"")+'" title="Record as paid (if you paid outside the app)">Mark paid</button></div></div>';
     });
   }else if(portalTab==="leads"){
     var leads=PORTAL.leads.filter(function(l){ if(!f) return true; return ((l.customerName||"")+" "+(l.realtorName||"")).toLowerCase().indexOf(f)>=0; });
@@ -834,6 +870,19 @@ function drawPortal(){
   document.getElementById("view").innerHTML=html;
   [].forEach.call(document.querySelectorAll(".tab"),function(el){el.onclick=function(){portalTab=el.getAttribute("data-t");drawPortal();};});
   [].forEach.call(document.querySelectorAll("[data-pay]"),function(el){el.onclick=function(){markPaid(el.getAttribute("data-pay"),el.getAttribute("data-partner"));};});
+  [].forEach.call(document.querySelectorAll("[data-send]"),function(el){el.onclick=function(){var k=el.getAttribute("data-send");var it=due.filter(function(x){return x.key===k;})[0];if(it)sendPayoutGo(it,el);};});
+}
+async function sendPayoutGo(it,btn){
+  if(!it.email){ alert("No email on file for "+(it.partner||"this partner")+". Add their email on their profile first, then send."); return; }
+  if(!confirm("Send a $"+it.amount+" Tremendous gift card to:\n\n"+(it.partner||"")+"  <"+it.email+">\nfor the "+(it.customer||"")+" referral.\n\nThis sends REAL money. Continue?")) return;
+  if(btn){ btn.disabled=true; btn.textContent="Sending…"; }
+  try{
+    var res=await fetch("https://refer.neongiantmoving.com/api/sendPayout",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({realtorEmail:it.email,realtorName:it.partner,amount:it.amount,leadId:it.id,customerName:it.customer,testMode:false})}).then(function(x){return x.json();});
+    var okay = res && !res.error && (res.ok || res.order || res.status==="ok" || res.success);
+    if(okay){ banner("Sent $"+it.amount+" to "+it.partner+"."); await markPaid(it.key,it.partner); }
+    else { if(btn){btn.disabled=false;btn.textContent="Send $"+it.amount;} alert("Payout did NOT go through: "+(res&&(res.error||res.message)||"unknown error")+"\nNothing was charged. You can retry or Mark paid manually."); }
+  }catch(e){ if(btn){btn.disabled=false;btn.textContent="Send $"+it.amount;} alert("Payout failed to reach the service (nothing charged): "+e.message); }
 }
 async function markPaid(key,partner){
   if(!confirm("Mark "+partner+" paid for this referral?\n\nThis only records it as paid (no money is sent here).")) return;
@@ -1394,7 +1443,12 @@ document.getElementById("q").addEventListener("input",function(){
   else if(view==="inbox"&&DATA.msgs) drawInbox();
 });
 renderNav();
-loadContacts().then(function(){ go("contacts"); setTimeout(function(){ ensureData(updateTopBadges); },400); });
+loadContacts().then(function(){
+  var last=""; try{last=localStorage.getItem("crmNav")||"";}catch(e){}
+  if(last.indexOf("c:")===0){ var id=+last.slice(2); if(id&&ALL.some(function(x){return x.id===id;})){ go("contacts"); openContact(id); } else go("contacts"); }
+  else if(last){ go(last); } else go("contacts");
+  setTimeout(function(){ ensureData(updateTopBadges); },400);
+});
 /* ---- Live refresh: keep notifications + dashboard current without a reload ---- */
 async function refreshLive(){
   try{ DATA.refs=await sb("referrals?select=id,contactId,contactName,jobName,status,date,amount&order=date.desc"); }catch(e){}
