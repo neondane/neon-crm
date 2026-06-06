@@ -28,6 +28,7 @@
 const ALLOWED_ORIGINS = [
   'https://refer.neongiantmoving.com',
   'https://crm.neongiantmoving.com',
+  'https://crm3.neongiantmoving.com',
   'https://staging.neon-crm.pages.dev',
 ];
 
