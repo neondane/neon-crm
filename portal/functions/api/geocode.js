@@ -13,7 +13,8 @@
  * Env: GOOGLE_GEOCODING_KEY, SUPABASE_URL, SUPABASE_KEY
  */
 
-const ALLOWED_ORIGINS = ['https://crm.neongiantmoving.com', 'https://refer.neongiantmoving.com'];
+const ALLOWED_ORIGINS = ['https://crm.neongiantmoving.com',
+const ALLOWED_ORIGINS = ['https://crm3.neongiantmoving.com', 'https://refer.neongiantmoving.com'];
 
 function corsHeaders(origin) {
   let allow = ALLOWED_ORIGINS[0];
