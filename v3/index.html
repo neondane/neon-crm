@@ -360,7 +360,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);display:flex
 </head>
 <body>
 <div class="topbar">
-  <div class="brandwrap"><img class="logo" src="Logos/NeonGiant_BigFoot-NoGlow-NoBckgrd_CMYK.svg" alt="Neon Giant"><div class="brand"><span class="n">NEON</span> <span class="g">CRM</span><span class="sub">Command Center</span></div></div>
+  <div class="brandwrap"><img class="logo" src="Logos/NeonGiant_BigFoot-NoGlow-NoBckgrd_CMYK.svg" alt="Neon Giant" onerror="this.style.display='none'"><div class="brand"><span class="n">NEON</span> <span class="g">CRM</span><span class="sub">Command Center</span></div></div>
   <div class="search"><input id="q" type="search" placeholder="Search contacts…" autocomplete="off"></div>
   <div class="topicons">
     <button class="ticon" id="tFollow" title="New portal leads"><span class="gi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21V3.8M6 4.8h11.4l-2.1 3.1 2.1 3.1H6"/></svg></span><span class="tbadge" id="bFollow" style="display:none">0</span></button>
@@ -1395,6 +1395,18 @@ document.getElementById("q").addEventListener("input",function(){
 });
 renderNav();
 loadContacts().then(function(){ go("contacts"); setTimeout(function(){ ensureData(updateTopBadges); },400); });
+/* ---- Live refresh: keep notifications + dashboard current without a reload ---- */
+async function refreshLive(){
+  try{ DATA.refs=await sb("referrals?select=id,contactId,contactName,jobName,status,date,amount&order=date.desc"); }catch(e){}
+  try{ DATA.leads=await sb("portal_leads?select=id,customerName,realtorName,realtorId,status,moveDate,submittedAt,fromAddress,toAddress&order=id.desc"); }catch(e){}
+  try{ DATA.paid=await sb("paid_referrals?select=key,paid_at"); }catch(e){}
+  try{ var sd=await sb("sms_messages?select=created_at");var ed=await sb("email_messages?select=created_at");DATA.msgDates=sd.map(function(m){return m.created_at;}).concat(ed.map(function(m){return m.created_at;})).filter(Boolean); }catch(e){}
+  try{ DATA.strikes=await sb("recruit_strikes?select=agent,count,summary,listed_at&order=listed_at.desc"); }catch(e){}
+  try{ updateTopBadges(); }catch(e){}
+  // refresh the at-a-glance dashboard only when it's open and nothing is mid-interaction
+  if(view==="dashboard" && !document.getElementById("bellDrop") && !document.getElementById("avModal")){ try{ drawDashboard(); }catch(e){} }
+}
+setInterval(refreshLive, 180000); // every 3 minutes
 </script>
 </body>
 </html>
