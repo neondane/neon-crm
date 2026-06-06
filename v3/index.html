@@ -1368,7 +1368,8 @@ async function pbCheckListings(r){
     var c=res&&(res.count!=null?res.count:(res.listings?res.listings.length:0));
     var sum=res&&(res.summary||(res.listings&&res.listings.join?res.listings.join("\n"):""));
     out.innerHTML='<div class="pbdossier">'+(c?('<b style="color:var(--pink)">'+c+' recent listing'+(c>1?'s':'')+' found — strike now.</b>\n'):'No recent listings found right now.\n')+esc(sum||"")+'</div>';
-  }catch(e){ out.innerHTML='<div class="muted" style="font-size:12.5px">Live listing checks connect at cutover (can\'t reach the endpoint from a local file). Once live, this also runs automatically every morning and flags fresh listings right on the Recruit Board and in your alerts.</div>'; }
+    if(c>0){ try{ await fetch(SB_URL+"/rest/v1/recruit_strikes",{method:"POST",headers:Object.assign({},H,{"Content-Type":"application/json","Prefer":"resolution=merge-duplicates"}),body:JSON.stringify({agent:r.name,count:c,summary:sum||"",listed_at:new Date().toISOString()})}); DATA.strikes=await sb("recruit_strikes?select=agent,count,summary,listed_at&order=listed_at.desc"); updateTopBadges(); }catch(e){} }
+  }catch(e){ out.innerHTML='<div class="muted" style="font-size:12.5px">AI listing checks connect once the AI functions are deployed (deploy-ai). Once live, a found listing flags a 🔥 strike on the Recruit Board and in your alerts.</div>'; }
   btn.disabled=false;btn.innerHTML=gi("search")+" Check recent listings";
 }
 async function pbAddToCrm(r){
