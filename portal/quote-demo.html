@@ -73,8 +73,30 @@
       </div>
       <div class="row">
         <div class="field"><label>Move date</label><input name="moveDate" type="date"></div>
-        <div class="field"><label>From (ZIP)</label><input name="originZip" inputmode="numeric" maxlength="10"></div>
-        <div class="field"><label>To (ZIP)</label><input name="destinationZip" inputmode="numeric" maxlength="10"></div>
+        <div class="field"><label>How did you hear about us? *</label>
+          <select name="referralSource" required>
+            <option value="" disabled selected>Choose one…</option>
+            <option>Google</option>
+            <option>Google Maps</option>
+            <option>Facebook</option>
+            <option>Instagram</option>
+            <option>Yelp</option>
+            <option>Next Door</option>
+            <option>Real Estate Agency</option>
+            <option>Past Customer Referral</option>
+            <option>Return Customer</option>
+            <option>Employee Referral</option>
+            <option>Direct Mail</option>
+            <option>Shop Signage / Drive-By</option>
+            <option>Chat GPT</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Origin Address / Postal Code</label>
+          <input name="originAddress" autocomplete="address-line1" placeholder="Address or ZIP"></div>
+        <div class="field"><label>Destination Address / Postal Code</label>
+          <input name="destinationAddress" placeholder="Address or ZIP"></div>
       </div>
       <div class="row">
         <div class="field"><label>Anything else we should know?</label><textarea name="notes" rows="3"></textarea></div>
@@ -95,7 +117,6 @@
   "use strict";
   var BACKEND   = "/api/websiteLead";
   var THANK_YOU = "https://neongiantmoving.com/thank-you?submitted=quote";
-  var REFERRAL  = "Website (demo)";
 
   var form = document.getElementById("ng-quote-form");
   var button = document.getElementById("ng-submit");
@@ -118,8 +139,10 @@
       phone: val("phone"), email: val("email"),
       userOptIn: consent && consent.checked ? "true" : "false",
       serviceType: val("serviceType"), moveSize: val("moveSize"),
-      moveDate: val("moveDate"), originZip: val("originZip"), destinationZip: val("destinationZip"),
-      notes: val("notes"), referralSource: REFERRAL,
+      moveDate: val("moveDate"),
+      originAddress: val("originAddress"), destinationAddress: val("destinationAddress"),
+      referralSource: val("referralSource"),
+      notes: val("notes"),
       utmSource: qp("utm_source"), utmMedium: qp("utm_medium"), utmCampaign: qp("utm_campaign"),
       utmContent: qp("utm_content"), utmKeyword: qp("utm_term"), utmAdGroup: qp("utm_adgroup"), gclid: qp("gclid")
     };

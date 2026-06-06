@@ -2,27 +2,23 @@
 /**
  * /api/websiteLead — public website "Get a Quote" form -> SmartMoving Lead API.
  *
- * Why this exists:
- *   The website quote form used to be SmartMoving's iframe embed, which can't
- *   redirect to a thank-you page (so Google Ads can't track conversions). This
- *   function lets us run our OWN form on the site: the browser posts here, we
- *   forward the lead to SmartMoving server-side, and the form then redirects to
- *   the thank-you page. Posting server-side also means no CORS headaches and the
- *   provider key never appears in page source.
+ * The website form posts here; we forward the lead to SmartMoving server-side
+ * (no CORS, provider key stays off the page), and the form then redirects to the
+ * thank-you page so Google Ads can track the conversion.
  *
- *   NOTE: This is separate from the realtor-portal referral pipeline
- *   (submitReferralLead -> Supabase). Website quote leads belong in SmartMoving
- *   so the office works them like any other lead — exactly like the old iframe.
+ * Separate from the realtor-portal referral pipeline (submitReferralLead ->
+ * Supabase). Website quote leads belong in SmartMoving so the office works them
+ * like any other lead — exactly like the old iframe.
  *
  * ENV VARS (Cloudflare Pages -> Settings -> Environment variables):
  *   SMARTMOVING_PROVIDER_KEY  (optional) — overrides the built-in key. From
  *       SmartMoving: Settings -> Sales -> Lead Providers -> Your Website ->
- *       View Instructions. This is the LEAD provider key (NOT the Open API key).
- *   SM_LEAD_BRANCH_ID         (optional) — only set this to force a specific
- *       branch; if unset, the "Your Website" provider routes to your primary
- *       branch (Main Office) automatically.
+ *       View Instructions. (The LEAD provider key, NOT the Open API key.)
+ *   SM_LEAD_BRANCH_ID         (optional) — only set to force a specific branch;
+ *       otherwise the "Your Website" provider routes to your primary branch.
  *
- * Returns: { ok: true } on success (incl. duplicates), { ok: false, error } otherwise.
+ * Address fields accept a full street address OR a postal code; we send them as
+ * SmartMoving's "AddressFull" fields, which it geocodes/parses.
  */
 
 const ALLOWED_ORIGINS = [
@@ -67,13 +63,6 @@ export async function onRequestOptions({ request }) {
 export async function onRequestPost({ request, env }) {
   const origin = request.headers.get('Origin') || '';
 
-  // SmartMoving "Your Website" lead provider key. Prefer the Cloudflare env var
-  // if it's set; otherwise fall back to the known key. This key is low-sensitivity
-  // (write-only: it can submit leads to this account and nothing else) and the repo
-  // is private, so embedding the fallback is an acceptable tradeoff to keep the
-  // form working without a dashboard env-var step. To rotate: regenerate it in
-  // SmartMoving (Settings -> Sales -> Lead Providers -> Your Website) and/or set
-  // SMARTMOVING_PROVIDER_KEY in Cloudflare, which overrides this.
   const providerKey = env.SMARTMOVING_PROVIDER_KEY || 'd18a311b-7df6-4483-90a7-b3d201630cea';
 
   let b = {};
@@ -91,13 +80,17 @@ export async function onRequestPost({ request, env }) {
     return json({ ok: false, error: 'First name, last name, and a phone or email are required.' }, 400, origin);
   }
 
-  // The "Your Website" provider key already routes to the primary branch.
-  // Only append a branch if SM_LEAD_BRANCH_ID is explicitly set.
   let url = 'https://api.smartmoving.com/api/leads/from-provider/v2'
           + '?providerKey=' + encodeURIComponent(providerKey);
   if (env.SM_LEAD_BRANCH_ID) {
     url += '&branchId=' + encodeURIComponent(env.SM_LEAD_BRANCH_ID);
   }
+
+  // Origin/Destination accept a full address OR a postal code -> send as the
+  // SmartMoving "full address" field (back-compat with older originZip names).
+  const originFull = String(b.originAddress || b.origin || b.originZip || '').trim();
+  const destFull   = String(b.destinationAddress || b.destination || b.destinationZip || '').trim();
+  const referral   = String(b.referralSource || '').trim();
 
   const payload = {
     firstName: firstName,
@@ -108,10 +101,7 @@ export async function onRequestPost({ request, env }) {
     serviceType: String(b.serviceType || '').trim(),
     moveSize: String(b.moveSize || '').trim(),
     moveDate: String(b.moveDate || '').replace(/-/g, ''), // YYYY-MM-DD -> YYYYMMDD
-    originZip: String(b.originZip || '').trim(),
-    destinationZip: String(b.destinationZip || '').trim(),
     notes: String(b.notes || '').trim(),
-    referralSource: String(b.referralSource || 'Website').trim(),
     utmSource: String(b.utmSource || '').trim(),
     utmMedium: String(b.utmMedium || '').trim(),
     utmCampaign: String(b.utmCampaign || '').trim(),
@@ -120,6 +110,9 @@ export async function onRequestPost({ request, env }) {
     utmAdGroup: String(b.utmAdGroup || '').trim(),
     gclid: String(b.gclid || '').trim(),
   };
+  if (originFull) payload.originAddressFull = originFull;
+  if (destFull) payload.destinationAddressFull = destFull;
+  if (referral) payload.referralSource = referral; // exact match to a SmartMoving referral source
 
   let smRes, smText;
   try {
@@ -135,8 +128,6 @@ export async function onRequestPost({ request, env }) {
 
   if (smRes.ok) return json({ ok: true }, 200, origin);
 
-  // SmartMoving rejects repeats with HTTP 400 "already been submitted" — that's
-  // still a real lead, so treat it as success and let the visitor reach thank-you.
   if (smRes.status === 400 && /already/i.test(smText || '')) {
     return json({ ok: true, duplicate: true }, 200, origin);
   }
