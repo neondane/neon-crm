@@ -1,0 +1,250 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<title>Neon Giant — Mobile</title>
+<style>
+:root{--bg:#0b0d12;--card:#141821;--card2:#1b212d;--line:#27303f;--text:#eef2f7;--muted:#8b97a8;--pink:#FF1493;--cyan:#22BFE7;--ok:#00C2A8;--rad:14px;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--cyan)}
+.wrap{max-width:520px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:10px;padding:14px 16px calc(14px);position:sticky;top:0;background:linear-gradient(180deg,#0b0d12 70%,rgba(11,13,18,0));z-index:5}
+header .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--pink),var(--cyan));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#0b0d12}
+header h1{font-size:17px;margin:0;font-weight:800;letter-spacing:.3px}
+header .sub{font-size:11px;color:var(--muted);margin-top:1px}
+main{flex:1;padding:4px 16px 90px;overflow-y:auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--rad);padding:16px;margin-bottom:14px}
+label{display:block;font-size:12px;color:var(--muted);margin:10px 0 5px;font-weight:600}
+input,select,textarea{width:100%;background:var(--card2);border:1px solid var(--line);border-radius:11px;padding:13px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
+.btn{width:100%;border:none;border-radius:12px;padding:15px;font-weight:800;font-size:16px;background:var(--card2);color:var(--text);border:1px solid var(--line);margin-top:6px}
+.btn.primary{background:linear-gradient(135deg,var(--pink),#c70f76);color:#fff;border:none}
+.btn.cyan{background:linear-gradient(135deg,var(--cyan),#179fc3);color:#04222b;border:none}
+.btn:active{transform:scale(.99)}
+.btn:disabled{opacity:.55}
+.row{display:flex;gap:10px}
+.row>*{flex:1}
+.h2{font-size:18px;font-weight:800;margin:6px 0 12px}
+.muted{color:var(--muted)}
+.note{font-size:12px;color:var(--muted);margin-top:8px}
+.toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--ok);color:#04222b;font-weight:700;padding:11px 18px;border-radius:30px;z-index:50;opacity:0;transition:opacity .25s;box-shadow:0 8px 30px rgba(0,0,0,.4);max-width:90%;text-align:center}
+.toast.show{opacity:1}
+.toast.err{background:#ff5470;color:#fff}
+.item{display:flex;align-items:center;gap:12px;padding:13px;border:1px solid var(--line);border-radius:12px;background:var(--card2);margin-bottom:9px}
+.item .av{width:40px;height:40px;border-radius:50%;flex:none;background:linear-gradient(135deg,var(--pink),var(--cyan));display:flex;align-items:center;justify-content:center;font-weight:800;color:#0b0d12;font-size:14px}
+.item .nm{font-weight:700;font-size:15px}
+.item .mt{font-size:12px;color:var(--muted)}
+.item .go{margin-left:auto;color:var(--muted);font-size:22px}
+.pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(34,191,231,.15);color:var(--cyan);margin-left:6px;vertical-align:middle}
+.pill.live{background:rgba(0,194,168,.18);color:var(--ok)}
+.empty{text-align:center;color:var(--muted);padding:40px 10px;font-size:14px}
+.spin{display:inline-block;width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--cyan);border-radius:50%;animation:sp .7s linear infinite;vertical-align:middle}
+@keyframes sp{to{transform:rotate(360deg)}}
+nav{position:fixed;bottom:0;left:0;right:0;max-width:520px;margin:0 auto;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:none;border:none;padding:11px 0 13px;color:var(--muted);font-size:11px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:4px}
+nav button svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+nav button.active{color:var(--pink)}
+.gate{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:30px}
+.gate .logo{width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,var(--pink),var(--cyan));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:32px;color:#0b0d12}
+.pin{display:flex;gap:10px}
+.pin input{width:52px;height:60px;text-align:center;font-size:26px;font-weight:800}
+.back{background:none;border:none;color:var(--cyan);font-weight:700;font-size:14px;padding:6px 0;margin-bottom:6px}
+.det{font-size:13px;color:var(--muted);word-break:break-all;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:11px;margin:8px 0}
+</style></head>
+<body>
+
+<div class="gate" id="gate">
+  <div class="logo">N</div>
+  <div style="text-align:center"><div style="font-weight:800;font-size:20px">Neon Giant</div><div class="muted" style="font-size:13px">Field Mobile</div></div>
+  <div class="pin" id="pin">
+    <input type="tel" maxlength="1" inputmode="numeric"><input type="tel" maxlength="1" inputmode="numeric"><input type="tel" maxlength="1" inputmode="numeric"><input type="tel" maxlength="1" inputmode="numeric">
+  </div>
+  <div class="muted" id="pinMsg" style="font-size:13px;height:16px"></div>
+</div>
+
+<div class="wrap" id="app" style="display:none">
+  <header>
+    <div class="logo">N</div>
+    <div><h1>Neon Giant</h1><div class="sub" id="hsub">Field Mobile</div></div>
+  </header>
+  <main id="main"></main>
+  <nav>
+    <button data-tab="add" class="active"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="M18.5 8v6M21.5 11h-6"/></svg>Add Person</button>
+    <button data-tab="invite"><svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg>Invite</button>
+    <button data-tab="plan"><svg viewBox="0 0 24 24"><path d="M21 10c0 6-9 11-9 11s-9-5-9-11a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Day Plan</button>
+  </nav>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var SB_URL="https://aoyfieswynhgqyrveqnp.supabase.co";
+var SB_KEY="sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ";
+var H={apikey:SB_KEY,Authorization:"Bearer "+SB_KEY};
+var PORTAL="https://refer.neongiantmoving.com";
+var TYPES=["Realtor","Self-Storage Facility","Assisted Living","Senior Living","Apartment Complex","Property Management","Other"];
+var TERRS=["Whatcom — Bellingham","Whatcom — North of Bellingham","Skagit — Mount Vernon area","Skagit — Anacortes","Snohomish County","Whidbey Island"];
+var ALL=[], tab="add";
+
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c];});}
+function initials(n){var p=String(n||"").trim().split(/\s+/);return(((p[0]||"")[0]||"")+((p[1]||"")[0]||"")).toUpperCase();}
+function slugOf(c){return String(c.name||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")+"-"+c.id;}
+function referLink(c){return PORTAL+"/?r="+slugOf(c);}
+async function sb(path){var r=await fetch(SB_URL+"/rest/v1/"+path,{headers:H});if(!r.ok)throw new Error("SB "+r.status);return r.json();}
+async function sbWrite(method,path,body){var r=await fetch(SB_URL+"/rest/v1/"+path,{method:method,headers:Object.assign({},H,{"Content-Type":"application/json","Prefer":"return=minimal"}),body:JSON.stringify(body)});if(!r.ok)throw new Error("SB "+r.status);return true;}
+var _tt;
+function toast(msg,err){var t=document.getElementById("toast");t.textContent=msg;t.className="toast show"+(err?" err":"");clearTimeout(_tt);_tt=setTimeout(function(){t.className="toast";},2600);}
+
+/* ---- PIN gate ---- */
+(function(){
+  var inputs=document.querySelectorAll("#pin input");
+  inputs[0].focus();
+  inputs.forEach(function(inp,i){
+    inp.addEventListener("input",function(){
+      inp.value=inp.value.replace(/[^0-9]/g,"");
+      if(inp.value&&i<3)inputs[i+1].focus();
+      var code=[].map.call(inputs,function(x){return x.value;}).join("");
+      if(code.length===4){
+        if(code==="1234"){ document.getElementById("gate").style.display="none"; document.getElementById("app").style.display="flex"; boot(); }
+        else { document.getElementById("pinMsg").textContent="Wrong PIN"; inputs.forEach(function(x){x.value="";}); inputs[0].focus(); }
+      }
+    });
+    inp.addEventListener("keydown",function(e){if(e.key==="Backspace"&&!inp.value&&i>0)inputs[i-1].focus();});
+  });
+})();
+
+async function boot(){
+  document.querySelectorAll("nav button").forEach(function(b){b.onclick=function(){tab=b.getAttribute("data-tab");draw();};});
+  draw();
+  try{ ALL=await sb("contacts?select=id,name,business,phone,email,type,territory,portalActivatedAt&order=id.desc&limit=2000"); }catch(e){ ALL=[]; }
+  if(tab!=="add") draw();
+}
+function setActive(){document.querySelectorAll("nav button").forEach(function(b){b.classList.toggle("active",b.getAttribute("data-tab")===tab);});}
+function draw(){ setActive(); if(tab==="add")drawAdd(); else if(tab==="invite")drawInvite(); else drawPlan(); }
+
+/* ---- ADD PERSON ---- */
+function drawAdd(){
+  document.getElementById("hsub").textContent="Add a new contact";
+  var m=document.getElementById("main");
+  m.innerHTML='<div class="h2">Add Person</div><div class="card">'
+    +'<label>Name *</label><input id="aName" placeholder="Jane Smith" autocomplete="off">'
+    +'<label>Business</label><input id="aBiz" placeholder="Windermere / Acme Storage" autocomplete="off">'
+    +'<div class="row"><div><label>Phone</label><input id="aPhone" type="tel" inputmode="tel" placeholder="(360) 555-1234"></div></div>'
+    +'<label>Email</label><input id="aEmail" type="email" inputmode="email" placeholder="jane@example.com" autocomplete="off">'
+    +'<div class="row"><div><label>Type</label><select id="aType">'+TYPES.map(function(t){return '<option>'+esc(t)+'</option>';}).join("")+'</select></div></div>'
+    +'<label>Territory</label><select id="aTerr"><option value="">— none —</option>'+TERRS.map(function(t){return '<option>'+esc(t)+'</option>';}).join("")+'</select>'
+    +'<button class="btn primary" id="aSave" style="margin-top:18px">Save Contact</button>'
+    +'<div class="note">Saves straight to the CRM — shows up on desktop instantly.</div>'
+    +'</div>';
+  document.getElementById("aSave").onclick=saveAdd;
+}
+async function saveAdd(){
+  var name=(document.getElementById("aName").value||"").trim();
+  if(!name){toast("Name is required",1);return;}
+  var btn=document.getElementById("aSave");btn.disabled=true;btn.textContent="Saving…";
+  var rec={
+    name:name,
+    business:(document.getElementById("aBiz").value||"").trim(),
+    phone:(document.getElementById("aPhone").value||"").trim(),
+    email:(document.getElementById("aEmail").value||"").trim(),
+    type:document.getElementById("aType").value,
+    territory:document.getElementById("aTerr").value||null
+  };
+  try{
+    var top=await sb("contacts?select=id&order=id.desc&limit=1");
+    rec.id=(top&&top[0]?top[0].id:0)+1;
+    await sbWrite("POST","contacts",rec);
+    ALL.unshift(rec);
+    toast("Added "+name);
+    btn.disabled=false;btn.textContent="Save Contact";
+    drawAdd();
+  }catch(e){ toast("Save failed — try again",1); btn.disabled=false;btn.textContent="Save Contact"; }
+}
+
+/* ---- INVITE ---- */
+var invQ="";
+function drawInvite(){
+  document.getElementById("hsub").textContent="Send a portal invite";
+  var m=document.getElementById("main");
+  var q=invQ.toLowerCase().trim();
+  var list=ALL.filter(function(c){return !q||((c.name||"")+" "+(c.business||"")).toLowerCase().indexOf(q)>=0;}).slice(0,40);
+  var html='<div class="h2">Send Portal Invite</div><div class="card"><input id="invSearch" placeholder="Search a contact…" value="'+esc(invQ)+'" autocomplete="off"></div>';
+  if(!ALL.length) html+='<div class="empty"><span class="spin"></span> Loading contacts…</div>';
+  else if(!list.length) html+='<div class="empty">No contacts match.</div>';
+  else html+=list.map(function(c){
+    var live=c.portalActivatedAt?'<span class="pill live">PORTAL ON</span>':'';
+    return '<div class="item" data-id="'+c.id+'"><div class="av">'+esc(initials(c.name))+'</div><div><div class="nm">'+esc(c.name||"—")+live+'</div><div class="mt">'+esc(c.business||c.type||"")+'</div></div><div class="go">›</div></div>';
+  }).join("");
+  m.innerHTML=html;
+  var s=document.getElementById("invSearch");
+  if(s)s.oninput=function(){invQ=s.value;var p=s.selectionStart;drawInvite();var n=document.getElementById("invSearch");if(n){n.focus();try{n.setSelectionRange(p,p);}catch(e){}}};
+  m.querySelectorAll(".item").forEach(function(el){el.onclick=function(){openInvite(+el.getAttribute("data-id"));};});
+}
+function openInvite(id){
+  var c=ALL.filter(function(x){return +x.id===id;})[0]; if(!c)return;
+  var link=referLink(c);
+  var m=document.getElementById("main");
+  m.innerHTML='<button class="back" id="invBack">‹ Back</button><div class="h2">'+esc(c.name)+'</div><div class="card">'
+    +'<div class="mt muted" style="font-size:13px">'+esc(c.business||c.type||"")+'</div>'
+    +'<label>Their referral link</label><div class="det">'+esc(link)+'</div>'
+    +'<button class="btn cyan" id="invCopy">Copy link</button>'
+    +(c.phone?'<button class="btn primary" id="invText">Text invite to '+esc(c.phone)+'</button>':'<div class="note">No phone on file — add one to text the invite.</div>')
+    +'<div class="note">Texting sends from your Neon Giant number and logs to the CRM.</div>'
+    +'</div>';
+  document.getElementById("invBack").onclick=drawInvite;
+  document.getElementById("invCopy").onclick=function(){try{navigator.clipboard.writeText(link);toast("Link copied");}catch(e){toast("Copy failed",1);}};
+  var bt=document.getElementById("invText");
+  if(bt)bt.onclick=function(){sendInvite(c,link,bt);};
+}
+async function sendInvite(c,link,btn){
+  var first=String(c.name||"").trim().split(/\s+/)[0]||"there";
+  var msg="Hi "+first+"! It's Neon Giant Moving. Here's your referral link — send it to anyone moving and you earn $50 per completed move: "+link;
+  if(!confirm("Text this invite to "+c.name+" ("+c.phone+")?"))return;
+  btn.disabled=true;btn.textContent="Sending…";
+  try{
+    var r=await fetch(PORTAL+"/api/sendSms",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({to:c.phone,body:msg,contactId:c.id,kind:"portal_invite"})});
+    var j={};try{j=await r.json();}catch(e){}
+    if(r.ok&&j.ok!==false){toast("Invite sent to "+first);btn.textContent="Sent ✓";}
+    else{toast("Not sent: "+(j.message||j.error||("HTTP "+r.status)),1);btn.disabled=false;btn.textContent="Text invite to "+c.phone;}
+  }catch(e){toast("Send failed — check signal",1);btn.disabled=false;btn.textContent="Text invite to "+c.phone;}
+}
+
+/* ---- DAY PLAN ---- */
+var planTerr="", planType="";
+var TYPE_KW={"Realtor":"realtor","Self-Storage Facility":"storage","Assisted Living":"assisted","Senior Living":"senior","Apartment Complex":"apartment","Property Management":"manage","Other":"__other__"};
+var KNOWN=["realtor","storage","assisted","senior","apartment","manage"];
+function typeMatch(ct,sel){if(!sel)return true;var t=String(ct||"").toLowerCase();var kw=TYPE_KW[sel];if(kw==="__other__")return !KNOWN.some(function(k){return t.indexOf(k)>=0;});return kw?t.indexOf(kw)>=0:t===String(sel).toLowerCase();}
+function terrMatch(ct,sel){if(!sel)return true;var t=String(ct||"").toLowerCase();var s=sel.toLowerCase();if(t===s)return true;var county=s.split("—")[0].trim();return county&&t.indexOf(county)>=0&&(s.indexOf(t)>=0||t.indexOf(s.split("—")[1]?s.split("—")[1].trim():"")>=0||t.indexOf(county)>=0);}
+function drawPlan(){
+  document.getElementById("hsub").textContent="Plan today's visits";
+  var m=document.getElementById("main");
+  var html='<div class="h2">Day Plan</div><div class="card">'
+    +'<label>Territory</label><select id="pTerr"><option value="">All territories</option>'+TERRS.map(function(t){return '<option'+(planTerr===t?" selected":"")+'>'+esc(t)+'</option>';}).join("")+'</select>'
+    +'<label>Type to visit</label><select id="pType"><option value="">All types</option>'+TYPES.map(function(t){return '<option'+(planType===t?" selected":"")+'>'+esc(t)+'</option>';}).join("")+'</select>'
+    +'</div>';
+  if(!ALL.length){ m.innerHTML=html+'<div class="empty"><span class="spin"></span> Loading…</div>'; wirePlan(); return; }
+  var list=ALL.filter(function(c){return typeMatch(c.type,planType)&&terrMatch(c.territory,planTerr);});
+  list.sort(function(a,b){return String(a.business||a.name||"").localeCompare(String(b.business||b.name||""));});
+  html+='<div class="note" style="margin:-4px 4px 10px">'+list.length+' stop'+(list.length===1?"":"s")+'</div>';
+  html+= list.length? list.slice(0,80).map(function(c){
+    var primary=c.business||c.name||"—";
+    var secondary=c.business?(c.name||""):(c.type||"");
+    var q=encodeURIComponent(primary+" "+(c.territory||"").replace(/—/g," "));
+    return '<div class="item"><div class="av">'+esc(initials(primary))+'</div>'
+      +'<div style="min-width:0"><div class="nm">'+esc(primary)+'</div><div class="mt">'+esc(secondary)+'</div></div>'
+      +'<div class="go" style="display:flex;gap:14px">'
+        +(c.phone?'<a href="tel:'+esc(c.phone.replace(/[^0-9+]/g,""))+'" style="text-decoration:none">📞</a>':'')
+        +'<a href="https://maps.google.com/?q='+q+'" target="_blank" rel="noopener" style="text-decoration:none">📍</a>'
+      +'</div></div>';
+  }).join("") : '<div class="empty">No stops match. Try widening the filters.</div>';
+  m.innerHTML=html;
+  wirePlan();
+}
+function wirePlan(){
+  var t=document.getElementById("pTerr"); if(t)t.onchange=function(){planTerr=t.value;drawPlan();};
+  var y=document.getElementById("pType"); if(y)y.onchange=function(){planType=y.value;drawPlan();};
+}
+</script>
+</body></html>
