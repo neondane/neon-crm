@@ -50,6 +50,7 @@ const ALLOWED_ORIGINS = [
   'https://refer.neongiantmoving.com',
   'https://portal.neongiantmoving.com',
   'https://crm.neongiantmoving.com',
+  'https://crm3.neongiantmoving.com',
 ];
 
 function corsHeaders(origin) {
