@@ -471,11 +471,11 @@ async function loadContacts(){
   catch(e){ ALL=FALLBACK; banner("Showing sample data — couldn't reach the live database from a local file (it connects live once deployed)."); }
   loadPhotos(); loadInteractions();
 }
-var LASTSEEN={}, ICOUNT={}, REFCOUNT={};
+var LASTSEEN={}, ICOUNT={}, REFCOUNT={}, REFREV={}, REFBOOKED={};
 async function loadInteractions(){
   try{var s=await sb("sms_messages?select=contact_id,created_at");s.forEach(function(m){var id=m.contact_id;if(id==null)return;ICOUNT[id]=(ICOUNT[id]||0)+1;var t=m.created_at||"";if(!LASTSEEN[id]||t>LASTSEEN[id])LASTSEEN[id]=t;});}catch(e){}
   try{var em=await sb("email_messages?select=contact_id,created_at");em.forEach(function(m){var id=m.contact_id;if(id==null)return;ICOUNT[id]=(ICOUNT[id]||0)+1;var t=m.created_at||"";if(!LASTSEEN[id]||t>LASTSEEN[id])LASTSEEN[id]=t;});}catch(e){}
-  try{var rf=await sb("referrals?select=contactId");rf.forEach(function(r){var id=r.contactId;if(id==null)return;REFCOUNT[id]=(REFCOUNT[id]||0)+1;});}catch(e){}
+  try{var rf=await sb("referrals?select=contactId,status,amount");rf.forEach(function(r){var id=r.contactId;if(id==null)return;REFCOUNT[id]=(REFCOUNT[id]||0)+1;REFREV[id]=(REFREV[id]||0)+(+r.amount||0);var st=String(r.status||"").toLowerCase();if(st==="booked"||st==="completed")REFBOOKED[id]=(REFBOOKED[id]||0)+1;});}catch(e){}
   if(view==="contacts") renderContacts(document.getElementById("q").value||"");
 }
 function banner(msg){var b=document.getElementById("banner");b.style.display="block";b.textContent=msg;}
@@ -515,15 +515,20 @@ function tierView(rows){
     return '<div class="tierhead '+cls+'"><span>'+esc(k)+'</span><span class="tc">'+g[k].length+'</span></div>'+rowList(g[k]);
   }).join("");
 }
+var rbSortMode="referrals";
 function referralBoard(rows){
   var rs=rows.filter(function(c){return /realtor/i.test(c.type||"");});
-  rs.sort(function(a,b){return (REFCOUNT[b.id]||0)-(REFCOUNT[a.id]||0);});
-  if(!rs.length) return '<div class="noact">No realtors.</div>';
-  return '<div class="clist">'+rs.map(function(c){
-    var n=REFCOUNT[c.id]||0; var sub=[c.business,c.territory].filter(Boolean).map(esc).join(" · ");
+  var metric=function(c){return rbSortMode==="revenue"?(REFREV[c.id]||0):rbSortMode==="booked"?(REFBOOKED[c.id]||0):(REFCOUNT[c.id]||0);};
+  rs.sort(function(a,b){return metric(b)-metric(a)||String(a.name||"").localeCompare(String(b.name||""));});
+  var sel='<div class="cfilters"><select id="rbSortSel">'+[["referrals","Total referrals"],["revenue","Revenue referred"],["booked","Booked jobs"]].map(function(o){return '<option value="'+o[0]+'"'+(rbSortMode===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select></div>';
+  if(!rs.length) return sel+'<div class="noact">No realtors.</div>';
+  return sel+'<div class="clist">'+rs.map(function(c){
+    var sub=[c.business,c.territory].filter(Boolean).map(esc).join(" · ");
+    var val=rbSortMode==="revenue"?money(REFREV[c.id]||0):metric(c);
+    var lbl=rbSortMode==="revenue"?"referred":rbSortMode==="booked"?"booked":"referrals";
     return '<div class="crow2" data-id="'+c.id+'"><div class="av">'+(PHOTOS[c.id]?'<img src="'+esc(PHOTOS[c.id])+'" alt="">':esc(initials(c.name).toUpperCase()))+'</div>'
       +'<div class="meta"><div class="nm">'+esc(c.name||"Unnamed")+(c.portalActivatedAt?'<span class="temp cool">Active</span>':'<span class="temp new">Not active</span>')+'</div><div class="sub">'+(sub||"—")+'</div></div>'
-      +'<div class="right"><div class="days" style="color:var(--pink)">'+n+'</div><div class="muted" style="font-size:10px">referrals</div></div></div>';
+      +'<div class="right"><div class="days" style="color:var(--pink)">'+val+'</div><div class="muted" style="font-size:10px">'+lbl+'</div></div></div>';
   }).join("")+'</div>';
 }
 var cSort="recent", cTypeF="", cTerrF="";
@@ -562,6 +567,7 @@ function renderContacts(filter){
   var ss=document.getElementById("cSortSel"); if(ss)ss.onchange=function(){cSort=ss.value;renderContacts(filter);};
   var ts=document.getElementById("cTypeSel"); if(ts)ts.onchange=function(){cTypeF=ts.value;renderContacts(filter);};
   var rs2=document.getElementById("cTerrSel"); if(rs2)rs2.onchange=function(){cTerrF=rs2.value;renderContacts(filter);};
+  var rbs=document.getElementById("rbSortSel"); if(rbs)rbs.onchange=function(){rbSortMode=rbs.value;renderContacts(filter);};
   paintAvatars();
 }
 function listContacts(filter){ renderContacts(filter); }
@@ -691,7 +697,18 @@ function activityHtml(){
 function refsHtml(c){
   if(c._refs===undefined) return '<div class="noact"><span class="spin"></span></div>';
   if(!c._refs.length) return '<div class="noact">No referrals yet.</div>';
-  return c._refs.map(function(r){return '<div class="lead"><div class="top"><div><div class="who">'+esc(r.jobName||"—")+'</div><div class="meta">'+esc(String(r.date||"").slice(0,10))+'</div></div>'+sbadge(r.status)+'</div></div>';}).join("");
+  return c._refs.map(function(r,i){
+    var amt=(+r.amount)?("$"+(+r.amount).toLocaleString()):"";
+    var rw=function(lbl,val){return '<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--line);font-size:13px"><span class="muted">'+lbl+'</span><b style="text-align:right">'+val+'</b></div>';};
+    var det='<div class="leaddet" style="display:none;margin-top:8px">'
+      +rw("Status",esc(r.status||"—"))
+      +rw("Date",esc(String(r.date||"").slice(0,10)||"—"))
+      +rw("Referral value",amt||"—")
+      +(r.jobName?rw("Job",esc(r.jobName)):"")
+      +(r.contactName?rw("Referred by",esc(r.contactName)):"")
+      +'</div>';
+    return '<div class="lead refrow" data-rd="'+i+'" style="cursor:pointer"><div class="top"><div><div class="who">'+esc(r.jobName||"—")+'</div><div class="meta">'+esc(String(r.date||"").slice(0,10))+(amt?(" · "+amt):"")+'</div></div>'+sbadge(r.status)+'</div>'+det+'</div>';
+  }).join("");
 }
 function redrawTab(c){var el=document.getElementById("ptcontent");if(el)el.innerHTML=tabContent(c);[].forEach.call(document.querySelectorAll(".ptab"),function(e){e.classList.toggle("active",e.getAttribute("data-pt")===pTab);});wireTab(c);}
 function wireProfile(c){
@@ -710,6 +727,7 @@ function wireTab(c){
   [].forEach.call(document.querySelectorAll(".csub div"),function(el){el.onclick=function(){cSub=el.getAttribute("data-cs");redrawTab(c);};});
   [].forEach.call(document.querySelectorAll("[data-af]"),function(el){el.onclick=function(){actFilter=el.getAttribute("data-af");redrawTab(c);};});
   var snd=document.getElementById("cSend"); if(snd)snd.onclick=function(){sendComposer(c);};
+  [].forEach.call(document.querySelectorAll(".refrow"),function(el){el.onclick=function(){var d=el.querySelector(".leaddet");if(d){d.style.display=(d.style.display==="none"?"block":"none");el.classList.toggle("open");}};});
 }
 async function loadActivity(c){
   var acc=[];
@@ -720,7 +738,7 @@ async function loadActivity(c){
   if(pTab==="conversation") redrawTab(c);
 }
 async function loadRefs(c){
-  try{c._refs=await sb("referrals?contactId=eq."+c.id+"&select=jobName,status,date&order=date.desc");}catch(e){c._refs=[];}
+  try{c._refs=await sb("referrals?contactId=eq."+c.id+"&select=jobName,status,date,amount,contactName&order=date.desc");}catch(e){c._refs=[];}
   if(pTab==="referrals") redrawTab(c);
 }
 async function activatePortal(c){
@@ -800,7 +818,7 @@ async function avSave(avatar,card){
 async function sendComposer(c){
   var msg=(document.getElementById("cmsg")||{}).value||"";
   if(cSub==="note"){ if(!msg.trim())return; var nn=(c.notes?c.notes+"\n":"")+"["+new Date().toISOString().slice(0,10)+"] "+msg; c.notes=nn; var c2=ALL.filter(function(x){return x.id===c.id;})[0]; if(c2)c2.notes=nn; try{await sbWrite("PATCH","contacts?id=eq."+c.id,{notes:nn});}catch(e){} pTab="notes"; renderProfile(); return; }
-  if(cSub==="text"){ if(!c.phone){alert("No phone on file.");return;} if(!msg.trim())return; if(!confirm("Send this text to "+c.name+"?"))return; try{await fetch("https://refer.neongiantmoving.com/api/smsOut",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({to:c.phone,body:msg,contactId:c.id,kind:"manual"})});alert("Text sent.");loadActivity(c);}catch(e){alert("Send failed.");} return; }
+  if(cSub==="text"){ if(!c.phone){alert("No phone on file.");return;} if(!msg.trim())return; if(!confirm("Send this text to "+c.name+"?"))return; var btn=document.getElementById("cSend"); if(btn){btn.disabled=true;btn.textContent="Sending…";} try{var r=await fetch("https://refer.neongiantmoving.com/api/sendSms",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({to:c.phone,body:msg,contactId:c.id,kind:"manual"})});var j={};try{j=await r.json();}catch(e){} if(r.ok&&j.ok!==false){var ta=document.getElementById("cmsg");if(ta)ta.value="";ACT=null;loadActivity(c);}else{alert("Text not sent: "+(j.message||j.error||("HTTP "+r.status)));}}catch(e){alert("Send failed — check connection.");} if(btn){btn.disabled=false;btn.textContent="Send";} return; }
   if(cSub==="email"){ if(!c.email){alert("No email on file.");return;} if(!msg.trim())return; if(!confirm("Send this email to "+c.name+"?"))return; try{await fetch("https://refer.neongiantmoving.com/api/sendEmail",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({to:c.email,subject:"Neon Giant Moving",body:msg,contactId:c.id})});alert("Email sent.");loadActivity(c);}catch(e){alert("Send failed.");} return; }
   alert("Call logging comes next.");
 }
@@ -1018,21 +1036,30 @@ async function loadMsgs(cb){
   m.sort(function(a,b){return a.when<b.when?1:-1;});
   DATA.msgs=m; cb&&cb();
 }
+var inboxChan="all", inboxDir="all";
 function drawInbox(){
   var byC={}; DATA.msgs.forEach(function(m){if(m.cid==null)return;if(!byC[m.cid]){byC[m.cid]={cid:m.cid,latest:m,count:0};}byC[m.cid].count++;});
   var threads=Object.keys(byC).map(function(k){return byC[k];}).sort(function(a,b){return a.latest.when<b.latest.when?1:-1;});
   var nameOf=function(id){var c=ALL.filter(function(x){return +x.id===+id;})[0];return c?c.name:("Contact "+id);};
   var f=(document.getElementById("q").value||"").toLowerCase().trim();
   if(f) threads=threads.filter(function(t){return nameOf(t.cid).toLowerCase().indexOf(f)>=0||(t.latest.text||"").toLowerCase().indexOf(f)>=0;});
+  if(inboxChan!=="all") threads=threads.filter(function(t){return t.latest.kind===inboxChan;});
+  if(inboxDir==="in") threads=threads.filter(function(t){return t.latest.dir!=="out";});
+  else if(inboxDir==="out") threads=threads.filter(function(t){return t.latest.dir==="out";});
+  var chanSel='<select id="ibChan">'+[["all","All channels"],["text","Texts"],["email","Emails"]].map(function(o){return '<option value="'+o[0]+'"'+(inboxChan===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
+  var dirSel='<select id="ibDir">'+[["all","All"],["in","Needs reply (they texted last)"],["out","I replied last"]].map(function(o){return '<option value="'+o[0]+'"'+(inboxDir===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
   var html='<div class="page"><div class="ph"><h2>'+gi("inbox")+' Inbox</h2><span class="muted" style="margin-left:auto;font-weight:600">'+threads.length+' conversations</span></div>';
+  html+='<div class="cfilters">'+chanSel+dirSel+'</div>';
   html+=threads.length?'<div class="clist">'+threads.map(function(t){
     var c=ALL.filter(function(x){return +x.id===+t.cid;})[0]||{id:t.cid,name:nameOf(t.cid)};
     return '<div class="crow2" data-id="'+t.cid+'"><div class="av">'+(PHOTOS[t.cid]?'<img src="'+esc(PHOTOS[t.cid])+'" alt="">':esc(initials(c.name).toUpperCase()))+'</div>'
       +'<div class="meta"><div class="nm">'+esc(c.name||"—")+'<span class="temp '+(t.latest.kind==="text"?"cool":"warm")+'">'+t.latest.kind+'</span></div><div class="sub">'+(t.latest.dir==="out"?"→ ":"← ")+esc(t.latest.text)+'</div></div>'
       +'<div class="right"><div class="days" style="font-size:12px">'+esc(t.latest.when.slice(0,10))+'</div><div class="cnt">'+t.count+'</div></div></div>';
-  }).join("")+'</div>':'<div class="noact">No messages yet.</div>';
+  }).join("")+'</div>':'<div class="noact">No conversations match those filters.</div>';
   html+='</div>';
   document.getElementById("view").innerHTML=html;
+  var ic=document.getElementById("ibChan"); if(ic)ic.onchange=function(){inboxChan=ic.value;drawInbox();};
+  var id=document.getElementById("ibDir"); if(id)id.onchange=function(){inboxDir=id.value;drawInbox();};
   wireContactClicks();
 }
 
@@ -1298,21 +1325,38 @@ function mapDrawList(){
 var RECRUIT="Kelli Lang|RE/MAX Gateway - Team Kelli Lang|64|55.7\nKristine Stultz|Lapis Homes|56|47.5\nShalyce Pocock|John L. Scott Anacortes|32|24.2\nBetsy Anorbe|John L. Scott Anacortes|52.5|23.6\nStacy LaCount|Keller Williams Western Realty|41|21.4\nLeah Courage|ONE Real Estate (The Courage Group)|20.5|20.6\nGina Davis|Windermere RE Anacortes Properties|25.5|20.5\nKim Woodmansee|John L. Scott Skagit|28.5|19.5\nDominic Pettruzzelli|Pettruzzelli Inc.|34.5|19.2\nJulie Birkle|Windermere RE Anacortes Properties|19.5|18.8\nKimarie Henning|Windermere RE Anacortes Properties|23.5|18.6\nTraci Cypher|Century 21 North Homes Realty|26|18.1\nAdam Baldwin|RE/MAX Gateway - Team Kelli Lang|21|16.5\nShane Servoss|RE/MAX Gateway - Team Kelli Lang|16|14.7\nDebbie Macy|Windermere RE Anacortes Properties|21|14.0\nColleen L. Craig|Windermere RE Anacortes Properties|17|13.4\nRodney Helgeson|John L. Scott Skagit|24|13.2\nGavin Lang|RE/MAX Gateway - Team Kelli Lang|21|13.0\nCharlie Boon|Elite Edge Real Estate, Inc.|19|11.1\nRob Skelton|Windermere RE Anacortes Properties|12|10.8\nBert Clay|John L. Scott Anacortes|13.5|10.6\nUnrepresentd ZDefault|(Unrepresented)|18|9.8\nScott Friedl|NextHome 365 Realty|18|9.6\nMegan S. O'Bryan|Windermere RE Skagit Valley|15|9.6\nAllen G. Workman|John L. Scott Anacortes|10|9.6\nEileen Hebert|(see Office ID)|14|9.5\nDanya Wolf|(see Office ID)|17|9.5\nCynthia Aanestad|Windermere RE Anacortes Properties|14|9.3\nRon D. Van Pelt|Elite Edge Real Estate, Inc.|20.5|9.2\nElva Fawcett-Hunter|(see Office ID)|12|9.2\nDanielle Martin|(see Office ID)|15|9.1\nPaul Weisz|Windermere RE Anacortes Properties|11|8.9\nJim Glackin|Windermere RE Skagit Valley|11|8.8\nMichelle Foggin|(see Office ID)|9.5|8.7\nMarla Renee Chapa|Keller Williams Western Realty|14|8.7\nSpencer Roozen|Windermere RE Skagit Valley|12|8.3\nBruce D. Lystad|(see Office ID)|6|8.3\nElizabeth A. Miller|Windermere RE Skagit Valley|13.5|8.3\nMel Foley|Keller Williams Western Realty|14|8.2\nShelah M. Inman|(see Office ID)|14|8.2\nMark J Redis|(see Office ID)|12|8.1\nWendy Belanger|John L. Scott Skagit|14|7.9\nBrita Stewart|(see Office ID)|13|7.7\nRicardo Rincon|(see Office ID)|14|7.6\nJulien Collins|RE/MAX Gateway - Team Kelli Lang|7.5|7.4\nEricka Catubo|(see Office ID)|11.5|7.4\nEric A. Green|(see Office ID)|9|7.2\nKathy Rogers|Windermere RE Anacortes Properties|9|7.2\nDanielle Russell|John L. Scott Skagit|10.5|7.2\nBarb Robinette|Windermere RE Anacortes Properties|6|7.2\nVallaree Oleary|(see Office ID)|1|7.0\nKevin Flynn|(see Office ID)|1|7.0\nRenee Westlund|Windermere RE Anacortes Properties|9.5|6.6\nKristi Gabrielse|Windermere RE Anacortes Properties|7|6.5\nChad Paulsen|NextHome 365 Realty|16.5|6.3\nMargi Houghton|Windermere RE Anacortes Properties|11|6.0\nTabata Ileana Perron|(see Office ID)|6|5.8\nKJ Dalgliesh|NextHome 365 Realty|9|5.7\nVeronica rincon|(see Office ID)|15|5.6\nSeth Pike|(see Office ID)|6|5.5\nAnya Mayo|(see Office ID)|8|5.4\nAaron Locke|(see Office ID)|2|5.2\nPam Baird|John L. Scott Skagit|8|5.2\nAndrew Sale|John L. Scott Skagit|6|5.1\nRebeca Pozuelos|RE/MAX Gateway - Team Kelli Lang|6|5.1\nLeonard Johnson|(see Office ID)|5.5|4.9\nMalia Morin|(see Office ID)|5.5|4.9\nIsaac May|(see Office ID)|6|4.9\nChristine Mathes|John L. Scott Anacortes|5.5|4.8\nKaren L. Everett|(see Office ID)|7|4.6\nWilliam Robillard|Windermere RE Anacortes Properties|3|4.6\nLori Clark|(see Office ID)|6|4.6\nKatie Torkkola|NextHome 365 Realty|7|4.5\nLuis Herrera|(see Office ID)|10|4.4\nTracy Biddle|(see Office ID)|7|4.4\nMary Jo Reitsma|(see Office ID)|6|4.1\nMichelle Russell|John L. Scott Skagit|7.5|4.1\nMelissa Challman|(see Office ID)|7|4.0\nAndy Holmstrom|(see Office ID)|8.5|4.0\nJen Champion|RE/MAX Gateway - Team Kelli Lang|5|4.0\nKeith Hoyer|(see Office ID)|4|4.0\nGabrielle Balolia|(see Office ID)|5|4.0\nNicole Haun|(see Office ID)|6.5|3.9\nDaria Haynes|(see Office ID)|5|3.8\nTodd McElroy|(see Office ID)|3|3.8\nBrian J. Finnegan|(see Office ID)|1|3.7\nLisa Strandberg|John L. Scott Anacortes|5|3.7\nAngie Bossarte|Keller Williams Western Realty|7|3.6\nEric Duffer|(see Office ID)|5|3.6\nMelissa Pilcher|(see Office ID)|6.5|3.5\nGreta Geivett|(see Office ID)|5.5|3.5\nRacquel Y. McDermott|Windermere RE Skagit Valley|5|3.5\nSusan Crawford|(see Office ID)|6|3.5\nDavid Pope|(see Office ID)|3|3.5\nMelanie Archuleta|(see Office ID)|5|3.4\nMariah Haney|(see Office ID)|4|3.4\nKimberly Whitehead|RE/MAX Gateway - Team Kelli Lang|5|3.3\nCarla Fischer|(see Office ID)|4.5|3.3\nRobert Luecke|(see Office ID)|2|3.2\nJessica J. Notaro|Windermere RE Anacortes Properties|3.5|3.2\nDavid Huynh|(see Office ID)|5|3.2\nJason Goold|(see Office ID)|3|3.1\nLynnette Lyman|Windermere RE Skagit Valley|4.5|3.1\nJulie Marquez|(see Office ID)|3|3.0\nKelly Middleton|Windermere RE Anacortes Properties|4|3.0\nJenn Eddleman|Windermere RE Skagit Valley|10|3.0\nTroy Fair|NextHome 365 Realty|5|2.9\nBecky Elde|(see Office ID)|4.5|2.8\nKim Piazza|NextHome 365 Realty|5|2.7\nMary Bremer|(see Office ID)|6|2.7\nRita Hundahl|John L. Scott Skagit|4|2.6\nAnnamaria Clark|NextHome 365 Realty|2|2.5\nAshton Dellinger|(see Office ID)|3|2.4\nBillie Gerard|John L. Scott Skagit|5.5|2.4\nJodi Dynes|(see Office ID)|6|2.2\nVeronica Guffie|John L. Scott Skagit|3|2.2\nJessica Mack|(see Office ID)|1|2.1\nKris Cantrell|(see Office ID)|1|2.1\nLee Jennings|(see Office ID)|2|2.1\nDiAnn Sager|(see Office ID)|4|2.1\nIvana M. Wood|Elite Edge Real Estate, Inc.|3.5|2.0\nAlex Stredicke|(see Office ID)|3|1.9\nElizabeth Detillion|Elite Edge Real Estate, Inc.|4|1.8\nCarmen Andrew|(see Office ID)|3|1.8\nBrice Longanecker|(see Office ID)|3|1.7\nTessa Jarvis|(see Office ID)|3.5|1.7\nSara Fish|Keller Williams Western Realty|2.5|1.7\nAmanda Toscano|Century 21 North Homes Realty|4|1.7\nLori Christensen|(see Office ID)|2|1.7\nDawn Rood|(see Office ID)|2|1.6\nDebbie Hendricks|(see Office ID)|2|1.6\nJohn Combel|(see Office ID)|4|1.6\nCoty Hayes|Keller Williams Western Realty|4|1.6\nShelly Tveit|Windermere RE Skagit Valley|3|1.5\nMaria Mendoza|NextHome 365 Realty|3|1.5\nPK Woolcock|John L. Scott Skagit|1|1.5\nRon L Wortham|(see Office ID)|2|1.5\nMachelle Osborne|(see Office ID)|3|1.5\nTracie M Gulit|(see Office ID)|3|1.4\nMark Datskiy|(see Office ID)|3|1.4\nMelinda D. Wade|(see Office ID)|2.5|1.4\nChristina Brandt|(see Office ID)|3|1.4\nRose Anderson|(see Office ID)|1|1.4\nAyla Contois|(see Office ID)|1|1.4\nJoanie Johnson|(see Office ID)|2|1.4\nWendy Poulton|Windermere RE Anacortes Properties|1|1.3\nWilma Louia|Elite Edge Real Estate, Inc.|2|1.3\nHolly J.Hilts|(see Office ID)|2|1.3\nBrock Strickland|(see Office ID)|1|1.3\nAndrew English|(see Office ID)|1|1.3\nHeather McKenna-Bos|(see Office ID)|3|1.2\nJim Kallerson|(see Office ID)|1|1.2\nMichael Hamblin|(see Office ID)|1|1.2\nRani Ehalt|Century 21 North Homes Realty|2|1.1\nArmond Garcia|(see Office ID)|2|1.1".split("\n").map(function(r){var p=r.split("|");return {name:p[0],brokerage:p[1],txns:p[2],vol:+p[3]};});
 function renderRecruit(){ spinPage("Recruit Board"); ensureData(function(){ if(view==="recruit") drawRecruit(); }); }
 function rbStatus(name){ var n=String(name||"").toLowerCase().trim(); var c=ALL.filter(function(x){return String(x.name||"").toLowerCase().trim()===n;})[0]; if(!c)return{s:"TARGET",cls:"target",id:null}; return c.portalActivatedAt?{s:"PARTNER",cls:"partner",id:c.id}:{s:"IN CRM",cls:"crm",id:c.id}; }
-var rbQuery="", rbSort="vol", rbDir=-1;
+function recCounty(b){b=String(b||"").toLowerCase(); if(b.indexOf("western realty")>=0||b.indexOf("keller williams western")>=0||b.indexOf("bellingham")>=0||b.indexOf("whatcom")>=0||b.indexOf("muljat")>=0||b.indexOf("lynden")>=0||b.indexOf("ferndale")>=0) return "Whatcom"; return "Skagit"; }
+function recruitList(){
+  var base=RECRUIT.map(function(r){return {name:r.name,brokerage:r.brokerage,txns:r.txns,vol:r.vol,county:recCounty(r.brokerage)};});
+  var have={}; base.forEach(function(r){have[String(r.name).toLowerCase().trim()]=1;});
+  (ALL||[]).forEach(function(c){
+    if(String(c.type||"").toLowerCase().indexOf("realtor")<0) return;
+    var key=String(c.name||"").toLowerCase().trim(); if(!key||have[key]) return;
+    var terr=String(c.territory||"").toLowerCase();
+    var county=terr.indexOf("whatcom")>=0?"Whatcom":terr.indexOf("skagit")>=0?"Skagit":recCounty(c.business||c.brokerage);
+    base.push({name:c.name,brokerage:c.business||c.brokerage||"—",txns:"—",vol:0,county:county});
+    have[key]=1;
+  });
+  return base;
+}
+var rbQuery="", rbSort="vol", rbDir=-1, rbRegion="all";
 function drawRecruit(){
-  var all=RECRUIT.map(function(r){return {r:r,st:rbStatus(r.name)};});
+  var fullList=recruitList();
+  var all=fullList.map(function(r){return {r:r,st:rbStatus(r.name)};});
   var partners=all.filter(function(x){return x.st.s==="PARTNER";}).length;
   var incrm=all.filter(function(x){return x.st.s==="IN CRM";}).length;
   var targets=all.filter(function(x){return x.st.s==="TARGET";}).length;
-  var totVol=RECRUIT.reduce(function(s,r){return s+(r.vol||0);},0);
+  var totVol=fullList.reduce(function(s,r){return s+(r.vol||0);},0);
   var q=rbQuery.toLowerCase().trim();
   var rows=all.filter(function(x){return !q||((x.r.name+" "+x.r.brokerage).toLowerCase().indexOf(q)>=0);});
+  if(rbRegion!=="all") rows=rows.filter(function(x){return x.r.county===rbRegion;});
   var keyf={vol:function(x){return x.r.vol;},txns:function(x){return +x.r.txns;},name:function(x){return x.r.name.toLowerCase();},brokerage:function(x){return x.r.brokerage.toLowerCase();},status:function(x){return x.st.s;}};
   var kf=keyf[rbSort]||keyf.vol;
   rows.sort(function(a,b){var av=kf(a),bv=kf(b);return (av<bv?-1:av>bv?1:0)*rbDir;});
-  var html='<div class="page"><div class="ph"><h2>'+gi("recruit")+' Recruit Board</h2><span class="muted" style="margin-left:auto;font-size:13px">'+rows.length+' of '+RECRUIT.length+' agents</span></div>';
+  var html='<div class="page"><div class="ph"><h2>'+gi("recruit")+' Recruit Board</h2><span class="muted" style="margin-left:auto;font-size:13px">'+rows.length+' of '+fullList.length+' agents</span></div>';
   html+='<div class="stats" style="margin-bottom:16px">'+stat(partners,"Active partners","var(--pink)")+stat(incrm,"In CRM (not portal)","var(--cyan)")+stat(targets,"Recruit targets")+stat("$"+(totVol/1000).toFixed(1)+"B","Tracked volume")+'</div>';
-  html+='<div class="efield" style="margin-bottom:12px"><input id="rbSearch" placeholder="Search agents or brokerages…" value="'+esc(rbQuery)+'"></div>';
+  var regSel='<select id="rbRegSel">'+[["all","All regions"],["Skagit","Skagit County"],["Whatcom","Whatcom County"]].map(function(o){return '<option value="'+o[0]+'"'+(rbRegion===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
+  html+='<div class="cfilters" style="margin-bottom:12px">'+regSel+'<input id="rbSearch" placeholder="Search agents or brokerages…" value="'+esc(rbQuery)+'" style="flex:1;min-width:160px"></div>';
   function th(key,label){var on=rbSort===key;return '<th data-sort="'+key+'" style="cursor:pointer;white-space:nowrap;'+(on?'color:var(--pink)':'')+'">'+label+(on?(rbDir<0?" ▾":" ▴"):"")+'</th>';}
   html+='<div class="rbwrap"><table class="rbtable"><thead><tr><th>#</th>'+th("name","Realtor")+th("brokerage","Brokerage")+th("txns","Txns")+th("vol","Volume")+th("status","Status")+'</tr></thead><tbody>';
   html+=rows.length?rows.map(function(x,i){var r=x.r,st=x.st;var isT=!st.id;var stg=isT?rbStageGet(r.name):"";var strk=strikeFor(r.name);
@@ -1321,6 +1365,7 @@ function drawRecruit(){
   html+='</tbody></table></div></div>';
   document.getElementById("view").innerHTML=html;
   var si=document.getElementById("rbSearch"); if(si){si.oninput=function(){rbQuery=si.value;var p=si.selectionStart;drawRecruit();var ni=document.getElementById("rbSearch");if(ni){ni.focus();try{ni.setSelectionRange(p,p);}catch(e){}}};}
+  var rg=document.getElementById("rbRegSel"); if(rg)rg.onchange=function(){rbRegion=rg.value;drawRecruit();};
   [].forEach.call(document.querySelectorAll("[data-sort]"),function(t){t.onclick=function(){var k=t.getAttribute("data-sort");if(rbSort===k)rbDir=-rbDir;else{rbSort=k;rbDir=(k==="name"||k==="brokerage"||k==="status")?1:-1;}drawRecruit();};});
   wireContactClicks();
   [].forEach.call(document.querySelectorAll("[data-rb]"),function(t){t.onclick=function(){openPlaybook(t.getAttribute("data-rb"));};});
@@ -1332,7 +1377,7 @@ function rbStageSet(name,stage){try{var o=JSON.parse(localStorage.getItem("crmRe
 function firstName(n){return String(n||"").trim().split(/\s+/)[0]||"there";}
 function brokBrand(s){s=String(s||"").toLowerCase();var b=["re/max","remax","windermere","john l. scott","john l scott","keller williams","coldwell","century 21","nexthome","elite edge","lapis","pettruzzelli","courage","exp realty","compass","skyline","realogics","horizon"];for(var i=0;i<b.length;i++){if(s.indexOf(b[i])>=0)return b[i].replace("remax","re/max").replace("john l scott","john l. scott");}return (s.split(/[-,(]/)[0]||"").trim();}
 var pbAgent=null;
-function openPlaybook(name){var r=RECRUIT.filter(function(x){return x.name===name;})[0];if(!r)return;pbAgent=r;view="recruit";drawPlaybook();}
+function openPlaybook(name){var r=recruitList().filter(function(x){return x.name===name;})[0];if(!r)return;pbAgent=r;view="recruit";drawPlaybook();}
 function pbDraft(label,text,rows){var enc=encodeURIComponent(text);return '<div class="pbdraft"><div class="pbdh"><b>'+label+'</b><button class="btn pbcopy" data-copy="'+enc+'">'+gi("note")+' Copy</button></div><textarea class="pbta" rows="'+(rows||3)+'">'+esc(text)+'</textarea></div>';}
 function drawPlaybook(){
   var r=pbAgent; if(!r){go("recruit");return;}
