@@ -255,6 +255,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);display:flex
 .ro{display:inline-block;margin-left:10px;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);border:1px solid var(--border);border-radius:6px;padding:2px 7px;vertical-align:middle}
 /* generic scroll page for portal/stub views */
 .page{flex:1;overflow-y:auto;padding:26px 30px}
+.pscroll{flex:1;overflow-y:auto;min-height:0}
+.cfilters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.cfilters select{font-family:inherit;font-size:12.5px;font-weight:600;color:var(--text);background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 13px;outline:none;cursor:pointer}
+.cfilters select:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(34,191,231,.16)}
 .ph{display:flex;align-items:center;gap:14px;margin-bottom:18px}
 .ph h2{font-size:19px;font-family:var(--display);font-weight:400;letter-spacing:.5px;display:flex;align-items:center;gap:9px}.ph h2 .hash{color:var(--pink)}
 .gi{display:inline-grid;place-items:center;width:1.05em;height:1.05em;vertical-align:-.15em;flex:none}
@@ -522,17 +526,42 @@ function referralBoard(rows){
       +'<div class="right"><div class="days" style="color:var(--pink)">'+n+'</div><div class="muted" style="font-size:10px">referrals</div></div></div>';
   }).join("")+'</div>';
 }
-function contactsTab(rows){ if(cTab==="tier")return tierView(rows); if(cTab==="referral")return referralBoard(rows); return rowList(rows); }
+var cSort="recent", cTypeF="", cTerrF="";
+function applyCSF(rows){
+  var rs=rows.slice();
+  if(cTypeF) rs=rs.filter(function(c){return typeMatches(c.type,[cTypeF]);});
+  if(cTerrF) rs=rs.filter(function(c){return (c.territory||"")===cTerrF;});
+  rs.sort(function(a,b){
+    if(cSort==="name") return String(a.name||"").localeCompare(String(b.name||""));
+    if(cSort==="tier") return (tierNum(a.tier)-tierNum(b.tier))||String(a.name||"").localeCompare(String(b.name||""));
+    if(cSort==="refs") return (REFCOUNT[b.id]||0)-(REFCOUNT[a.id]||0);
+    var da=daysSince(a),db=daysSince(b),va=(da===null?1e9:da),vb=(db===null?1e9:db);
+    return cSort==="stale"?(vb-va):(va-vb);
+  });
+  return rs;
+}
+function contactsTab(rows){ if(cTab==="tier")return tierView(rows); if(cTab==="referral")return referralBoard(rows); return rowList(applyCSF(rows)); }
+function csfControls(){
+  var sortOpts=[["recent","Recently visited"],["stale","Longest since contact"],["name","Name A–Z"],["tier","Tier (1→5)"],["refs","Most referrals"]];
+  var s='<select id="cSortSel">'+sortOpts.map(function(o){return '<option value="'+o[0]+'"'+(cSort===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
+  s+='<select id="cTypeSel"><option value="">All types</option>'+DP_TY.map(function(t){return '<option'+(cTypeF===t?" selected":"")+'>'+esc(t)+'</option>';}).join("")+'</select>';
+  s+='<select id="cTerrSel"><option value="">All territories</option>'+DP_TR.map(function(t){return '<option'+(cTerrF===t?" selected":"")+'>'+esc(t)+'</option>';}).join("")+'</select>';
+  return '<div class="cfilters">'+s+'</div>';
+}
 function renderContacts(filter){
   var f=(filter||"").toLowerCase().trim();
   var rows=ALL.filter(function(c){ if(!f) return true; return ((c.name||"")+" "+(c.business||"")+" "+(c.phone||"")+" "+(c.email||"")).toLowerCase().indexOf(f)>=0; });
   var html='<div class="page"><div class="ph"><h2>'+gi("contacts")+' Contacts</h2><span class="muted" style="margin-left:auto;font-weight:600">'+rows.length+' total</span><button class="btn grad" id="addContactBtn" style="margin-left:14px">+ New Contact</button></div>'
     +'<div class="tabs"><div class="tab'+(cTab==="all"?" active":"")+'" data-ct="all">All Contacts</div><div class="tab'+(cTab==="tier"?" active":"")+'" data-ct="tier">Tier View</div><div class="tab'+(cTab==="referral"?" active":"")+'" data-ct="referral">Referral Board</div></div>'
+    +(cTab==="all"?csfControls():"")
     +'<div id="ctcontent">'+contactsTab(rows)+'</div></div>';
   document.getElementById("view").innerHTML=html;
   [].forEach.call(document.querySelectorAll("[data-ct]"),function(el){el.onclick=function(){cTab=el.getAttribute("data-ct");renderContacts(filter);};});
   [].forEach.call(document.querySelectorAll(".crow2[data-id]"),function(el){el.onclick=function(){openContact(+el.getAttribute("data-id"));};});
   var ab=document.getElementById("addContactBtn"); if(ab)ab.onclick=addContact;
+  var ss=document.getElementById("cSortSel"); if(ss)ss.onchange=function(){cSort=ss.value;renderContacts(filter);};
+  var ts=document.getElementById("cTypeSel"); if(ts)ts.onchange=function(){cTypeF=ts.value;renderContacts(filter);};
+  var rs2=document.getElementById("cTerrSel"); if(rs2)rs2.onchange=function(){cTerrF=rs2.value;renderContacts(filter);};
   paintAvatars();
 }
 function listContacts(filter){ renderContacts(filter); }
@@ -603,14 +632,14 @@ function renderProfile(){
     var tierOpts=["","Tier 1","Tier 2","Tier 3","Tier 4","Tier 5"].map(function(o){return '<option value="'+o+'"'+(String(c.tier||"")===o?" selected":"")+'>'+(o||"No tier")+'</option>';}).join("");
     rws+='<div class="efield"><label>Tier</label><select data-k="tier" class="esel">'+tierOpts+'</select></div>';
     rws+='<div class="efield"><label>Notes</label><textarea data-k="notes" rows="5">'+esc(c.notes||"")+'</textarea></div>';
-    D.innerHTML=back+head+'<div class="cards"><div class="card" style="grid-column:1/-1"><h3>Edit contact</h3>'+rws+'</div></div>';
+    D.innerHTML='<div class="pscroll">'+back+head+'<div class="cards"><div class="card" style="grid-column:1/-1"><h3>Edit contact</h3>'+rws+'</div></div></div>';
     var sv=document.getElementById("saveBtn"); if(sv)sv.onclick=doSave;
     var cc=document.getElementById("cancelBtn"); if(cc)cc.onclick=function(){editing=false;saveState="";saveCls="";renderProfile();};
     var bk=document.getElementById("backBtn"); if(bk)bk.onclick=function(){renderContacts("");};
     var ve=document.getElementById("avEdit"); if(ve)ve.onclick=avMenu;
     return;
   }
-  D.innerHTML=back+head+'<div class="pbody">'+leftCol(c)+'<div class="pmain">'+tabBar()+'<div id="ptcontent">'+tabContent(c)+'</div></div></div>';
+  D.innerHTML='<div class="pscroll">'+back+head+'<div class="pbody">'+leftCol(c)+'<div class="pmain">'+tabBar()+'<div id="ptcontent">'+tabContent(c)+'</div></div></div></div>';
   wireProfile(c);
 }
 function leftCol(c){
