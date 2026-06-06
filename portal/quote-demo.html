@@ -5,10 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>Quote Form Demo — Neon Giant Moving</title>
-<!-- Live demo of the new website quote form. Served from
-     refer.neongiantmoving.com, so it posts to the SAME-ORIGIN backend
-     /api/websiteLead (no CORS), which forwards to SmartMoving and then
-     this page redirects to the thank-you page. -->
 <style>
   :root{--green:#16E0A3;--ink:#13172A;--line:#d7dce3;--muted:#5b6172;}
   *{box-sizing:border-box;}
@@ -89,7 +85,7 @@
       <label class="consent"><input id="ng-consent" type="checkbox" required>
         <span>I agree to be contacted by phone, text, or email about my request.</span></label>
 
-      <button id="ng-submit" type="submit">Get My Free Quote</button>
+      <button id="ng-submit" type="button">Get My Free Quote</button>
       <p id="ng-error" class="err" role="alert" hidden>Sorry — something went wrong. Please call 360.588.4700 or try again.</p>
     </form>
   </div>
@@ -97,26 +93,30 @@
 <script>
 (function () {
   "use strict";
-  var BACKEND   = "/api/websiteLead"; /* same-origin on refer.neongiantmoving.com */
+  var BACKEND   = "/api/websiteLead";
   var THANK_YOU = "https://neongiantmoving.com/thank-you?submitted=quote";
   var REFERRAL  = "Website (demo)";
 
   var form = document.getElementById("ng-quote-form");
   var button = document.getElementById("ng-submit");
   var errorP = document.getElementById("ng-error");
+  var consent = document.getElementById("ng-consent");
+  var submitting = false;
+
   function qp(n){ try { return new URLSearchParams(location.search).get(n) || ""; } catch(e){ return ""; } }
   function val(n){ var el = form.elements[n]; return el ? (el.value || "").trim() : ""; }
 
-  form.addEventListener("submit", function (e) {
-    e.preventDefault();
+  function handleSubmit(e){
+    if (e) e.preventDefault();
+    if (submitting) return;
     errorP.hidden = true;
-    if (!form.checkValidity()) { form.reportValidity(); return; }
     if (val("company")) return;
+    if (!form.checkValidity()) { form.reportValidity(); return; }
 
     var payload = {
       firstName: val("firstName"), lastName: val("lastName"),
       phone: val("phone"), email: val("email"),
-      userOptIn: document.getElementById("ng-consent").checked ? "true" : "false",
+      userOptIn: consent && consent.checked ? "true" : "false",
       serviceType: val("serviceType"), moveSize: val("moveSize"),
       moveDate: val("moveDate"), originZip: val("originZip"), destinationZip: val("destinationZip"),
       notes: val("notes"), referralSource: REFERRAL,
@@ -124,19 +124,23 @@
       utmContent: qp("utm_content"), utmKeyword: qp("utm_term"), utmAdGroup: qp("utm_adgroup"), gclid: qp("gclid")
     };
 
+    submitting = true;
     button.disabled = true; var original = button.textContent; button.textContent = "Sending…";
-    function fail(){ button.disabled = false; button.textContent = original; errorP.hidden = false; }
+    function fail(){ submitting = false; button.disabled = false; button.textContent = original; errorP.hidden = false; }
 
     fetch(BACKEND, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) })
-    .then(function(res){ return res.json().catch(function(){ return {}; }); })
-    .then(function(data){
-      if (data && data.ok) {
-        try { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event:"lead_submit", form:"quote_demo" }); } catch(e){}
-        window.location.href = THANK_YOU;
-      } else { fail(); }
-    })
-    .catch(function(){ fail(); });
-  });
+      .then(function(res){ return res.json().catch(function(){ return {}; }); })
+      .then(function(data){
+        if (data && data.ok) {
+          try { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event:"lead_submit", form:"quote_demo" }); } catch(e){}
+          window.location.href = THANK_YOU;
+        } else { fail(); }
+      })
+      .catch(function(){ fail(); });
+  }
+
+  if (button) button.addEventListener("click", handleSubmit);
+  if (form) form.addEventListener("submit", handleSubmit);
 })();
 </script>
 </body>
