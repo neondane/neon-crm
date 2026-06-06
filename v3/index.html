@@ -697,7 +697,13 @@ function activityHtml(){
 function refsHtml(c){
   if(c._refs===undefined) return '<div class="noact"><span class="spin"></span></div>';
   if(!c._refs.length) return '<div class="noact">No referrals yet.</div>';
-  return c._refs.map(function(r,i){
+  var tot=c._refs.length, booked=0, completed=0, rev=0;
+  c._refs.forEach(function(r){var s=String(r.status||"").toLowerCase();if(s==="booked")booked++;else if(s==="completed")completed++;rev+=(+r.amount||0);});
+  var unbooked=tot-booked-completed;
+  var pill=function(n,lbl,color){return '<div style="flex:1;text-align:center;padding:8px 4px"><div style="font-size:20px;font-weight:800'+(color?(";color:"+color):"")+'">'+n+'</div><div class="muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.4px">'+lbl+'</div></div>';};
+  var summary='<div style="display:flex;background:var(--card2,#1b212d);border:1px solid var(--line);border-radius:12px;margin-bottom:12px;overflow:hidden">'
+    +pill(tot,"Total")+pill(unbooked,"Unbooked","#22BFE7")+pill(booked+completed,"Booked","#FF1493")+pill(money(rev),"Referred $","#00C2A8")+'</div>';
+  return summary+c._refs.map(function(r,i){
     var amt=(+r.amount)?("$"+(+r.amount).toLocaleString()):"";
     var rw=function(lbl,val){return '<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--line);font-size:13px"><span class="muted">'+lbl+'</span><b style="text-align:right">'+val+'</b></div>';};
     var det='<div class="leaddet" style="display:none;margin-top:8px">'
@@ -765,7 +771,7 @@ function closeAvMenu(){var m=document.getElementById("avMenu");if(m)m.remove();d
 function avViewCard(){ if(!current.cardImage)return; var w=window.open("");if(w)w.document.write('<title>Business card</title><img src="'+current.cardImage+'" style="max-width:100%">'); }
 function avPick(mode){
   var inp=document.createElement("input");inp.type="file";inp.accept="image/*";
-  inp.onchange=function(){var f=inp.files&&inp.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){avCrop(rd.result,mode);};rd.readAsDataURL(f);};
+  inp.onchange=function(){var f=inp.files&&inp.files[0];if(!f)return;if(!/^image\//.test(f.type)){alert("Please choose an image file.");return;}var rd=new FileReader();rd.onload=function(){avCrop(rd.result,mode);};rd.onerror=function(){alert("Couldn't read that file — try another image.");};rd.readAsDataURL(f);};
   inp.click();
 }
 function avCrop(src,mode){
@@ -787,11 +793,15 @@ function avCrop(src,mode){
       el.style.width=dw+"px"; el.style.height=dh+"px"; el.style.left=((S-dw)/2+st.ox)+"px"; el.style.top=((S-dh)/2+st.oy)+"px";
     }
     apply();
+    el.onerror=function(){avCloseModal();alert("That image couldn't be displayed — try a different file.");};
     document.getElementById("avZoom").oninput=function(){st.z=+this.value;apply();};
     var drag=false,lx,ly;
-    stage.onmousedown=function(e){drag=true;lx=e.clientX;ly=e.clientY;stage.classList.add("drag");e.preventDefault();};
-    document.onmousemove=function(e){if(!drag)return;st.ox+=e.clientX-lx;st.oy+=e.clientY-ly;lx=e.clientX;ly=e.clientY;apply();};
-    document.onmouseup=function(){drag=false;stage.classList.remove("drag");};
+    function pt(e){var t=e.touches&&e.touches[0];return t?{x:t.clientX,y:t.clientY}:{x:e.clientX,y:e.clientY};}
+    function down(e){drag=true;var p=pt(e);lx=p.x;ly=p.y;stage.classList.add("drag");e.preventDefault();}
+    function move(e){if(!drag)return;var p=pt(e);st.ox+=p.x-lx;st.oy+=p.y-ly;lx=p.x;ly=p.y;apply();if(e.touches)e.preventDefault();}
+    function up(){drag=false;stage.classList.remove("drag");}
+    stage.onmousedown=down; document.onmousemove=move; document.onmouseup=up;
+    stage.ontouchstart=down; document.ontouchmove=move; document.ontouchend=up;
     document.getElementById("avCancel").onclick=avCloseModal;
     document.getElementById("avSaveBtn").onclick=function(){
       var out=320, cv=document.createElement("canvas");cv.width=out;cv.height=out;var ctx=cv.getContext("2d");
@@ -803,9 +813,10 @@ function avCrop(src,mode){
       avSave(avatar,card);
     };
   };
+  img.onerror=function(){alert("That image couldn't be loaded — try a different photo.");};
   img.src=src;
 }
-function avCloseModal(){var m=document.getElementById("avModal");if(m)m.remove();document.onmousemove=null;document.onmouseup=null;}
+function avCloseModal(){var m=document.getElementById("avModal");if(m)m.remove();document.onmousemove=null;document.onmouseup=null;document.ontouchmove=null;document.ontouchend=null;}
 function avDownscale(img,maxW){var w=img.naturalWidth,h=img.naturalHeight,s=Math.min(1,maxW/w);var cv=document.createElement("canvas");cv.width=Math.round(w*s);cv.height=Math.round(h*s);cv.getContext("2d").drawImage(img,0,0,cv.width,cv.height);return cv.toDataURL("image/jpeg",0.82);}
 async function avSave(avatar,card){
   var id=current.id; var patch={profilePic:avatar}; if(card)patch.cardImage=card;
