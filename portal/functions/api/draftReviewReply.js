@@ -31,6 +31,7 @@
 
 const ALLOWED_ORIGINS = [
   'https://crm.neongiantmoving.com',
+  'https://crm3.neongiantmoving.com',
   'https://refer.neongiantmoving.com',
 ];
 
