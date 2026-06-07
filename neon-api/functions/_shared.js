@@ -14,6 +14,9 @@ export const ALLOWED_ORIGINS = [
   'https://crm.neongiantmoving.com',
   'https://refer.neongiantmoving.com',
   'https://portal.neongiantmoving.com',
+  'https://track.neongiantmoving.com',
+  'https://neongiantmoving.com',
+  'https://www.neongiantmoving.com',
 ];
 
 export function corsHeaders(origin) {
