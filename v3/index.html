@@ -1280,7 +1280,8 @@ function typeMatches(ct,sel){
   var t=String(ct||"").toLowerCase();
   return sel.some(function(s){var kw=TYPE_KW[s];if(kw==="__other__")return !KNOWN_KW.some(function(k){return t.indexOf(k)>=0;});return kw?t.indexOf(kw)>=0:t===String(s).toLowerCase();});
 }
-var dpPicks=[], dpNewFound=[];
+var dpPicks=[], dpNewFound=[], dpPlan=null;
+function dpSave(){ try{ localStorage.setItem("dpPicks",JSON.stringify(dpPicks)); }catch(e){} }
 function dpChecked(name){return [].slice.call(document.querySelectorAll("input[name="+name+"]:checked")).map(function(x){return x.value;});}
 var PLACE_KW=/stor|self|mini|facilit|apartment|apt|living|cube|haul|depot|center|park|villa|manor|lodge|suites|homes|management|complex/i;
 function placeName(c){
@@ -1292,7 +1293,7 @@ function placeName(c){
 function dpName(c){return placeName(c);}
 function dpSubName(c){var biz=/realtor/i.test(c.type||"")?"":(c.business&&c.name&&c.business!==c.name?c.name:"");return [c.type,c.territory,biz].filter(Boolean).join(" · ");}
 function renderDayPlan(){
-  dpPicks=[]; dpNewFound=[];
+  if(!dpPicks.length){ try{ var sv=JSON.parse(localStorage.getItem("dpPicks")||"[]"); if(Array.isArray(sv)&&sv.length) dpPicks=sv; }catch(e){} }
   var tom=new Date(Date.now()+86400000).toISOString().slice(0,10);
   var html='<div class="page"><div style="max-width:920px;margin:0 auto"><div class="ph"><h2>'+gi("dayplan")+' Plan My Day</h2></div>';
   html+='<div class="muted" style="margin-bottom:16px">AI-built route + per-stop briefings, talking points, and leave-behinds</div>';
@@ -1316,6 +1317,7 @@ function renderDayPlan(){
   document.getElementById("dpFindBtn").onclick=dpFindNew;
   document.getElementById("dpGenBtn").onclick=dpGenerate;
   dpRenderKnown(); dpRenderPicks();
+  if(dpPlan&&dpPlan.html){ var rr=document.getElementById("dpResult"); if(rr)rr.innerHTML=dpPlan.html; }
 }
 function dpRenderKnown(){
   var terrs=dpChecked("dpT"),types=dpChecked("dpY");
@@ -1331,8 +1333,8 @@ function dpRenderKnown(){
   el.innerHTML=rows.length?rows.map(function(c){var picked=dpPicks.some(function(p){return p.id===c.id;});return '<div class="ccard"><div class="info"><div class="nm" style="font-size:14px">'+esc(dpName(c))+'</div><div class="bz">'+esc(dpSubName(c))+'</div></div><button class="btn'+(picked?" grad":"")+'" data-add="'+c.id+'" style="min-width:38px">'+(picked?"✓":"+")+'</button></div>';}).join(""):'<div class="muted" style="font-size:13px;padding:8px">No known places match those filters.</div>';
   [].forEach.call(el.querySelectorAll("[data-add]"),function(b){b.onclick=function(){dpAddPick(+b.getAttribute("data-add"));};});
 }
-function dpAddPick(id){ if(dpPicks.some(function(p){return p.id===id;}))return; var c=ALL.filter(function(x){return x.id===id;})[0]; if(!c)return; dpPicks.push({id:c.id,name:dpName(c),sub:dpSubName(c),type:c.type,territory:c.territory,address:c.address}); dpRenderKnown(); dpRenderPicks(); }
-function dpRemovePick(key){ dpPicks=dpPicks.filter(function(p){return String(p.id)!==key&&String(p.nid)!==key;}); dpRenderKnown(); dpRenderPicks(); }
+function dpAddPick(id){ if(dpPicks.some(function(p){return p.id===id;}))return; var c=ALL.filter(function(x){return x.id===id;})[0]; if(!c)return; dpPicks.push({id:c.id,name:dpName(c),sub:dpSubName(c),type:c.type,territory:c.territory,address:c.address,lat:c.lat,lon:c.lon}); dpSave(); dpRenderKnown(); dpRenderPicks(); }
+function dpRemovePick(key){ dpPicks=dpPicks.filter(function(p){return String(p.id)!==key&&String(p.nid)!==key;}); dpSave(); dpRenderKnown(); dpRenderPicks(); }
 function dpRenderPicks(){
   var el=document.getElementById("dpPicksList"); if(!el)return;
   var cnt=document.getElementById("dpPickCount"); if(cnt)cnt.textContent=dpPicks.length;
@@ -1345,34 +1347,78 @@ async function dpFindNew(){
   var btn=document.getElementById("dpFindBtn"), el=document.getElementById("dpNewList");
   btn.disabled=true;btn.textContent="Searching… (~30s)";
   el.innerHTML='<div class="noact"><span class="spin"></span> Web-searching for new businesses…</div>';
+  // Build an exclusion list of everything we already have in these territories/types, plus a matcher to filter the results.
+  var norm=function(s){return String(s||"").toLowerCase().replace(/\b(llc|inc|co|the|of|and|&|mini|self|storage|realty|real estate|group|team|properties|property|management)\b/g,"").replace(/[^a-z0-9]/g,"");};
+  var haveRows=ALL.filter(function(c){ return typeMatches(c.type,types) && (!terrs.length||terrs.indexOf(c.territory)>=0); });
+  var excludeNames=[]; var haveKeys={};
+  ALL.forEach(function(c){ var bn=c.business||c.name; if(bn){ haveKeys[norm(bn)]=1; if(c.name&&c.name!==bn) haveKeys[norm(c.name)]=1; } });
+  haveRows.forEach(function(c){ var bn=c.business||c.name; if(bn) excludeNames.push(bn); });
   try{
-    var r=await fetch(NEON_API+"/api/discoverNewLeads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"discoverNewLeads",opts:{territories:terrs,types:types,limit:10}})}).then(function(x){return x.json();});
+    var r=await fetch(NEON_API+"/api/discoverNewLeads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"discoverNewLeads",opts:{territories:terrs,types:types,limit:12,exclude:excludeNames}})}).then(function(x){return x.json();});
     var list=(r&&(r.leads||r.results||r.businesses||r.addons))||[];
+    // client-side safety net: drop anything that matches a business/contact we already have
+    list=list.filter(function(b){ var k=norm(b.name||b.business); return k && !haveKeys[k]; });
     dpNewFound=list;
     if(!list.length){ el.innerHTML='<div class="muted" style="font-size:13px;padding:8px">No new businesses returned. (If this stays empty, the discoverNewLeads action may need confirming on the backend.)</div>'; }
     else { el.innerHTML='<div class="cgrid">'+list.map(function(b,i){return '<div class="ccard"><div class="info"><div class="nm" style="font-size:14px">'+esc(b.name||b.business||"—")+'</div><div class="bz">'+esc(b.type||b.category||"new")+(b.address?' · '+esc(b.address):"")+'</div></div><button class="btn" data-addnew="'+i+'" style="min-width:38px">+</button></div>';}).join("")+'</div>';
-      [].forEach.call(el.querySelectorAll("[data-addnew]"),function(bb){bb.onclick=function(){var b=dpNewFound[+bb.getAttribute("data-addnew")]||{};dpPicks.push({nid:"n"+Date.now()+Math.floor(Math.random()*999),name:b.name||b.business,type:b.type||b.category||"New",territory:b.territory||"",address:b.address||""});dpRenderPicks();};}); }
+      [].forEach.call(el.querySelectorAll("[data-addnew]"),function(bb){bb.onclick=function(){var b=dpNewFound[+bb.getAttribute("data-addnew")]||{};dpPicks.push({nid:"n"+Date.now()+Math.floor(Math.random()*999),name:b.name||b.business,type:b.type||b.category||"New",territory:b.territory||"",address:b.address||""});dpSave();dpRenderPicks();};}); }
   }catch(e){ el.innerHTML='<div class="muted" style="font-size:13px;padding:8px;color:#e24b4a">Search failed: '+esc(e.message)+'</div>'; }
   btn.disabled=false;btn.innerHTML=gi("search")+" Find new businesses";
 }
+function dpGeocodeBase(base){ return fetch(NEON_API+"/api/geocode",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({address:base})}).then(function(x){return x.json();}).then(function(j){return (j&&j.lat!=null)?{lat:j.lat,lon:j.lon,address:j.address||base,name:"Base"}:null;}).catch(function(){return null;}); }
+async function dpResolveStop(p){
+  if(p.lat!=null && p.lon!=null) return p;
+  try{
+    var j=await fetch(NEON_API+"/api/resolvePlace",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({opts:{name:p.name,area:p.territory,address:p.address}})}).then(function(x){return x.json();});
+    if(j&&j.ok&&j.lat!=null){ p.address=j.address||p.address; p.lat=j.lat; p.lon=j.lon;
+      if(p.id){ var c2=ALL.filter(function(x){return x.id===p.id;})[0]; if(c2){c2.address=p.address;c2.lat=j.lat;c2.lon=j.lon;} try{ sbWrite("PATCH","contacts?id=eq."+p.id,{address:p.address,lat:j.lat,lon:j.lon}); }catch(e){} }
+    }
+  }catch(e){}
+  return p;
+}
+function dpHaversine(a,b){ var R=3958.8,dLat=(b.lat-a.lat)*Math.PI/180,dLon=(b.lon-a.lon)*Math.PI/180,la1=a.lat*Math.PI/180,la2=b.lat*Math.PI/180; var h=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)*Math.sin(dLon/2); return 2*R*Math.asin(Math.sqrt(h)); }
+function dpOptimize(base,stops){ var rem=stops.slice(),order=[],cur=base,total=0; while(rem.length){ var bi=0,bd=Infinity; for(var i=0;i<rem.length;i++){var d=dpHaversine(cur,rem[i]);if(d<bd){bd=d;bi=i;}} total+=bd;cur=rem[bi];order.push(cur);rem.splice(bi,1);} if(order.length)total+=dpHaversine(cur,base); return {order:order,miles:total}; }
+function dpPt(s){ return (s.lat!=null&&s.lon!=null)?(s.lat+","+s.lon):encodeURIComponent(s.address||s.name||""); }
+function dpMapsUrl(base,ordered){ var wp=ordered.map(dpPt).join("|"); return "https://www.google.com/maps/dir/?api=1&origin="+dpPt(base)+"&destination="+dpPt(base)+"&travelmode=driving"+(wp?"&waypoints="+wp:""); }
 async function dpGenerate(){
   var person=(document.getElementById("dpPerson")||{}).value||"", date=(document.getElementById("dpDate")||{}).value||"", base=(document.getElementById("dpBase")||{}).value||"";
-  var terrs=dpChecked("dpT"),types=dpChecked("dpY");
-  if(!terrs.length||!types.length){alert("Pick at least one territory and affiliate type.");return;}
   if(!dpPicks.length){alert("Add at least one stop to your route first.");return;}
+  if(!base.trim()){alert("Enter a base address (where you start and end the day).");return;}
   var res=document.getElementById("dpResult");
-  res.innerHTML='<div class="noact"><span class="spin"></span> Generating plan… ~15s</div>';
+  res.innerHTML='<div class="noact"><span class="spin"></span> Locating your base address…</div>';
   try{
-    var r=await fetch(NEON_API+"/api/generateDayPlan",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"generateDayPlan",opts:{person:person,date:date,base:base,territories:terrs,types:types,stops:dpPicks}})}).then(function(x){return x.json();});
-    if(!r||r.ok===false){ res.innerHTML='<div class="noact" style="color:#e24b4a">Plan generation didn\'t return a route. ('+esc((r&&r.error)||"backend may need confirming")+')</div>'; return; }
-    res.innerHTML=dpRenderPlan(r,person,date);
-  }catch(e){ res.innerHTML='<div class="noact" style="color:#e24b4a">Error: '+esc(e.message)+'</div>'; }
+    var baseGeo=await dpGeocodeBase(base);
+    if(!baseGeo){ res.innerHTML='<div class="noact" style="color:#e24b4a">Couldn’t locate that base address — double-check it and try again.</div>'; return; }
+    res.innerHTML='<div class="noact"><span class="spin"></span> Finding real addresses for '+dpPicks.length+' stop'+(dpPicks.length>1?'s':'')+'… (~'+Math.max(5,dpPicks.length*2)+'s)</div>';
+    for(var i=0;i<dpPicks.length;i++){ await dpResolveStop(dpPicks[i]); }
+    dpSave();
+    var located=dpPicks.filter(function(p){return p.lat!=null&&p.lon!=null;});
+    var missing=dpPicks.filter(function(p){return !(p.lat!=null&&p.lon!=null);});
+    var opt=dpOptimize(baseGeo,located);
+    var ordered=opt.order.concat(missing);
+    var mapsUrl=dpMapsUrl(baseGeo,opt.order);
+    res.innerHTML='<div class="noact"><span class="spin"></span> Adding talking points…</div>';
+    var brief={};
+    try{
+      var r=await fetch(NEON_API+"/api/generateDayPlan",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"generateDayPlan",opts:{person:person,date:date,base:base,stops:ordered}})}).then(function(x){return x.json();});
+      var bs=(r&&(r.stops||r.route||r.plan))||[]; bs.forEach(function(s){var k=(s.name||s.business||"").toLowerCase();if(k)brief[k]=s;});
+    }catch(e){}
+    var html=dpRenderPlan(ordered,baseGeo,mapsUrl,opt.miles,missing.length,brief,person,date);
+    dpPlan={html:html};
+    res.innerHTML=html;
+  }catch(e){ res.innerHTML='<div class="noact" style="color:#e24b4a">Error building route: '+esc(e.message)+'</div>'; }
 }
-function dpRenderPlan(r,person,date){
-  var stops=r.stops||r.route||r.plan||[];
-  var html='<div class="pcard"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px"><h3 style="font-family:var(--display);font-weight:400;font-size:17px">Day Plan — '+esc(person)+' · '+esc(date)+'</h3><button class="btn grad" onclick="window.print()">🖨 Print / Save PDF</button></div>';
-  if(r.summary) html+='<div class="muted" style="margin-bottom:12px;font-size:13px">'+esc(r.summary)+'</div>';
-  html+=stops.length?stops.map(function(s,i){return '<div class="lead"><div class="who">'+(i+1)+'. '+esc(s.name||s.business||"Stop")+'</div>'+(s.address?'<div class="meta">'+esc(s.address)+'</div>':"")+(s.briefing?'<div style="margin-top:6px;font-size:13px">'+esc(s.briefing)+'</div>':"")+(s.talkingPoints?'<div style="margin-top:6px;font-size:13px"><b>Talking points:</b> '+esc(Array.isArray(s.talkingPoints)?s.talkingPoints.join("; "):s.talkingPoints)+'</div>':"")+(s.leaveBehind?'<div style="margin-top:4px;font-size:13px"><b>Leave-behind:</b> '+esc(s.leaveBehind)+'</div>':"")+'</div>';}).join(""):'<div class="muted" style="font-size:13px">Plan returned, but no stops were parsed. Raw: '+esc(JSON.stringify(r).slice(0,300))+'</div>';
+function dpRenderPlan(ordered,base,mapsUrl,miles,missingCount,brief,person,date){
+  var html='<div class="pcard"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;flex-wrap:wrap"><h3 style="font-family:var(--display);font-weight:400;font-size:17px">Route'+(person?" — "+esc(person):"")+(date?' · '+esc(date):'')+'</h3><div style="display:flex;gap:8px"><a class="btn grad" href="'+esc(mapsUrl)+'" target="_blank" rel="noopener">'+gi("map")+' Navigate</a><button class="btn" onclick="window.print()">🖨 Print</button></div></div>';
+  html+='<div class="muted" style="margin-bottom:12px;font-size:13px">'+ordered.length+' stops · ~'+(miles?miles.toFixed(0):"?")+' mi round-trip'+(missingCount?(' · '+missingCount+' couldn’t be located (listed last — add an address on their profile)'):'')+'</div>';
+  html+=ordered.map(function(s,i){
+    var b=brief[(s.name||"").toLowerCase()]||{}, loc=(s.lat!=null&&s.lon!=null);
+    var stopUrl=loc?("https://www.google.com/maps/dir/?api=1&destination="+s.lat+","+s.lon+"&travelmode=driving"):("https://www.google.com/maps/search/?api=1&query="+encodeURIComponent((s.name||"")+" "+(s.address||s.territory||"")));
+    return '<div class="lead"><div class="top"><div style="min-width:0"><div class="who">'+(i+1)+'. '+esc(s.name||"Stop")+(loc?"":' <span class="pill" style="color:#e24b4a;border-color:#e24b4a55">no address</span>')+'</div><div class="meta">'+esc(s.address||s.territory||"")+'</div></div><a class="btn" href="'+esc(stopUrl)+'" target="_blank" rel="noopener" style="flex:none" title="Navigate to this stop">'+gi("map")+'</a></div>'
+      +(b.briefing?'<div style="margin-top:6px;font-size:13px">'+esc(b.briefing)+'</div>':"")
+      +(b.talkingPoints?'<div style="margin-top:6px;font-size:13px"><b>Talking points:</b> '+esc(Array.isArray(b.talkingPoints)?b.talkingPoints.join("; "):b.talkingPoints)+'</div>':"")
+      +(b.leaveBehind?'<div style="margin-top:4px;font-size:13px"><b>Leave-behind:</b> '+esc(b.leaveBehind)+'</div>':"")+'</div>';
+  }).join("");
   html+='</div>';
   return html;
 }
