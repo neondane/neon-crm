@@ -498,6 +498,18 @@ function tempOf(d){ if(d===null)return["new","New"]; if(d<=3)return["hot","Hot"]
 // Facility-first display name: realtors/people show their name; storage/senior/apartment/etc. show the FACILITY (business) as the headline, person becomes the contact.
 function cName(c){ return placeName(c)||"Unnamed"; }
 function cPerson(c){ if(/realtor/i.test((c&&c.type)||"")) return ""; var biz=(c&&c.business)||"", nm=(c&&c.name)||""; if(placeName(c)===biz && nm && nm!==biz) return "Contact: "+nm; return ""; }
+function fmtDate(d){ if(!d) return "—"; var dt=new Date(d); if(isNaN(dt.getTime())) return String(d).slice(0,10); return dt.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}); }
+function daysSinceDate(d){ if(!d) return null; var dt=new Date(d); if(isNaN(dt.getTime())) return null; var n=Math.floor((Date.now()-dt.getTime())/86400000); return n<0?0:n; }
+function profileStatsStrip(c){
+  var refs=REFCOUNT[c.id]||0, booked=REFBOOKED[c.id]||0, rev=REFREV[c.id]||0;
+  var ds=daysSinceDate(c.lastVisit), lvTxt=fmtDate(c.lastVisit);
+  var lvBig=lvTxt+(ds!=null?' <span style="font-size:12px;color:var(--text-muted);font-weight:600">('+ds+'d ago)</span>':'');
+  return '<div class="stats" style="margin:0 0 14px">'
+    +stat(refs,"Referrals","var(--pink)")
+    +stat(booked,"Booked","#00C2A8")
+    +stat(money(rev),"Referred $","#e08600")
+    +stat(lvBig,"Last visit","")+'</div>';
+}
 function rowHtml(c){
   var d=daysSince(c), tp=tempOf(d), cnt=ICOUNT[c.id]||0;
   var person=cPerson(c);
@@ -691,7 +703,7 @@ function renderProfile(){
     var ve=document.getElementById("avEdit"); if(ve)ve.onclick=avMenu;
     return;
   }
-  D.innerHTML='<div class="pscroll">'+back+head+'<div class="pbody">'+leftCol(c)+'<div class="pmain">'+tabBar(c)+'<div id="ptcontent">'+tabContent(c)+'</div></div></div></div>';
+  D.innerHTML='<div class="pscroll">'+back+head+profileStatsStrip(c)+'<div class="pbody">'+leftCol(c)+'<div class="pmain">'+tabBar(c)+'<div id="ptcontent">'+tabContent(c)+'</div></div></div></div>';
   wireProfile(c);
 }
 function leftCol(c){
@@ -700,7 +712,7 @@ function leftCol(c){
     +(c.email?'<div class="ln">'+gi("email")+' <a href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a></div>':'')
     +(c.address?'<div class="ln">'+gi("map")+' '+esc(c.address)+'</div>':'')
     +(!c.phone&&!c.email&&!c.address?'<div class="muted" style="font-size:13px">No contact info</div>':'')+'</div>';
-  var df=[["Owner",c.owner],["Type",c.type],["Tier",c.tier],["Territory",c.territory],["Score",c.score],["Last visit",c.lastVisit]];
+  var df=[["Owner",c.owner],["Type",c.type],["Tier",c.tier],["Territory",c.territory],["Score",c.score],["Last visit",c.lastVisit?fmtDate(c.lastVisit):""]];
   var dh=''; df.forEach(function(f){if(f[1]==null||f[1]==="")return;dh+='<div class="field"><span class="k">'+f[0]+'</span><span class="v">'+esc(f[1])+'</span></div>';});
   var details='<div class="pcard"><h3>Details</h3>'+(dh||'<div class="muted" style="font-size:13px">—</div>')+'</div>';
   var portal='';
