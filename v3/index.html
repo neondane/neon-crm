@@ -714,7 +714,7 @@ function refsHtml(c){
       +(r.jobName?rw("Job",esc(r.jobName)):"")
       +(r.contactName?rw("Referred by",esc(r.contactName)):"")
       +'</div>';
-    return '<div class="lead refrow" data-rd="'+i+'" style="cursor:pointer"><div class="top"><div><div class="who">'+esc(r.jobName||"—")+'</div><div class="meta">'+esc(String(r.date||"").slice(0,10))+(amt?(" · "+amt):"")+'</div></div>'+sbadge(r.status)+'</div>'+det+'</div>';
+    return '<div class="lead refrow" data-rd="'+i+'" style="cursor:pointer"><div class="top"><div style="min-width:0"><div class="who">'+esc(r.jobName||"—")+'</div><div class="meta">'+esc(String(r.date||"").slice(0,10))+(amt?(" · "+amt):"")+'</div></div><div style="display:flex;align-items:center;gap:8px;flex:none">'+sbadge(r.status)+'<button class="btn grad" data-reward="'+i+'" title="Send a $50 reward to '+esc(c.name||"this partner")+' for this referral" style="font-size:11px;padding:5px 10px">'+gi("cash")+' Reward $50</button></div></div>'+det+'</div>';
   }).join("");
 }
 function redrawTab(c){var el=document.getElementById("ptcontent");if(el)el.innerHTML=tabContent(c);[].forEach.call(document.querySelectorAll(".ptab"),function(e){e.classList.toggle("active",e.getAttribute("data-pt")===pTab);});wireTab(c);}
@@ -735,6 +735,13 @@ function wireTab(c){
   [].forEach.call(document.querySelectorAll("[data-af]"),function(el){el.onclick=function(){actFilter=el.getAttribute("data-af");redrawTab(c);};});
   var snd=document.getElementById("cSend"); if(snd)snd.onclick=function(){sendComposer(c);};
   [].forEach.call(document.querySelectorAll(".refrow"),function(el){el.onclick=function(){var d=el.querySelector(".leaddet");if(d){d.style.display=(d.style.display==="none"?"block":"none");el.classList.toggle("open");}};});
+  [].forEach.call(document.querySelectorAll("[data-reward]"),function(el){el.onclick=function(ev){ev.stopPropagation();var i=+el.getAttribute("data-reward");rewardReferral(c,(c._refs||[])[i],el);};});
+}
+async function rewardReferral(c,r,btn){
+  if(!r) return;
+  if(!c.email){ alert("No email on file for "+(c.name||"this partner")+". Add their email on their profile first, then reward."); return; }
+  var it={ email:c.email, partner:c.name, customer:r.jobName||"", amount:50, key:"manual:"+(r.id!=null?r.id:r.jobName), id:(r.id!=null?r.id:r.jobName), rtId:c.id };
+  await sendPayoutGo(it,btn);  // same confirm + REAL-money send + record flow
 }
 async function loadActivity(c){
   var acc=[];
@@ -745,7 +752,7 @@ async function loadActivity(c){
   if(pTab==="conversation") redrawTab(c);
 }
 async function loadRefs(c){
-  try{c._refs=await sb("referrals?contactId=eq."+c.id+"&select=jobName,status,date,amount,contactName&order=date.desc");}catch(e){c._refs=[];}
+  try{c._refs=await sb("referrals?contactId=eq."+c.id+"&select=id,jobName,status,date,amount,contactName&order=date.desc");}catch(e){c._refs=[];}
   if(pTab==="referrals") redrawTab(c);
 }
 async function activatePortal(c){
@@ -862,9 +869,11 @@ async function doSave(){
 }
 
 /* ---------------- Referral Portal + Payouts ---------------- */
-var PORTAL=null, portalTab="payouts", portalFilter="";
+var PORTAL=null, portalTab="payouts", portalFilter="", portalRealtorView="active";
 var SBADGE={ "new":"#22aee4","contacted":"#ff9933","booked":"#33cc66","completed":"#e08600","lost":"#888" };
 function sbadge(s){var k=String(s||"new").toLowerCase();var c=SBADGE[k]||"#22aee4";return '<span class="sbadge" style="color:'+c+';background:'+c+'22;border:1px solid '+c+'55">'+esc((s||"new").toUpperCase())+'</span>';}
+function pAvatar(c){var src=c&&(c.profilePic||c.cardImage||(typeof PHOTOS!=="undefined"&&PHOTOS[c.id]));return '<div class="av" style="width:40px;height:40px;flex:none">'+(src?'<img src="'+esc(src)+'" alt="">':esc(initials(c&&c.name||"").toUpperCase()))+'</div>';}
+function pAvatarFrom(photo,name){var src=photo||"";return '<div class="av" style="width:40px;height:40px;flex:none">'+(src?'<img src="'+esc(src)+'" alt="">':esc(initials(name||"").toUpperCase()))+'</div>';}
 async function renderPortal(){
   document.getElementById("view").innerHTML='<div class="page"><div class="ph"><h2>'+gi("portal")+' Referral Portal</h2></div><div class="stub" style="height:auto;padding:30px"><div class="spin"></div></div></div>';
   if(!PORTAL){
@@ -888,14 +897,14 @@ function payoutItems(){
   PORTAL.leads.forEach(function(l){
     if(String(l.status||"").toLowerCase()!=="completed") return;
     var key="portal:"+l.id; var rt=byId[String(l.realtorId)]||{};
-    items.push({key:key,partner:(l.realtorName||"").trim(),customer:l.customerName,source:"portal",amount:50,paid:!!paidMap[key],id:l.id,email:rt.email||""});
+    items.push({key:key,partner:(l.realtorName||"").trim(),customer:l.customerName,source:"portal",amount:50,paid:!!paidMap[key],paidAt:(paidMap[key]&&paidMap[key]!=="1")?paidMap[key]:"",id:l.id,email:rt.email||"",rtId:l.realtorId,photo:rt.profilePic||rt.cardImage||""});
   });
   PORTAL.refs.forEach(function(r){
     if(String(r.status||"").toLowerCase()!=="completed") return;
     var act=actMap[String(r.contactId)]; if(!act) return;
     var d=String(r.date||"").slice(0,10); if(d && d<act) return;
     var key="manual:"+r.id; var rt=byId[String(r.contactId)]||{};
-    items.push({key:key,partner:(r.contactName||"").trim(),customer:r.jobName,source:"referral",amount:50,paid:!!paidMap[key],id:r.id,email:rt.email||""});
+    items.push({key:key,partner:(r.contactName||"").trim(),customer:r.jobName,source:"referral",amount:50,paid:!!paidMap[key],paidAt:(paidMap[key]&&paidMap[key]!=="1")?paidMap[key]:"",id:r.id,email:rt.email||"",rtId:r.contactId,photo:rt.profilePic||rt.cardImage||""});
   });
   return items;
 }
@@ -904,25 +913,36 @@ function drawPortal(){
   var due=items.filter(function(x){return !x.paid;});
   var dueTotal=due.reduce(function(s,x){return s+x.amount;},0);
   var paidTotal=items.filter(function(x){return x.paid;}).reduce(function(s,x){return s+x.amount;},0);
+  var paidList=items.filter(function(x){return x.paid;});
+  var activeRealtors=PORTAL.realtors.filter(function(c){return c.portalActivatedAt;});
   var f=portalFilter.toLowerCase().trim();
   var html='<div class="page"><div class="ph"><h2>'+gi("portal")+' Referral Portal</h2></div>';
+  // Clickable stat tiles — each jumps to its list
+  var tile=function(t,big,lbl,color){return '<div class="stat" data-go="'+t+'" style="cursor:pointer'+(portalTab===t?";outline:2px solid var(--pink);outline-offset:-2px":"")+'" title="Click to view"><div class="big"'+(color?' style="color:'+color+'"':'')+'>'+big+'</div><div class="lbl">'+lbl+'</div></div>';};
   html+='<div class="stats">'
-    +'<div class="stat"><div class="big" style="color:#e08600">'+money(dueTotal)+'</div><div class="lbl">Payouts due</div></div>'
-    +'<div class="stat"><div class="big" style="color:#1d9e75">'+money(paidTotal)+'</div><div class="lbl">Paid</div></div>'
-    +'<div class="stat"><div class="big">'+PORTAL.leads.length+'</div><div class="lbl">Portal leads</div></div>'
-    +'<div class="stat"><div class="big">'+PORTAL.realtors.filter(function(c){return c.portalActivatedAt;}).length+'</div><div class="lbl">Active partners</div></div></div>';
+    +tile("payouts",money(dueTotal),"Payouts due","#e08600")
+    +tile("paid",money(paidTotal),"Paid","#1d9e75")
+    +tile("leads",PORTAL.leads.length,"Portal leads","")
+    +tile("realtors",activeRealtors.length,"Active partners","")+'</div>';
   html+='<div class="tabs">'
     +'<div class="tab'+(portalTab==="payouts"?" active":"")+'" data-t="payouts">Payouts Due ('+due.length+')</div>'
+    +'<div class="tab'+(portalTab==="paid"?" active":"")+'" data-t="paid">Paid ('+paidList.length+')</div>'
     +'<div class="tab'+(portalTab==="leads"?" active":"")+'" data-t="leads">Leads ('+PORTAL.leads.length+')</div>'
-    +'<div class="tab'+(portalTab==="realtors"?" active":"")+'" data-t="realtors">Realtors ('+PORTAL.realtors.length+')</div></div>';
+    +'<div class="tab'+(portalTab==="realtors"?" active":"")+'" data-t="realtors">Partners ('+activeRealtors.length+')</div></div>';
   html+='<div id="ptab">';
   if(portalTab==="payouts"){
     if(!due.length) html+='<div class="muted" style="padding:14px">Nothing due. When a completed job matches an active partner, it shows here.</div>';
     else due.forEach(function(it){
-      html+='<div class="payrow"><div><div style="font-weight:800">'+esc(it.partner||"(unknown)")+'</div><div class="meta muted" style="font-size:12px">'+esc(it.customer||"")+' · '+esc(it.source)+'</div></div>'
+      html+='<div class="payrow"><div style="display:flex;align-items:center;gap:12px;min-width:0">'+pAvatarFrom(it.photo,it.partner)+'<div style="min-width:0"><div style="font-weight:800">'+esc(it.partner||"(unknown)")+'</div><div class="meta muted" style="font-size:12px">'+esc(it.customer||"")+' · '+esc(it.source)+'</div></div></div>'
         +'<div style="display:flex;align-items:center;gap:10px"><span class="due">'+money(it.amount)+' due</span>'
         +'<button class="btn grad" data-send="'+esc(it.key)+'" title="Send a Tremendous gift card now">Send $'+it.amount+'</button>'
         +'<button class="btn green" data-pay="'+esc(it.key)+'" data-partner="'+esc(it.partner||"")+'" title="Record as paid (if you paid outside the app)">Mark paid</button></div></div>';
+    });
+  }else if(portalTab==="paid"){
+    if(!paidList.length) html+='<div class="muted" style="padding:14px">No payouts recorded yet.</div>';
+    else paidList.sort(function(a,b){return (b.paidAt||"")<(a.paidAt||"")?-1:1;}).forEach(function(it){
+      html+='<div class="payrow"><div style="display:flex;align-items:center;gap:12px;min-width:0">'+pAvatarFrom(it.photo,it.partner)+'<div style="min-width:0"><div style="font-weight:800">'+esc(it.partner||"(unknown)")+'</div><div class="meta muted" style="font-size:12px">'+esc(it.customer||"")+(it.paidAt?' · paid '+esc(it.paidAt):"")+'</div></div></div>'
+        +'<span class="sbadge" style="color:#1d9e75;background:#1d9e7522;border:1px solid #1d9e7555">PAID '+money(it.amount)+'</span></div>';
     });
   }else if(portalTab==="leads"){
     var leads=PORTAL.leads.filter(function(l){ if(!f) return true; return ((l.customerName||"")+" "+(l.realtorName||"")).toLowerCase().indexOf(f)>=0; });
@@ -932,16 +952,24 @@ function drawPortal(){
         +'<div class="meta">From '+esc(l.realtorName||"—")+(l.moveDate?' · move '+esc(String(l.moveDate).slice(0,10)):"")+(l.customerPhone?' · '+esc(l.customerPhone):"")+'</div></div>'+sbadge(l.status)+'</div></div>';
     });
   }else{
-    var rs=PORTAL.realtors.filter(function(c){ if(!f) return true; return ((c.name||"")+" "+(c.business||"")).toLowerCase().indexOf(f)>=0; });
-    rs.forEach(function(c){
+    // Partners — activated first (the ones that matter), with a toggle to see everyone.
+    html+='<div class="cfilters" style="margin:0 0 12px"><select id="prView"><option value="active"'+(portalRealtorView==="active"?" selected":"")+'>Activated partners ('+activeRealtors.length+')</option><option value="all"'+(portalRealtorView==="all"?" selected":"")+'>All realtors ('+PORTAL.realtors.length+')</option></select></div>';
+    var pool=portalRealtorView==="active"?activeRealtors:PORTAL.realtors.slice();
+    pool=pool.filter(function(c){ if(!f) return true; return ((c.name||"")+" "+(c.business||"")).toLowerCase().indexOf(f)>=0; });
+    pool.sort(function(a,b){return (b.portalActivatedAt?1:0)-(a.portalActivatedAt?1:0)||String(a.name||"").localeCompare(String(b.name||""));});
+    if(!pool.length) html+='<div class="muted" style="padding:14px">'+(portalRealtorView==="active"?"No activated partners yet — activate a realtor from their profile.":"No realtors.")+'</div>';
+    pool.forEach(function(c){
       var on=!!c.portalActivatedAt;
-      html+='<div class="lead"><div class="top"><div><div class="who">'+esc(c.name||"—")+'</div><div class="meta">'+esc(c.business||"")+'</div></div>'
-        +'<span class="sbadge" style="color:'+(on?"#1d9e75":"#888")+';background:'+(on?"#1d9e75":"#888")+'22;border:1px solid '+(on?"#1d9e75":"#888")+'55">'+(on?"ACTIVE":"NOT ACTIVE")+'</span></div></div>';
+      html+='<div class="crow2" data-id="'+c.id+'" style="cursor:pointer">'+pAvatar(c)+'<div class="meta"><div class="nm">'+esc(c.name||"—")+'</div><div class="sub">'+esc(c.business||"")+'</div></div>'
+        +'<div class="right"><span class="sbadge" style="color:'+(on?"#1d9e75":"#888")+';background:'+(on?"#1d9e75":"#888")+'22;border:1px solid '+(on?"#1d9e75":"#888")+'55">'+(on?"ACTIVE":"NOT ACTIVE")+'</span></div></div>';
     });
   }
   html+='</div></div>';
   document.getElementById("view").innerHTML=html;
   [].forEach.call(document.querySelectorAll(".tab"),function(el){el.onclick=function(){portalTab=el.getAttribute("data-t");drawPortal();};});
+  [].forEach.call(document.querySelectorAll("[data-go]"),function(el){el.onclick=function(){portalTab=el.getAttribute("data-go");drawPortal();};});
+  var pv=document.getElementById("prView"); if(pv)pv.onchange=function(){portalRealtorView=pv.value;drawPortal();};
+  [].forEach.call(document.querySelectorAll("#ptab .crow2[data-id]"),function(el){el.onclick=function(){openContact(+el.getAttribute("data-id"));};});
   [].forEach.call(document.querySelectorAll("[data-pay]"),function(el){el.onclick=function(){markPaid(el.getAttribute("data-pay"),el.getAttribute("data-partner"));};});
   [].forEach.call(document.querySelectorAll("[data-send]"),function(el){el.onclick=function(){var k=el.getAttribute("data-send");var it=due.filter(function(x){return x.key===k;})[0];if(it)sendPayoutGo(it,el);};});
 }
@@ -953,17 +981,17 @@ async function sendPayoutGo(it,btn){
     var res=await fetch(NEON_API+"/api/sendPayout",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({realtorEmail:it.email,realtorName:it.partner,amount:it.amount,leadId:it.id,customerName:it.customer,testMode:false})}).then(function(x){return x.json();});
     var okay = res && !res.error && (res.ok || res.order || res.status==="ok" || res.success);
-    if(okay){ banner("Sent $"+it.amount+" to "+it.partner+"."); await markPaid(it.key,it.partner); }
+    if(okay){ banner("Sent $"+it.amount+" to "+it.partner+"."); await markPaid(it.key,it.partner,true); }
     else { if(btn){btn.disabled=false;btn.textContent="Send $"+it.amount;} alert("Payout did NOT go through: "+(res&&(res.error||res.message)||"unknown error")+"\nNothing was charged. You can retry or Mark paid manually."); }
   }catch(e){ if(btn){btn.disabled=false;btn.textContent="Send $"+it.amount;} alert("Payout failed to reach the service (nothing charged): "+e.message); }
 }
-async function markPaid(key,partner){
-  if(!confirm("Mark "+partner+" paid for this referral?\n\nThis only records it as paid (no money is sent here).")) return;
+async function markPaid(key,partner,skipConfirm){
+  if(!skipConfirm && !confirm("Mark "+partner+" paid for this referral?\n\nThis only records it as paid (no money is sent here).")) return;
   var today=new Date().toISOString().slice(0,10);
-  PORTAL.paid.push({key:key,paid_at:today,partner:partner});
-  drawPortal();
+  if(PORTAL&&PORTAL.paid)PORTAL.paid.push({key:key,paid_at:today,partner:partner});
+  if(view==="portal")drawPortal();
   try{ await sbWrite("POST","paid_referrals",{key:key,partner:partner,amount:50,paid_at:today}); }
-  catch(e){ alert("Couldn't save that — refresh and try again."); }
+  catch(e){ /* best-effort; the payout endpoint also records server-side */ }
 }
 
 /* ---------------- Shared data for the other views ---------------- */
