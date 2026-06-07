@@ -7,8 +7,9 @@ const SYSTEM = 'You are a sales-intelligence researcher for a moving company rec
 
 const handler = endpoint(async ({ env, body, reply }) => {
   if (!env.ANTHROPIC_KEY) return reply({ ok: false, error: 'ai_not_configured' }, 503);
-  const name = String(body.name || '').trim();
-  const brokerage = String(body.brokerage || '').trim();
+  const opts = body.opts || body;
+  const name = String(opts.name || '').trim();
+  const brokerage = String(opts.brokerage || '').trim();
   if (!name) return reply({ ok: false, error: 'name_required' }, 400);
 
   const prompt =
