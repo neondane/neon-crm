@@ -1192,7 +1192,7 @@ async function dpFindNew(){
   btn.disabled=true;btn.textContent="Searching… (~30s)";
   el.innerHTML='<div class="noact"><span class="spin"></span> Web-searching for new businesses…</div>';
   try{
-    var r=await fetch("https://refer.neongiantmoving.com/api/discoverNewLeads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"discoverNewLeads",opts:{territories:terrs,types:types,limit:10}})}).then(function(x){return x.json();});
+    var r=await fetch(NEON_API+"/api/discoverNewLeads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"discoverNewLeads",opts:{territories:terrs,types:types,limit:10}})}).then(function(x){return x.json();});
     var list=(r&&(r.leads||r.results||r.businesses||r.addons))||[];
     dpNewFound=list;
     if(!list.length){ el.innerHTML='<div class="muted" style="font-size:13px;padding:8px">No new businesses returned. (If this stays empty, the discoverNewLeads action may need confirming on the backend.)</div>'; }
@@ -1209,7 +1209,7 @@ async function dpGenerate(){
   var res=document.getElementById("dpResult");
   res.innerHTML='<div class="noact"><span class="spin"></span> Generating plan… ~15s</div>';
   try{
-    var r=await fetch("https://refer.neongiantmoving.com/api/generateDayPlan",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"generateDayPlan",opts:{person:person,date:date,base:base,territories:terrs,types:types,stops:dpPicks}})}).then(function(x){return x.json();});
+    var r=await fetch(NEON_API+"/api/generateDayPlan",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"generateDayPlan",opts:{person:person,date:date,base:base,territories:terrs,types:types,stops:dpPicks}})}).then(function(x){return x.json();});
     if(!r||r.ok===false){ res.innerHTML='<div class="noact" style="color:#e24b4a">Plan generation didn\'t return a route. ('+esc((r&&r.error)||"backend may need confirming")+')</div>'; return; }
     res.innerHTML=dpRenderPlan(r,person,date);
   }catch(e){ res.innerHTML='<div class="noact" style="color:#e24b4a">Error: '+esc(e.message)+'</div>'; }
