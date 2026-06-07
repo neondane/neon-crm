@@ -7,11 +7,13 @@
  *  NOTE: real money. Validates strictly and fails closed (never sends on bad input). */
 import { endpoint, preflight, sb } from '../_shared.js';
 
-const TREMENDOUS_BASE = 'https://www.tremendous.com/api/v2';
-
 const handler = endpoint(async ({ env, body, reply }) => {
-  if (!env.TREMENDOUS_KEY || !env.TREMENDOUS_FUNDING)
-    return reply({ ok: false, error: 'tremendous_not_configured' }, 503);
+  // Accept either key name; pick prod/sandbox from TREMENDOUS_ENV (defaults to prod).
+  const TKEY = env.TREMENDOUS_KEY || env.TREMENDOUS_API_KEY;
+  const TREMENDOUS_BASE = (String(env.TREMENDOUS_ENV || '').toLowerCase() === 'sandbox')
+    ? 'https://testflight.tremendous.com/api/v2'
+    : 'https://www.tremendous.com/api/v2';
+  if (!TKEY) return reply({ ok: false, error: 'tremendous_not_configured' }, 503);
 
   const email = String(body.recipientEmail || body.realtorEmail || '').trim();
   const name = String(body.recipientName || body.realtorName || '').trim();
@@ -36,8 +38,21 @@ const handler = endpoint(async ({ env, body, reply }) => {
     } catch (_) {}
   }
 
+  // Funding source: use explicit env if set, else auto-discover from the Tremendous account.
+  let fundingId = env.TREMENDOUS_FUNDING;
+  if (!fundingId) {
+    try {
+      const fr = await fetch(TREMENDOUS_BASE + '/funding_sources', { headers: { Authorization: 'Bearer ' + TKEY } });
+      const fj = await fr.json();
+      const list = (fj && fj.funding_sources) || [];
+      const pick = list.find((f) => /balance/i.test((f.method || '') + (f.type || ''))) || list[0];
+      fundingId = pick && pick.id;
+    } catch (_) {}
+  }
+  if (!fundingId) return reply({ ok: false, error: 'no_funding_source', message: 'No Tremendous funding source found on the account.' }, 503);
+
   const tremReq = {
-    payment: { funding_source_id: env.TREMENDOUS_FUNDING },
+    payment: { funding_source_id: fundingId },
     reward: {
       value: { denomination: cents / 100, currency_code: 'USD' },
       campaign_id: env.TREMENDOUS_CAMPAIGN || undefined,
@@ -51,7 +66,7 @@ const handler = endpoint(async ({ env, body, reply }) => {
   try {
     res = await fetch(TREMENDOUS_BASE + '/orders', {
       method: 'POST',
-      headers: { Authorization: 'Bearer ' + env.TREMENDOUS_KEY, 'Content-Type': 'application/json' },
+      headers: { Authorization: 'Bearer ' + TKEY, 'Content-Type': 'application/json' },
       body: JSON.stringify(tremReq),
     });
     j = await res.json();
