@@ -583,6 +583,8 @@ function addContact(){
   var ov=document.createElement("div"); ov.className="avmodal"; ov.id="acModal";
   ov.innerHTML='<div class="avbox" style="width:440px;max-height:88vh;overflow:auto;text-align:left">'
     +'<h3>'+gi("contacts")+' New contact</h3><div class="sub">Adds a contact to your live database.</div>'
+    +'<div class="acai" style="display:flex;gap:8px;margin:2px 0 6px"><button class="btn" type="button" id="acScan">'+gi("camera")+' Scan card</button><button class="btn" type="button" id="acSpeak">'+gi("chat")+' Speak</button><input type="file" id="acCardFile" accept="image/*" capture="environment" style="display:none"></div>'
+    +'<div id="acAiStatus" class="muted" style="font-size:12px;margin:0 0 10px"></div>'
     +acField("acName","Name *","")+acField("acBiz","Business / brokerage","")
     +'<div class="efield"><label>Type</label><select id="acType" class="esel">'+DP_TY.map(function(t){return '<option>'+esc(t)+'</option>';}).join("")+'</select></div>'
     +acField("acRole","Role","")+acField("acPhone","Phone","")+acField("acEmail","Email","")
@@ -593,7 +595,44 @@ function addContact(){
   document.getElementById("acCancel").onclick=function(){ov.remove();};
   ov.addEventListener("mousedown",function(e){if(e.target===ov)ov.remove();});
   document.getElementById("acSave").onclick=acSave;
+  var scan=document.getElementById("acScan"),file=document.getElementById("acCardFile");
+  if(scan&&file){ scan.onclick=function(){file.click();}; file.onchange=function(){ if(file.files&&file.files[0]) acScanCard(file.files[0]); }; }
+  var sp=document.getElementById("acSpeak"); if(sp)sp.onclick=acSpeak;
+  window.__acNotes="";
   setTimeout(function(){var n=document.getElementById("acName");if(n)n.focus();},50);
+}
+function acAiStatus(msg,spin){var e=document.getElementById("acAiStatus");if(e)e.innerHTML=(spin?'<span class="spin"></span> ':'')+esc(msg||"");}
+function acFill(c){
+  if(!c)return;
+  var set=function(id,val){var e=document.getElementById(id);if(e&&val)e.value=val;};
+  set("acName",c.name);set("acBiz",c.business);set("acRole",c.role);set("acPhone",c.phone);set("acEmail",c.email);
+  var ty=document.getElementById("acType"); if(ty&&c.type){[].forEach.call(ty.options,function(o){if(o.value===c.type||o.text===c.type)ty.value=o.value;});}
+  var tr=document.getElementById("acTerr"); if(tr&&c.territory){[].forEach.call(tr.options,function(o){if(o.value===c.territory||o.text===c.territory)tr.value=o.value;});}
+  if(c.notes) window.__acNotes=c.notes;
+}
+async function acParse(payload,fromLabel){
+  acAiStatus("Reading…",true);
+  try{
+    var res=await fetch(NEON_API+"/api/parseContact",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}).then(function(x){return x.json();});
+    if(res&&res.ok&&res.contact){ acFill(res.contact); acAiStatus("Filled from "+fromLabel+" — check the fields and tap Add contact."); }
+    else { acAiStatus((res&&res.error)?("Couldn't read it ("+res.error+") — enter it manually."):"Couldn't read it — enter it manually."); }
+  }catch(e){ acAiStatus("Couldn't reach the AI service — enter it manually for now."); }
+}
+function acScanCard(fileObj){
+  acAiStatus("Reading business card…",true);
+  var rd=new FileReader();
+  rd.onload=function(){ acParse({image:rd.result},"the business card"); };
+  rd.onerror=function(){ acAiStatus("Couldn't read that image — try another photo."); };
+  rd.readAsDataURL(fileObj);
+}
+function acSpeak(){
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ acAiStatus("Voice input isn't supported in this browser — try Chrome or Safari on your phone."); return; }
+  var rec=new SR(); rec.lang="en-US"; rec.interimResults=false; rec.maxAlternatives=1;
+  acAiStatus("Listening… say the name, company, phone and email.",true);
+  rec.onresult=function(ev){ var t=ev.results[0][0].transcript; acAiStatus('Heard: "'+t+'" — parsing…',true); acParse({text:t},"what you said"); };
+  rec.onerror=function(ev){ acAiStatus("Didn't catch that ("+((ev&&ev.error)||"mic")+") — tap Speak to try again."); };
+  try{ rec.start(); }catch(e){ acAiStatus("Couldn't start the mic."); }
 }
 async function acSave(){
   var v=function(id){var e=document.getElementById(id);return e?(e.value||"").trim():"";};
@@ -601,6 +640,7 @@ async function acSave(){
   var ids=ALL.map(function(c){return +c.id;}).filter(function(n){return !isNaN(n);});
   var nid=(ids.length?Math.max.apply(null,ids):0)+1;
   var rec={id:nid,name:name,business:v("acBiz"),type:v("acType"),role:v("acRole"),phone:v("acPhone"),email:v("acEmail"),territory:v("acTerr"),tier:v("acTier"),dateAdded:new Date().toISOString()};
+  if(window.__acNotes){ rec.notes=window.__acNotes; window.__acNotes=""; }
   ALL.push(rec); ALL.sort(function(a,b){return String(a.name||"").localeCompare(String(b.name||""));});
   var m=document.getElementById("acModal"); if(m)m.remove();
   openContact(nid);
@@ -746,7 +786,7 @@ function listingsHtml(c){
 async function profileCheckListings(c){
   c._listings={loading:true}; redrawTab(c);
   try{
-    var res=await fetch(NEON_API+"/api/checkListings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({opts:{name:c.name,brokerage:c.business||c.brokerage||""}})}).then(function(x){return x.json();});
+    var res=await fetch(NEON_API+"/api/checkListings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({opts:{name:c.name,brokerage:c.business||c.brokerage||"",area:c.territory||"Whatcom/Skagit County, WA"}})}).then(function(x){return x.json();});
     if(res&&res.ok!==false){ c._listings={count:res.count||0,summary:res.summary||"",listings:res.listings||[]}; }
     else { c._listings={error:"Listing search isn't available yet — it needs the AI endpoint live. Try again after deploying."}; }
   }catch(e){ c._listings={error:"Couldn't reach the listing search service (it connects once v2 is on the live domain)."}; }
@@ -1570,7 +1610,7 @@ async function pbCheckListings(r){
   var out=document.getElementById("pbListOut"),btn=document.getElementById("pbListings");
   btn.disabled=true;btn.innerHTML=gi("search")+" Checking… (~20s)";out.innerHTML='<div class="noact"><span class="spin"></span> Searching for recent listings…</div>';
   try{
-    var res=await fetch(NEON_API+"/api/checkListings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"checkListings",opts:{name:r.name,brokerage:r.brokerage}})}).then(function(x){return x.json();});
+    var res=await fetch(NEON_API+"/api/checkListings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"checkListings",opts:{name:r.name,brokerage:r.brokerage,area:(r.county?r.county+" County, WA":"Whatcom/Skagit County, WA")}})}).then(function(x){return x.json();});
     var c=res&&(res.count!=null?res.count:(res.listings?res.listings.length:0));
     var sum=res&&(res.summary||(res.listings&&res.listings.join?res.listings.join("\n"):""));
     out.innerHTML='<div class="pbdossier">'+(c?('<b style="color:var(--pink)">'+c+' recent listing'+(c>1?'s':'')+' found — strike now.</b>\n'):'No recent listings found right now.\n')+esc(sum||"")+'</div>';
