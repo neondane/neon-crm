@@ -383,6 +383,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);display:flex
 var SB_URL="https://aoyfieswynhgqyrveqnp.supabase.co";
 var SB_KEY="sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ";
 var H={apikey:SB_KEY,Authorization:"Bearer "+SB_KEY};
+var NEON_API="https://neon-api.pages.dev";  // clean backend (texting, email, payouts, AI). Day-plan/lead-discovery still on old portal until built.
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c];});}
 function initials(n){var p=String(n||"").trim().split(/\s+/);return((p[0]||"")[0]||"")+((p[1]||"")[0]||"");}
 function tagClass(t){return /realtor/i.test(t||"")?"tag realtor":"tag";}
@@ -826,25 +827,25 @@ async function avSave(avatar,card){
   avCloseModal(); renderProfile();
   try{ await sbWrite("PATCH","contacts?id=eq."+id,patch); }catch(e){ banner("Photo saved on screen, but couldn't reach the database (it'll save once you're online/deployed)."); }
 }
-async function postSms(path,payload){
+async function postSms(url,payload){
   try{
-    var r=await fetch("https://refer.neongiantmoving.com"+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    var r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
     var j={};try{j=await r.json();}catch(e){}
     return {ok:(r.ok&&j.ok!==false), msg:(j.message||j.error||("HTTP "+r.status))};
   }catch(e){ return {ok:false, threw:true, msg:String(e&&e.message||e)}; }
 }
 async function sendText(payload){
-  // Prefer the fast direct-Twilio endpoint; fall back to the proven smsOut so texting is never down.
-  var a=await postSms("/api/sendSms",payload);
+  // Clean backend first; fall back to the old smsOut so texting is never down.
+  var a=await postSms(NEON_API+"/api/sendSms",payload);
   if(a.ok) return a;
-  var b=await postSms("/api/smsOut",payload);
+  var b=await postSms("https://refer.neongiantmoving.com/api/smsOut",payload);
   return b.ok?b:a;
 }
 async function sendComposer(c){
   var msg=(document.getElementById("cmsg")||{}).value||"";
   if(cSub==="note"){ if(!msg.trim())return; var nn=(c.notes?c.notes+"\n":"")+"["+new Date().toISOString().slice(0,10)+"] "+msg; c.notes=nn; var c2=ALL.filter(function(x){return x.id===c.id;})[0]; if(c2)c2.notes=nn; try{await sbWrite("PATCH","contacts?id=eq."+c.id,{notes:nn});}catch(e){} pTab="notes"; renderProfile(); return; }
   if(cSub==="text"){ if(!c.phone){alert("No phone on file.");return;} if(!msg.trim())return; if(!confirm("Send this text to "+c.name+"?"))return; var btn=document.getElementById("cSend"); if(btn){btn.disabled=true;btn.textContent="Sending…";} var sent=await sendText({to:c.phone,body:msg,contactId:c.id,kind:"manual"}); if(sent.ok){var ta=document.getElementById("cmsg");if(ta)ta.value="";ACT=null;loadActivity(c);}else{alert("Text not sent: "+sent.msg);} if(btn){btn.disabled=false;btn.textContent="Send";} return; }
-  if(cSub==="email"){ if(!c.email){alert("No email on file.");return;} if(!msg.trim())return; if(!confirm("Send this email to "+c.name+"?"))return; try{await fetch("https://refer.neongiantmoving.com/api/sendEmail",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({to:c.email,subject:"Neon Giant Moving",body:msg,contactId:c.id})});alert("Email sent.");loadActivity(c);}catch(e){alert("Send failed.");} return; }
+  if(cSub==="email"){ if(!c.email){alert("No email on file.");return;} if(!msg.trim())return; if(!confirm("Send this email to "+c.name+"?"))return; try{var er=await fetch(NEON_API+"/api/sendEmail",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({to:c.email,subject:"Neon Giant Moving",body:msg,contactId:c.id})});var ej={};try{ej=await er.json();}catch(e){} if(er.ok&&ej.ok!==false){alert("Email sent.");loadActivity(c);}else{alert("Email not sent: "+(ej.message||ej.error||("HTTP "+er.status)));}}catch(e){alert("Send failed — check connection.");} return; }
   alert("Call logging comes next.");
 }
 async function doSave(){
@@ -949,7 +950,7 @@ async function sendPayoutGo(it,btn){
   if(!confirm("Send a $"+it.amount+" Tremendous gift card to:\n\n"+(it.partner||"")+"  <"+it.email+">\nfor the "+(it.customer||"")+" referral.\n\nThis sends REAL money. Continue?")) return;
   if(btn){ btn.disabled=true; btn.textContent="Sending…"; }
   try{
-    var res=await fetch("https://refer.neongiantmoving.com/api/sendPayout",{method:"POST",headers:{"Content-Type":"application/json"},
+    var res=await fetch(NEON_API+"/api/sendPayout",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({realtorEmail:it.email,realtorName:it.partner,amount:it.amount,leadId:it.id,customerName:it.customer,testMode:false})}).then(function(x){return x.json();});
     var okay = res && !res.error && (res.ok || res.order || res.status==="ok" || res.success);
     if(okay){ banner("Sent $"+it.amount+" to "+it.partner+"."); await markPaid(it.key,it.partner); }
@@ -1453,7 +1454,7 @@ async function pbResearch(r){
   var out=document.getElementById("pbAIout"),btn=document.getElementById("pbAI");
   btn.disabled=true;btn.innerHTML=gi("bolt")+" Building dossier… (~20s)";out.innerHTML='<div class="noact"><span class="spin"></span> Researching '+esc(firstName(r.name))+' &amp; profiling how to win them…</div>';
   try{
-    var res=await fetch("https://refer.neongiantmoving.com/api/researchAgent",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"researchAgent",opts:{name:r.name,brokerage:r.brokerage,mode:"dossier"}})}).then(function(x){return x.json();});
+    var res=await fetch(NEON_API+"/api/researchAgent",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"researchAgent",opts:{name:r.name,brokerage:r.brokerage,mode:"dossier"}})}).then(function(x){return x.json();});
     var d=res&&(res.dossier||res.summary||res.result||res);
     out.innerHTML='<div class="pbdossier">'+esc(typeof d==="string"?d:JSON.stringify(d,null,1))+'</div>';
   }catch(e){ out.innerHTML='<div class="muted" style="font-size:12.5px">The AI dossier (contact info + personality read + the exact angle, channel and tone to win them) connects once v2 is on your live domain — it can\'t reach the endpoint from a local file. Use the research links above in the meantime.</div>'; }
@@ -1463,7 +1464,7 @@ async function pbCheckListings(r){
   var out=document.getElementById("pbListOut"),btn=document.getElementById("pbListings");
   btn.disabled=true;btn.innerHTML=gi("search")+" Checking… (~20s)";out.innerHTML='<div class="noact"><span class="spin"></span> Searching for recent listings…</div>';
   try{
-    var res=await fetch("https://refer.neongiantmoving.com/api/checkListings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"checkListings",opts:{name:r.name,brokerage:r.brokerage}})}).then(function(x){return x.json();});
+    var res=await fetch(NEON_API+"/api/checkListings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"checkListings",opts:{name:r.name,brokerage:r.brokerage}})}).then(function(x){return x.json();});
     var c=res&&(res.count!=null?res.count:(res.listings?res.listings.length:0));
     var sum=res&&(res.summary||(res.listings&&res.listings.join?res.listings.join("\n"):""));
     out.innerHTML='<div class="pbdossier">'+(c?('<b style="color:var(--pink)">'+c+' recent listing'+(c>1?'s':'')+' found — strike now.</b>\n'):'No recent listings found right now.\n')+esc(sum||"")+'</div>';
