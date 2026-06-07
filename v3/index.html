@@ -479,7 +479,7 @@ async function loadInteractions(){
   try{var rf=await sb("referrals?select=contactId,status,amount");rf.forEach(function(r){var id=r.contactId;if(id==null)return;REFCOUNT[id]=(REFCOUNT[id]||0)+1;REFREV[id]=(REFREV[id]||0)+(+r.amount||0);var st=String(r.status||"").toLowerCase();if(st==="booked"||st==="completed")REFBOOKED[id]=(REFBOOKED[id]||0)+1;});}catch(e){}
   if(view==="contacts") renderContacts(document.getElementById("q").value||"");
 }
-function banner(msg){var b=document.getElementById("banner");b.style.display="block";b.textContent=msg;}
+function banner(msg){var b=document.getElementById("banner");if(!b)return;clearTimeout(window.__bnT);b.style.display="block";b.style.position="relative";b.innerHTML='<span>'+esc(msg)+'</span><span id="bnX" title="Dismiss" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);cursor:pointer;font-weight:700;opacity:.55;font-size:14px">&#10005;</span>';var x=document.getElementById("bnX");if(x)x.onclick=function(){clearTimeout(window.__bnT);b.style.display="none";};window.__bnT=setTimeout(function(){b.style.display="none";},8000);}
 async function loadPhotos(){
   try{var a=await sb("contacts?profilePic=not.is.null&select=id,profilePic");a.forEach(function(r){if(r.profilePic)PHOTOS[r.id]=r.profilePic;});}catch(e){}
   try{var b=await sb("contacts?type=eq.Realtor&profilePic=is.null&cardImage=not.is.null&select=id,cardImage");b.forEach(function(r){if(r.cardImage&&!PHOTOS[r.id])PHOTOS[r.id]=r.cardImage;});}catch(e){}
@@ -495,14 +495,18 @@ function daysSince(c){
   var d=Math.floor((Date.now()-new Date(latest+"T00:00:00").getTime())/86400000); return d<0?0:d;
 }
 function tempOf(d){ if(d===null)return["new","New"]; if(d<=3)return["hot","Hot"]; if(d<=14)return["warm","Warm"]; if(d<=45)return["cool","Cool"]; return["new","Cold"]; }
+// Facility-first display name: realtors/people show their name; storage/senior/apartment/etc. show the FACILITY (business) as the headline, person becomes the contact.
+function cName(c){ return placeName(c)||"Unnamed"; }
+function cSub(c){ if(/realtor/i.test((c&&c.type)||"")) return ""; var biz=(c&&c.business)||"", nm=(c&&c.name)||""; if(placeName(c)===biz && nm && nm!==biz) return "Contact: "+nm; return ""; }
 function rowHtml(c){
   var d=daysSince(c), tp=tempOf(d), cnt=ICOUNT[c.id]||0;
-  var sub=[c.business,c.role,c.territory].filter(Boolean).map(esc).join(" · ");
+  var person=cSub(c);
+  var sub=(person?[person,c.role,c.territory]:[c.business,c.role,c.territory]).filter(Boolean).map(esc).join(" · ");
   var tc=tierColor(c.tier), tn=tierNum(c.tier);
   var tstyle=tc?(' style="border-left:5px solid '+tc+'"'):'';
   var tdot=(tn>=1&&tn<=5)?'<span class="tierdot" style="background:'+tc+'" title="Tier '+tn+'">'+tn+'</span>':'';
-  return '<div class="crow2" data-id="'+c.id+'"'+tstyle+'><div class="av">'+(PHOTOS[c.id]?'<img src="'+esc(PHOTOS[c.id])+'" alt="">':esc(initials(c.name).toUpperCase()))+'</div>'
-    +'<div class="meta"><div class="nm">'+tdot+esc(c.name||"Unnamed")+'<span class="temp '+tp[0]+'">'+tp[1]+'</span></div><div class="sub">'+(sub||"—")+'</div></div>'
+  return '<div class="crow2" data-id="'+c.id+'"'+tstyle+'><div class="av">'+(PHOTOS[c.id]?'<img src="'+esc(PHOTOS[c.id])+'" alt="">':esc(initials(cName(c)).toUpperCase()))+'</div>'
+    +'<div class="meta"><div class="nm">'+tdot+esc(cName(c))+'<span class="temp '+tp[0]+'">'+tp[1]+'</span></div><div class="sub">'+(sub||"—")+'</div></div>'
     +'<div class="right"><div class="days'+(d!==null&&d>14?" stale":"")+'">'+(d===null?"—":d+"d")+'</div>'+(cnt?'<div class="cnt">'+cnt+'</div>':"")+'</div></div>';
 }
 function rowList(rows){ return rows.length?('<div class="clist">'+rows.map(rowHtml).join("")+'</div>'):'<div class="noact">No contacts.</div>'; }
@@ -618,7 +622,7 @@ function slugOf(c){return String(c.name||"").toLowerCase().replace(/[^a-z0-9]+/g
 function renderProfile(){
   var D=document.getElementById("view"), c=current; if(!D||!c) return;
   var back='<div class="pback"><button class="btn" id="backBtn">← Contacts</button></div>';
-  var av=c.profilePic||c.cardImage||""; var avHtml=av?'<img src="'+esc(av)+'" alt="">':esc(initials(c.name).toUpperCase());
+  var av=c.profilePic||c.cardImage||""; var avHtml=av?'<img src="'+esc(av)+'" alt="">':esc(initials(cName(c)).toUpperCase());
   var act=editing?'<div><button class="btn grad" id="saveBtn">Save</button><button class="btn" id="cancelBtn">Cancel</button></div>':'<button class="btn" id="editBtn">Edit</button>';
   var pills='';
   if(c.type) pills+='<span class="pill '+(/realtor/i.test(c.type)?'hot':'')+'">'+esc(c.type)+'</span>';
@@ -628,9 +632,10 @@ function renderProfile(){
   var cbtns='';
   if(c.phone){var pp=String(c.phone).replace(/[^\d+]/g,"");cbtns+='<a class="cbtn call" href="tel:'+esc(pp)+'">Call</a><a class="cbtn text" href="sms:'+esc(pp)+'">Text</a>';}
   if(c.email) cbtns+='<a class="cbtn email" href="mailto:'+esc(c.email)+'">Email</a>';
-  var biz=(c.role?esc(c.role)+' at ':'')+'<b>'+esc(c.business||"—")+'</b>';
+  var person=cSub(c); // "Contact: X" for facilities, else ""
+  var biz=person?('Contact: <b>'+esc(person.replace(/^Contact: /,""))+'</b>'):((c.role?esc(c.role)+' at ':'')+'<b>'+esc(c.business||"—")+'</b>');
   var head='<div class="phero"><div class="pawrap"><div class="pa">'+avHtml+'</div><button class="paedit" id="avEdit" title="Change photo">'+gi("camera")+'</button></div>'
-    +'<div style="flex:1;min-width:0"><h1>'+esc(c.name||"Unnamed")+'</h1>'
+    +'<div style="flex:1;min-width:0"><h1>'+esc(cName(c))+'</h1>'
     +'<div class="pbiz">'+biz+'</div><div class="pmeta">'+pills+'</div></div>'
     +'<div class="pcontact">'+cbtns+'<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:2px">'+act+'</div>'
     +'<div class="savestate '+saveCls+'" id="savestate" style="text-align:right">'+esc(saveState)+'</div></div></div>';
@@ -662,7 +667,7 @@ function leftCol(c){
   if(/realtor/i.test(c.type||"")){
     var link="https://refer.neongiantmoving.com/?r="+slugOf(c); var on=!!c.portalActivatedAt;
     portal='<div class="pcard portalcard"><h3>'+gi("portal")+' Referral Portal</h3><div class="url">'+esc(link)+'</div>'
-      +'<div class="prow"><button class="btn '+(on?"":"grad")+'" id="actBtn">'+(on?"✓ Activated":"Activate")+'</button><button class="btn" id="copyBtn">Copy</button></div>'
+      +'<div class="prow"><button class="btn '+(on?"":"grad")+'" id="actBtn">'+(on?"✓ Activated":"Activate")+'</button>'+(on?'<button class="btn" id="deactBtn" title="Turn off the referral portal" style="color:#c0392b">Deactivate</button>':'')+'<button class="btn" id="copyBtn">Copy</button></div>'
       +'<div class="muted" style="font-size:11px;margin-top:8px">'+(on?"Tracking referrals for $50 payouts.":"Activate to start tracking referrals for $50 payouts.")+'</div></div>';
   }
   var actions='<div class="pcard"><h3>Actions</h3><button class="actbtn" id="aNote">'+gi("note")+' Add note</button><button class="actbtn" id="aEdit">'+gi("edit")+' Edit info</button></div>';
@@ -723,6 +728,7 @@ function wireProfile(c){
   var eb=document.getElementById("editBtn"); if(eb)eb.onclick=function(){editing=true;renderProfile();};
   var ve=document.getElementById("avEdit"); if(ve)ve.onclick=avMenu;
   var ab=document.getElementById("actBtn"); if(ab)ab.onclick=function(){activatePortal(c);};
+  var db2=document.getElementById("deactBtn"); if(db2)db2.onclick=function(){deactivatePortal(c);};
   var cp=document.getElementById("copyBtn"); if(cp)cp.onclick=function(){var l="https://refer.neongiantmoving.com/?r="+slugOf(c);try{navigator.clipboard.writeText(l);}catch(e){}cp.textContent="Copied!";setTimeout(function(){cp.textContent="Copy";},1500);};
   var an=document.getElementById("aNote"); if(an)an.onclick=function(){pTab="conversation";cSub="note";renderProfile();};
   var ae=document.getElementById("aEdit"); if(ae)ae.onclick=function(){editing=true;renderProfile();};
@@ -766,6 +772,14 @@ async function activatePortal(c){
   c.portalActivatedAt=now; var c2=ALL.filter(function(x){return x.id===c.id;})[0]; if(c2)c2.portalActivatedAt=now;
   renderProfile();
   try{ await sbWrite("PATCH","contacts?id=eq."+c.id,{portalActivatedAt:now}); }catch(e){ alert("Couldn't activate — try again."); }
+}
+async function deactivatePortal(c){
+  if(!c.portalActivatedAt) return;
+  if(!confirm("Deactivate "+c.name+"'s referral portal?\n\nThey'll stop showing as an active partner and won't accrue new $50 payouts. (Their existing referral history is kept.)")) return;
+  c.portalActivatedAt=null; var c2=ALL.filter(function(x){return x.id===c.id;})[0]; if(c2)c2.portalActivatedAt=null;
+  PORTAL=null;
+  renderProfile();
+  try{ await sbWrite("PATCH","contacts?id=eq."+c.id,{portalActivatedAt:null}); }catch(e){ alert("Couldn't deactivate — try again."); }
 }
 /* ---- Avatar / business-card uploader ---- */
 function avMenu(){
@@ -921,6 +935,9 @@ function payoutItems(){
     var rt=byId[String(q.contact_id)]||{};
     items.push({key:key,partner:(q.partner||"").trim(),customer:q.customer,source:"queued",amount:+q.amount||50,paid:!!paidMap[key],paidAt:(paidMap[key]&&paidMap[key]!=="1")?paidMap[key]:"",id:(q.referral_id!=null?q.referral_id:q.id),email:rt.email||"",rtId:q.contact_id,photo:rt.profilePic||rt.cardImage||""});
   });
+  // attach the backing payout_queue row id (if any) so manually-added items can be removed
+  var qidByKey={}; (PORTAL.queue||[]).forEach(function(q){var k="manual:"+(q.referral_id!=null?q.referral_id:("q"+q.id)); if(qidByKey[k]==null) qidByKey[k]=q.id;});
+  items.forEach(function(it){ if(qidByKey[it.key]!=null) it.qid=qidByKey[it.key]; });
   return items;
 }
 function drawPortal(){
@@ -951,7 +968,9 @@ function drawPortal(){
       html+='<div class="payrow"><div style="display:flex;align-items:center;gap:12px;min-width:0">'+pAvatarFrom(it.photo,it.partner)+'<div style="min-width:0"><div style="font-weight:800">'+esc(it.partner||"(unknown)")+'</div><div class="meta muted" style="font-size:12px">'+esc(it.customer||"")+' · '+esc(it.source)+'</div></div></div>'
         +'<div style="display:flex;align-items:center;gap:10px"><span class="due">'+money(it.amount)+' due</span>'
         +'<button class="btn grad" data-send="'+esc(it.key)+'" title="Send a Tremendous gift card now">Send $'+it.amount+'</button>'
-        +'<button class="btn green" data-pay="'+esc(it.key)+'" data-partner="'+esc(it.partner||"")+'" title="Record as paid (if you paid outside the app)">Mark paid</button></div></div>';
+        +'<button class="btn green" data-pay="'+esc(it.key)+'" data-partner="'+esc(it.partner||"")+'" title="Record as paid (if you paid outside the app)">Mark paid</button>'
+        +(it.qid!=null?'<button class="btn" data-remove="'+esc(it.key)+'" data-qid="'+it.qid+'" title="Remove from the portal (nothing is paid)" style="color:#c0392b">Remove</button>':'')
+        +'</div></div>';
     });
   }else if(portalTab==="paid"){
     if(!paidList.length) html+='<div class="muted" style="padding:14px">No payouts recorded yet.</div>';
@@ -987,6 +1006,15 @@ function drawPortal(){
   [].forEach.call(document.querySelectorAll("#ptab .crow2[data-id]"),function(el){el.onclick=function(){openContact(+el.getAttribute("data-id"));};});
   [].forEach.call(document.querySelectorAll("[data-pay]"),function(el){el.onclick=function(){markPaid(el.getAttribute("data-pay"),el.getAttribute("data-partner"));};});
   [].forEach.call(document.querySelectorAll("[data-send]"),function(el){el.onclick=function(){var k=el.getAttribute("data-send");var it=due.filter(function(x){return x.key===k;})[0];if(it)sendPayoutGo(it,el);};});
+  [].forEach.call(document.querySelectorAll("[data-remove]"),function(el){el.onclick=function(){removeFromPortal(el.getAttribute("data-qid"));};});
+}
+async function removeFromPortal(qid){
+  if(qid==null) return;
+  if(!confirm("Remove this referral from the portal?\n\nIt will no longer show in Payouts Due. Nothing is paid. (You can re-add it from the partner's profile.)")) return;
+  if(PORTAL&&PORTAL.queue) PORTAL.queue=PORTAL.queue.filter(function(q){return String(q.id)!==String(qid);});
+  drawPortal();
+  try{ var r=await fetch(SB_URL+"/rest/v1/payout_queue?id=eq."+encodeURIComponent(qid),{method:"DELETE",headers:H}); if(!r.ok)throw new Error("SB "+r.status); }
+  catch(e){ alert("Removed on screen, but couldn't reach the database — it may reappear on reload."); }
 }
 async function sendPayoutGo(it,btn){
   if(!it.email){ alert("No email on file for "+(it.partner||"this partner")+". Add their email on their profile first, then send."); return; }
@@ -1121,8 +1149,8 @@ function drawInbox(){
   html+='<div class="cfilters">'+chanSel+dirSel+'</div>';
   html+=threads.length?'<div class="clist">'+threads.map(function(t){
     var c=ALL.filter(function(x){return +x.id===+t.cid;})[0]||{id:t.cid,name:nameOf(t.cid)};
-    return '<div class="crow2" data-id="'+t.cid+'"><div class="av">'+(PHOTOS[t.cid]?'<img src="'+esc(PHOTOS[t.cid])+'" alt="">':esc(initials(c.name).toUpperCase()))+'</div>'
-      +'<div class="meta"><div class="nm">'+esc(c.name||"—")+'<span class="temp '+(t.latest.kind==="text"?"cool":"warm")+'">'+t.latest.kind+'</span></div><div class="sub">'+(t.latest.dir==="out"?"→ ":"← ")+esc(t.latest.text)+'</div></div>'
+    return '<div class="crow2" data-id="'+t.cid+'"><div class="av">'+(PHOTOS[t.cid]?'<img src="'+esc(PHOTOS[t.cid])+'" alt="">':esc(initials(cName(c)).toUpperCase()))+'</div>'
+      +'<div class="meta"><div class="nm">'+esc(cName(c))+'<span class="temp '+(t.latest.kind==="text"?"cool":"warm")+'">'+t.latest.kind+'</span></div><div class="sub">'+(t.latest.dir==="out"?"→ ":"← ")+esc(t.latest.text)+'</div></div>'
       +'<div class="right"><div class="days" style="font-size:12px">'+esc(t.latest.when.slice(0,10))+'</div><div class="cnt">'+t.count+'</div></div></div>';
   }).join("")+'</div>':'<div class="noact">No conversations match those filters.</div>';
   html+='</div>';
@@ -1392,12 +1420,16 @@ function mapDrawList(){
 
 /* ---------------- Recruit Board ---------------- */
 var RECRUIT="Kelli Lang|RE/MAX Gateway - Team Kelli Lang|64|55.7\nKristine Stultz|Lapis Homes|56|47.5\nShalyce Pocock|John L. Scott Anacortes|32|24.2\nBetsy Anorbe|John L. Scott Anacortes|52.5|23.6\nStacy LaCount|Keller Williams Western Realty|41|21.4\nLeah Courage|ONE Real Estate (The Courage Group)|20.5|20.6\nGina Davis|Windermere RE Anacortes Properties|25.5|20.5\nKim Woodmansee|John L. Scott Skagit|28.5|19.5\nDominic Pettruzzelli|Pettruzzelli Inc.|34.5|19.2\nJulie Birkle|Windermere RE Anacortes Properties|19.5|18.8\nKimarie Henning|Windermere RE Anacortes Properties|23.5|18.6\nTraci Cypher|Century 21 North Homes Realty|26|18.1\nAdam Baldwin|RE/MAX Gateway - Team Kelli Lang|21|16.5\nShane Servoss|RE/MAX Gateway - Team Kelli Lang|16|14.7\nDebbie Macy|Windermere RE Anacortes Properties|21|14.0\nColleen L. Craig|Windermere RE Anacortes Properties|17|13.4\nRodney Helgeson|John L. Scott Skagit|24|13.2\nGavin Lang|RE/MAX Gateway - Team Kelli Lang|21|13.0\nCharlie Boon|Elite Edge Real Estate, Inc.|19|11.1\nRob Skelton|Windermere RE Anacortes Properties|12|10.8\nBert Clay|John L. Scott Anacortes|13.5|10.6\nUnrepresentd ZDefault|(Unrepresented)|18|9.8\nScott Friedl|NextHome 365 Realty|18|9.6\nMegan S. O'Bryan|Windermere RE Skagit Valley|15|9.6\nAllen G. Workman|John L. Scott Anacortes|10|9.6\nEileen Hebert|(see Office ID)|14|9.5\nDanya Wolf|(see Office ID)|17|9.5\nCynthia Aanestad|Windermere RE Anacortes Properties|14|9.3\nRon D. Van Pelt|Elite Edge Real Estate, Inc.|20.5|9.2\nElva Fawcett-Hunter|(see Office ID)|12|9.2\nDanielle Martin|(see Office ID)|15|9.1\nPaul Weisz|Windermere RE Anacortes Properties|11|8.9\nJim Glackin|Windermere RE Skagit Valley|11|8.8\nMichelle Foggin|(see Office ID)|9.5|8.7\nMarla Renee Chapa|Keller Williams Western Realty|14|8.7\nSpencer Roozen|Windermere RE Skagit Valley|12|8.3\nBruce D. Lystad|(see Office ID)|6|8.3\nElizabeth A. Miller|Windermere RE Skagit Valley|13.5|8.3\nMel Foley|Keller Williams Western Realty|14|8.2\nShelah M. Inman|(see Office ID)|14|8.2\nMark J Redis|(see Office ID)|12|8.1\nWendy Belanger|John L. Scott Skagit|14|7.9\nBrita Stewart|(see Office ID)|13|7.7\nRicardo Rincon|(see Office ID)|14|7.6\nJulien Collins|RE/MAX Gateway - Team Kelli Lang|7.5|7.4\nEricka Catubo|(see Office ID)|11.5|7.4\nEric A. Green|(see Office ID)|9|7.2\nKathy Rogers|Windermere RE Anacortes Properties|9|7.2\nDanielle Russell|John L. Scott Skagit|10.5|7.2\nBarb Robinette|Windermere RE Anacortes Properties|6|7.2\nVallaree Oleary|(see Office ID)|1|7.0\nKevin Flynn|(see Office ID)|1|7.0\nRenee Westlund|Windermere RE Anacortes Properties|9.5|6.6\nKristi Gabrielse|Windermere RE Anacortes Properties|7|6.5\nChad Paulsen|NextHome 365 Realty|16.5|6.3\nMargi Houghton|Windermere RE Anacortes Properties|11|6.0\nTabata Ileana Perron|(see Office ID)|6|5.8\nKJ Dalgliesh|NextHome 365 Realty|9|5.7\nVeronica rincon|(see Office ID)|15|5.6\nSeth Pike|(see Office ID)|6|5.5\nAnya Mayo|(see Office ID)|8|5.4\nAaron Locke|(see Office ID)|2|5.2\nPam Baird|John L. Scott Skagit|8|5.2\nAndrew Sale|John L. Scott Skagit|6|5.1\nRebeca Pozuelos|RE/MAX Gateway - Team Kelli Lang|6|5.1\nLeonard Johnson|(see Office ID)|5.5|4.9\nMalia Morin|(see Office ID)|5.5|4.9\nIsaac May|(see Office ID)|6|4.9\nChristine Mathes|John L. Scott Anacortes|5.5|4.8\nKaren L. Everett|(see Office ID)|7|4.6\nWilliam Robillard|Windermere RE Anacortes Properties|3|4.6\nLori Clark|(see Office ID)|6|4.6\nKatie Torkkola|NextHome 365 Realty|7|4.5\nLuis Herrera|(see Office ID)|10|4.4\nTracy Biddle|(see Office ID)|7|4.4\nMary Jo Reitsma|(see Office ID)|6|4.1\nMichelle Russell|John L. Scott Skagit|7.5|4.1\nMelissa Challman|(see Office ID)|7|4.0\nAndy Holmstrom|(see Office ID)|8.5|4.0\nJen Champion|RE/MAX Gateway - Team Kelli Lang|5|4.0\nKeith Hoyer|(see Office ID)|4|4.0\nGabrielle Balolia|(see Office ID)|5|4.0\nNicole Haun|(see Office ID)|6.5|3.9\nDaria Haynes|(see Office ID)|5|3.8\nTodd McElroy|(see Office ID)|3|3.8\nBrian J. Finnegan|(see Office ID)|1|3.7\nLisa Strandberg|John L. Scott Anacortes|5|3.7\nAngie Bossarte|Keller Williams Western Realty|7|3.6\nEric Duffer|(see Office ID)|5|3.6\nMelissa Pilcher|(see Office ID)|6.5|3.5\nGreta Geivett|(see Office ID)|5.5|3.5\nRacquel Y. McDermott|Windermere RE Skagit Valley|5|3.5\nSusan Crawford|(see Office ID)|6|3.5\nDavid Pope|(see Office ID)|3|3.5\nMelanie Archuleta|(see Office ID)|5|3.4\nMariah Haney|(see Office ID)|4|3.4\nKimberly Whitehead|RE/MAX Gateway - Team Kelli Lang|5|3.3\nCarla Fischer|(see Office ID)|4.5|3.3\nRobert Luecke|(see Office ID)|2|3.2\nJessica J. Notaro|Windermere RE Anacortes Properties|3.5|3.2\nDavid Huynh|(see Office ID)|5|3.2\nJason Goold|(see Office ID)|3|3.1\nLynnette Lyman|Windermere RE Skagit Valley|4.5|3.1\nJulie Marquez|(see Office ID)|3|3.0\nKelly Middleton|Windermere RE Anacortes Properties|4|3.0\nJenn Eddleman|Windermere RE Skagit Valley|10|3.0\nTroy Fair|NextHome 365 Realty|5|2.9\nBecky Elde|(see Office ID)|4.5|2.8\nKim Piazza|NextHome 365 Realty|5|2.7\nMary Bremer|(see Office ID)|6|2.7\nRita Hundahl|John L. Scott Skagit|4|2.6\nAnnamaria Clark|NextHome 365 Realty|2|2.5\nAshton Dellinger|(see Office ID)|3|2.4\nBillie Gerard|John L. Scott Skagit|5.5|2.4\nJodi Dynes|(see Office ID)|6|2.2\nVeronica Guffie|John L. Scott Skagit|3|2.2\nJessica Mack|(see Office ID)|1|2.1\nKris Cantrell|(see Office ID)|1|2.1\nLee Jennings|(see Office ID)|2|2.1\nDiAnn Sager|(see Office ID)|4|2.1\nIvana M. Wood|Elite Edge Real Estate, Inc.|3.5|2.0\nAlex Stredicke|(see Office ID)|3|1.9\nElizabeth Detillion|Elite Edge Real Estate, Inc.|4|1.8\nCarmen Andrew|(see Office ID)|3|1.8\nBrice Longanecker|(see Office ID)|3|1.7\nTessa Jarvis|(see Office ID)|3.5|1.7\nSara Fish|Keller Williams Western Realty|2.5|1.7\nAmanda Toscano|Century 21 North Homes Realty|4|1.7\nLori Christensen|(see Office ID)|2|1.7\nDawn Rood|(see Office ID)|2|1.6\nDebbie Hendricks|(see Office ID)|2|1.6\nJohn Combel|(see Office ID)|4|1.6\nCoty Hayes|Keller Williams Western Realty|4|1.6\nShelly Tveit|Windermere RE Skagit Valley|3|1.5\nMaria Mendoza|NextHome 365 Realty|3|1.5\nPK Woolcock|John L. Scott Skagit|1|1.5\nRon L Wortham|(see Office ID)|2|1.5\nMachelle Osborne|(see Office ID)|3|1.5\nTracie M Gulit|(see Office ID)|3|1.4\nMark Datskiy|(see Office ID)|3|1.4\nMelinda D. Wade|(see Office ID)|2.5|1.4\nChristina Brandt|(see Office ID)|3|1.4\nRose Anderson|(see Office ID)|1|1.4\nAyla Contois|(see Office ID)|1|1.4\nJoanie Johnson|(see Office ID)|2|1.4\nWendy Poulton|Windermere RE Anacortes Properties|1|1.3\nWilma Louia|Elite Edge Real Estate, Inc.|2|1.3\nHolly J.Hilts|(see Office ID)|2|1.3\nBrock Strickland|(see Office ID)|1|1.3\nAndrew English|(see Office ID)|1|1.3\nHeather McKenna-Bos|(see Office ID)|3|1.2\nJim Kallerson|(see Office ID)|1|1.2\nMichael Hamblin|(see Office ID)|1|1.2\nRani Ehalt|Century 21 North Homes Realty|2|1.1\nArmond Garcia|(see Office ID)|2|1.1".split("\n").map(function(r){var p=r.split("|");return {name:p[0],brokerage:p[1],txns:p[2],vol:+p[3]};});
+/* Whatcom County production — NWMLS Sold Ranking Report (Jan 2025–Dec 2026, ran 5/5/2026). Top 75 by volume ($M). Office IDs mapped to brokerage where known. */
+var WHATCOM75="Chet E. Kenoyer|Windermere Bellingham|144|158.4\nDerek Buse|Compass (Bellingham)|46|77.0\nKathy Stauffer|Windermere Whatcom|73.5|58.6\nMichelle R Harrington|Compass (Bellingham)|54|55.4\nJulian Friedman|Bellingham · office 7629|49.5|47.5\nPaulina Antczak|Windermere Bellingham|63|43.6\nBrandi Coplen|Windermere Whatcom|71|43.5\nLeah M. Crews|Windermere Whatcom|67|41.2\nBrandon Nelson|Compass (Bellingham)|47.5|34.1\nAlana Mey|Compass (Bellingham)|42.5|32.3\nLynda L. Hinton|Windermere Bellingham|43.5|31.3\nAshleigh Abhold|Bellingham · office 6503|36|30.7\nJason Loeb|Windermere Bellingham|34|30.4\nJosh Shiflett|Bellingham · office 4277|49|30.1\nKeith Cook|RE/MAX Whatcom County|29.5|29.4\nJeff Engen|Bellingham · office 5810|44|28.7\nJen Freeman|Windermere Whatcom|48|28.2\nKyle van der Velde|Bellingham · office 10464|40.5|28.0\nBriddick Webb|RE/MAX Whatcom County|35|28.0\nTracie M Gulit|Bellingham · office 7370|40.5|27.4\nBen Kinney|Keller Williams Western Realty|45|27.2\nJason Heutink|Bellingham · office 9094|77.5|26.8\nLeo Cohen|Bellingham · office 10137|41|26.7\nRachael Wilson|RE/MAX Whatcom County|43|26.0\nSheri Davis|Keller Williams Western Realty|35|25.1\nJacson Bevens|Windermere Bellingham|39|24.7\nTroy C. Muljat|The Muljat Group|11.5|24.4\nElizabeth Wolfe|Windermere Bellingham|36|23.8\nNick Berard|Keller Williams Western Realty|39|22.6\nSean Ryan|Bellingham · office 5015|36|22.5\nLoren Van Corbach|Bellingham · office 9094|33|22.4\nStu Clifford|Bellingham · office 9374|38|21.6\nOlivia Statham|Bellingham · office 6503|35.5|21.6\nKirk Ghio|The Muljat Group|22|21.5\nJerry L. Blankers|Bellingham · office 8989|19|21.3\nCarmen Andrew|Bellingham · office 9738|37|20.7\nJason Lee|Windermere Bellingham|25|20.2\nCody Stacy|Bellingham · office 7790|29|19.7\nMary Stidham|The Muljat Group|26|19.6\nRob Weston|Windermere Bellingham|29.5|19.2\nChristopher Erdmann|Bellingham · office 6378|23|19.0\nLynzi Cowden|Windermere Bellingham|32|18.9\nKimberly Secord|Bellingham · office 3571|28|18.8\nBrianna Robbins|Bellingham · office 9867|32|18.7\nWilliam Elmer|Bellingham · office 9867|34|18.6\nLauren Moore|Bellingham · office 6503|31.5|18.5\nErika Buse|Compass (Bellingham)|22.5|18.3\nSommer Nyte|RE/MAX Whatcom County|49|18.2\nChristine Rasmussen|Bellingham · office 4676|27|18.1\nChris Boyd|Compass (Bellingham)|26.5|18.1\nLaurie Satushek|Keller Williams Western Realty|25|18.1\nGordon Neufeld|The Muljat Group|24|17.9\nTim Cornwell|Bellingham · office 5861|24.5|17.9\nMike Kooy|Bellingham · office 9094|24|17.8\nKrista Kenner|Compass (Bellingham)|20|17.7\nGalen Hirss|Compass (Bellingham)|18.5|17.5\nKevin Hoover|Bellingham · office 4676|27|17.4\nAngie Dixon|Bellingham · office 4340|25|17.4\nKelly Ellenz|Coldwell Banker Bain|21|17.3\nKena Greer Brashear|The Muljat Group|23|17.0\nKatty Baldwin|Bellingham · office 6503|32.5|16.8\nEric A. Green|Bellingham · office 9867|27|16.8\nDanielle J. Groeneweg|Bellingham · office 9067|29.5|16.8\nHeather T Taylor|Compass (Bellingham)|23|16.7\nJohn Fairbanks|The Muljat Group|15|16.6\nSean G. Hackney|Bellingham · office 5015|23|16.4\nMorgan Loy|Bellingham · office 10137|18.5|16.4\nMax Burrage|Bellingham · office 10137|23|16.2\nNicholas Piro|Bellingham · office 9867|25|15.9\nBecky Brunk|Coldwell Banker Bain|18|15.8\nJessa Loudon|Bellingham · office 9867|27.5|15.6\nSydney Weitzel|Bellingham · office 9738|23|15.6\nJen Sandoval|Bellingham · office 9867|24|15.4\nDarren Johnson|Bellingham · office 4784|15.5|15.1".split("\n").map(function(r){var p=r.split("|");return {name:p[0],brokerage:p[1],txns:p[2],vol:+p[3]};});
 function renderRecruit(){ spinPage("Recruit Board"); ensureData(function(){ if(view==="recruit") drawRecruit(); }); }
 function rbStatus(name){ var n=String(name||"").toLowerCase().trim(); var c=ALL.filter(function(x){return String(x.name||"").toLowerCase().trim()===n;})[0]; if(!c)return{s:"TARGET",cls:"target",id:null}; return c.portalActivatedAt?{s:"PARTNER",cls:"partner",id:c.id}:{s:"IN CRM",cls:"crm",id:c.id}; }
 function recCounty(b){b=String(b||"").toLowerCase(); if(b.indexOf("western realty")>=0||b.indexOf("keller williams western")>=0||b.indexOf("bellingham")>=0||b.indexOf("whatcom")>=0||b.indexOf("muljat")>=0||b.indexOf("lynden")>=0||b.indexOf("ferndale")>=0) return "Whatcom"; return "Skagit"; }
 function recruitList(){
-  var base=RECRUIT.map(function(r){return {name:r.name,brokerage:r.brokerage,txns:r.txns,vol:r.vol,county:recCounty(r.brokerage)};});
+  // Whatcom production report first so its real numbers win over Skagit-list / CRM duplicates.
+  var base=WHATCOM75.map(function(r){return {name:r.name,brokerage:r.brokerage,txns:r.txns,vol:r.vol,county:"Whatcom"};});
   var have={}; base.forEach(function(r){have[String(r.name).toLowerCase().trim()]=1;});
+  RECRUIT.forEach(function(r){ var k=String(r.name).toLowerCase().trim(); if(have[k])return; base.push({name:r.name,brokerage:r.brokerage,txns:r.txns,vol:r.vol,county:recCounty(r.brokerage)}); have[k]=1; });
   (ALL||[]).forEach(function(c){
     if(String(c.type||"").toLowerCase().indexOf("realtor")<0) return;
     var key=String(c.name||"").toLowerCase().trim(); if(!key||have[key]) return;
