@@ -497,10 +497,10 @@ function daysSince(c){
 function tempOf(d){ if(d===null)return["new","New"]; if(d<=3)return["hot","Hot"]; if(d<=14)return["warm","Warm"]; if(d<=45)return["cool","Cool"]; return["new","Cold"]; }
 // Facility-first display name: realtors/people show their name; storage/senior/apartment/etc. show the FACILITY (business) as the headline, person becomes the contact.
 function cName(c){ return placeName(c)||"Unnamed"; }
-function cSub(c){ if(/realtor/i.test((c&&c.type)||"")) return ""; var biz=(c&&c.business)||"", nm=(c&&c.name)||""; if(placeName(c)===biz && nm && nm!==biz) return "Contact: "+nm; return ""; }
+function cPerson(c){ if(/realtor/i.test((c&&c.type)||"")) return ""; var biz=(c&&c.business)||"", nm=(c&&c.name)||""; if(placeName(c)===biz && nm && nm!==biz) return "Contact: "+nm; return ""; }
 function rowHtml(c){
   var d=daysSince(c), tp=tempOf(d), cnt=ICOUNT[c.id]||0;
-  var person=cSub(c);
+  var person=cPerson(c);
   var sub=(person?[person,c.role,c.territory]:[c.business,c.role,c.territory]).filter(Boolean).map(esc).join(" · ");
   var tc=tierColor(c.tier), tn=tierNum(c.tier);
   var tstyle=tc?(' style="border-left:5px solid '+tc+'"'):'';
@@ -632,7 +632,7 @@ function renderProfile(){
   var cbtns='';
   if(c.phone){var pp=String(c.phone).replace(/[^\d+]/g,"");cbtns+='<a class="cbtn call" href="tel:'+esc(pp)+'">Call</a><a class="cbtn text" href="sms:'+esc(pp)+'">Text</a>';}
   if(c.email) cbtns+='<a class="cbtn email" href="mailto:'+esc(c.email)+'">Email</a>';
-  var person=cSub(c); // "Contact: X" for facilities, else ""
+  var person=cPerson(c); // "Contact: X" for facilities, else ""
   var biz=person?('Contact: <b>'+esc(person.replace(/^Contact: /,""))+'</b>'):((c.role?esc(c.role)+' at ':'')+'<b>'+esc(c.business||"—")+'</b>');
   var head='<div class="phero"><div class="pawrap"><div class="pa">'+avHtml+'</div><button class="paedit" id="avEdit" title="Change photo">'+gi("camera")+'</button></div>'
     +'<div style="flex:1;min-width:0"><h1>'+esc(cName(c))+'</h1>'
@@ -651,7 +651,7 @@ function renderProfile(){
     var ve=document.getElementById("avEdit"); if(ve)ve.onclick=avMenu;
     return;
   }
-  D.innerHTML='<div class="pscroll">'+back+head+'<div class="pbody">'+leftCol(c)+'<div class="pmain">'+tabBar()+'<div id="ptcontent">'+tabContent(c)+'</div></div></div></div>';
+  D.innerHTML='<div class="pscroll">'+back+head+'<div class="pbody">'+leftCol(c)+'<div class="pmain">'+tabBar(c)+'<div id="ptcontent">'+tabContent(c)+'</div></div></div></div>';
   wireProfile(c);
 }
 function leftCol(c){
@@ -673,11 +673,14 @@ function leftCol(c){
   var actions='<div class="pcard"><h3>Actions</h3><button class="actbtn" id="aNote">'+gi("note")+' Add note</button><button class="actbtn" id="aEdit">'+gi("edit")+' Edit info</button></div>';
   return '<div class="pleft">'+contact+details+portal+actions+'</div>';
 }
-function tabBar(){
-  var tabs=[["conversation","chat","Conversation"],["visits","map","Visits"],["referrals","topleads","Referrals"],["notes","note","Notes"]];
+function tabBar(c){
+  var tabs=[["conversation","chat","Conversation"],["visits","map","Visits"],["referrals","topleads","Referrals"]];
+  if(/realtor/i.test((c&&c.type)||"")) tabs.push(["listings","search","Listings"]);
+  tabs.push(["notes","note","Notes"]);
   return '<div class="ptabs">'+tabs.map(function(t){return '<div class="ptab'+(t[0]===pTab?" active":"")+'" data-pt="'+t[0]+'">'+gi(t[1])+' '+t[2]+'</div>';}).join("")+'</div>';
 }
 function tabContent(c){
+  if(pTab==="listings") return listingsHtml(c);
   if(pTab==="referrals") return refsHtml(c);
   if(pTab==="notes") return '<div class="pcard"><h3>Notes</h3><div class="notes">'+(c.notes?esc(c.notes):'<span class="muted">No notes yet.</span>')+'</div></div>';
   if(pTab==="visits") return '<div class="noact">Last visit: '+esc(c.lastVisit||"—")+'<br><br>Visit logging comes next.</div>';
@@ -722,6 +725,33 @@ function refsHtml(c){
     return '<div class="lead refrow" data-rd="'+i+'" style="cursor:pointer"><div class="top"><div style="min-width:0"><div class="who">'+esc(r.jobName||"—")+'</div><div class="meta">'+esc(String(r.date||"").slice(0,10))+(amt?(" · "+amt):"")+'</div></div><div style="display:flex;align-items:center;gap:8px;flex:none">'+sbadge(r.status)+'<button class="btn" data-addportal="'+i+'" title="Add this referral to the Referral Portal payout queue" style="font-size:11px;padding:5px 10px">'+gi("portal")+' Add to Portal</button></div></div>'+det+'</div>';
   }).join("");
 }
+function listingsHtml(c){
+  var d=c._listings;
+  var head='<div class="pcard"><h3>'+gi("search")+' Recent Listings</h3>'
+    +'<div class="muted" style="font-size:12.5px;margin-bottom:10px">Public listings where '+esc(firstName(c.name||c.business||""))+' is the listing agent — pulled live via AI web search (best-effort, not full MLS).</div>';
+  if(d===undefined) return head+'<button class="btn grad" id="lstBtn">'+gi("search")+' Find recent listings</button><div id="lstOut" style="margin-top:10px"></div></div>';
+  if(d&&d.loading) return head+'<div class="noact"><span class="spin"></span> Searching public listings… (~20s)</div></div>';
+  var refresh='<button class="btn" id="lstBtn" style="margin-bottom:10px">'+gi("search")+' Refresh</button>';
+  if(d&&d.error) return head+refresh+'<div class="muted" style="font-size:12.5px">'+esc(d.error)+'</div></div>';
+  var list=(d&&d.listings)||[];
+  var rows=list.length?list.map(function(it){
+    var addr,price;
+    if(typeof it==="string"){var p=it.split(" - ");addr=p[0];price=p.slice(1).join(" - ");}
+    else {addr=it.address||it.addr||it.title||"Listing";price=it.price||it.list_price||"";}
+    return '<div class="lead"><div class="top"><div style="min-width:0"><div class="who">'+esc(addr||"Listing")+'</div>'+(price?'<div class="meta">'+esc(price)+'</div>':'')+'</div></div></div>';
+  }).join(""):'<div class="noact">No recent public listings found right now.</div>';
+  var cnt=(d&&d.count!=null)?d.count:list.length;
+  return head+refresh+((cnt||(d&&d.summary))?'<div class="muted" style="font-size:12px;margin-bottom:8px">'+(cnt?cnt+' found':'')+((d&&d.summary)?(cnt?' · ':'')+esc(d.summary):'')+'</div>':'')+rows+'</div>';
+}
+async function profileCheckListings(c){
+  c._listings={loading:true}; redrawTab(c);
+  try{
+    var res=await fetch(NEON_API+"/api/checkListings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({opts:{name:c.name,brokerage:c.business||c.brokerage||""}})}).then(function(x){return x.json();});
+    if(res&&res.ok!==false){ c._listings={count:res.count||0,summary:res.summary||"",listings:res.listings||[]}; }
+    else { c._listings={error:"Listing search isn't available yet — it needs the AI endpoint live. Try again after deploying."}; }
+  }catch(e){ c._listings={error:"Couldn't reach the listing search service (it connects once v2 is on the live domain)."}; }
+  if(pTab==="listings") redrawTab(c);
+}
 function redrawTab(c){var el=document.getElementById("ptcontent");if(el)el.innerHTML=tabContent(c);[].forEach.call(document.querySelectorAll(".ptab"),function(e){e.classList.toggle("active",e.getAttribute("data-pt")===pTab);});wireTab(c);}
 function wireProfile(c){
   var bk=document.getElementById("backBtn"); if(bk)bk.onclick=function(){renderContacts("");};
@@ -742,6 +772,7 @@ function wireTab(c){
   var snd=document.getElementById("cSend"); if(snd)snd.onclick=function(){sendComposer(c);};
   [].forEach.call(document.querySelectorAll(".refrow"),function(el){el.onclick=function(){var d=el.querySelector(".leaddet");if(d){d.style.display=(d.style.display==="none"?"block":"none");el.classList.toggle("open");}};});
   [].forEach.call(document.querySelectorAll("[data-addportal]"),function(el){el.onclick=function(ev){ev.stopPropagation();var i=+el.getAttribute("data-addportal");addToPortal(c,(c._refs||[])[i],el);};});
+  var lb=document.getElementById("lstBtn"); if(lb)lb.onclick=function(){profileCheckListings(c);};
 }
 async function addToPortal(c,r,btn){
   if(!r) return;
