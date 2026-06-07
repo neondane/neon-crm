@@ -36,7 +36,8 @@ const handler = endpoint(async ({ env, body, reply }) => {
     await logSms(env, { direction: 'out', to_number: to, from_number: env.TWILIO_FROM, body: text, kind, contact_id: contactId, status: 'failed', error_code: j.code, error_message: j.message });
     return reply({ ok: false, error: 'twilio_rejected', code: j.code, message: j.message }, 502);
   }
-  await logSms(env, { direction: 'out', to_number: to, from_number: env.TWILIO_FROM, body: text, kind, contact_id: contactId, status: j.status || 'queued', twilio_sid: j.sid, sent_at: new Date().toISOString() });
+  // Note: the CRM logs the successful outbound row itself (single source of truth),
+  // so we don't log success here to avoid duplicate conversation entries.
   return reply({ ok: true, sid: j.sid, status: j.status, to: j.to, from: j.from });
 });
 
