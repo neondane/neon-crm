@@ -701,11 +701,11 @@ function refsHtml(c){
   c._refs.forEach(function(r){var s=String(r.status||"").toLowerCase();if(s==="booked")booked++;else if(s==="completed")completed++;rev+=(+r.amount||0);});
   var unbooked=tot-booked-completed;
   var pill=function(n,lbl,color){return '<div style="flex:1;text-align:center;padding:8px 4px"><div style="font-size:20px;font-weight:800'+(color?(";color:"+color):"")+'">'+n+'</div><div class="muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.4px">'+lbl+'</div></div>';};
-  var summary='<div style="display:flex;background:var(--card2,#1b212d);border:1px solid var(--line);border-radius:12px;margin-bottom:12px;overflow:hidden">'
+  var summary='<div style="display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:12px;margin-bottom:12px;overflow:hidden">'
     +pill(tot,"Total")+pill(unbooked,"Unbooked","#22BFE7")+pill(booked+completed,"Booked","#FF1493")+pill(money(rev),"Referred $","#00C2A8")+'</div>';
   return summary+c._refs.map(function(r,i){
     var amt=(+r.amount)?("$"+(+r.amount).toLocaleString()):"";
-    var rw=function(lbl,val){return '<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--line);font-size:13px"><span class="muted">'+lbl+'</span><b style="text-align:right">'+val+'</b></div>';};
+    var rw=function(lbl,val){return '<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--border);font-size:13px"><span class="muted">'+lbl+'</span><b style="text-align:right">'+val+'</b></div>';};
     var det='<div class="leaddet" style="display:none;margin-top:8px">'
       +rw("Status",esc(r.status||"—"))
       +rw("Date",esc(String(r.date||"").slice(0,10)||"—"))
@@ -826,10 +826,24 @@ async function avSave(avatar,card){
   avCloseModal(); renderProfile();
   try{ await sbWrite("PATCH","contacts?id=eq."+id,patch); }catch(e){ banner("Photo saved on screen, but couldn't reach the database (it'll save once you're online/deployed)."); }
 }
+async function postSms(path,payload){
+  try{
+    var r=await fetch("https://refer.neongiantmoving.com"+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    var j={};try{j=await r.json();}catch(e){}
+    return {ok:(r.ok&&j.ok!==false), msg:(j.message||j.error||("HTTP "+r.status))};
+  }catch(e){ return {ok:false, threw:true, msg:String(e&&e.message||e)}; }
+}
+async function sendText(payload){
+  // Prefer the fast direct-Twilio endpoint; fall back to the proven smsOut so texting is never down.
+  var a=await postSms("/api/sendSms",payload);
+  if(a.ok) return a;
+  var b=await postSms("/api/smsOut",payload);
+  return b.ok?b:a;
+}
 async function sendComposer(c){
   var msg=(document.getElementById("cmsg")||{}).value||"";
   if(cSub==="note"){ if(!msg.trim())return; var nn=(c.notes?c.notes+"\n":"")+"["+new Date().toISOString().slice(0,10)+"] "+msg; c.notes=nn; var c2=ALL.filter(function(x){return x.id===c.id;})[0]; if(c2)c2.notes=nn; try{await sbWrite("PATCH","contacts?id=eq."+c.id,{notes:nn});}catch(e){} pTab="notes"; renderProfile(); return; }
-  if(cSub==="text"){ if(!c.phone){alert("No phone on file.");return;} if(!msg.trim())return; if(!confirm("Send this text to "+c.name+"?"))return; var btn=document.getElementById("cSend"); if(btn){btn.disabled=true;btn.textContent="Sending…";} try{var r=await fetch("https://refer.neongiantmoving.com/api/sendSms",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({to:c.phone,body:msg,contactId:c.id,kind:"manual"})});var j={};try{j=await r.json();}catch(e){} if(r.ok&&j.ok!==false){var ta=document.getElementById("cmsg");if(ta)ta.value="";ACT=null;loadActivity(c);}else{alert("Text not sent: "+(j.message||j.error||("HTTP "+r.status)));}}catch(e){alert("Send failed — check connection.");} if(btn){btn.disabled=false;btn.textContent="Send";} return; }
+  if(cSub==="text"){ if(!c.phone){alert("No phone on file.");return;} if(!msg.trim())return; if(!confirm("Send this text to "+c.name+"?"))return; var btn=document.getElementById("cSend"); if(btn){btn.disabled=true;btn.textContent="Sending…";} var sent=await sendText({to:c.phone,body:msg,contactId:c.id,kind:"manual"}); if(sent.ok){var ta=document.getElementById("cmsg");if(ta)ta.value="";ACT=null;loadActivity(c);}else{alert("Text not sent: "+sent.msg);} if(btn){btn.disabled=false;btn.textContent="Send";} return; }
   if(cSub==="email"){ if(!c.email){alert("No email on file.");return;} if(!msg.trim())return; if(!confirm("Send this email to "+c.name+"?"))return; try{await fetch("https://refer.neongiantmoving.com/api/sendEmail",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({to:c.email,subject:"Neon Giant Moving",body:msg,contactId:c.id})});alert("Email sent.");loadActivity(c);}catch(e){alert("Send failed.");} return; }
   alert("Call logging comes next.");
 }
