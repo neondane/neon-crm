@@ -28,15 +28,16 @@ const handler = endpoint(async ({ env, body, reply }) => {
   if (!email || !/^\S+@\S+\.\S+$/.test(email)) return reply({ ok: false, error: 'invalid_email' }, 400);
   if (!name) return reply({ ok: false, error: 'missing_name' }, 400);
   if (!cents || cents < 100) return reply({ ok: false, error: 'invalid_amount', message: 'min $1' }, 400);
+  // Money endpoint: require an idempotency key so a repeat/retry can't double-pay.
+  if (!leadKey) return reply({ ok: false, error: 'missing_lead_key', message: 'leadId/key required for a safe payout' }, 400);
+  const ledgerKey = campaign + ':' + leadKey;
 
-  // Idempotency: if this lead+campaign was already paid, return the prior result (no double-send).
+  // Idempotency pre-check: if this lead+campaign was already paid, return the prior result (no double-send).
   const db = sb(env);
-  if (leadKey) {
-    try {
-      const prior = await db.select(`paid_referrals?key=eq.${encodeURIComponent(campaign + ':' + leadKey)}&select=*&limit=1`);
-      if (prior && prior[0]) return reply({ ok: true, alreadyPaid: true, orderId: prior[0].order_id || null });
-    } catch (_) {}
-  }
+  try {
+    const prior = await db.select(`paid_referrals?key=eq.${encodeURIComponent(ledgerKey)}&select=*&limit=1`);
+    if (prior && prior[0]) return reply({ ok: true, alreadyPaid: true, orderId: prior[0].order_id || null });
+  } catch (_) {}
 
   // Funding source: use explicit env if set, else auto-discover from the Tremendous account.
   let fundingId = env.TREMENDOUS_FUNDING;
@@ -80,19 +81,23 @@ const handler = endpoint(async ({ env, body, reply }) => {
 
   const order = j.order;
   const reward = (order.rewards && order.rewards[0]) || {};
-  // Record in the paid ledger (best-effort; the CRM also guards on its side).
+  // Record in the paid ledger. If this write fails, the payment SUCCEEDED but is
+  // unrecorded — surface it so a retry can't silently double-pay and the operator can log it.
+  let ledgerWarning = null;
   try {
     await db.insert('paid_referrals', {
-      key: campaign + ':' + leadKey,
+      key: ledgerKey,
       partner: name,
       amount: cents / 100,
       order_id: order.id,
       customer: customerName,
       paid_at: new Date().toISOString().slice(0, 10),
     }, { returning: 'minimal' });
-  } catch (_) {}
+  } catch (e) {
+    ledgerWarning = 'Payment sent but NOT recorded in the ledger — record it manually. (' + (e && e.message || e) + ')';
+  }
 
-  return reply({ ok: true, orderId: order.id, rewardId: reward.id, deliveryStatus: order.status });
+  return reply({ ok: true, orderId: order.id, rewardId: reward.id, deliveryStatus: order.status, ledgerWarning });
 });
 
 export const onRequestPost = handler;
