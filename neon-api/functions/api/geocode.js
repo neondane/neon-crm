@@ -4,12 +4,13 @@
 import { endpoint, preflight } from '../_shared.js';
 
 const handler = endpoint(async ({ env, body, reply }) => {
-  if (!env.GOOGLE_GEOCODING_KEY) return reply({ ok: false, error: 'geocoding_not_configured' }, 503);
+  const GKEY = env.GOOGLE_GEOCODING_KEY || env.GOOGLE_PLACES_KEY;
+  if (!GKEY) return reply({ ok: false, error: 'geocoding_not_configured' }, 503);
   const address = String(body.address || '').trim();
   if (!address) return reply({ ok: false, error: 'missing_address' }, 400);
 
   const url = 'https://maps.googleapis.com/maps/api/geocode/json?address='
-    + encodeURIComponent(address) + '&key=' + env.GOOGLE_GEOCODING_KEY;
+    + encodeURIComponent(address) + '&key=' + GKEY;
   let j;
   try {
     j = await (await fetch(url)).json();
