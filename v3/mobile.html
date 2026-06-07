@@ -203,12 +203,11 @@ async function sendInvite(c,link,btn){
   var msg="Hi "+first+"! It's Neon Giant Moving. Here's your referral link — send it to anyone moving and you earn $50 per completed move: "+link;
   if(!confirm("Text this invite to "+c.name+" ("+c.phone+")?"))return;
   btn.disabled=true;btn.textContent="Sending…";
-  try{
-    var r=await fetch(PORTAL+"/api/sendSms",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({to:c.phone,body:msg,contactId:c.id,kind:"portal_invite"})});
-    var j={};try{j=await r.json();}catch(e){}
-    if(r.ok&&j.ok!==false){toast("Invite sent to "+first);btn.textContent="Sent ✓";}
-    else{toast("Not sent: "+(j.message||j.error||("HTTP "+r.status)),1);btn.disabled=false;btn.textContent="Text invite to "+c.phone;}
-  }catch(e){toast("Send failed — check signal",1);btn.disabled=false;btn.textContent="Text invite to "+c.phone;}
+  var payload={to:c.phone,body:msg,contactId:c.id,kind:"portal_invite"};
+  async function post(path){try{var r=await fetch(PORTAL+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});var j={};try{j=await r.json();}catch(e){}return {ok:(r.ok&&j.ok!==false),msg:(j.message||j.error||("HTTP "+r.status))};}catch(e){return {ok:false,msg:String(e&&e.message||e)};}}
+  var sent=await post("/api/sendSms"); if(!sent.ok){var b=await post("/api/smsOut"); if(b.ok)sent=b;}
+  if(sent.ok){toast("Invite sent to "+first);btn.textContent="Sent ✓";}
+  else{toast("Not sent: "+sent.msg,1);btn.disabled=false;btn.textContent="Text invite to "+c.phone;}
 }
 
 /* ---- DAY PLAN ---- */
