@@ -1689,8 +1689,11 @@ document.getElementById("q").addEventListener("input",function(){
   else if(view==="portal"){ portalFilter=this.value; if(PORTAL) drawPortal(); }
   else if(view==="inbox"&&DATA.msgs) drawInbox();
 });
+var MOBILE_MODE = /[?&]m=1/.test(location.search) || (window.matchMedia && window.matchMedia("(max-width: 760px)").matches && !/[?&]desktop=1/.test(location.search));
 renderNav();
 loadContacts().then(function(){
+  if(MOBILE_MODE){ var okM=false; try{ bootMobile(); okM=true; }catch(e){ try{console.warn("mobile boot failed",e);}catch(_){}}
+    if(okM){ setTimeout(function(){ try{ensureData(function(){});}catch(e){} },400); return; } }
   var last=""; try{last=localStorage.getItem("crmNav")||"";}catch(e){}
   if(last.indexOf("c:")===0){ var id=+last.slice(2); if(id&&ALL.some(function(x){return x.id===id;})){ go("contacts"); openContact(id); } else go("contacts"); }
   else if(last){ go(last); } else go("contacts");
@@ -1708,6 +1711,142 @@ async function refreshLive(){
   if(view==="dashboard" && !document.getElementById("bellDrop") && !document.getElementById("avModal")){ try{ drawDashboard(); }catch(e){} }
 }
 setInterval(refreshLive, 180000); // every 3 minutes
+
+/* ================= SIMPLE MOBILE APP — gated by /?m=1 or phone width (additive; does not touch desktop) ================= */
+var mScreen="today", mSel=null;
+function mGo(s){ mScreen=s; mRender(); }
+function mAvatar(c){var src=c&&(c.profilePic||c.cardImage||PHOTOS[c.id]);return '<div class="m-av">'+(src?'<img src="'+esc(src)+'">':esc(initials(cName(c)).toUpperCase()))+'</div>';}
+function bootMobile(){
+  if(document.getElementById("mApp")) return;
+  var st=document.createElement("style"); st.id="mStyle";
+  st.textContent="#mApp{position:fixed;inset:0;z-index:9000;background:var(--bg,#fff);color:var(--text,#1a1a2e);display:flex;flex-direction:column}"
+  +"#mApp *{box-sizing:border-box}"
+  +".m-top{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border,#e6e6ef);background:var(--surface,#fff)}"
+  +".m-logo{font-weight:800;font-size:18px;letter-spacing:1px;color:var(--pink,#ff1493)}.m-sub{font-size:10px;letter-spacing:2px;color:var(--text-muted,#888)}"
+  +".m-body{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 92px}"
+  +".m-nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--surface,#fff);border-top:1px solid var(--border,#e6e6ef);z-index:9001}"
+  +".m-nav button{flex:1;border:0;background:none;padding:11px 4px 16px;font:inherit;color:var(--text-muted,#888);font-size:12px;font-weight:600}.m-nav button.on{color:var(--pink,#ff1493)}"
+  +".m-card{background:var(--surface,#fff);border:1px solid var(--border,#e6e6ef);border-radius:14px;padding:14px;margin-bottom:12px}"
+  +".m-row{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--border,#e6e6ef);border-radius:14px;margin-bottom:10px;background:var(--surface,#fff)}"
+  +".m-av{width:44px;height:44px;flex:none;border-radius:50%;overflow:hidden;background:var(--surface2,#eee);display:grid;place-items:center;font-weight:800}.m-av img{width:100%;height:100%;object-fit:cover}"
+  +".m-nm{font-weight:700;font-size:15px}.m-meta{font-size:12px;color:var(--text-muted,#888)}"
+  +".m-in{width:100%;padding:13px;border:1px solid var(--border,#e6e6ef);border-radius:12px;font-size:16px;background:var(--bg,#fff);color:var(--text,#1a1a2e);margin-bottom:10px}"
+  +".m-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted,#888);margin:2px 0 4px}"
+  +".m-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:13px 16px;border-radius:12px;border:1px solid var(--border,#e6e6ef);background:var(--surface,#fff);color:var(--text,#1a1a2e);font:inherit;font-size:15px;font-weight:600;text-decoration:none}"
+  +".m-btn.grad{background:linear-gradient(90deg,var(--pink,#ff1493),var(--cyan,#22bfe7));color:#fff;border:0}.m-btn.full{display:flex;width:100%;margin-bottom:10px}.m-btn[disabled]{opacity:.5}"
+  +".m-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}"
+  +".m-sheet{position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.45);display:flex;align-items:flex-end}.m-sheet .in{background:var(--bg,#fff);width:100%;max-height:90vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px 28px}"
+  +".m-h{font-size:18px;font-weight:800;margin:4px 0 12px}";
+  document.head.appendChild(st);
+  var app=document.createElement("div"); app.id="mApp";
+  app.innerHTML='<div class="m-top"><div style="flex:1"><div class="m-logo">NEON CRM</div><div class="m-sub">FIELD</div></div><button class="m-btn" id="mDesk" style="padding:7px 12px;font-size:12px">Desktop</button></div><div class="m-body" id="mBody"></div><div class="m-nav" id="mNav"></div>';
+  document.body.appendChild(app);
+  document.getElementById("mDesk").onclick=function(){ location.href=location.pathname+"?desktop=1"; };
+  mRender();
+}
+function mNavBar(){ return [["today","Today"],["add","Add"],["partners","Partners"]].map(function(it){return '<button data-ms="'+it[0]+'" class="'+(mScreen===it[0]?"on":"")+'">'+it[1]+'</button>';}).join(""); }
+function mRender(){
+  var body=document.getElementById("mBody"); if(!body)return;
+  if(mScreen==="add") body.innerHTML=mAdd();
+  else if(mScreen==="partners") body.innerHTML=mPartners();
+  else body.innerHTML=mToday();
+  var nav=document.getElementById("mNav"); if(nav){ nav.innerHTML=mNavBar(); [].forEach.call(nav.querySelectorAll("button"),function(b){b.onclick=function(){mGo(b.getAttribute("data-ms"));};}); }
+  mWire();
+}
+function mToday(){
+  var rows=(ALL||[]).filter(function(c){return c.phone;});
+  rows.sort(function(a,b){var da=daysSince(a),db=daysSince(b);da=(da===null?1e9:da);db=(db===null?1e9:db);return db-da;});
+  rows=rows.slice(0,20);
+  var html='<div class="m-card"><div class="m-h">Today’s touches</div><div class="m-meta">People due for a check-in — stalest first. Tap to call, text, or log a visit.</div></div>';
+  html+=rows.map(function(c){var d=daysSince(c);return '<div class="m-row" data-open="'+c.id+'">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-nm">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+(d!=null?' · '+d+'d ago':' · new')+'</div></div></div>';}).join("");
+  return html;
+}
+function mAdd(){
+  return '<div class="m-card"><div class="m-h">Add a contact</div>'
+   +'<div class="m-actions" style="margin-bottom:12px"><button class="m-btn grad" id="acScan">'+gi("camera")+' Scan card</button><button class="m-btn" id="acSpeak">'+gi("chat")+' Speak</button></div>'
+   +'<input type="file" id="acCardFile" accept="image/*" capture="environment" style="display:none">'
+   +'<div id="acAiStatus" class="m-meta" style="margin-bottom:10px"></div>'
+   +'<div class="m-lbl">Name *</div><input class="m-in" id="acName">'
+   +'<div class="m-lbl">Business / brokerage</div><input class="m-in" id="acBiz">'
+   +'<div class="m-lbl">Type</div><select class="m-in" id="acType">'+DP_TY.map(function(t){return '<option>'+esc(t)+'</option>';}).join("")+'</select>'
+   +'<div class="m-lbl">Role</div><input class="m-in" id="acRole">'
+   +'<div class="m-lbl">Phone</div><input class="m-in" id="acPhone" inputmode="tel">'
+   +'<div class="m-lbl">Email</div><input class="m-in" id="acEmail" inputmode="email">'
+   +'<div class="m-lbl">Territory</div><select class="m-in" id="acTerr"><option value=""></option>'+DP_TR.map(function(t){return '<option>'+esc(t)+'</option>';}).join("")+'</select>'
+   +'<button class="m-btn grad full" id="mAddSave" style="margin-top:8px">Add contact</button><div id="mAddMsg" class="m-meta"></div></div>';
+}
+function mPartners(){ return '<input class="m-in" id="mSearch" placeholder="Search contacts &amp; partners…"><div id="mList"></div>'; }
+function mDrawList(q){
+  var el=document.getElementById("mList"); if(!el)return; q=(q||"").toLowerCase().trim();
+  var rows=(ALL||[]).filter(function(c){ if(!q)return true; return ((c.name||"")+" "+(c.business||"")).toLowerCase().indexOf(q)>=0; });
+  rows.sort(function(a,b){return String(cName(a)).localeCompare(String(cName(b)));});
+  rows=rows.slice(0,60);
+  el.innerHTML=rows.map(function(c){return '<div class="m-row" data-open="'+c.id+'">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-nm">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+(c.portalActivatedAt?' · ✓ Active':'')+'</div></div></div>';}).join("")||'<div class="m-meta" style="padding:10px">No matches.</div>';
+}
+function mWire(){
+  [].forEach.call(document.querySelectorAll("#mBody [data-open]"),function(el){el.onclick=function(){mOpen(+el.getAttribute("data-open"));};});
+  var sv=document.getElementById("mAddSave"); if(sv)sv.onclick=mSaveContact;
+  var sc=document.getElementById("acScan"),f=document.getElementById("acCardFile"); if(sc&&f){sc.onclick=function(){f.click();};f.onchange=function(){if(f.files&&f.files[0])acScanCard(f.files[0]);};}
+  var sp=document.getElementById("acSpeak"); if(sp)sp.onclick=acSpeak;
+  var srch=document.getElementById("mSearch"); if(srch){ mDrawList(""); srch.oninput=function(){mDrawList(srch.value);}; }
+  window.__acNotes="";
+}
+async function mSaveContact(){
+  var v=function(id){var e=document.getElementById(id);return e?(e.value||"").trim():"";};
+  var name=v("acName"); var msg=document.getElementById("mAddMsg");
+  if(!name){ if(msg)msg.textContent="Name is required."; return; }
+  var ids=(ALL||[]).map(function(c){return +c.id;}).filter(function(n){return !isNaN(n);});
+  var nid=(ids.length?Math.max.apply(null,ids):0)+1;
+  var rec={id:nid,name:name,business:v("acBiz"),type:v("acType"),role:v("acRole"),phone:v("acPhone"),email:v("acEmail"),territory:v("acTerr"),dateAdded:new Date().toISOString()};
+  if(window.__acNotes){rec.notes=window.__acNotes;window.__acNotes="";}
+  ALL.push(rec); ALL.sort(function(a,b){return String(a.name||"").localeCompare(String(b.name||""));});
+  if(msg)msg.textContent="Saving…";
+  try{ await sbWrite("POST","contacts",rec); if(msg)msg.innerHTML='<span style="color:var(--pink);font-weight:700">✓ '+esc(name)+' added.</span>'; }
+  catch(e){ if(msg)msg.textContent="Saved on screen — couldn’t reach the database."; }
+  setTimeout(function(){ mGo("partners"); },1000);
+}
+function mOpen(id){
+  var c=(ALL||[]).filter(function(x){return x.id===id;})[0]; if(!c)return; mSel=c;
+  var isR=/realtor/i.test(c.type||""); var ph=String(c.phone||"").replace(/[^0-9+]/g,"");
+  var sheet=document.createElement("div"); sheet.className="m-sheet"; sheet.id="mSheet";
+  var inner='<div class="in"><div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-h" style="margin:0">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+'</div></div></div>';
+  inner+='<div class="m-actions" style="margin-bottom:10px">'+(c.phone?'<a class="m-btn" href="tel:'+esc(ph)+'">'+gi("phone")+' Call</a>':'')+(c.address?'<a class="m-btn" target="_blank" rel="noopener" href="https://maps.google.com/?q='+encodeURIComponent(c.address)+'">'+gi("map")+' Map</a>':'')+'</div>';
+  inner+='<button class="m-btn grad full" id="mTextBtn"'+(c.phone?'':' disabled')+'>'+gi("chat")+' Text from business line</button>';
+  inner+='<button class="m-btn full" id="mNoteBtn">'+gi("note")+' Log a note</button>';
+  if(isR) inner+='<button class="m-btn full" id="mPortalBtn">'+gi("portal")+' '+(c.portalActivatedAt?"Deactivate portal":"Activate portal ($50 referrals)")+'</button>';
+  inner+='<div id="mSheetMsg" class="m-meta" style="margin-top:4px"></div><button class="m-btn full" id="mClose" style="margin-top:10px">Close</button></div>';
+  sheet.innerHTML=inner; document.body.appendChild(sheet);
+  sheet.addEventListener("click",function(e){ if(e.target===sheet) sheet.remove(); });
+  document.getElementById("mClose").onclick=function(){sheet.remove();};
+  var tb=document.getElementById("mTextBtn"); if(tb&&c.phone)tb.onclick=function(){mCompose(c,"text");};
+  var nb=document.getElementById("mNoteBtn"); if(nb)nb.onclick=function(){mCompose(c,"note");};
+  var pb=document.getElementById("mPortalBtn"); if(pb)pb.onclick=function(){mTogglePortal(c);};
+}
+function mCompose(c,kind){
+  var ov=document.createElement("div"); ov.className="m-sheet"; ov.id="mCompose";
+  var title=(kind==="text"?"Text ":"Note on ")+cName(c);
+  ov.innerHTML='<div class="in"><div class="m-h">'+esc(title)+'</div>'+(kind==="text"?'<div class="m-meta" style="margin-bottom:8px">Sends from your business line (+1 360‑588‑5228) and logs it to their thread.</div>':'')+'<textarea class="m-in" id="mMsg" rows="5" placeholder="'+(kind==="text"?"Message…":"Note…")+'"></textarea><button class="m-btn grad full" id="mSend">'+(kind==="text"?"Send text":"Save note")+'</button><div id="mCmsg" class="m-meta"></div><button class="m-btn full" id="mCcancel" style="margin-top:8px">Cancel</button></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener("click",function(e){if(e.target===ov)ov.remove();});
+  document.getElementById("mCcancel").onclick=function(){ov.remove();};
+  document.getElementById("mSend").onclick=async function(){
+    var t=((document.getElementById("mMsg")||{}).value||""); var m=document.getElementById("mCmsg"); if(!t.trim())return;
+    var btn=this; btn.disabled=true; btn.textContent="Working…";
+    if(kind==="note"){ var nn=(c.notes?c.notes+"\n":"")+"["+new Date().toISOString().slice(0,10)+"] "+t; c.notes=nn; var c2=(ALL||[]).filter(function(x){return x.id===c.id;})[0]; if(c2)c2.notes=nn; try{await sbWrite("PATCH","contacts?id=eq."+c.id,{notes:nn});}catch(e){} ov.remove(); var s1=document.getElementById("mSheetMsg"); if(s1)s1.innerHTML='<span style="color:var(--pink);font-weight:700">✓ Note saved.</span>'; return; }
+    var sent=await sendText({to:c.phone,body:t,contactId:c.id,kind:"manual"});
+    if(sent.ok){ try{ await sbWrite("POST","sms_messages",{contact_id:c.id,direction:"out",to_number:String(c.phone).replace(/[^0-9+]/g,""),from_number:"+13605885228",body:t,kind:"manual",status:"sent",sent_at:new Date().toISOString()}); }catch(e){} ov.remove(); var s2=document.getElementById("mSheetMsg"); if(s2)s2.innerHTML='<span style="color:var(--pink);font-weight:700">✓ Text sent.</span>'; }
+    else { if(m)m.textContent="Not sent: "+sent.msg; btn.disabled=false; btn.textContent="Send text"; }
+  };
+}
+async function mTogglePortal(c){
+  var on=!!c.portalActivatedAt; var now=new Date().toISOString();
+  if(!on && !confirm("Activate "+c.name+"'s referral portal? They start earning $50 per completed referral.")) return;
+  if(on && !confirm("Deactivate "+c.name+"'s referral portal?")) return;
+  c.portalActivatedAt=on?null:now; var c2=(ALL||[]).filter(function(x){return x.id===c.id;})[0]; if(c2)c2.portalActivatedAt=c.portalActivatedAt; PORTAL=null;
+  try{ await sbWrite("PATCH","contacts?id=eq."+c.id,{portalActivatedAt:c.portalActivatedAt}); }catch(e){}
+  var sh=document.getElementById("mSheetMsg"); if(sh)sh.innerHTML='<span style="color:var(--pink);font-weight:700">✓ '+(on?"Deactivated":"Activated")+'.</span>';
+  var pb=document.getElementById("mPortalBtn"); if(pb)pb.innerHTML=gi("portal")+' '+(c.portalActivatedAt?"Deactivate portal":"Activate portal ($50 referrals)");
+}
 </script>
 </body>
 </html>
