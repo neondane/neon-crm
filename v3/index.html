@@ -1612,8 +1612,10 @@ async function pbCheckListings(r){
   try{
     var res=await fetch(NEON_API+"/api/checkListings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"checkListings",opts:{name:r.name,brokerage:r.brokerage,area:(r.county?r.county+" County, WA":"Whatcom/Skagit County, WA")}})}).then(function(x){return x.json();});
     var c=res&&(res.count!=null?res.count:(res.listings?res.listings.length:0));
-    var sum=res&&(res.summary||(res.listings&&res.listings.join?res.listings.join("\n"):""));
-    out.innerHTML='<div class="pbdossier">'+(c?('<b style="color:var(--pink)">'+c+' recent listing'+(c>1?'s':'')+' found — strike now.</b>\n'):'No recent listings found right now.\n')+esc(sum||"")+'</div>';
+    var sum=res&&(res.summary||"");
+    var listArr=(res&&res.listings)||[];
+    var listHtml=listArr.length?('<div style="margin-top:10px">'+listArr.map(function(it){var addr,price;if(typeof it==="string"){var idx=it.lastIndexOf(" - ");if(idx>0){addr=it.slice(0,idx);price=it.slice(idx+3);}else{addr=it;price="";}}else{addr=it.address||it.title||"Listing";price=it.price||"";}return '<div class="lead" style="margin-bottom:8px"><div class="top"><div style="min-width:0"><div class="who">'+esc(addr||"Listing")+'</div>'+(price?'<div class="meta">'+esc(price)+'</div>':'')+'</div></div></div>';}).join("")+'</div>'):'';
+    out.innerHTML='<div class="pbdossier">'+(c?('<b style="color:var(--pink)">'+c+' recent listing'+(c>1?'s':'')+' found — strike now.</b>\n'):'No recent listings found right now.\n')+esc(sum||"")+'</div>'+listHtml;
     if(c>0){ try{ await fetch(SB_URL+"/rest/v1/recruit_strikes",{method:"POST",headers:Object.assign({},H,{"Content-Type":"application/json","Prefer":"resolution=merge-duplicates"}),body:JSON.stringify({agent:r.name,count:c,summary:sum||"",listed_at:new Date().toISOString()})}); DATA.strikes=await sb("recruit_strikes?select=agent,count,summary,listed_at&order=listed_at.desc"); updateTopBadges(); }catch(e){} }
   }catch(e){ out.innerHTML='<div class="muted" style="font-size:12.5px">AI listing checks connect once the AI functions are deployed (deploy-ai). Once live, a found listing flags a 🔥 strike on the Recruit Board and in your alerts.</div>'; }
   btn.disabled=false;btn.innerHTML=gi("search")+" Check recent listings";
