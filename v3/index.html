@@ -714,7 +714,7 @@ function refsHtml(c){
       +(r.jobName?rw("Job",esc(r.jobName)):"")
       +(r.contactName?rw("Referred by",esc(r.contactName)):"")
       +'</div>';
-    return '<div class="lead refrow" data-rd="'+i+'" style="cursor:pointer"><div class="top"><div style="min-width:0"><div class="who">'+esc(r.jobName||"—")+'</div><div class="meta">'+esc(String(r.date||"").slice(0,10))+(amt?(" · "+amt):"")+'</div></div><div style="display:flex;align-items:center;gap:8px;flex:none">'+sbadge(r.status)+'<button class="btn grad" data-reward="'+i+'" title="Send a $50 reward to '+esc(c.name||"this partner")+' for this referral" style="font-size:11px;padding:5px 10px">'+gi("cash")+' Reward $50</button></div></div>'+det+'</div>';
+    return '<div class="lead refrow" data-rd="'+i+'" style="cursor:pointer"><div class="top"><div style="min-width:0"><div class="who">'+esc(r.jobName||"—")+'</div><div class="meta">'+esc(String(r.date||"").slice(0,10))+(amt?(" · "+amt):"")+'</div></div><div style="display:flex;align-items:center;gap:8px;flex:none">'+sbadge(r.status)+'<button class="btn" data-addportal="'+i+'" title="Add this referral to the Referral Portal payout queue" style="font-size:11px;padding:5px 10px">'+gi("portal")+' Add to Portal</button></div></div>'+det+'</div>';
   }).join("");
 }
 function redrawTab(c){var el=document.getElementById("ptcontent");if(el)el.innerHTML=tabContent(c);[].forEach.call(document.querySelectorAll(".ptab"),function(e){e.classList.toggle("active",e.getAttribute("data-pt")===pTab);});wireTab(c);}
@@ -735,13 +735,17 @@ function wireTab(c){
   [].forEach.call(document.querySelectorAll("[data-af]"),function(el){el.onclick=function(){actFilter=el.getAttribute("data-af");redrawTab(c);};});
   var snd=document.getElementById("cSend"); if(snd)snd.onclick=function(){sendComposer(c);};
   [].forEach.call(document.querySelectorAll(".refrow"),function(el){el.onclick=function(){var d=el.querySelector(".leaddet");if(d){d.style.display=(d.style.display==="none"?"block":"none");el.classList.toggle("open");}};});
-  [].forEach.call(document.querySelectorAll("[data-reward]"),function(el){el.onclick=function(ev){ev.stopPropagation();var i=+el.getAttribute("data-reward");rewardReferral(c,(c._refs||[])[i],el);};});
+  [].forEach.call(document.querySelectorAll("[data-addportal]"),function(el){el.onclick=function(ev){ev.stopPropagation();var i=+el.getAttribute("data-addportal");addToPortal(c,(c._refs||[])[i],el);};});
 }
-async function rewardReferral(c,r,btn){
+async function addToPortal(c,r,btn){
   if(!r) return;
-  if(!c.email){ alert("No email on file for "+(c.name||"this partner")+". Add their email on their profile first, then reward."); return; }
-  var it={ email:c.email, partner:c.name, customer:r.jobName||"", amount:50, key:"manual:"+(r.id!=null?r.id:r.jobName), id:(r.id!=null?r.id:r.jobName), rtId:c.id };
-  await sendPayoutGo(it,btn);  // same confirm + REAL-money send + record flow
+  if(btn){btn.disabled=true;btn.textContent="Adding…";}
+  try{
+    await sbWrite("POST","payout_queue",{referral_id:(r.id!=null?r.id:null),contact_id:c.id,partner:c.name||"",customer:r.jobName||"",amount:50,added_at:new Date().toISOString()});
+    if(btn){btn.textContent="✓ In Portal";}
+    banner('"'+(r.jobName||"Referral")+'" added to the Referral Portal — reward it from Payouts Due.');
+    PORTAL=null;  // force the portal to re-pull the queue next time it opens
+  }catch(e){ if(btn){btn.disabled=false;btn.innerHTML=gi("portal")+" Add to Portal";} alert("Couldn't add to the portal — try again."); }
 }
 async function loadActivity(c){
   var acc=[];
@@ -872,8 +876,10 @@ async function doSave(){
 var PORTAL=null, portalTab="payouts", portalFilter="", portalRealtorView="active";
 var SBADGE={ "new":"#22aee4","contacted":"#ff9933","booked":"#33cc66","completed":"#e08600","lost":"#888" };
 function sbadge(s){var k=String(s||"new").toLowerCase();var c=SBADGE[k]||"#22aee4";return '<span class="sbadge" style="color:'+c+';background:'+c+'22;border:1px solid '+c+'55">'+esc((s||"new").toUpperCase())+'</span>';}
-function pAvatar(c){var src=c&&(c.profilePic||c.cardImage||(typeof PHOTOS!=="undefined"&&PHOTOS[c.id]));return '<div class="av" style="width:40px;height:40px;flex:none">'+(src?'<img src="'+esc(src)+'" alt="">':esc(initials(c&&c.name||"").toUpperCase()))+'</div>';}
-function pAvatarFrom(photo,name){var src=photo||"";return '<div class="av" style="width:40px;height:40px;flex:none">'+(src?'<img src="'+esc(src)+'" alt="">':esc(initials(name||"").toUpperCase()))+'</div>';}
+var PAV_WRAP='width:40px;height:40px;flex:none;border-radius:50%;overflow:hidden;background:var(--surface2);display:grid;place-items:center;font-weight:800;font-size:13px;color:var(--text)';
+var PAV_IMG='width:100%;height:100%;object-fit:cover;display:block';
+function pAvatar(c){var src=c&&(c.profilePic||c.cardImage||(typeof PHOTOS!=="undefined"&&PHOTOS[c.id]));return '<div style="'+PAV_WRAP+'">'+(src?'<img src="'+esc(src)+'" alt="" style="'+PAV_IMG+'">':esc(initials(c&&c.name||"").toUpperCase()))+'</div>';}
+function pAvatarFrom(photo,name){return '<div style="'+PAV_WRAP+'">'+(photo?'<img src="'+esc(photo)+'" alt="" style="'+PAV_IMG+'">':esc(initials(name||"").toUpperCase()))+'</div>';}
 async function renderPortal(){
   document.getElementById("view").innerHTML='<div class="page"><div class="ph"><h2>'+gi("portal")+' Referral Portal</h2></div><div class="stub" style="height:auto;padding:30px"><div class="spin"></div></div></div>';
   if(!PORTAL){
@@ -882,9 +888,10 @@ async function renderPortal(){
         sb("portal_leads?select=id,customerName,realtorName,realtorId,status,moveDate,customerPhone,fromAddress,toAddress,notes,submittedAt&order=id.desc"),
         sb("referrals?select=id,contactId,contactName,jobName,status,date&order=date.desc"),
         sb("contacts?type=eq.Realtor&select=id,name,business,portalActivatedAt,profilePic,cardImage&order=name.asc"),
-        sb("paid_referrals?select=key,paid_at,partner")
+        sb("paid_referrals?select=key,paid_at,partner"),
+        sb("payout_queue?select=id,referral_id,contact_id,partner,customer,amount,added_at&order=id.desc").catch(function(){return [];})
       ]);
-      PORTAL={leads:res[0]||[],refs:res[1]||[],realtors:res[2]||[],paid:res[3]||[]};
+      PORTAL={leads:res[0]||[],refs:res[1]||[],realtors:res[2]||[],paid:res[3]||[],queue:res[4]||[]};
     }catch(e){ document.getElementById("view").innerHTML='<div class="stub"><div><div class="big">Couldn’t reach the database</div><div>Open this once it’s deployed (live data needs the server).</div></div></div>'; return; }
   }
   drawPortal();
@@ -905,6 +912,14 @@ function payoutItems(){
     var d=String(r.date||"").slice(0,10); if(d && d<act) return;
     var key="manual:"+r.id; var rt=byId[String(r.contactId)]||{};
     items.push({key:key,partner:(r.contactName||"").trim(),customer:r.jobName,source:"referral",amount:50,paid:!!paidMap[key],paidAt:(paidMap[key]&&paidMap[key]!=="1")?paidMap[key]:"",id:r.id,email:rt.email||"",rtId:r.contactId,photo:rt.profilePic||rt.cardImage||""});
+  });
+  // manually-queued referrals ("Add to Portal" from a profile)
+  var seen={}; items.forEach(function(it){seen[it.key]=1;});
+  (PORTAL.queue||[]).forEach(function(q){
+    var key="manual:"+(q.referral_id!=null?q.referral_id:("q"+q.id));
+    if(seen[key]) return; seen[key]=1;
+    var rt=byId[String(q.contact_id)]||{};
+    items.push({key:key,partner:(q.partner||"").trim(),customer:q.customer,source:"queued",amount:+q.amount||50,paid:!!paidMap[key],paidAt:(paidMap[key]&&paidMap[key]!=="1")?paidMap[key]:"",id:(q.referral_id!=null?q.referral_id:q.id),email:rt.email||"",rtId:q.contact_id,photo:rt.profilePic||rt.cardImage||""});
   });
   return items;
 }
