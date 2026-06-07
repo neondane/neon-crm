@@ -4,6 +4,7 @@
  * Uses the Tremendous key from the Pages env (server-side; never exposed).
  */
 const ALLOWED_ORIGINS = ['https://refer.neongiantmoving.com', 'https://crm.neongiantmoving.com'];
+const ALLOWED_ORIGINS = ['https://refer.neongiantmoving.com', 'https://crm3.neongiantmoving.com'];
 function cors(o){ let a = ALLOWED_ORIGINS[0]; if (o && ALLOWED_ORIGINS.includes(o)) a = o;
   return { 'Access-Control-Allow-Origin': a, 'Access-Control-Allow-Methods': 'GET, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', 'Vary': 'Origin' }; }
 function j(body, status, o){ return new Response(JSON.stringify(body), { status: status||200, headers: { 'Content-Type':'application/json', ...cors(o) } }); }
