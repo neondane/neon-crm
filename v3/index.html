@@ -799,7 +799,8 @@ function refsHtml(c){
       +(r.jobName?rw("Job",esc(r.jobName)):"")
       +(r.contactName?rw("Referred by",esc(r.contactName)):"")
       +'</div>';
-    return '<div class="lead refrow" data-rd="'+i+'" style="cursor:pointer"><div class="top"><div style="min-width:0"><div class="who">'+esc(r.jobName||"—")+'</div><div class="meta">'+esc(String(r.date||"").slice(0,10))+(amt?(" · "+amt):"")+'</div></div><div style="display:flex;align-items:center;gap:8px;flex:none">'+sbadge(r.status)+'<button class="btn" data-addportal="'+i+'" title="Add this referral to the Referral Portal payout queue" style="font-size:11px;padding:5px 10px">'+gi("portal")+' Add to Portal</button></div></div>'+det+'</div>';
+    var addBtn=(r.source==="portal")?'<span class="pill" style="font-size:10px">via portal</span>':'<button class="btn" data-addportal="'+i+'" title="Add this referral to the Referral Portal payout queue" style="font-size:11px;padding:5px 10px">'+gi("portal")+' Add to Portal</button>';
+    return '<div class="lead refrow" data-rd="'+i+'" style="cursor:pointer"><div class="top"><div style="min-width:0"><div class="who">'+esc(r.jobName||"—")+'</div><div class="meta">'+esc(String(r.date||"").slice(0,10))+(amt?(" · "+amt):"")+'</div></div><div style="display:flex;align-items:center;gap:8px;flex:none">'+sbadge(r.status)+addBtn+'</div></div>'+det+'</div>';
   }).join("");
 }
 function listingsHtml(c){
@@ -872,7 +873,16 @@ async function loadActivity(c){
   if(pTab==="conversation") redrawTab(c);
 }
 async function loadRefs(c){
-  try{c._refs=await sb("referrals?contactId=eq."+c.id+"&select=id,jobName,status,date,amount,contactName&order=date.desc");}catch(e){c._refs=[];}
+  var refs=[], leads=[];
+  try{ refs=await sb("referrals?contactId=eq."+c.id+"&select=id,jobName,status,date,amount,contactName&order=date.desc"); }catch(e){}
+  // Realtor referrals also live in portal_leads (portal submissions) — merge them so the profile matches the Referral Portal.
+  if(/realtor/i.test(c.type||"")){ try{ leads=await sb("portal_leads?realtorId=eq."+encodeURIComponent(c.id)+"&select=id,customerName,status,moveDate,smJobId&order=id.desc"); }catch(e){} }
+  var norm=function(s){return String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");};
+  var seen={}, merged=[];
+  (refs||[]).forEach(function(r){ var k=norm(r.jobName); if(k)seen[k]=1; merged.push({id:r.id,jobName:r.jobName,status:r.status,date:r.date,amount:r.amount,contactName:r.contactName,source:"referral"}); });
+  (leads||[]).forEach(function(l){ var k=norm(l.customerName); if(k&&seen[k])return; if(k)seen[k]=1; merged.push({id:"pl"+l.id,jobName:l.customerName,status:l.status,date:l.moveDate,amount:null,contactName:c.name,source:"portal"}); });
+  merged.sort(function(a,b){var da=String(a.date||""),db=String(b.date||"");return db<da?-1:db>da?1:0;});
+  c._refs=merged;
   if(pTab==="referrals") redrawTab(c);
 }
 async function activatePortal(c){
