@@ -16,10 +16,12 @@ const handler = endpoint(async ({ env, body, reply }) => {
   const prompt =
     'Find homes this real-estate agent currently has listed FOR SALE, plus anything they listed or sold in roughly the last 90 days.\n' +
     'Agent: ' + name + '\nBrokerage: ' + brokerage + '\n' + (area ? ('Area: ' + area + '\n') : '') +
-    '\nSearch the web thoroughly — try Zillow, Redfin, Realtor.com, Homes.com and the brokerage website. ' +
-    'Try queries like "' + name + ' ' + brokerage + '", "' + name + ' realtor listings", and "' + name + ' homes for sale". ' +
+    '\nIMPORTANT: Prefer the big aggregator portals — Zillow, Redfin, Realtor.com, and Homes.com — and especially the agent\'s own profile page on those sites. ' +
+    'These index listings from EVERY brokerage (including Compass, eXp, and others whose own websites load slowly or block tools), so use them first. ' +
+    'Do NOT depend on the brokerage\'s own website; if it fails to load, fall back to the portals. ' +
+    'Run several searches like "' + name + ' Zillow", "' + name + ' Redfin agent", "' + name + ' realtor.com", "' + name + ' ' + brokerage + '", and "' + name + ' homes for sale ' + (area || '') + '". ' +
     'Include every active or recent listing you can reasonably attribute to this agent, with the real street address and list price when available. ' +
-    'Only conclude zero if you genuinely cannot find any after several searches.\n\n' +
+    'Only conclude zero if you genuinely cannot find any after trying the portals.\n\n' +
     'Respond with ONLY this JSON: {"count": <number you found>, "summary": "<one short line>", "listings": ["<address> - <price> (<status>)", ...]}';
 
   let j;
