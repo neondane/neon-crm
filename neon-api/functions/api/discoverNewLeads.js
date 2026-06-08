@@ -12,11 +12,17 @@ const handler = endpoint(async ({ env, body, reply }) => {
   const terrs = (opts.territories || []).join(', ');
   const types = (opts.types || []).join(', ');
   const limit = Math.min(parseInt(opts.limit, 10) || 10, 20);
+  const exclude = Array.isArray(opts.exclude) ? opts.exclude.filter(Boolean).slice(0, 200) : [];
   if (!terrs || !types) return reply({ ok: false, error: 'territories_and_types_required' }, 400);
 
+  const excludeBlock = exclude.length
+    ? ('\n\nWE ALREADY HAVE THESE — do NOT return any of them or close variations (same business, different spelling/branch):\n' + exclude.join('; ') + '\n')
+    : '';
+
   const prompt =
-    'Find up to ' + limit + ' real businesses to approach as new referral partners.\n' +
-    'Areas: ' + terrs + '\nBusiness types: ' + types + '\n\n' +
+    'Find up to ' + limit + ' real businesses to approach as NEW referral partners — businesses we do NOT already work with.\n' +
+    'Areas: ' + terrs + '\nBusiness types: ' + types + excludeBlock + '\n' +
+    'Every result must be a genuinely new business not in the exclusion list above. ' +
     'Return ONLY this JSON: {"leads":[{"name":"<business name>","type":"<which requested type it is>","address":"<street, city>","territory":"<which requested area>"}]}';
 
   let j;
