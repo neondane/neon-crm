@@ -646,6 +646,29 @@ function acSpeak(){
   rec.onerror=function(ev){ acAiStatus("Didn't catch that ("+((ev&&ev.error)||"mic")+") — tap Speak to try again."); };
   try{ rec.start(); }catch(e){ acAiStatus("Couldn't start the mic."); }
 }
+/* ---- Shared AI note helpers: live dictation + AI cleanup (used on mobile + desktop) ---- */
+var _dictRec=null, _dictBtn=null;
+function aiDictate(taId, btn){
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ alert("Voice dictation isn't supported in this browser — try Chrome or Safari."); return; }
+  if(_dictRec){ try{_dictRec.stop();}catch(e){} return; }
+  var ta=document.getElementById(taId); if(!ta)return;
+  var rec=new SR(); rec.lang="en-US"; rec.interimResults=false; rec.continuous=true; _dictRec=rec; _dictBtn=btn||null;
+  if(btn){ btn.setAttribute("data-lbl",btn.innerHTML); btn.innerHTML="● Listening — tap to stop"; btn.style.color="#e24b4a"; }
+  rec.onresult=function(ev){ for(var i=ev.resultIndex;i<ev.results.length;i++){ if(ev.results[i].isFinal){ var t=ev.results[i][0].transcript.trim(); if(t){ ta.value=(ta.value?ta.value.replace(/\s*$/,"")+" ":"")+t; ta.dispatchEvent(new Event("input")); } } } };
+  rec.onerror=function(){};
+  rec.onend=function(){ _dictRec=null; if(_dictBtn){ _dictBtn.innerHTML=_dictBtn.getAttribute("data-lbl")||"🎤 Talk"; _dictBtn.style.color=""; _dictBtn=null; } };
+  try{ rec.start(); }catch(e){ _dictRec=null; }
+}
+function aiImprove(taId, btn, statusId){
+  var ta=document.getElementById(taId); if(!ta||!ta.value.trim()){ return; }
+  var orig=ta.value, ot=btn?btn.innerHTML:""; if(btn){btn.disabled=true;btn.innerHTML="✨ Improving…";}
+  var st=statusId?document.getElementById(statusId):null;
+  fetch(NEON_API+"/api/improveNotes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:orig})})
+    .then(function(x){return x.json();})
+    .then(function(j){ if(j&&j.ok&&j.improved){ ta.value=j.improved; ta.dispatchEvent(new Event("input")); if(st)st.textContent="Cleaned up ✓"; } else if(st){ st.textContent=(j&&j.error)?("Couldn't improve: "+j.error):"Couldn't improve — kept your text."; } if(btn){btn.disabled=false;btn.innerHTML=ot;} })
+    .catch(function(){ if(st)st.textContent="Couldn't reach the AI — kept your text."; if(btn){btn.disabled=false;btn.innerHTML=ot;} });
+}
 async function acSave(){
   var v=function(id){var e=document.getElementById(id);return e?(e.value||"").trim():"";};
   var name=v("acName"); if(!name){ alert("Name is required."); return; }
@@ -743,8 +766,10 @@ function composerHtml(c){
   var to=cSub==="email"?("To: "+esc(c.email||"no email on file")):("To: "+esc(c.name)+" <"+esc(c.phone||"no phone")+">");
   var btn=cSub==="email"?"Send Email":(cSub==="text"?"Send Text":(cSub==="call"?"Log Call":"Save Note"));
   return '<div class="composer"><div class="csub">'+subs.map(function(s){return '<div class="'+(s[0]===cSub?"active":"")+'" data-cs="'+s[0]+'">'+gi(s[1])+' '+s[2]+'</div>';}).join("")
-    +'</div><div class="cbody"><div class="cto">'+to+'</div><textarea id="cmsg" placeholder="Type a message…"></textarea>'
+    +'</div><div class="cbody"><div class="cto">'+to+'</div><textarea id="cmsg" placeholder="'+(cSub==="note"?"Type or tap Talk and just speak…":"Type a message…")+'"></textarea>'
+    +(cSub==="note"?'<div class="crow" style="justify-content:flex-start;gap:8px;margin-top:8px"><button class="btn" type="button" id="cTalk">🎤 Talk</button><button class="btn" type="button" id="cImprove">✨ Improve</button><span class="muted" id="cAiMsg" style="font-size:12px"></span></div>':'')
     +'<div class="crow"><label style="font-size:12px;color:var(--text-muted)"><input type="checkbox" id="cfollow"> Create a follow-up</label>'
+    +(cSub==="note"?'<label style="font-size:12px;color:var(--text-muted);margin-left:12px"><input type="checkbox" id="cVisit"> Log as visit</label>':'')
     +'<button class="btn grad" id="cSend">'+btn+'</button></div></div></div>';
 }
 function activityHtml(){
@@ -822,6 +847,8 @@ function wireTab(c){
   [].forEach.call(document.querySelectorAll(".csub div"),function(el){el.onclick=function(){cSub=el.getAttribute("data-cs");redrawTab(c);};});
   [].forEach.call(document.querySelectorAll("[data-af]"),function(el){el.onclick=function(){actFilter=el.getAttribute("data-af");redrawTab(c);};});
   var snd=document.getElementById("cSend"); if(snd)snd.onclick=function(){sendComposer(c);};
+  var ct=document.getElementById("cTalk"); if(ct)ct.onclick=function(){aiDictate("cmsg",ct);};
+  var ci=document.getElementById("cImprove"); if(ci)ci.onclick=function(){aiImprove("cmsg",ci,"cAiMsg");};
   [].forEach.call(document.querySelectorAll(".refrow"),function(el){el.onclick=function(){var d=el.querySelector(".leaddet");if(d){d.style.display=(d.style.display==="none"?"block":"none");el.classList.toggle("open");}};});
   [].forEach.call(document.querySelectorAll("[data-addportal]"),function(el){el.onclick=function(ev){ev.stopPropagation();var i=+el.getAttribute("data-addportal");addToPortal(c,(c._refs||[])[i],el);};});
   var lb=document.getElementById("lstBtn"); if(lb)lb.onclick=function(){profileCheckListings(c);};
@@ -951,7 +978,7 @@ async function sendText(payload){
 }
 async function sendComposer(c){
   var msg=(document.getElementById("cmsg")||{}).value||"";
-  if(cSub==="note"){ if(!msg.trim())return; var nn=(c.notes?c.notes+"\n":"")+"["+new Date().toISOString().slice(0,10)+"] "+msg; c.notes=nn; var c2=ALL.filter(function(x){return x.id===c.id;})[0]; if(c2)c2.notes=nn; try{await sbWrite("PATCH","contacts?id=eq."+c.id,{notes:nn});}catch(e){} pTab="notes"; renderProfile(); return; }
+  if(cSub==="note"){ if(!msg.trim())return; var isVisit=!!(document.getElementById("cVisit")&&document.getElementById("cVisit").checked); var stamp=(isVisit?"[Visit ":"[")+new Date().toISOString().slice(0,10)+"] "+msg; var nn=(c.notes?c.notes+"\n":"")+stamp; c.notes=nn; var c2=ALL.filter(function(x){return x.id===c.id;})[0]; if(c2)c2.notes=nn; var patch={notes:nn}; if(isVisit){var iso=new Date().toISOString(); c.lastVisit=iso; if(c2)c2.lastVisit=iso; patch.lastVisit=iso;} try{await sbWrite("PATCH","contacts?id=eq."+c.id,patch);}catch(e){} pTab="notes"; renderProfile(); return; }
   if(cSub==="text"){ if(!c.phone){alert("No phone on file.");return;} if(!msg.trim())return; var btn=document.getElementById("cSend"); if(btn){btn.disabled=true;btn.textContent="Sending…";} var sent=await sendText({to:c.phone,body:msg,contactId:c.id,kind:"manual"}); if(sent.ok){ var ta=document.getElementById("cmsg");if(ta)ta.value=""; if(ACT===null)ACT=[]; ACT.unshift({kind:"text",when:new Date().toISOString().slice(0,16).replace("T"," "),text:"→ "+msg}); redrawTab(c); try{ await sbWrite("POST","sms_messages",{contact_id:c.id,direction:"out",to_number:String(c.phone).replace(/[^0-9+]/g,""),from_number:"+13605885228",body:msg,kind:"manual",status:"sent",sent_at:new Date().toISOString()}); }catch(e){} ACT=null; loadActivity(c); }else{alert("Text not sent: "+sent.msg);} if(btn){btn.disabled=false;btn.textContent="Send";} return; }
   if(cSub==="email"){ if(!c.email){alert("No email on file.");return;} if(!msg.trim())return; if(!confirm("Send this email to "+c.name+"?"))return; try{var er=await fetch(NEON_API+"/api/sendEmail",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({to:c.email,subject:"Neon Giant Moving",body:msg,contactId:c.id})});var ej={};try{ej=await er.json();}catch(e){} if(er.ok&&ej.ok!==false){alert("Email sent.");loadActivity(c);}else{alert("Email not sent: "+(ej.message||ej.error||("HTTP "+er.status)));}}catch(e){alert("Send failed — check connection.");} return; }
   alert("Call logging comes next.");
@@ -1872,6 +1899,7 @@ function mOpen(id){
   var inner='<div class="in"><div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-h" style="margin:0">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+'</div></div></div>';
   inner+='<div class="m-actions" style="margin-bottom:10px">'+(c.phone?'<a class="m-btn" href="tel:'+esc(ph)+'">'+gi("phone")+' Call</a>':'')+(c.address?'<a class="m-btn" target="_blank" rel="noopener" href="https://maps.google.com/?q='+encodeURIComponent(c.address)+'">'+gi("map")+' Map</a>':'')+'</div>';
   inner+='<button class="m-btn grad full" id="mTextBtn"'+(c.phone?'':' disabled')+'>'+gi("chat")+' Text from business line</button>';
+  inner+='<button class="m-btn full" id="mVisitBtn">'+gi("map")+' Log a visit</button>';
   inner+='<button class="m-btn full" id="mNoteBtn">'+gi("note")+' Log a note</button>';
   if(isR) inner+='<button class="m-btn full" id="mPortalBtn">'+gi("portal")+' '+(c.portalActivatedAt?"Deactivate portal":"Activate portal ($50 referrals)")+'</button>';
   inner+='<div id="mSheetMsg" class="m-meta" style="margin-top:4px"></div><button class="m-btn full" id="mClose" style="margin-top:10px">Close</button></div>';
@@ -1880,19 +1908,35 @@ function mOpen(id){
   document.getElementById("mClose").onclick=function(){sheet.remove();};
   var tb=document.getElementById("mTextBtn"); if(tb&&c.phone)tb.onclick=function(){mCompose(c,"text");};
   var nb=document.getElementById("mNoteBtn"); if(nb)nb.onclick=function(){mCompose(c,"note");};
+  var vb=document.getElementById("mVisitBtn"); if(vb)vb.onclick=function(){mCompose(c,"visit");};
   var pb=document.getElementById("mPortalBtn"); if(pb)pb.onclick=function(){mTogglePortal(c);};
 }
 function mCompose(c,kind){
   var ov=document.createElement("div"); ov.className="m-sheet"; ov.id="mCompose";
-  var title=(kind==="text"?"Text ":"Note on ")+cName(c);
-  ov.innerHTML='<div class="in"><div class="m-h">'+esc(title)+'</div>'+(kind==="text"?'<div class="m-meta" style="margin-bottom:8px">Sends from your business line (+1 360‑588‑5228) and logs it to their thread.</div>':'')+'<textarea class="m-in" id="mMsg" rows="5" placeholder="'+(kind==="text"?"Message…":"Note…")+'"></textarea><button class="m-btn grad full" id="mSend">'+(kind==="text"?"Send text":"Save note")+'</button><div id="mCmsg" class="m-meta"></div><button class="m-btn full" id="mCcancel" style="margin-top:8px">Cancel</button></div>';
+  var title=(kind==="text"?"Text ":kind==="visit"?"Log a visit — ":"Note on ")+cName(c);
+  var ph=(kind==="text"?"Message…":kind==="visit"?"Talk or type what happened on the visit…":"Talk or type a note…");
+  var sendLbl=(kind==="text"?"Send text":kind==="visit"?"Log visit":"Save note");
+  var aiRow='<div style="display:flex;gap:8px;margin-bottom:10px"><button class="m-btn" id="mTalk" style="flex:1">🎤 Talk</button>'+(kind!=="text"?'<button class="m-btn" id="mImprove" style="flex:1">✨ Improve</button>':'')+'</div>';
+  ov.innerHTML='<div class="in"><div class="m-h">'+esc(title)+'</div>'+(kind==="text"?'<div class="m-meta" style="margin-bottom:8px">Sends from your business line (+1 360‑588‑5228) and logs it to their thread.</div>':'<div class="m-meta" style="margin-bottom:8px">Tap Talk and just speak — it types as you go. Hit ✨ Improve to clean it up.</div>')
+    +'<textarea class="m-in" id="mMsg" rows="6" placeholder="'+ph+'"></textarea>'+aiRow
+    +'<button class="m-btn grad full" id="mSend">'+sendLbl+'</button><div id="mCmsg" class="m-meta"></div><button class="m-btn full" id="mCcancel" style="margin-top:8px">Cancel</button></div>';
   document.body.appendChild(ov);
-  ov.addEventListener("click",function(e){if(e.target===ov)ov.remove();});
-  document.getElementById("mCcancel").onclick=function(){ov.remove();};
+  ov.addEventListener("click",function(e){if(e.target===ov){ if(_dictRec){try{_dictRec.stop();}catch(_){}} ov.remove();}});
+  document.getElementById("mCcancel").onclick=function(){ if(_dictRec){try{_dictRec.stop();}catch(_){}} ov.remove();};
+  var tk=document.getElementById("mTalk"); if(tk)tk.onclick=function(){aiDictate("mMsg",tk);};
+  var im=document.getElementById("mImprove"); if(im)im.onclick=function(){aiImprove("mMsg",im,"mCmsg");};
   document.getElementById("mSend").onclick=async function(){
     var t=((document.getElementById("mMsg")||{}).value||""); var m=document.getElementById("mCmsg"); if(!t.trim())return;
+    if(_dictRec){try{_dictRec.stop();}catch(_){}}
     var btn=this; btn.disabled=true; btn.textContent="Working…";
-    if(kind==="note"){ var nn=(c.notes?c.notes+"\n":"")+"["+new Date().toISOString().slice(0,10)+"] "+t; c.notes=nn; var c2=(ALL||[]).filter(function(x){return x.id===c.id;})[0]; if(c2)c2.notes=nn; try{await sbWrite("PATCH","contacts?id=eq."+c.id,{notes:nn});}catch(e){} ov.remove(); var s1=document.getElementById("mSheetMsg"); if(s1)s1.innerHTML='<span style="color:var(--pink);font-weight:700">✓ Note saved.</span>'; return; }
+    if(kind==="note"||kind==="visit"){
+      var stamp=(kind==="visit"?"[Visit ":"[")+new Date().toISOString().slice(0,10)+"] "+t;
+      var nn=(c.notes?c.notes+"\n":"")+stamp; c.notes=nn;
+      var patch={notes:nn}; if(kind==="visit"){ var iso=new Date().toISOString(); c.lastVisit=iso; patch.lastVisit=iso; }
+      var c2=(ALL||[]).filter(function(x){return x.id===c.id;})[0]; if(c2){c2.notes=nn; if(kind==="visit")c2.lastVisit=c.lastVisit;}
+      try{await sbWrite("PATCH","contacts?id=eq."+c.id,patch);}catch(e){}
+      ov.remove(); var s1=document.getElementById("mSheetMsg"); if(s1)s1.innerHTML='<span style="color:var(--pink);font-weight:700">✓ '+(kind==="visit"?"Visit logged.":"Note saved.")+'</span>'; return;
+    }
     var sent=await sendText({to:c.phone,body:t,contactId:c.id,kind:"manual"});
     if(sent.ok){ try{ await sbWrite("POST","sms_messages",{contact_id:c.id,direction:"out",to_number:String(c.phone).replace(/[^0-9+]/g,""),from_number:"+13605885228",body:t,kind:"manual",status:"sent",sent_at:new Date().toISOString()}); }catch(e){} ov.remove(); var s2=document.getElementById("mSheetMsg"); if(s2)s2.innerHTML='<span style="color:var(--pink);font-weight:700">✓ Text sent.</span>'; }
     else { if(m)m.textContent="Not sent: "+sent.msg; btn.disabled=false; btn.textContent="Send text"; }
