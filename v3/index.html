@@ -1952,7 +1952,7 @@ function mStopAvatar(s){ var c=s.id?((ALL||[]).filter(function(x){return x.id===
 function mStopNav(s){ if(s.address) return "https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(s.address)+"&travelmode=driving"; if(s.lat!=null&&s.lon!=null) return "https://www.google.com/maps/dir/?api=1&destination="+s.lat+","+s.lon+"&travelmode=driving"; return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent((s.name||"")+" "+(s.territory||"")); }
 function mRoute(){
   if(!mRoutePlanLoaded){ mLoadRoutePlan(function(){ if(mScreen==="route") mRender(); }); return '<div class="m-card"><div class="m-h">Route</div><div class="m-meta">Loading today’s plan…</div></div>'; }
-  var html='', plan=mRoutePlan, stops=(plan&&plan.stops)||[];
+  var html='<button class="m-btn grad full" id="mAddStopsBtn" style="margin-bottom:12px">➕ Add stops to route</button>', plan=mRoutePlan, stops=(plan&&plan.stops)||[];
   if(stops.length){
     html+='<div class="m-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div class="m-h" style="margin:0">Planned route'+(plan.plan_date?' · '+esc(String(plan.plan_date).slice(0,10)):'')+'</div><button class="m-btn" id="mRouteRefresh" style="padding:6px 10px;font-size:12px">↻</button></div><div class="m-meta">'+stops.length+' stops'+(plan.person?' · '+esc(plan.person):'')+'. Tap a stop to check in.</div>'+(plan.maps_url?'<a class="m-btn grad full" href="'+esc(plan.maps_url)+'" target="_blank" rel="noopener" style="margin-top:10px">'+gi("map")+' Navigate full route</a>':'')+'</div>';
     html+=stops.map(function(s,i){
@@ -1974,6 +1974,25 @@ function mRoute(){
     html+=ids.map(function(id){ var c=(ALL||[]).filter(function(x){return x.id===id;})[0]; if(!c) return ""; return '<div class="m-row" data-open="'+c.id+'">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-nm">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+'</div></div><a class="m-btn" href="'+mStopNav({address:c.address,name:c.name,territory:c.territory})+'" target="_blank" rel="noopener" style="padding:8px 10px">'+gi("map")+'</a><button class="m-btn" data-rmroute="'+c.id+'" style="padding:8px 10px;color:#c0392b">✕</button></div>'; }).join("");
   }
   return html;
+}
+function mAddStops(){
+  if(document.getElementById("mAddStops")) return;
+  var ov=document.createElement("div"); ov.className="m-sheet"; ov.id="mAddStops";
+  ov.innerHTML='<div class="in" style="max-height:92vh;overflow:auto"><div class="m-h">Add stops to route</div><div class="m-meta" style="margin-bottom:8px">Search and tap to add anyone — realtors, facilities, anybody.</div><input class="m-in" id="mAddSearch" placeholder="🔍 Search contacts to add…"><div id="mAddList" style="max-height:58vh;overflow:auto"></div><button class="m-btn grad full" id="mAddDone" style="margin-top:10px">Done</button></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener("click",function(e){ if(e.target===ov){ ov.remove(); if(mScreen==="route") mRender(); } });
+  document.getElementById("mAddDone").onclick=function(){ ov.remove(); if(mScreen==="route") mRender(); };
+  var s=document.getElementById("mAddSearch"); if(s) s.oninput=function(){ mAddStopsList(s.value); };
+  document.getElementById("mAddList").addEventListener("click",function(e){ var el=e.target.closest&&e.target.closest("[data-addid]"); if(el){ mRouteToggle(+el.getAttribute("data-addid")); mAddStopsList((document.getElementById("mAddSearch")||{}).value||""); } });
+  mAddStopsList(""); setTimeout(function(){ if(s)s.focus(); },60);
+}
+function mAddStopsList(q){
+  var el=document.getElementById("mAddList"); if(!el)return; q=(q||"").toLowerCase().trim();
+  var route=mRouteIds();
+  var rows=(ALL||[]).filter(function(c){ if(!q)return true; return ((c.name||"")+" "+(c.business||"")).toLowerCase().indexOf(q)>=0; });
+  rows.sort(function(a,b){return String(cName(a)).localeCompare(String(cName(b)));});
+  rows=rows.slice(0,60);
+  el.innerHTML=rows.map(function(c){ var inR=route.indexOf(c.id)>=0; return '<div class="m-row" data-addid="'+c.id+'" style="cursor:pointer">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-nm">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+'</div></div><div class="m-btn'+(inR?' grad':'')+'" style="padding:6px 12px;pointer-events:none;flex:none">'+(inR?'✓ Added':'+ Add')+'</div></div>'; }).join("")||'<div class="m-meta" style="padding:10px">No matches.</div>';
 }
 function mRender(){
   var body=document.getElementById("mBody"); if(!body)return;
@@ -2019,6 +2038,7 @@ function mWire(){
   var sc=document.getElementById("acScan"),f=document.getElementById("acCardFile"); if(sc&&f){sc.onclick=function(){f.click();};f.onchange=function(){if(f.files&&f.files[0])acScanCard(f.files[0]);};}
   var sp=document.getElementById("acSpeak"); if(sp)sp.onclick=acSpeak;
   var rr=document.getElementById("mRouteRefresh"); if(rr)rr.onclick=function(){ mRoutePlanLoaded=false; mRender(); };
+  var asb=document.getElementById("mAddStopsBtn"); if(asb)asb.onclick=mAddStops;
   if(document.getElementById("mList")){ var hv=(document.getElementById("mTopSearch")||{}).value||""; mDrawList(hv); }
   window.__acNotes="";
 }
