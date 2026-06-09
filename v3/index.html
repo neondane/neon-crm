@@ -1970,11 +1970,35 @@ async function mOptimizeRoute(){
   try{ localStorage.setItem("mRouteOpt",JSON.stringify(mRouteOpt)); }catch(e){}
   if(mScreen==="route") mRender();
 }
+var mMapObj=null;
+function mRenderMap(){
+  var box=document.getElementById("mRouteMap"); if(!box||typeof L==="undefined")return;
+  var pts=[], seen={};
+  function add(name,lat,lon){ if(lat==null||lon==null||isNaN(lat)||isNaN(lon))return; var k=(+lat).toFixed(4)+","+(+lon).toFixed(4); if(seen[k])return; seen[k]=1; pts.push({name:name||"Stop",lat:+lat,lon:+lon}); }
+  if(mRouteOpt&&mRouteOpt.order&&mRouteOpt.order.length) mRouteOpt.order.forEach(function(s){ add(s.name,s.lat,s.lon); });
+  else if(mRoutePlan&&mRoutePlan.stops) mRoutePlan.stops.forEach(function(s){ add(s.name,s.lat,s.lon); });
+  mRouteIds().forEach(function(id){ var c=(ALL||[]).filter(function(x){return x.id===id;})[0]; if(c) add(cName(c),c.lat,c.lon); });
+  if(!pts.length){ box.style.display="none"; return; }
+  box.style.display="block";
+  try{ if(mMapObj){ mMapObj.remove(); mMapObj=null; } }catch(e){}
+  try{
+    mMapObj=L.map(box,{zoomControl:true,attributionControl:false});
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(mMapObj);
+    var bounds=[];
+    pts.forEach(function(p,i){
+      var icon=L.divIcon({className:"",html:'<div style="background:var(--pink,#ff2d9b);color:#fff;width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.45);font-weight:700;font-size:12px"><span style="transform:rotate(45deg)">'+(i+1)+'</span></div>',iconSize:[26,26],iconAnchor:[13,26]});
+      L.marker([p.lat,p.lon],{icon:icon}).addTo(mMapObj).bindPopup((i+1)+". "+p.name);
+      bounds.push([p.lat,p.lon]);
+    });
+    if(bounds.length===1) mMapObj.setView(bounds[0],13); else mMapObj.fitBounds(bounds,{padding:[28,28]});
+    setTimeout(function(){ try{ mMapObj.invalidateSize(); }catch(e){} },180);
+  }catch(e){ box.style.display="none"; }
+}
 function mStopAvatar(s){ var c=s.id?((ALL||[]).filter(function(x){return x.id===s.id;})[0]):null; var src=c&&(c.profilePic||c.cardImage||(typeof PHOTOS!=="undefined"&&PHOTOS[c.id])); return '<div class="m-av">'+(src?'<img src="'+esc(src)+'">':esc((s.name||"?").trim().slice(0,1).toUpperCase()))+'</div>'; }
 function mStopNav(s){ if(s.address) return "https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(s.address)+"&travelmode=driving"; if(s.lat!=null&&s.lon!=null) return "https://www.google.com/maps/dir/?api=1&destination="+s.lat+","+s.lon+"&travelmode=driving"; return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent((s.name||"")+" "+(s.territory||"")); }
 function mRoute(){
   if(!mRoutePlanLoaded){ mLoadRoutePlan(function(){ if(mScreen==="route") mRender(); }); return '<div class="m-card"><div class="m-h">Route</div><div class="m-meta">Loading today’s plan…</div></div>'; }
-  var html='<button class="m-btn grad full" id="mAddStopsBtn" style="margin-bottom:12px">➕ Add stops to route</button>', plan=mRoutePlan, stops=(plan&&plan.stops)||[];
+  var html='<button class="m-btn grad full" id="mAddStopsBtn" style="margin-bottom:12px">➕ Add stops to route</button><div id="mRouteMap" style="height:220px;border-radius:12px;overflow:hidden;margin-bottom:12px;display:none"></div>', plan=mRoutePlan, stops=(plan&&plan.stops)||[];
   if(stops.length){
     html+='<div class="m-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div class="m-h" style="margin:0">Planned route'+(plan.plan_date?' · '+esc(String(plan.plan_date).slice(0,10)):'')+'</div><button class="m-btn" id="mRouteRefresh" style="padding:6px 10px;font-size:12px">↻</button></div><div class="m-meta">'+stops.length+' stops'+(plan.person?' · '+esc(plan.person):'')+'. Tap a stop to check in.</div>'+(plan.maps_url?'<a class="m-btn grad full" href="'+esc(plan.maps_url)+'" target="_blank" rel="noopener" style="margin-top:10px">'+gi("map")+' Navigate full route</a>':'')+'</div>';
     html+=stops.map(function(s,i){
@@ -2012,7 +2036,10 @@ function mAddStops(){
     +'<select class="m-in" id="mAddType">'+typeOpts+'</select>'
     +'<input class="m-in" id="mAddSearch" placeholder="🔍 Search by name…">'
     +'<div id="mAddCount" class="m-meta" style="margin:2px 0 6px"></div>'
-    +'<div id="mAddList" style="max-height:46vh;overflow:auto"></div>'
+    +'<div id="mAddList" style="max-height:34vh;overflow:auto"></div>'
+    +'<button class="m-btn full" id="mFindNewBtn" style="margin-top:10px">✨ Find NEW businesses (AI)</button>'
+    +'<div class="m-meta" style="font-size:11px;margin-top:2px">Searches the web for places in the selected area/type that aren’t in your CRM yet.</div>'
+    +'<div id="mFindNewList" style="max-height:30vh;overflow:auto;margin-top:4px"></div>'
     +'<button class="m-btn grad full" id="mAddDone" style="margin-top:10px">Done</button></div>';
   document.body.appendChild(ov);
   ov.addEventListener("click",function(e){ if(e.target===ov){ ov.remove(); if(mScreen==="route") mRender(); } });
@@ -2021,7 +2048,39 @@ function mAddStops(){
   document.getElementById("mAddType").onchange=mAddStopsList;
   var s=document.getElementById("mAddSearch"); if(s) s.oninput=mAddStopsList;
   document.getElementById("mAddList").addEventListener("click",function(e){ var el=e.target.closest&&e.target.closest("[data-addid]"); if(el){ mRouteToggle(+el.getAttribute("data-addid")); mAddStopsList(); } });
+  var fnb=document.getElementById("mFindNewBtn"); if(fnb)fnb.onclick=mFindNew;
   mAddStopsList();
+}
+var mNewFound=[];
+async function mFindNew(){
+  var terr=(document.getElementById("mAddTerr")||{}).value||"";
+  var type=(document.getElementById("mAddType")||{}).value||"";
+  var el=document.getElementById("mFindNewList"), btn=document.getElementById("mFindNewBtn");
+  if(!type){ if(el)el.innerHTML='<div class="m-meta" style="padding:8px;color:#c0392b">Pick a type above first (and an area if you can).</div>'; return; }
+  if(btn){btn.disabled=true;btn.innerHTML="⏳ Searching… (~30s)";}
+  if(el)el.innerHTML='<div class="m-meta" style="padding:8px">🌐 Web-searching for new '+esc(type)+(terr?' in '+esc(terr):'')+'…</div>';
+  var norm=function(s){return String(s||"").toLowerCase().replace(/\b(llc|inc|co|the|of|and|&|mini|self|storage|realty|real estate|group|team|properties|property|management)\b/g,"").replace(/[^a-z0-9]/g,"");};
+  var haveKeys={}; (ALL||[]).forEach(function(c){var bn=c.business||c.name; if(bn){haveKeys[norm(bn)]=1; if(c.name&&c.name!==bn)haveKeys[norm(c.name)]=1;}});
+  var excludeNames=(ALL||[]).filter(function(c){return (typeof typeMatches==="function")&&typeMatches(c.type,[type])&&(!terr||c.territory===terr);}).map(function(c){return c.business||c.name;}).filter(Boolean);
+  try{
+    var terrs=terr?[terr]:DP_TR.slice();
+    var r=await fetch(NEON_API+"/api/discoverNewLeads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"discoverNewLeads",opts:{territories:terrs,types:[type],limit:12,exclude:excludeNames}})}).then(function(x){return x.json();});
+    var list=(r&&(r.leads||r.results||r.businesses||r.addons))||[];
+    list=list.filter(function(b){var k=norm(b.name||b.business); return k && !haveKeys[k];});
+    mNewFound=list;
+    if(!list.length){ el.innerHTML='<div class="m-meta" style="padding:8px">No new businesses found. Try a different area or type.</div>'; }
+    else { el.innerHTML='<div class="m-meta" style="margin:4px 0;font-weight:700">'+list.length+' new — tap + to add to your CRM &amp; route</div>'+list.map(function(b,i){return '<div class="m-row"><div style="flex:1;min-width:0"><div class="m-nm">'+esc(b.name||b.business||"—")+'</div><div class="m-meta">'+esc(b.type||b.category||type)+(b.address?' · '+esc(b.address):"")+'</div></div><button class="m-btn grad" data-addnew="'+i+'" style="padding:6px 12px;flex:none">+ Add</button></div>';}).join("");
+      [].forEach.call(el.querySelectorAll("[data-addnew]"),function(bb){bb.onclick=function(){ mAddFoundPlace(+bb.getAttribute("data-addnew"),bb); };}); }
+  }catch(e){ if(el)el.innerHTML='<div class="m-meta" style="padding:8px;color:#c0392b">Search failed: '+esc(e.message)+'</div>'; }
+  if(btn){btn.disabled=false;btn.innerHTML="✨ Find NEW businesses (AI)";}
+}
+async function mAddFoundPlace(i,bb){
+  var b=mNewFound[i]||{}; if(!b)return; if(bb&&bb.disabled)return; if(bb){bb.disabled=true;bb.textContent="…";}
+  var ids=(ALL||[]).map(function(c){return +c.id;}).filter(function(n){return !isNaN(n);});
+  var nid=(ids.length?Math.max.apply(null,ids):0)+1;
+  var rec={id:nid,name:b.name||b.business||"New business",business:b.business||b.name||"",type:b.type||b.category||"",territory:b.territory||(document.getElementById("mAddTerr")||{}).value||"",address:b.address||"",dateAdded:new Date().toISOString()};
+  try{ await sbWrite("POST","contacts",rec); ALL.push(rec); var a=mRouteIds(); if(a.indexOf(nid)<0)a.push(nid); mRouteSave(a); if(bb){bb.textContent="✓ Added";} }
+  catch(e){ if(bb){bb.disabled=false;bb.textContent="+ Add";} alert("Couldn’t add: "+e.message); }
 }
 function mAddStopsList(){
   var el=document.getElementById("mAddList"); if(!el)return;
@@ -2086,6 +2145,7 @@ function mWire(){
   var rr=document.getElementById("mRouteRefresh"); if(rr)rr.onclick=function(){ mRoutePlanLoaded=false; mRender(); };
   var asb=document.getElementById("mAddStopsBtn"); if(asb)asb.onclick=mAddStops;
   var ob=document.getElementById("mOptimizeBtn"); if(ob)ob.onclick=mOptimizeRoute;
+  if(document.getElementById("mRouteMap")) mRenderMap();
   if(document.getElementById("mList")){ var hv=(document.getElementById("mTopSearch")||{}).value||""; mDrawList(hv); }
   window.__acNotes="";
 }
