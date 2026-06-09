@@ -25,13 +25,15 @@ function fmtDate(d) {
   return isNaN(dt.getTime()) ? new Date().toISOString().slice(0, 10) : dt.toISOString().slice(0, 10);
 }
 function classifyStage(o) {
-  const ls = String(o.leadStatus || '').toLowerCase();
+  // Read BOTH the sales leadStatus and the opportunity status — SmartMoving shows
+  // "Booked" on opp.status even while leadStatus is still "New Lead".
+  const blob = (String(o.leadStatus || '') + ' ' + String(o.status || '') + ' ' + String(o.jobStatus || '')).toLowerCase();
   const today = new Date().toISOString().slice(0, 10);
   const svc = fmtDate(o.serviceDate);
   const paid = Array.isArray(o.payments) && o.payments.some((p) => Number(p && (p.amount || p.total || p.value)) > 0);
-  if (/complet|moved|finished|delivered|closed won|paid in full/.test(ls)) return 'completed';
+  if (/complet|moved|finished|delivered|closed won|paid in full/.test(blob)) return 'completed';
   if (o.serviceDate && svc < today && paid) return 'completed';
-  if (/book|confirm|scheduled|deposit|\bwon\b/.test(ls)) return 'booked';
+  if (/book|confirm|scheduled|deposit|\bwon\b/.test(blob)) return 'booked';
   return 'referred';
 }
 function partnerOf(o) {
