@@ -739,7 +739,7 @@ function leftCol(c){
   var dh=''; df.forEach(function(f){if(f[1]==null||f[1]==="")return;dh+='<div class="field"><span class="k">'+f[0]+'</span><span class="v">'+esc(f[1])+'</span></div>';});
   var details='<div class="pcard"><h3>Details</h3>'+(dh||'<div class="muted" style="font-size:13px">—</div>')+'</div>';
   var portal='';
-  if(/realtor/i.test(c.type||"")){
+  if(c){ // Referral Portal can be activated for ANY contact type — non-realtors are invitable too
     var link="https://refer.neongiantmoving.com/?r="+slugOf(c); var on=!!c.portalActivatedAt;
     portal='<div class="pcard portalcard"><h3>'+gi("portal")+' Referral Portal</h3><div class="url">'+esc(link)+'</div>'
       +'<div class="prow"><button class="btn '+(on?"":"grad")+'" id="actBtn">'+(on?"✓ Activated":"Activate")+'</button>'+(on?'<button class="btn" id="deactBtn" title="Turn off the referral portal" style="color:#c0392b">Deactivate</button>':'')+'<button class="btn" id="copyBtn">Copy</button></div>'
@@ -876,7 +876,7 @@ async function loadRefs(c){
   var refs=[], leads=[];
   try{ refs=await sb("referrals?contactId=eq."+c.id+"&select=id,jobName,status,date,amount,contactName&order=date.desc"); }catch(e){}
   // Realtor referrals also live in portal_leads (portal submissions) — merge them so the profile matches the Referral Portal.
-  if(/realtor/i.test(c.type||"")){ try{ leads=await sb("portal_leads?realtorId=eq."+encodeURIComponent(c.id)+"&select=id,customerName,status,moveDate,smJobId&order=id.desc"); }catch(e){} }
+  if(/realtor/i.test(c.type||"")||c.portalActivatedAt){ try{ leads=await sb("portal_leads?realtorId=eq."+encodeURIComponent(c.id)+"&select=id,customerName,status,moveDate,smJobId&order=id.desc"); }catch(e){} }
   var norm=function(s){return String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");};
   var seen={}, merged=[];
   (refs||[]).forEach(function(r){ var k=norm(r.jobName); if(k)seen[k]=1; merged.push({id:r.id,jobName:r.jobName,status:r.status,date:r.date,amount:r.amount,contactName:r.contactName,source:"referral"}); });
@@ -1021,7 +1021,7 @@ async function renderPortal(){
       var res=await Promise.all([
         sb("portal_leads?select=id,customerName,realtorName,realtorId,status,moveDate,customerPhone,fromAddress,toAddress,notes,submittedAt&order=id.desc"),
         sb("referrals?select=id,contactId,contactName,jobName,status,date&order=date.desc"),
-        sb("contacts?type=eq.Realtor&select=id,name,business,portalActivatedAt,profilePic,cardImage&order=name.asc"),
+        sb("contacts?or=(type.eq.Realtor,portalActivatedAt.not.is.null)&select=id,name,business,portalActivatedAt,profilePic,cardImage&order=name.asc"),
         sb("paid_referrals?select=key,paid_at,partner"),
         sb("payout_queue?select=id,referral_id,contact_id,partner,customer,amount,added_at&order=id.desc").catch(function(){return [];})
       ]);
@@ -1928,13 +1928,30 @@ function bootMobile(){
   document.body.appendChild(app);
   document.getElementById("mDesk").onclick=function(){ location.href=location.pathname+"?desktop=1"; };
   var ts=document.getElementById("mTopSearch"); if(ts) ts.oninput=function(){ if(mScreen!=="partners"){ mGo("partners"); } else { mDrawList(ts.value); } };
+  // Delegated tap handler — every contact row (Today + Partners) opens its sheet, survives re-renders.
+  document.getElementById("mBody").addEventListener("click",function(e){
+    var rm=e.target.closest&&e.target.closest("[data-rmroute]"); if(rm){ e.stopPropagation(); mRouteToggle(+rm.getAttribute("data-rmroute")); return; }
+    if(e.target.closest&&e.target.closest("a")) return;
+    var el=e.target.closest&&e.target.closest("[data-open]"); if(el){ var id=+el.getAttribute("data-open"); if(id) mOpen(id); }
+  });
   mRender();
 }
-function mNavBar(){ return [["today","Today"],["add","Add"],["partners","Partners"]].map(function(it){return '<button data-ms="'+it[0]+'" class="'+(mScreen===it[0]?"on":"")+'">'+it[1]+'</button>';}).join(""); }
+function mNavBar(){ var n=mRouteIds().length; return [["today","Today"],["route","Route"+(n?" ("+n+")":"")],["add","Add"],["partners","Partners"]].map(function(it){return '<button data-ms="'+it[0]+'" class="'+(mScreen===it[0]?"on":"")+'">'+it[1]+'</button>';}).join(""); }
+function mRouteIds(){ try{ var a=JSON.parse(localStorage.getItem("mRoute")||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function mRouteSave(a){ try{ localStorage.setItem("mRoute",JSON.stringify(a)); }catch(e){} }
+function mRouteToggle(id){ var a=mRouteIds(), i=a.indexOf(id); if(i>=0)a.splice(i,1); else a.push(id); mRouteSave(a); if(mScreen==="route")mRender(); var nav=document.getElementById("mNav"); if(nav){nav.innerHTML=mNavBar();[].forEach.call(nav.querySelectorAll("button"),function(b){b.onclick=function(){mGo(b.getAttribute("data-ms"));};});} }
+function mRoute(){
+  var ids=mRouteIds();
+  var head='<div class="m-card"><div class="m-h">My route</div><div class="m-meta">'+(ids.length?ids.length+" stop"+(ids.length>1?"s":"")+" — tap a stop to check in, or Navigate. Open any contact and tap “Add to route” to build it.":"No stops yet. Open any contact (Today / Partners / search) and tap “➕ Add to route.”")+'</div></div>';
+  if(!ids.length) return head;
+  var rows=ids.map(function(id){ var c=(ALL||[]).filter(function(x){return x.id===id;})[0]; if(!c) return ""; var ph=String(c.phone||"").replace(/[^0-9+]/g,""); var nav=c.address?("https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(c.address)+"&travelmode=driving"):("https://www.google.com/maps/search/?api=1&query="+encodeURIComponent((c.name||"")+" "+(c.territory||""))); return '<div class="m-row" data-open="'+c.id+'">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-nm">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+'</div></div><a class="m-btn" href="'+nav+'" target="_blank" rel="noopener" style="padding:8px 10px" title="Navigate">'+gi("map")+'</a><button class="m-btn" data-rmroute="'+c.id+'" style="padding:8px 10px;color:#c0392b" title="Remove">✕</button></div>'; }).join("");
+  return head+rows;
+}
 function mRender(){
   var body=document.getElementById("mBody"); if(!body)return;
   if(mScreen==="add") body.innerHTML=mAdd();
   else if(mScreen==="partners") body.innerHTML=mPartners();
+  else if(mScreen==="route") body.innerHTML=mRoute();
   else body.innerHTML=mToday();
   var nav=document.getElementById("mNav"); if(nav){ nav.innerHTML=mNavBar(); [].forEach.call(nav.querySelectorAll("button"),function(b){b.onclick=function(){mGo(b.getAttribute("data-ms"));};}); }
   mWire();
@@ -1970,7 +1987,6 @@ function mDrawList(q){
   el.innerHTML=rows.map(function(c){return '<div class="m-row" data-open="'+c.id+'">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-nm">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+(c.portalActivatedAt?' · ✓ Active':'')+'</div></div></div>';}).join("")||'<div class="m-meta" style="padding:10px">No matches.</div>';
 }
 function mWire(){
-  [].forEach.call(document.querySelectorAll("#mBody [data-open]"),function(el){el.onclick=function(){mOpen(+el.getAttribute("data-open"));};});
   var sv=document.getElementById("mAddSave"); if(sv)sv.onclick=mSaveContact;
   var sc=document.getElementById("acScan"),f=document.getElementById("acCardFile"); if(sc&&f){sc.onclick=function(){f.click();};f.onchange=function(){if(f.files&&f.files[0])acScanCard(f.files[0]);};}
   var sp=document.getElementById("acSpeak"); if(sp)sp.onclick=acSpeak;
@@ -1992,15 +2008,18 @@ async function mSaveContact(){
   setTimeout(function(){ mGo("partners"); },1000);
 }
 function mOpen(id){
+  if(document.getElementById("mSheet")) return;
   var c=(ALL||[]).filter(function(x){return x.id===id;})[0]; if(!c)return; mSel=c;
   var isR=/realtor/i.test(c.type||""); var ph=String(c.phone||"").replace(/[^0-9+]/g,"");
   var sheet=document.createElement("div"); sheet.className="m-sheet"; sheet.id="mSheet";
   var inner='<div class="in"><div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-h" style="margin:0">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+'</div></div></div>';
+  inner+='<button class="m-btn grad full" id="mVisitBtn" style="font-size:16px;padding:15px">🎤 Check in — log this visit</button>';
   inner+='<div class="m-actions" style="margin-bottom:10px">'+(c.phone?'<a class="m-btn" href="tel:'+esc(ph)+'">'+gi("phone")+' Call</a>':'')+(c.address?'<a class="m-btn" target="_blank" rel="noopener" href="https://maps.google.com/?q='+encodeURIComponent(c.address)+'">'+gi("map")+' Map</a>':'')+'</div>';
-  inner+='<button class="m-btn grad full" id="mTextBtn"'+(c.phone?'':' disabled')+'>'+gi("chat")+' Text from business line</button>';
-  inner+='<button class="m-btn full" id="mVisitBtn">'+gi("map")+' Log a visit</button>';
-  inner+='<button class="m-btn full" id="mNoteBtn">'+gi("note")+' Log a note</button>';
-  if(isR) inner+='<button class="m-btn full" id="mPortalBtn">'+gi("portal")+' '+(c.portalActivatedAt?"Deactivate portal":"Activate portal ($50 referrals)")+'</button>';
+  inner+='<button class="m-btn full" id="mTextBtn"'+(c.phone?'':' disabled')+'>'+gi("chat")+' Text from business line</button>';
+  inner+='<button class="m-btn full" id="mNoteBtn">'+gi("note")+' Quick note</button>';
+  var inRoute=mRouteIds().indexOf(c.id)>=0;
+  inner+='<button class="m-btn full" id="mRouteBtn">'+(inRoute?"✓ In route — tap to remove":(gi("map")+" ➕ Add to route"))+'</button>';
+  inner+='<button class="m-btn full" id="mPortalBtn">'+gi("portal")+' '+(c.portalActivatedAt?"Deactivate portal":"Invite to portal ($50 referrals)")+'</button>';
   inner+='<div id="mSheetMsg" class="m-meta" style="margin-top:4px"></div><button class="m-btn full" id="mClose" style="margin-top:10px">Close</button></div>';
   sheet.innerHTML=inner; document.body.appendChild(sheet);
   sheet.addEventListener("click",function(e){ if(e.target===sheet) sheet.remove(); });
@@ -2009,6 +2028,7 @@ function mOpen(id){
   var nb=document.getElementById("mNoteBtn"); if(nb)nb.onclick=function(){mCompose(c,"note");};
   var vb=document.getElementById("mVisitBtn"); if(vb)vb.onclick=function(){mCompose(c,"visit");};
   var pb=document.getElementById("mPortalBtn"); if(pb)pb.onclick=function(){mTogglePortal(c);};
+  var rbt=document.getElementById("mRouteBtn"); if(rbt)rbt.onclick=function(){ mRouteToggle(c.id); sheet.remove(); };
 }
 function mCompose(c,kind){
   var ov=document.createElement("div"); ov.className="m-sheet"; ov.id="mCompose";
