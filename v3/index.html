@@ -1443,6 +1443,12 @@ async function dpGenerate(){
     var html=dpRenderPlan(ordered,baseGeo,mapsUrl,opt.miles,missing.length,brief,person,date);
     dpPlan={html:html};
     res.innerHTML=html;
+    // Save the generated plan to Supabase so it syncs to the mobile Route tab (Tyler's phone).
+    try{
+      var savedStops=ordered.map(function(s){ var bb=brief[(s.name||"").toLowerCase()]||{}; return {id:(s.id!=null?s.id:null),name:s.name||"",address:s.address||"",lat:(s.lat!=null?s.lat:null),lon:(s.lon!=null?s.lon:null),territory:s.territory||"",briefing:bb.briefing||"",talkingPoints:(Array.isArray(bb.talkingPoints)?bb.talkingPoints.join("; "):(bb.talkingPoints||"")),leaveBehind:bb.leaveBehind||""}; });
+      await sbWrite("POST","route_plan",{person:person||"",plan_date:(date||new Date().toISOString().slice(0,10)),stops:savedStops,maps_url:mapsUrl,created_at:new Date().toISOString()});
+      try{ banner("Route saved — it'll show on the phone's Route tab."); }catch(e){}
+    }catch(e){}
   }catch(e){ res.innerHTML='<div class="noact" style="color:#e24b4a">Error building route: '+esc(e.message)+'</div>'; }
 }
 function dpRenderPlan(ordered,base,mapsUrl,miles,missingCount,brief,person,date){
@@ -1899,7 +1905,7 @@ setInterval(refreshLive, 180000); // every 3 minutes
 
 /* ================= SIMPLE MOBILE APP — gated by /?m=1 or phone width (additive; does not touch desktop) ================= */
 var mScreen="today", mSel=null;
-function mGo(s){ mScreen=s; mRender(); }
+function mGo(s){ mScreen=s; if(s==="route") mRoutePlanLoaded=false; mRender(); }
 function mAvatar(c){var src=c&&(c.profilePic||c.cardImage||PHOTOS[c.id]);return '<div class="m-av">'+(src?'<img src="'+esc(src)+'">':esc(initials(cName(c)).toUpperCase()))+'</div>';}
 function bootMobile(){
   if(document.getElementById("mApp")) return;
@@ -1940,12 +1946,34 @@ function mNavBar(){ var n=mRouteIds().length; return [["today","Today"],["route"
 function mRouteIds(){ try{ var a=JSON.parse(localStorage.getItem("mRoute")||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
 function mRouteSave(a){ try{ localStorage.setItem("mRoute",JSON.stringify(a)); }catch(e){} }
 function mRouteToggle(id){ var a=mRouteIds(), i=a.indexOf(id); if(i>=0)a.splice(i,1); else a.push(id); mRouteSave(a); if(mScreen==="route")mRender(); var nav=document.getElementById("mNav"); if(nav){nav.innerHTML=mNavBar();[].forEach.call(nav.querySelectorAll("button"),function(b){b.onclick=function(){mGo(b.getAttribute("data-ms"));};});} }
+var mRoutePlan=null, mRoutePlanLoaded=false;
+function mLoadRoutePlan(cb){ fetch(SB_URL+"/rest/v1/route_plan?select=*&order=created_at.desc&limit=1",{headers:H}).then(function(r){return r.json();}).then(function(a){ mRoutePlan=(Array.isArray(a)&&a[0])||null; mRoutePlanLoaded=true; cb&&cb(); }).catch(function(){ mRoutePlanLoaded=true; cb&&cb(); }); }
+function mStopAvatar(s){ var c=s.id?((ALL||[]).filter(function(x){return x.id===s.id;})[0]):null; var src=c&&(c.profilePic||c.cardImage||(typeof PHOTOS!=="undefined"&&PHOTOS[c.id])); return '<div class="m-av">'+(src?'<img src="'+esc(src)+'">':esc((s.name||"?").trim().slice(0,1).toUpperCase()))+'</div>'; }
+function mStopNav(s){ if(s.address) return "https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(s.address)+"&travelmode=driving"; if(s.lat!=null&&s.lon!=null) return "https://www.google.com/maps/dir/?api=1&destination="+s.lat+","+s.lon+"&travelmode=driving"; return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent((s.name||"")+" "+(s.territory||"")); }
 function mRoute(){
+  if(!mRoutePlanLoaded){ mLoadRoutePlan(function(){ if(mScreen==="route") mRender(); }); return '<div class="m-card"><div class="m-h">Route</div><div class="m-meta">Loading today’s plan…</div></div>'; }
+  var html='', plan=mRoutePlan, stops=(plan&&plan.stops)||[];
+  if(stops.length){
+    html+='<div class="m-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div class="m-h" style="margin:0">Planned route'+(plan.plan_date?' · '+esc(String(plan.plan_date).slice(0,10)):'')+'</div><button class="m-btn" id="mRouteRefresh" style="padding:6px 10px;font-size:12px">↻</button></div><div class="m-meta">'+stops.length+' stops'+(plan.person?' · '+esc(plan.person):'')+'. Tap a stop to check in.</div>'+(plan.maps_url?'<a class="m-btn grad full" href="'+esc(plan.maps_url)+'" target="_blank" rel="noopener" style="margin-top:10px">'+gi("map")+' Navigate full route</a>':'')+'</div>';
+    html+=stops.map(function(s,i){
+      var tp=s.talkingPoints||"";
+      return '<div class="m-row" style="flex-direction:column;align-items:stretch;gap:6px"'+(s.id?(' data-open="'+s.id+'"'):'')+'>'
+        +'<div style="display:flex;align-items:center;gap:12px">'+mStopAvatar(s)+'<div style="flex:1;min-width:0"><div class="m-nm">'+(i+1)+'. '+esc(s.name||"Stop")+'</div><div class="m-meta">'+esc(s.address||s.territory||"")+'</div></div><a class="m-btn" href="'+mStopNav(s)+'" target="_blank" rel="noopener" style="padding:8px 10px">'+gi("map")+'</a></div>'
+        +(s.briefing?'<div class="m-meta" style="font-size:12.5px;line-height:1.45">'+esc(s.briefing)+'</div>':'')
+        +(tp?'<div style="font-size:12.5px;line-height:1.45"><b>Talking points:</b> '+esc(tp)+'</div>':'')
+        +(s.leaveBehind?'<div style="font-size:12.5px"><b>Leave-behind:</b> '+esc(s.leaveBehind)+'</div>':'')
+        +(s.id?'<button class="m-btn grad" data-open="'+s.id+'" style="margin-top:2px">🎤 Check in</button>':'<div class="m-meta" style="font-size:11px">Not in your CRM yet — add them first to check in.</div>')
+        +'</div>';
+    }).join("");
+  } else {
+    html+='<div class="m-card"><div class="m-h">Route</div><div class="m-meta">No planned route yet. Build one on the desktop Day Plan — it shows up here with talking points — or add your own stops below.</div><button class="m-btn" id="mRouteRefresh" style="margin-top:8px;padding:6px 12px;font-size:12px">↻ Check for a new plan</button></div>';
+  }
   var ids=mRouteIds();
-  var head='<div class="m-card"><div class="m-h">My route</div><div class="m-meta">'+(ids.length?ids.length+" stop"+(ids.length>1?"s":"")+" — tap a stop to check in, or Navigate. Open any contact and tap “Add to route” to build it.":"No stops yet. Open any contact (Today / Partners / search) and tap “➕ Add to route.”")+'</div></div>';
-  if(!ids.length) return head;
-  var rows=ids.map(function(id){ var c=(ALL||[]).filter(function(x){return x.id===id;})[0]; if(!c) return ""; var ph=String(c.phone||"").replace(/[^0-9+]/g,""); var nav=c.address?("https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(c.address)+"&travelmode=driving"):("https://www.google.com/maps/search/?api=1&query="+encodeURIComponent((c.name||"")+" "+(c.territory||""))); return '<div class="m-row" data-open="'+c.id+'">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-nm">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+'</div></div><a class="m-btn" href="'+nav+'" target="_blank" rel="noopener" style="padding:8px 10px" title="Navigate">'+gi("map")+'</a><button class="m-btn" data-rmroute="'+c.id+'" style="padding:8px 10px;color:#c0392b" title="Remove">✕</button></div>'; }).join("");
-  return head+rows;
+  if(ids.length){
+    html+='<div class="m-meta" style="margin:14px 0 8px;font-weight:700">Your added stops</div>';
+    html+=ids.map(function(id){ var c=(ALL||[]).filter(function(x){return x.id===id;})[0]; if(!c) return ""; return '<div class="m-row" data-open="'+c.id+'">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-nm">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+'</div></div><a class="m-btn" href="'+mStopNav({address:c.address,name:c.name,territory:c.territory})+'" target="_blank" rel="noopener" style="padding:8px 10px">'+gi("map")+'</a><button class="m-btn" data-rmroute="'+c.id+'" style="padding:8px 10px;color:#c0392b">✕</button></div>'; }).join("");
+  }
+  return html;
 }
 function mRender(){
   var body=document.getElementById("mBody"); if(!body)return;
@@ -1990,6 +2018,7 @@ function mWire(){
   var sv=document.getElementById("mAddSave"); if(sv)sv.onclick=mSaveContact;
   var sc=document.getElementById("acScan"),f=document.getElementById("acCardFile"); if(sc&&f){sc.onclick=function(){f.click();};f.onchange=function(){if(f.files&&f.files[0])acScanCard(f.files[0]);};}
   var sp=document.getElementById("acSpeak"); if(sp)sp.onclick=acSpeak;
+  var rr=document.getElementById("mRouteRefresh"); if(rr)rr.onclick=function(){ mRoutePlanLoaded=false; mRender(); };
   if(document.getElementById("mList")){ var hv=(document.getElementById("mTopSearch")||{}).value||""; mDrawList(hv); }
   window.__acNotes="";
 }
