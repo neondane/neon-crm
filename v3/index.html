@@ -1978,21 +1978,40 @@ function mRoute(){
 function mAddStops(){
   if(document.getElementById("mAddStops")) return;
   var ov=document.createElement("div"); ov.className="m-sheet"; ov.id="mAddStops";
-  ov.innerHTML='<div class="in" style="max-height:92vh;overflow:auto"><div class="m-h">Add stops to route</div><div class="m-meta" style="margin-bottom:8px">Search and tap to add anyone — realtors, facilities, anybody.</div><input class="m-in" id="mAddSearch" placeholder="🔍 Search contacts to add…"><div id="mAddList" style="max-height:58vh;overflow:auto"></div><button class="m-btn grad full" id="mAddDone" style="margin-top:10px">Done</button></div>';
+  var terrOpts='<option value="">All areas / territories</option>'+DP_TR.map(function(t){return '<option value="'+esc(t)+'">'+esc(t)+'</option>';}).join("");
+  var typeOpts='<option value="">All types</option>'+DP_TY.map(function(t){return '<option value="'+esc(t)+'">'+esc(t)+'</option>';}).join("");
+  ov.innerHTML='<div class="in" style="max-height:94vh;overflow:auto"><div class="m-h">Plan route — add stops</div><div class="m-meta" style="margin-bottom:8px">Filter by area &amp; type, then tap to add. Add as many as you want.</div>'
+    +'<select class="m-in" id="mAddTerr">'+terrOpts+'</select>'
+    +'<select class="m-in" id="mAddType">'+typeOpts+'</select>'
+    +'<input class="m-in" id="mAddSearch" placeholder="🔍 Search by name…">'
+    +'<div id="mAddCount" class="m-meta" style="margin:2px 0 6px"></div>'
+    +'<div id="mAddList" style="max-height:46vh;overflow:auto"></div>'
+    +'<button class="m-btn grad full" id="mAddDone" style="margin-top:10px">Done</button></div>';
   document.body.appendChild(ov);
   ov.addEventListener("click",function(e){ if(e.target===ov){ ov.remove(); if(mScreen==="route") mRender(); } });
   document.getElementById("mAddDone").onclick=function(){ ov.remove(); if(mScreen==="route") mRender(); };
-  var s=document.getElementById("mAddSearch"); if(s) s.oninput=function(){ mAddStopsList(s.value); };
-  document.getElementById("mAddList").addEventListener("click",function(e){ var el=e.target.closest&&e.target.closest("[data-addid]"); if(el){ mRouteToggle(+el.getAttribute("data-addid")); mAddStopsList((document.getElementById("mAddSearch")||{}).value||""); } });
-  mAddStopsList(""); setTimeout(function(){ if(s)s.focus(); },60);
+  document.getElementById("mAddTerr").onchange=mAddStopsList;
+  document.getElementById("mAddType").onchange=mAddStopsList;
+  var s=document.getElementById("mAddSearch"); if(s) s.oninput=mAddStopsList;
+  document.getElementById("mAddList").addEventListener("click",function(e){ var el=e.target.closest&&e.target.closest("[data-addid]"); if(el){ mRouteToggle(+el.getAttribute("data-addid")); mAddStopsList(); } });
+  mAddStopsList();
 }
-function mAddStopsList(q){
-  var el=document.getElementById("mAddList"); if(!el)return; q=(q||"").toLowerCase().trim();
+function mAddStopsList(){
+  var el=document.getElementById("mAddList"); if(!el)return;
+  var q=((document.getElementById("mAddSearch")||{}).value||"").toLowerCase().trim();
+  var terr=(document.getElementById("mAddTerr")||{}).value||"";
+  var type=(document.getElementById("mAddType")||{}).value||"";
   var route=mRouteIds();
-  var rows=(ALL||[]).filter(function(c){ if(!q)return true; return ((c.name||"")+" "+(c.business||"")).toLowerCase().indexOf(q)>=0; });
+  var rows=(ALL||[]).filter(function(c){
+    if(terr && (c.territory||"")!==terr) return false;
+    if(type && (typeof typeMatches==="function") && !typeMatches(c.type,[type])) return false;
+    if(q && ((c.name||"")+" "+(c.business||"")).toLowerCase().indexOf(q)<0) return false;
+    return true;
+  });
   rows.sort(function(a,b){return String(cName(a)).localeCompare(String(cName(b)));});
-  rows=rows.slice(0,60);
-  el.innerHTML=rows.map(function(c){ var inR=route.indexOf(c.id)>=0; return '<div class="m-row" data-addid="'+c.id+'" style="cursor:pointer">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-nm">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+'</div></div><div class="m-btn'+(inR?' grad':'')+'" style="padding:6px 12px;pointer-events:none;flex:none">'+(inR?'✓ Added':'+ Add')+'</div></div>'; }).join("")||'<div class="m-meta" style="padding:10px">No matches.</div>';
+  var total=rows.length; rows=rows.slice(0,80);
+  var cnt=document.getElementById("mAddCount"); if(cnt)cnt.textContent=total+" match"+(total===1?"":"es")+(total>80?" (showing 80)":"");
+  el.innerHTML=rows.map(function(c){ var inR=route.indexOf(c.id)>=0; return '<div class="m-row" data-addid="'+c.id+'" style="cursor:pointer">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-nm">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+(c.territory?' · '+esc(c.territory):"")+'</div></div><div class="m-btn'+(inR?' grad':'')+'" style="padding:6px 12px;pointer-events:none;flex:none">'+(inR?'✓ Added':'+ Add')+'</div></div>'; }).join("")||'<div class="m-meta" style="padding:10px">No matches for those filters.</div>';
 }
 function mRender(){
   var body=document.getElementById("mBody"); if(!body)return;
