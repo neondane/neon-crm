@@ -1794,8 +1794,54 @@ loadContacts().then(function(){
   var last=""; try{last=localStorage.getItem("crmNav")||"";}catch(e){}
   if(last.indexOf("c:")===0){ var id=+last.slice(2); if(id&&ALL.some(function(x){return x.id===id;})){ go("contacts"); openContact(id); } else go("contacts"); }
   else if(last){ go(last); } else go("contacts");
-  setTimeout(function(){ ensureData(updateTopBadges); },400);
+  setTimeout(function(){ ensureData(function(){ updateTopBadges(); liveAlertCheck(true); }); },400);
 });
+/* ---- Loud, distinct live alerts for new leads vs new affiliate jobs ---- */
+function ngBeep(seq){
+  try{
+    var Ctx=window.AudioContext||window.webkitAudioContext; if(!Ctx)return;
+    var ac=window.__ngAC||(window.__ngAC=new Ctx()); if(ac.state==="suspended"){try{ac.resume();}catch(e){}}
+    seq.forEach(function(n){
+      var o=ac.createOscillator(), g=ac.createGain(); o.type=n.type||"sine"; o.frequency.value=n.f; o.connect(g); g.connect(ac.destination);
+      var t0=ac.currentTime+(n.t||0); g.gain.setValueAtTime(0.0001,t0); g.gain.exponentialRampToValueAtTime(n.v||0.6,t0+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t0+(n.d||0.25));
+      o.start(t0); o.stop(t0+(n.d||0.25)+0.03);
+    });
+  }catch(e){}
+}
+function ngToast(emoji,title,sub,color){
+  var t=document.createElement("div");
+  t.style.cssText="position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:99999;background:var(--surface,#fff);border:2px solid "+color+";border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.28);padding:14px 20px;max-width:92vw;font-family:inherit;display:flex;align-items:center;gap:12px;cursor:pointer";
+  t.innerHTML='<div style="font-size:26px">'+emoji+'</div><div style="min-width:0"><div style="font-weight:800;font-size:15px;color:'+color+'">'+esc(title)+'</div><div class="muted" style="font-size:13px">'+esc(sub)+'</div></div><div style="margin-left:8px;font-weight:700;opacity:.5">✕</div>';
+  document.body.appendChild(t);
+  t.onclick=function(){ t.remove(); try{go("portal");}catch(e){} };
+  setTimeout(function(){ try{t.style.transition="opacity .4s";t.style.opacity="0";setTimeout(function(){t.remove();},420);}catch(e){} }, 10000);
+}
+function liveAlertCheck(seedOnly){
+  try{
+    var leads=DATA.leads||[], refs=DATA.refs||[];
+    var maxLead=leads.reduce(function(m,l){return Math.max(m,+l.id||0);},0);
+    var maxRef=refs.reduce(function(m,r){return Math.max(m,+r.id||0);},0);
+    var hasSeed=(localStorage.getItem("ngLastLeadId")!=null && localStorage.getItem("ngLastRefId")!=null);
+    if(seedOnly||!hasSeed){ try{localStorage.setItem("ngLastLeadId",maxLead);localStorage.setItem("ngLastRefId",maxRef);}catch(e){} return; }
+    var lastLead=+(localStorage.getItem("ngLastLeadId")||0), lastRef=+(localStorage.getItem("ngLastRefId")||0);
+    var newLeads=leads.filter(function(l){return (+l.id||0)>lastLead;});
+    var newRefs=refs.filter(function(r){return (+r.id||0)>lastRef;});
+    if(newLeads.length){
+      ngBeep([{f:880,t:0,d:.18,v:.6},{f:1320,t:.16,d:.30,v:.65}]);
+      try{navigator.vibrate&&navigator.vibrate([120,60,120]);}catch(e){}
+      var l=newLeads[0];
+      ngToast("📣", newLeads.length>1?(newLeads.length+" new portal leads"):("New lead: "+(l.customerName||"—")), "From "+(l.realtorName||"the portal")+" — tap to open", "var(--cyan,#22BFE7)");
+      try{localStorage.setItem("ngLastLeadId",maxLead);}catch(e){}
+    }
+    if(newRefs.length){
+      ngBeep([{f:523,t:0,d:.16,v:.6,type:"triangle"},{f:659,t:.15,d:.16,v:.6,type:"triangle"},{f:784,t:.3,d:.36,v:.7,type:"triangle"}]);
+      try{navigator.vibrate&&navigator.vibrate([200,80,200,80,260]);}catch(e){}
+      var r=newRefs[0];
+      ngToast("🚚", newRefs.length>1?(newRefs.length+" new affiliate jobs"):("New affiliate job: "+(r.jobName||"—")), (r.contactName?("Referred by "+r.contactName):"New job in")+" — tap to open", "var(--pink,#FF1493)");
+      try{localStorage.setItem("ngLastRefId",maxRef);}catch(e){}
+    }
+  }catch(e){}
+}
 /* ---- Live refresh: keep notifications + dashboard current without a reload ---- */
 async function refreshLive(){
   try{ DATA.refs=await sb("referrals?select=id,contactId,contactName,jobName,status,date,amount&order=date.desc"); }catch(e){}
@@ -1804,6 +1850,7 @@ async function refreshLive(){
   try{ var sd=await sb("sms_messages?select=created_at");var ed=await sb("email_messages?select=created_at");DATA.msgDates=sd.map(function(m){return m.created_at;}).concat(ed.map(function(m){return m.created_at;})).filter(Boolean); }catch(e){}
   try{ DATA.strikes=await sb("recruit_strikes?select=agent,count,summary,listed_at&order=listed_at.desc"); }catch(e){}
   try{ updateTopBadges(); }catch(e){}
+  try{ liveAlertCheck(); }catch(e){}
   // refresh the at-a-glance dashboard only when it's open and nothing is mid-interaction
   if(view==="dashboard" && !document.getElementById("bellDrop") && !document.getElementById("avModal")){ try{ drawDashboard(); }catch(e){} }
 }
