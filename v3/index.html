@@ -1451,7 +1451,9 @@ function dpRenderPlan(ordered,base,mapsUrl,miles,missingCount,brief,person,date)
   html+=ordered.map(function(s,i){
     var b=brief[(s.name||"").toLowerCase()]||{}, loc=(s.lat!=null&&s.lon!=null);
     var stopUrl=loc?("https://www.google.com/maps/dir/?api=1&destination="+s.lat+","+s.lon+"&travelmode=driving"):("https://www.google.com/maps/search/?api=1&query="+encodeURIComponent((s.name||"")+" "+(s.address||s.territory||"")));
-    return '<div class="lead"><div class="top"><div style="min-width:0"><div class="who">'+(i+1)+'. '+esc(s.name||"Stop")+(loc?"":' <span class="pill" style="color:#e24b4a;border-color:#e24b4a55">no address</span>')+'</div><div class="meta">'+esc(s.address||s.territory||"")+'</div></div><a class="btn" href="'+esc(stopUrl)+'" target="_blank" rel="noopener" style="flex:none" title="Navigate to this stop">'+gi("map")+'</a></div>'
+    var rowAttr=s.id?(' data-checkin="'+s.id+'" data-cname="'+esc(s.name||"")+'" style="cursor:pointer"'):'';
+    var checkBtn=s.id?('<button class="btn" data-checkin="'+s.id+'" data-cname="'+esc(s.name||"")+'" style="flex:none" title="Check in / log this visit">'+gi("note")+' Check in</button>'):'';
+    return '<div class="lead"'+rowAttr+'><div class="top"><div style="min-width:0"><div class="who">'+(i+1)+'. '+esc(s.name||"Stop")+'<span class="dpchk" data-chkfor="'+(s.id||"")+'"></span>'+(loc?"":' <span class="pill" style="color:#e24b4a;border-color:#e24b4a55">no address</span>')+'</div><div class="meta">'+esc(s.address||s.territory||"")+'</div></div><div style="display:flex;gap:8px;flex:none">'+checkBtn+'<a class="btn" href="'+esc(stopUrl)+'" target="_blank" rel="noopener" title="Navigate to this stop">'+gi("map")+'</a></div></div>'
       +(b.briefing?'<div style="margin-top:6px;font-size:13px">'+esc(b.briefing)+'</div>':"")
       +(b.talkingPoints?'<div style="margin-top:6px;font-size:13px"><b>Talking points:</b> '+esc(Array.isArray(b.talkingPoints)?b.talkingPoints.join("; "):b.talkingPoints)+'</div>':"")
       +(b.leaveBehind?'<div style="margin-top:4px;font-size:13px"><b>Leave-behind:</b> '+esc(b.leaveBehind)+'</div>':"")+'</div>';
@@ -1459,6 +1461,45 @@ function dpRenderPlan(ordered,base,mapsUrl,miles,missingCount,brief,person,date)
   html+='</div>';
   return html;
 }
+/* Day Plan check-in: click a planned stop → log the visit by voice + AI (reuses aiDictate/aiImprove). */
+function dpCheckIn(id, name){
+  if(document.getElementById("dpCheckModal")) return;
+  var c=(typeof ALL!=="undefined"?ALL:[]).filter(function(x){return x.id===id;})[0]||{id:id,name:name};
+  var ov=document.createElement("div"); ov.className="avmodal"; ov.id="dpCheckModal";
+  ov.innerHTML='<div class="avbox" style="width:460px;max-width:94vw;text-align:left">'
+    +'<h3>'+gi("map")+' Check in — '+esc(name||c.name||"Stop")+'</h3>'
+    +'<div class="sub">Log this visit. Tap Talk and just speak, then ✨ Improve to clean it up.</div>'
+    +'<div style="display:flex;gap:8px;margin:6px 0 10px"><button class="btn" type="button" id="dpTalk">🎤 Talk</button><button class="btn" type="button" id="dpImprove">✨ Improve</button></div>'
+    +'<textarea id="dpVisitMsg" rows="5" style="width:100%;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);padding:10px;font-family:inherit;outline:none" placeholder="What happened on the visit…"></textarea>'
+    +'<div id="dpVisitStatus" class="muted" style="font-size:12px;margin-top:6px"></div>'
+    +'<div class="avact" style="margin-top:12px"><button class="btn grad" id="dpVisitSave">Log visit</button><button class="btn" id="dpVisitCancel">Cancel</button></div></div>';
+  document.body.appendChild(ov);
+  function close(){ if(_dictRec){try{_dictRec.stop();}catch(_){}} ov.remove(); }
+  ov.addEventListener("mousedown",function(e){ if(e.target===ov) close(); });
+  document.getElementById("dpVisitCancel").onclick=close;
+  document.getElementById("dpTalk").onclick=function(){ aiDictate("dpVisitMsg",document.getElementById("dpTalk")); };
+  document.getElementById("dpImprove").onclick=function(){ aiImprove("dpVisitMsg",document.getElementById("dpImprove"),"dpVisitStatus"); };
+  setTimeout(function(){var t=document.getElementById("dpVisitMsg");if(t)t.focus();},60);
+  document.getElementById("dpVisitSave").onclick=async function(){
+    var t=(document.getElementById("dpVisitMsg")||{}).value||""; if(!t.trim())return;
+    if(_dictRec){try{_dictRec.stop();}catch(_){}}
+    var btn=this; btn.disabled=true; btn.textContent="Saving…";
+    var iso=new Date().toISOString(), stamp="[Visit "+iso.slice(0,10)+"] "+t;
+    var c2=(typeof ALL!=="undefined"?ALL:[]).filter(function(x){return x.id===id;})[0];
+    var nn=((c2&&c2.notes)?c2.notes+"\n":"")+stamp;
+    if(c2){c2.notes=nn;c2.lastVisit=iso;}
+    try{ await sbWrite("PATCH","contacts?id=eq."+id,{notes:nn,lastVisit:iso}); }catch(e){}
+    ov.remove();
+    [].forEach.call(document.querySelectorAll('.dpchk[data-chkfor="'+id+'"]'),function(s){ s.innerHTML=' <span class="pill" style="color:#1d9e75;border-color:#1d9e7555;background:#1d9e7515">✓ Checked in</span>'; });
+    try{ banner("Visit logged for "+(name||(c2&&c2.name)||"stop")+"."); }catch(e){}
+  };
+}
+document.addEventListener("click",function(e){
+  var el=e.target.closest&&e.target.closest("[data-checkin]"); if(!el) return;
+  if(e.target.closest("a")) return; // let the Navigate link do its thing
+  var id=+el.getAttribute("data-checkin"); if(!id) return;
+  dpCheckIn(id, el.getAttribute("data-cname")||"");
+});
 
 /* ---------------- Top Leads ---------------- */
 var tlTerr=[], tlType=[], tlLoaded=false, tlQueue={}, tlShowQ=false;
@@ -1883,9 +1924,10 @@ function bootMobile(){
   +".m-h{font-size:18px;font-weight:800;margin:4px 0 12px}";
   document.head.appendChild(st);
   var app=document.createElement("div"); app.id="mApp";
-  app.innerHTML='<div class="m-top"><div style="flex:1"><div class="m-logo">NEON CRM</div><div class="m-sub">FIELD</div></div><button class="m-btn" id="mDesk" style="padding:7px 12px;font-size:12px">Desktop</button></div><div class="m-body" id="mBody"></div><div class="m-nav" id="mNav"></div>';
+  app.innerHTML='<div class="m-top" style="flex-direction:column;align-items:stretch;gap:10px"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div class="m-logo">NEON CRM</div><div class="m-sub">FIELD</div></div><button class="m-btn" id="mDesk" style="padding:7px 12px;font-size:12px">Desktop</button></div><input class="m-in" id="mTopSearch" placeholder="🔍 Search contacts &amp; partners…" style="margin:0"></div><div class="m-body" id="mBody"></div><div class="m-nav" id="mNav"></div>';
   document.body.appendChild(app);
   document.getElementById("mDesk").onclick=function(){ location.href=location.pathname+"?desktop=1"; };
+  var ts=document.getElementById("mTopSearch"); if(ts) ts.oninput=function(){ if(mScreen!=="partners"){ mGo("partners"); } else { mDrawList(ts.value); } };
   mRender();
 }
 function mNavBar(){ return [["today","Today"],["add","Add"],["partners","Partners"]].map(function(it){return '<button data-ms="'+it[0]+'" class="'+(mScreen===it[0]?"on":"")+'">'+it[1]+'</button>';}).join(""); }
@@ -1919,7 +1961,7 @@ function mAdd(){
    +'<div class="m-lbl">Territory</div><select class="m-in" id="acTerr"><option value=""></option>'+DP_TR.map(function(t){return '<option>'+esc(t)+'</option>';}).join("")+'</select>'
    +'<button class="m-btn grad full" id="mAddSave" style="margin-top:8px">Add contact</button><div id="mAddMsg" class="m-meta"></div></div>';
 }
-function mPartners(){ return '<input class="m-in" id="mSearch" placeholder="Search contacts &amp; partners…"><div id="mList"></div>'; }
+function mPartners(){ return '<div class="m-meta" style="margin:2px 0 10px">Search using the bar above, or browse everyone below.</div><div id="mList"></div>'; }
 function mDrawList(q){
   var el=document.getElementById("mList"); if(!el)return; q=(q||"").toLowerCase().trim();
   var rows=(ALL||[]).filter(function(c){ if(!q)return true; return ((c.name||"")+" "+(c.business||"")).toLowerCase().indexOf(q)>=0; });
@@ -1932,7 +1974,7 @@ function mWire(){
   var sv=document.getElementById("mAddSave"); if(sv)sv.onclick=mSaveContact;
   var sc=document.getElementById("acScan"),f=document.getElementById("acCardFile"); if(sc&&f){sc.onclick=function(){f.click();};f.onchange=function(){if(f.files&&f.files[0])acScanCard(f.files[0]);};}
   var sp=document.getElementById("acSpeak"); if(sp)sp.onclick=acSpeak;
-  var srch=document.getElementById("mSearch"); if(srch){ mDrawList(""); srch.oninput=function(){mDrawList(srch.value);}; }
+  if(document.getElementById("mList")){ var hv=(document.getElementById("mTopSearch")||{}).value||""; mDrawList(hv); }
   window.__acNotes="";
 }
 async function mSaveContact(){
