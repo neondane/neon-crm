@@ -1947,7 +1947,29 @@ function mRouteIds(){ try{ var a=JSON.parse(localStorage.getItem("mRoute")||"[]"
 function mRouteSave(a){ try{ localStorage.setItem("mRoute",JSON.stringify(a)); }catch(e){} }
 function mRouteToggle(id){ var a=mRouteIds(), i=a.indexOf(id); if(i>=0)a.splice(i,1); else a.push(id); mRouteSave(a); if(mScreen==="route")mRender(); var nav=document.getElementById("mNav"); if(nav){nav.innerHTML=mNavBar();[].forEach.call(nav.querySelectorAll("button"),function(b){b.onclick=function(){mGo(b.getAttribute("data-ms"));};});} }
 var mRoutePlan=null, mRoutePlanLoaded=false;
+var mRouteOpt=(function(){ try{ return JSON.parse(localStorage.getItem("mRouteOpt")||"null"); }catch(e){ return null; } })();
 function mLoadRoutePlan(cb){ fetch(SB_URL+"/rest/v1/route_plan?select=*&order=created_at.desc&limit=1",{headers:H}).then(function(r){return r.json();}).then(function(a){ mRoutePlan=(Array.isArray(a)&&a[0])||null; mRoutePlanLoaded=true; cb&&cb(); }).catch(function(){ mRoutePlanLoaded=true; cb&&cb(); }); }
+function mGetBase(resolved){ return new Promise(function(res){
+  function fallback(){ return (resolved&&resolved[0]) ? resolved[0] : {lat:48.4758,lon:-122.3370,name:"Base"}; }
+  if(navigator.geolocation){ var done=false; var t=setTimeout(function(){ if(!done){done=true; res(fallback());} },4500);
+    navigator.geolocation.getCurrentPosition(function(p){ if(done)return; done=true; clearTimeout(t); res({lat:p.coords.latitude,lon:p.coords.longitude,name:"You"}); }, function(){ if(done)return; done=true; clearTimeout(t); res(fallback()); }, {timeout:4500,maximumAge:60000});
+  } else res(fallback());
+}); }
+async function mOptimizeRoute(){
+  var btn=document.getElementById("mOptimizeBtn"); if(btn){btn.disabled=true;btn.innerHTML='⏳ Optimizing…';}
+  var ids=mRouteIds();
+  var stops=ids.map(function(id){return (ALL||[]).filter(function(x){return x.id===id;})[0];}).filter(Boolean)
+    .map(function(c){return {id:c.id,name:cName(c),territory:c.territory||"",address:c.address||"",lat:(c.lat!=null?c.lat:null),lon:(c.lon!=null?c.lon:null)};});
+  if(!stops.length){ if(btn){btn.disabled=false;btn.innerHTML='🧭 Optimize & navigate all';} return; }
+  for(var i=0;i<stops.length;i++){ try{ await dpResolveStop(stops[i]); }catch(e){} }
+  var resolved=stops.filter(function(s){return s.lat!=null&&s.lon!=null;});
+  if(!resolved.length){ if(btn){btn.disabled=false;btn.innerHTML='🧭 Optimize & navigate all';} alert("Couldn’t find addresses for these stops yet. Open each one and add an address, then try again."); return; }
+  var base=await mGetBase(resolved);
+  var opt=dpOptimize(base,resolved);
+  mRouteOpt={ order:opt.order, miles:opt.miles, maps_url:dpMapsUrl(base,opt.order), at:Date.now() };
+  try{ localStorage.setItem("mRouteOpt",JSON.stringify(mRouteOpt)); }catch(e){}
+  if(mScreen==="route") mRender();
+}
 function mStopAvatar(s){ var c=s.id?((ALL||[]).filter(function(x){return x.id===s.id;})[0]):null; var src=c&&(c.profilePic||c.cardImage||(typeof PHOTOS!=="undefined"&&PHOTOS[c.id])); return '<div class="m-av">'+(src?'<img src="'+esc(src)+'">':esc((s.name||"?").trim().slice(0,1).toUpperCase()))+'</div>'; }
 function mStopNav(s){ if(s.address) return "https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(s.address)+"&travelmode=driving"; if(s.lat!=null&&s.lon!=null) return "https://www.google.com/maps/dir/?api=1&destination="+s.lat+","+s.lon+"&travelmode=driving"; return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent((s.name||"")+" "+(s.territory||"")); }
 function mRoute(){
@@ -1970,8 +1992,13 @@ function mRoute(){
   }
   var ids=mRouteIds();
   if(ids.length){
-    html+='<div class="m-meta" style="margin:14px 0 8px;font-weight:700">Your added stops</div>';
-    html+=ids.map(function(id){ var c=(ALL||[]).filter(function(x){return x.id===id;})[0]; if(!c) return ""; return '<div class="m-row" data-open="'+c.id+'">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-nm">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+'</div></div><a class="m-btn" href="'+mStopNav({address:c.address,name:c.name,territory:c.territory})+'" target="_blank" rel="noopener" style="padding:8px 10px">'+gi("map")+'</a><button class="m-btn" data-rmroute="'+c.id+'" style="padding:8px 10px;color:#c0392b">✕</button></div>'; }).join("");
+    var optV=mRouteOpt;
+    html+='<div class="m-meta" style="margin:14px 0 8px;font-weight:700">Your added stops ('+ids.length+')</div>';
+    html+='<button class="m-btn grad full" id="mOptimizeBtn" style="margin-bottom:8px">🧭 Optimize & navigate all</button>';
+    if(optV&&optV.maps_url){ html+='<div class="m-card" style="margin-bottom:8px"><div class="m-meta">Optimized order · ~'+(Math.round(optV.miles)||0)+' mi round trip</div><a class="m-btn grad full" href="'+esc(optV.maps_url)+'" target="_blank" rel="noopener" style="margin-top:6px">'+gi("map")+' Navigate full route</a></div>'; }
+    var ordIds=(optV&&optV.order&&optV.order.length)?optV.order.map(function(s){return s.id;}).filter(function(x){return ids.indexOf(x)>=0;}):ids.slice();
+    ids.forEach(function(id){ if(ordIds.indexOf(id)<0) ordIds.push(id); });
+    html+=ordIds.map(function(id,idx){ var c=(ALL||[]).filter(function(x){return x.id===id;})[0]; if(!c) return ""; return '<div class="m-row" data-open="'+c.id+'">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-nm">'+(optV?(idx+1)+'. ':'')+esc(cName(c))+'</div><div class="m-meta">'+esc(c.address||c.business||c.type||"")+'</div></div><a class="m-btn" href="'+mStopNav({address:c.address,name:c.name,territory:c.territory})+'" target="_blank" rel="noopener" style="padding:8px 10px">'+gi("map")+'</a><button class="m-btn" data-rmroute="'+c.id+'" style="padding:8px 10px;color:#c0392b">✕</button></div>'; }).join("");
   }
   return html;
 }
@@ -2058,6 +2085,7 @@ function mWire(){
   var sp=document.getElementById("acSpeak"); if(sp)sp.onclick=acSpeak;
   var rr=document.getElementById("mRouteRefresh"); if(rr)rr.onclick=function(){ mRoutePlanLoaded=false; mRender(); };
   var asb=document.getElementById("mAddStopsBtn"); if(asb)asb.onclick=mAddStops;
+  var ob=document.getElementById("mOptimizeBtn"); if(ob)ob.onclick=mOptimizeRoute;
   if(document.getElementById("mList")){ var hv=(document.getElementById("mTopSearch")||{}).value||""; mDrawList(hv); }
   window.__acNotes="";
 }
@@ -2081,9 +2109,11 @@ function mOpen(id){
   var isR=/realtor/i.test(c.type||""); var ph=String(c.phone||"").replace(/[^0-9+]/g,"");
   var sheet=document.createElement("div"); sheet.className="m-sheet"; sheet.id="mSheet";
   var inner='<div class="in"><div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-h" style="margin:0">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+'</div></div></div>';
+  inner+='<div id="mSheetHist" style="margin:0 0 12px"></div>';
   inner+='<button class="m-btn grad full" id="mVisitBtn" style="font-size:16px;padding:15px">🎤 Check in — log this visit</button>';
   inner+='<div class="m-actions" style="margin-bottom:10px">'+(c.phone?'<a class="m-btn" href="tel:'+esc(ph)+'">'+gi("phone")+' Call</a>':'')+(c.address?'<a class="m-btn" target="_blank" rel="noopener" href="https://maps.google.com/?q='+encodeURIComponent(c.address)+'">'+gi("map")+' Map</a>':'')+'</div>';
   inner+='<button class="m-btn full" id="mTextBtn"'+(c.phone?'':' disabled')+'>'+gi("chat")+' Text from business line</button>';
+  inner+='<button class="m-btn full" id="mLinkBtn"'+(c.phone?'':' disabled')+'>'+gi("portal")+' Text their referral link</button>';
   inner+='<button class="m-btn full" id="mNoteBtn">'+gi("note")+' Quick note</button>';
   var inRoute=mRouteIds().indexOf(c.id)>=0;
   inner+='<button class="m-btn full" id="mRouteBtn">'+(inRoute?"✓ In route — tap to remove":(gi("map")+" ➕ Add to route"))+'</button>';
@@ -2097,6 +2127,30 @@ function mOpen(id){
   var vb=document.getElementById("mVisitBtn"); if(vb)vb.onclick=function(){mCompose(c,"visit");};
   var pb=document.getElementById("mPortalBtn"); if(pb)pb.onclick=function(){mTogglePortal(c);};
   var rbt=document.getElementById("mRouteBtn"); if(rbt)rbt.onclick=function(){ mRouteToggle(c.id); sheet.remove(); };
+  var lb=document.getElementById("mLinkBtn"); if(lb&&c.phone)lb.onclick=function(){ mTextLink(c); };
+  mLoadHist(c.id);
+}
+function mLoadHist(id){
+  var el=document.getElementById("mSheetHist"); if(!el)return;
+  el.innerHTML='<div class="m-meta" style="font-size:12px">Loading history…</div>';
+  Promise.all([
+    sb("contacts?id=eq."+id+"&select=notes,lastVisit,enrichmentNotes").then(function(r){return (r||[])[0]||{};}).catch(function(){return {};}),
+    sb("sms_messages?contact_id=eq."+id+"&select=direction,body,created_at&order=created_at.desc&limit=4").catch(function(){return [];})
+  ]).then(function(r){
+    var c=r[0]||{}, msgs=r[1]||[]; var html='';
+    var lv=c.lastVisit; if(lv) html+='<div style="font-size:12px;color:var(--text-dim)"><b style="color:var(--text)">Last visit:</b> '+esc(fmtDate(lv))+'</div>';
+    var notes=String(c.notes||c.enrichmentNotes||"").split(/\n+/).map(function(s){return s.trim();}).filter(Boolean);
+    if(notes.length){ html+='<div style="margin-top:6px"><b style="font-size:12px">Notes &amp; history</b>'+notes.slice(-5).reverse().map(function(n){return '<div style="font-size:12px;color:var(--text-dim);margin-top:3px;line-height:1.35">• '+esc(n.slice(0,200))+'</div>';}).join("")+'</div>'; }
+    if(msgs.length){ html+='<div style="margin-top:8px"><b style="font-size:12px">Recent texts</b>'+msgs.map(function(m){return '<div style="font-size:12px;color:var(--text-dim);margin-top:3px">'+(/out/i.test(m.direction||"")?"→ ":"← ")+esc(String(m.body||"").slice(0,90))+'</div>';}).join("")+'</div>'; }
+    el.innerHTML=html||'<div class="m-meta" style="font-size:12px">No notes or visit history yet.</div>';
+  }).catch(function(){ el.innerHTML='<div class="m-meta" style="font-size:12px">Couldn’t load history.</div>'; });
+}
+function mTextLink(c){
+  if(!c.phone){ alert("No phone on file for "+(c.name||"this contact")+"."); return; }
+  var slug=(typeof slugOf==="function")?slugOf(c):String(c.id);
+  var first=(typeof firstName==="function")?firstName(c.name||""):String(c.name||"").split(" ")[0];
+  mCompose(c,"text");
+  setTimeout(function(){ var t=document.getElementById("mMsg"); if(t){ t.value="Hi "+first+", here's your personal Neon Giant referral link — send it to anyone who's moving and you earn $50 for every completed move: https://refer.neongiantmoving.com/?r="+slug; } },90);
 }
 function mCompose(c,kind){
   var ov=document.createElement("div"); ov.className="m-sheet"; ov.id="mCompose";
