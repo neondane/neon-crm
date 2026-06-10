@@ -739,7 +739,7 @@ function leftCol(c){
   var dh=''; df.forEach(function(f){if(f[1]==null||f[1]==="")return;dh+='<div class="field"><span class="k">'+f[0]+'</span><span class="v">'+esc(f[1])+'</span></div>';});
   var details='<div class="pcard"><h3>Details</h3>'+(dh||'<div class="muted" style="font-size:13px">—</div>')+'</div>';
   var portal='';
-  if(/realtor/i.test(c.type||"")){
+  if(c){ // Referral Portal can be activated for ANY contact type — non-realtors are invitable too
     var link="https://refer.neongiantmoving.com/?r="+slugOf(c); var on=!!c.portalActivatedAt;
     portal='<div class="pcard portalcard"><h3>'+gi("portal")+' Referral Portal</h3><div class="url">'+esc(link)+'</div>'
       +'<div class="prow"><button class="btn '+(on?"":"grad")+'" id="actBtn">'+(on?"✓ Activated":"Activate")+'</button>'+(on?'<button class="btn" id="deactBtn" title="Turn off the referral portal" style="color:#c0392b">Deactivate</button>':'')+'<button class="btn" id="copyBtn">Copy</button></div>'
@@ -877,7 +877,7 @@ async function loadRefs(c){
   var refs=[], leads=[];
   try{ refs=await sb("referrals?contactId=eq."+c.id+"&select=id,jobName,status,date,amount,contactName,notes&order=date.desc"); }catch(e){}
   // Realtor referrals also live in portal_leads (portal submissions) — merge them so the profile matches the Referral Portal.
-  if(/realtor/i.test(c.type||"")){ try{ leads=await sb("portal_leads?realtorId=eq."+encodeURIComponent(c.id)+"&select=id,customerName,status,moveDate,smJobId&order=id.desc"); }catch(e){} }
+  if(/realtor/i.test(c.type||"")||c.portalActivatedAt){ try{ leads=await sb("portal_leads?realtorId=eq."+encodeURIComponent(c.id)+"&select=id,customerName,status,moveDate,smJobId&order=id.desc"); }catch(e){} }
   var norm=function(s){return String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");};
   var seen={}, merged=[];
   (refs||[]).forEach(function(r){ var k=norm(r.jobName); if(k)seen[k]=1; merged.push({id:r.id,jobName:r.jobName,status:r.status,date:r.date,amount:r.amount,contactName:r.contactName,source:"referral",sm:smTagOf(r.notes)}); });
@@ -1013,7 +1013,7 @@ async function sendText(payload){
 }
 async function sendComposer(c){
   var msg=(document.getElementById("cmsg")||{}).value||"";
-  if(cSub==="note"){ if(!msg.trim())return; var isVisit=!!(document.getElementById("cVisit")&&document.getElementById("cVisit").checked); var stamp=(isVisit?"[Visit ":"[")+new Date().toISOString().slice(0,10)+"] "+msg; var nn=(c.notes?c.notes+"\n":"")+stamp; c.notes=nn; var c2=ALL.filter(function(x){return x.id===c.id;})[0]; if(c2)c2.notes=nn; var patch={notes:nn}; var iso0=new Date().toISOString(); if(isVisit){ c.lastVisit=iso0; if(c2)c2.lastVisit=iso0; patch.lastVisit=iso0;} try{await sbWrite("PATCH","contacts?id=eq."+c.id,patch);}catch(e){ ngOutboxAdd({kind:isVisit?"visit":"note",contactId:c.id,stamp:stamp,iso:iso0}); banner((isVisit?"Visit":"Note")+" saved on this device — it'll sync to the database automatically."); } pTab="notes"; renderProfile(); return; }
+  if(cSub==="note"){ if(!msg.trim())return; var isVisit=!!(document.getElementById("cVisit")&&document.getElementById("cVisit").checked); var iso0=new Date().toISOString(); var stamp=(isVisit?"[Visit ":"[")+iso0.slice(0,10)+"] "+msg; var nn=(c.notes?c.notes+"\n":"")+stamp; c.notes=nn; var c2=ALL.filter(function(x){return x.id===c.id;})[0]; if(c2)c2.notes=nn; var patch={notes:nn}; if(isVisit){ c.lastVisit=iso0; if(c2)c2.lastVisit=iso0; patch.lastVisit=iso0;} try{await sbWrite("PATCH","contacts?id=eq."+c.id,patch);}catch(e){ ngOutboxAdd({kind:isVisit?"visit":"note",contactId:c.id,stamp:stamp,iso:iso0}); banner((isVisit?"Visit":"Note")+" saved on this device — it'll sync to the database automatically."); } pTab="notes"; renderProfile(); return; }
   if(cSub==="text"){ if(!c.phone){alert("No phone on file.");return;} if(!msg.trim())return; var btn=document.getElementById("cSend"); if(btn){btn.disabled=true;btn.textContent="Sending…";} var sent=await sendText({to:c.phone,body:msg,contactId:c.id,kind:"manual"}); if(sent.ok){ var ta=document.getElementById("cmsg");if(ta)ta.value=""; if(ACT===null)ACT=[]; ACT.unshift({kind:"text",when:new Date().toISOString().slice(0,16).replace("T"," "),text:"→ "+msg}); redrawTab(c); try{ await sbWrite("POST","sms_messages",{contact_id:c.id,direction:"out",to_number:String(c.phone).replace(/[^0-9+]/g,""),from_number:"+13605885228",body:msg,kind:"manual",status:"sent",sent_at:new Date().toISOString()}); }catch(e){} ACT=null; loadActivity(c); }else{alert("Text not sent: "+sent.msg);} if(btn){btn.disabled=false;btn.textContent="Send";} return; }
   if(cSub==="email"){ if(!c.email){alert("No email on file.");return;} if(!msg.trim())return; if(!confirm("Send this email to "+c.name+"?"))return; try{var er=await fetch(NEON_API+"/api/sendEmail",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({to:c.email,subject:"Neon Giant Moving",body:msg,contactId:c.id})});var ej={};try{ej=await er.json();}catch(e){} if(er.ok&&ej.ok!==false){alert("Email sent.");loadActivity(c);}else{alert("Email not sent: "+(ej.message||ej.error||("HTTP "+er.status)));}}catch(e){alert("Send failed — check connection.");} return; }
   alert("Call logging comes next.");
@@ -1046,7 +1046,7 @@ async function renderPortal(){
       var res=await Promise.all([
         sb("portal_leads?select=id,customerName,realtorName,realtorId,status,moveDate,customerPhone,fromAddress,toAddress,notes,submittedAt&order=id.desc"),
         sb("referrals?select=id,contactId,contactName,jobName,status,date&order=date.desc"),
-        sb("contacts?type=eq.Realtor&select=id,name,business,portalActivatedAt,profilePic,cardImage&order=name.asc"),
+        sb("contacts?or=(type.eq.Realtor,portalActivatedAt.not.is.null)&select=id,name,business,portalActivatedAt,profilePic,cardImage&order=name.asc"),
         sb("paid_referrals?select=key,paid_at,partner"),
         sb("payout_queue?select=id,referral_id,contact_id,partner,customer,amount,added_at&order=id.desc").catch(function(){return [];})
       ]);
@@ -1468,6 +1468,12 @@ async function dpGenerate(){
     var html=dpRenderPlan(ordered,baseGeo,mapsUrl,opt.miles,missing.length,brief,person,date);
     dpPlan={html:html};
     res.innerHTML=html;
+    // Save the generated plan to Supabase so it syncs to the mobile Route tab (Tyler's phone).
+    try{
+      var savedStops=ordered.map(function(s){ var bb=brief[(s.name||"").toLowerCase()]||{}; return {id:(s.id!=null?s.id:null),name:s.name||"",address:s.address||"",lat:(s.lat!=null?s.lat:null),lon:(s.lon!=null?s.lon:null),territory:s.territory||"",briefing:bb.briefing||"",talkingPoints:(Array.isArray(bb.talkingPoints)?bb.talkingPoints.join("; "):(bb.talkingPoints||"")),leaveBehind:bb.leaveBehind||""}; });
+      await sbWrite("POST","route_plan",{person:person||"",plan_date:(date||new Date().toISOString().slice(0,10)),stops:savedStops,maps_url:mapsUrl,created_at:new Date().toISOString()});
+      try{ banner("Route saved — it'll show on the phone's Route tab."); }catch(e){}
+    }catch(e){}
   }catch(e){ res.innerHTML='<div class="noact" style="color:#e24b4a">Error building route: '+esc(e.message)+'</div>'; }
 }
 function dpRenderPlan(ordered,base,mapsUrl,miles,missingCount,brief,person,date){
@@ -1476,7 +1482,9 @@ function dpRenderPlan(ordered,base,mapsUrl,miles,missingCount,brief,person,date)
   html+=ordered.map(function(s,i){
     var b=brief[(s.name||"").toLowerCase()]||{}, loc=(s.lat!=null&&s.lon!=null);
     var stopUrl=loc?("https://www.google.com/maps/dir/?api=1&destination="+s.lat+","+s.lon+"&travelmode=driving"):("https://www.google.com/maps/search/?api=1&query="+encodeURIComponent((s.name||"")+" "+(s.address||s.territory||"")));
-    return '<div class="lead"><div class="top"><div style="min-width:0"><div class="who">'+(i+1)+'. '+esc(s.name||"Stop")+(loc?"":' <span class="pill" style="color:#e24b4a;border-color:#e24b4a55">no address</span>')+'</div><div class="meta">'+esc(s.address||s.territory||"")+'</div></div><a class="btn" href="'+esc(stopUrl)+'" target="_blank" rel="noopener" style="flex:none" title="Navigate to this stop">'+gi("map")+'</a></div>'
+    var rowAttr=s.id?(' data-checkin="'+s.id+'" data-cname="'+esc(s.name||"")+'" style="cursor:pointer"'):'';
+    var checkBtn=s.id?('<button class="btn" data-checkin="'+s.id+'" data-cname="'+esc(s.name||"")+'" style="flex:none" title="Check in / log this visit">'+gi("note")+' Check in</button>'):'';
+    return '<div class="lead"'+rowAttr+'><div class="top"><div style="min-width:0"><div class="who">'+(i+1)+'. '+esc(s.name||"Stop")+'<span class="dpchk" data-chkfor="'+(s.id||"")+'"></span>'+(loc?"":' <span class="pill" style="color:#e24b4a;border-color:#e24b4a55">no address</span>')+'</div><div class="meta">'+esc(s.address||s.territory||"")+'</div></div><div style="display:flex;gap:8px;flex:none">'+checkBtn+'<a class="btn" href="'+esc(stopUrl)+'" target="_blank" rel="noopener" title="Navigate to this stop">'+gi("map")+'</a></div></div>'
       +(b.briefing?'<div style="margin-top:6px;font-size:13px">'+esc(b.briefing)+'</div>':"")
       +(b.talkingPoints?'<div style="margin-top:6px;font-size:13px"><b>Talking points:</b> '+esc(Array.isArray(b.talkingPoints)?b.talkingPoints.join("; "):b.talkingPoints)+'</div>':"")
       +(b.leaveBehind?'<div style="margin-top:4px;font-size:13px"><b>Leave-behind:</b> '+esc(b.leaveBehind)+'</div>':"")+'</div>';
@@ -1484,6 +1492,45 @@ function dpRenderPlan(ordered,base,mapsUrl,miles,missingCount,brief,person,date)
   html+='</div>';
   return html;
 }
+/* Day Plan check-in: click a planned stop → log the visit by voice + AI (reuses aiDictate/aiImprove). */
+function dpCheckIn(id, name){
+  if(document.getElementById("dpCheckModal")) return;
+  var c=(typeof ALL!=="undefined"?ALL:[]).filter(function(x){return x.id===id;})[0]||{id:id,name:name};
+  var ov=document.createElement("div"); ov.className="avmodal"; ov.id="dpCheckModal";
+  ov.innerHTML='<div class="avbox" style="width:460px;max-width:94vw;text-align:left">'
+    +'<h3>'+gi("map")+' Check in — '+esc(name||c.name||"Stop")+'</h3>'
+    +'<div class="sub">Log this visit. Tap Talk and just speak, then ✨ Improve to clean it up.</div>'
+    +'<div style="display:flex;gap:8px;margin:6px 0 10px"><button class="btn" type="button" id="dpTalk">🎤 Talk</button><button class="btn" type="button" id="dpImprove">✨ Improve</button></div>'
+    +'<textarea id="dpVisitMsg" rows="5" style="width:100%;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);padding:10px;font-family:inherit;outline:none" placeholder="What happened on the visit…"></textarea>'
+    +'<div id="dpVisitStatus" class="muted" style="font-size:12px;margin-top:6px"></div>'
+    +'<div class="avact" style="margin-top:12px"><button class="btn grad" id="dpVisitSave">Log visit</button><button class="btn" id="dpVisitCancel">Cancel</button></div></div>';
+  document.body.appendChild(ov);
+  function close(){ if(_dictRec){try{_dictRec.stop();}catch(_){}} ov.remove(); }
+  ov.addEventListener("mousedown",function(e){ if(e.target===ov) close(); });
+  document.getElementById("dpVisitCancel").onclick=close;
+  document.getElementById("dpTalk").onclick=function(){ aiDictate("dpVisitMsg",document.getElementById("dpTalk")); };
+  document.getElementById("dpImprove").onclick=function(){ aiImprove("dpVisitMsg",document.getElementById("dpImprove"),"dpVisitStatus"); };
+  setTimeout(function(){var t=document.getElementById("dpVisitMsg");if(t)t.focus();},60);
+  document.getElementById("dpVisitSave").onclick=async function(){
+    var t=(document.getElementById("dpVisitMsg")||{}).value||""; if(!t.trim())return;
+    if(_dictRec){try{_dictRec.stop();}catch(_){}}
+    var btn=this; btn.disabled=true; btn.textContent="Saving…";
+    var iso=new Date().toISOString(), stamp="[Visit "+iso.slice(0,10)+"] "+t;
+    var c2=(typeof ALL!=="undefined"?ALL:[]).filter(function(x){return x.id===id;})[0];
+    var nn=((c2&&c2.notes)?c2.notes+"\n":"")+stamp;
+    if(c2){c2.notes=nn;c2.lastVisit=iso;}
+    try{ await sbWrite("PATCH","contacts?id=eq."+id,{notes:nn,lastVisit:iso}); }catch(e){}
+    ov.remove();
+    [].forEach.call(document.querySelectorAll('.dpchk[data-chkfor="'+id+'"]'),function(s){ s.innerHTML=' <span class="pill" style="color:#1d9e75;border-color:#1d9e7555;background:#1d9e7515">✓ Checked in</span>'; });
+    try{ banner("Visit logged for "+(name||(c2&&c2.name)||"stop")+"."); }catch(e){}
+  };
+}
+document.addEventListener("click",function(e){
+  var el=e.target.closest&&e.target.closest("[data-checkin]"); if(!el) return;
+  if(e.target.closest("a")) return; // let the Navigate link do its thing
+  var id=+el.getAttribute("data-checkin"); if(!id) return;
+  dpCheckIn(id, el.getAttribute("data-cname")||"");
+});
 
 /* ---------------- Top Leads ---------------- */
 var tlTerr=[], tlType=[], tlLoaded=false, tlQueue={}, tlShowQ=false;
@@ -1815,7 +1862,7 @@ var MOBILE_MODE = /[?&]m=1/.test(location.search) || (window.matchMedia && windo
 renderNav();
 loadContacts().then(function(){
   if(MOBILE_MODE){ var okM=false; try{ bootMobile(); okM=true; }catch(e){ try{console.warn("mobile boot failed",e);}catch(_){}}
-    if(okM){ setTimeout(function(){ try{ensureData(function(){ try{liveAlertCheck(true);}catch(e){} if(mScreen==="today"&&!document.getElementById("mMvSheet")){ try{mRender();}catch(e){} } });}catch(e){} try{ngOutboxFlush();}catch(e){} },400); return; } }
+    if(okM){ setTimeout(function(){ try{ensureData(function(){ try{liveAlertCheck(true);}catch(e){} if(mScreen==="today"&&!document.getElementById("mSheet")&&!document.getElementById("mMvSheet")){ try{mRender();}catch(e){} } });}catch(e){} try{ngOutboxFlush();}catch(e){} },400); return; } }
   var last=""; try{last=localStorage.getItem("crmNav")||"";}catch(e){}
   if(last.indexOf("c:")===0){ var id=+last.slice(2); if(id&&ALL.some(function(x){return x.id===id;})){ go("contacts"); openContact(id); } else go("contacts"); }
   else if(last){ go(last); } else go("contacts");
@@ -1834,7 +1881,6 @@ function ngBeep(seq){
   }catch(e){}
 }
 function ngToast(emoji,title,sub,color,onTap){
-  // onTap: undefined = default (open the portal), null = dismiss only, fn = custom open
   var t=document.createElement("div");
   t.style.cssText="position:fixed;top:calc(18px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:99999;background:var(--surface,#fff);border:2px solid "+color+";border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.28);padding:14px 20px;max-width:92vw;font-family:inherit;display:flex;align-items:center;gap:12px;cursor:pointer";
   t.innerHTML='<div style="font-size:26px">'+emoji+'</div><div style="min-width:0"><div style="font-weight:800;font-size:15px;color:'+color+'">'+esc(title)+'</div><div class="muted" style="font-size:13px">'+esc(sub)+'</div></div><div style="margin-left:8px;font-weight:700;opacity:.5">✕</div>';
@@ -1890,21 +1936,21 @@ async function ngOutboxFlush(){
           // and never double-append if a retry already landed.
           var cur=await sb("contacts?id=eq."+it.contactId+"&select=notes,lastVisit");
           var row=cur&&cur[0];
-          if(!row){ ok=true; } // contact gone — nothing to sync
+          if(!row){ ok=true; }
           else{
             var patch={}, notes=row.notes||"";
             if(it.stamp&&notes.indexOf(it.stamp)<0) patch.notes=(notes?notes+"\n":"")+it.stamp;
             if(it.kind==="visit"&&it.iso&&(!row.lastVisit||String(row.lastVisit)<it.iso)) patch.lastVisit=it.iso;
             ok=Object.keys(patch).length?await sbWrite("PATCH","contacts?id=eq."+it.contactId,patch):true;
           }
-        } else { ok=true; } // unknown kind — drop rather than wedge the queue
+        } else { ok=true; }
       }catch(e){ ok=false; }
       if(!ok) keep.push(it);
     }
     ngOutboxSave(keep);
     if(keep.length<a.length){
-      var n=a.length-keep.length;
-      try{ if(document.getElementById("mApp")) ngToast("✅","Synced","Sent "+n+" saved update"+(n>1?"s":"")+" to the CRM.","#1d9e75",null); else banner(n+" queued update"+(n>1?"s":"")+" synced to the database."); }catch(e){}
+      var nn2=a.length-keep.length;
+      try{ if(document.getElementById("mApp")) ngToast("✅","Synced","Sent "+nn2+" saved update"+(nn2>1?"s":"")+" to the CRM.","#1d9e75",null); else banner(nn2+" queued update"+(nn2>1?"s":"")+" synced to the database."); }catch(e){}
     }
   } finally { window.__ngFlushing=0; }
 }
@@ -1922,14 +1968,14 @@ async function refreshLive(){
   try{ ngOutboxFlush(); }catch(e){}
   // refresh the at-a-glance dashboard only when it's open and nothing is mid-interaction
   if(view==="dashboard" && !document.getElementById("bellDrop") && !document.getElementById("avModal")){ try{ drawDashboard(); }catch(e){} }
-  // refresh the mobile Today screen only when idle (no sheet open, not mid-search/route)
-  if(document.getElementById("mApp") && mScreen==="today" && !document.getElementById("mSheet") && !document.getElementById("mCompose") && !document.getElementById("mMvSheet") && !mRtQ && !mRtBusy){ try{ mRender(); }catch(e){} }
+  // refresh the mobile Today screen only when idle (no sheet open)
+  if(document.getElementById("mApp") && mScreen==="today" && !document.getElementById("mSheet") && !document.getElementById("mCompose") && !document.getElementById("mMvSheet") && !document.getElementById("mAddStops")){ try{ mRender(); }catch(e){} }
 }
 setInterval(refreshLive, 180000); // every 3 minutes
 
 /* ================= SIMPLE MOBILE APP — gated by /?m=1 or phone width (additive; does not touch desktop) ================= */
 var mScreen="today", mSel=null;
-function mGo(s){ mScreen=s; mRender(); }
+function mGo(s){ mScreen=s; if(s==="route") mRoutePlanLoaded=false; mRender(); }
 function mAvatar(c){var src=c&&(c.profilePic||c.cardImage||PHOTOS[c.id]);return '<div class="m-av">'+(src?'<img src="'+esc(src)+'">':esc(initials(cName(c)).toUpperCase()))+'</div>';}
 function bootMobile(){
   if(document.getElementById("mApp")) return;
@@ -1937,12 +1983,10 @@ function bootMobile(){
   st.textContent="#mApp{position:fixed;inset:0;z-index:9000;background:var(--bg,#fff);color:var(--text,#1a1a2e);display:flex;flex-direction:column}"
   +"#mApp *{box-sizing:border-box}"
   +".m-top{display:flex;align-items:center;gap:10px;padding:calc(12px + env(safe-area-inset-top,0px)) 16px 12px;border-bottom:1px solid var(--border,#e6e6ef);background:var(--surface,#fff)}"
-  +".m-logo{font-weight:800;font-size:18px;letter-spacing:1px;color:var(--pink,#ff1493)}.m-logo .cy{color:var(--cyan,#22bfe7)}.m-sub{font-size:10px;letter-spacing:2px;color:var(--text-muted,#888)}"
+  +".m-logo{font-weight:800;font-size:18px;letter-spacing:1px;color:var(--pink,#ff1493)}.m-sub{font-size:10px;letter-spacing:2px;color:var(--text-muted,#888)}"
   +".m-body{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:14px 14px calc(96px + env(safe-area-inset-bottom,0px))}"
   +".m-nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--surface,#fff);border-top:1px solid var(--border,#e6e6ef);z-index:9001;padding-bottom:env(safe-area-inset-bottom,0px)}"
-  +".m-nav button{flex:1;border:0;background:none;padding:12px 4px 14px;font:inherit;color:var(--text-muted,#888);font-size:12px;font-weight:700;min-height:48px}.m-nav button.on{color:var(--pink,#ff1493)}"
-  +".m-ix{width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:800;font-size:13px;color:#fff;background:linear-gradient(135deg,var(--pink,#FF1493),var(--cyan,#22BFE7))}"
-  +".m-spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border,#ddd);border-top-color:var(--cyan,#22BFE7);border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px}"
+  +".m-nav button{flex:1;border:0;background:none;padding:11px 4px 16px;font:inherit;color:var(--text-muted,#888);font-size:12px;font-weight:600}.m-nav button.on{color:var(--pink,#ff1493)}"
   +".m-card{background:var(--surface,#fff);border:1px solid var(--border,#e6e6ef);border-radius:14px;padding:14px;margin-bottom:12px}"
   +".m-row{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--border,#e6e6ef);border-radius:14px;margin-bottom:10px;background:var(--surface,#fff)}"
   +".m-av{width:44px;height:44px;flex:none;border-radius:50%;overflow:hidden;background:var(--surface2,#eee);display:grid;place-items:center;font-weight:800}.m-av img{width:100%;height:100%;object-fit:cover}"
@@ -1953,29 +1997,194 @@ function bootMobile(){
   +".m-btn.grad{background:linear-gradient(90deg,var(--pink,#ff1493),var(--cyan,#22bfe7));color:#fff;border:0}.m-btn.full{display:flex;width:100%;margin-bottom:10px}.m-btn[disabled]{opacity:.5}"
   +".m-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}"
   +".m-sheet{position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.45);display:flex;align-items:flex-end}.m-sheet .in{background:var(--bg,#fff);width:100%;max-height:90vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px 28px}"
-  +".m-h{font-size:18px;font-weight:800;margin:4px 0 12px}";
+  +".m-h{font-size:18px;font-weight:800;margin:4px 0 12px}"
+  +".m-spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border,#ddd);border-top-color:var(--cyan,#22BFE7);border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px}";
   document.head.appendChild(st);
   var app=document.createElement("div"); app.id="mApp";
-  app.innerHTML='<div class="m-top"><div style="flex:1"><div class="m-logo">NEON <span class="cy">GIANT</span></div><div class="m-sub">FIELD CREW</div></div><button class="m-btn" id="mTheme" title="Light / dark" style="padding:7px 11px;font-size:14px">☾</button><button class="m-btn" id="mDesk" style="padding:7px 12px;font-size:12px">Desktop</button></div><div class="m-body" id="mBody"></div><div class="m-nav" id="mNav"></div>';
+  app.innerHTML='<div class="m-top" style="flex-direction:column;align-items:stretch;gap:10px"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div class="m-logo">NEON <span style="color:var(--cyan,#22bfe7)">GIANT</span></div><div class="m-sub">FIELD CREW</div></div><button class="m-btn" id="mTheme" title="Light / dark" style="padding:7px 11px;font-size:14px">☾</button><button class="m-btn" id="mDesk" style="padding:7px 12px;font-size:12px">Desktop</button></div><input class="m-in" id="mTopSearch" placeholder="🔍 Search contacts &amp; partners…" style="margin:0"></div><div class="m-body" id="mBody"></div><div class="m-nav" id="mNav"></div>';
   document.body.appendChild(app);
   document.getElementById("mDesk").onclick=function(){ location.href=location.pathname+"?desktop=1"; };
-  var mt=document.getElementById("mTheme");
-  if(mt){ mt.textContent=(document.documentElement.getAttribute("data-theme")==="dark"?"☀":"☾");
-    mt.onclick=function(){ var t=document.documentElement.getAttribute("data-theme")==="light"?"dark":"light"; document.documentElement.setAttribute("data-theme",t); mt.textContent=(t==="dark"?"☀":"☾"); try{localStorage.setItem("crmv2Theme",t);}catch(e){} }; }
+  var mtb=document.getElementById("mTheme");
+  if(mtb){ mtb.textContent=(document.documentElement.getAttribute("data-theme")==="dark"?"☀":"☾");
+    mtb.onclick=function(){ var t=document.documentElement.getAttribute("data-theme")==="light"?"dark":"light"; document.documentElement.setAttribute("data-theme",t); mtb.textContent=(t==="dark"?"☀":"☾"); try{localStorage.setItem("crmv2Theme",t);}catch(e){} }; }
+  var ts=document.getElementById("mTopSearch"); if(ts) ts.oninput=function(){ if(mScreen!=="partners"){ mGo("partners"); } else { mDrawList(ts.value); } };
+  // Delegated tap handler — every contact row (Today + Partners) opens its sheet, survives re-renders.
+  document.getElementById("mBody").addEventListener("click",function(e){
+    var rm=e.target.closest&&e.target.closest("[data-rmroute]"); if(rm){ e.stopPropagation(); mRouteToggle(+rm.getAttribute("data-rmroute")); return; }
+    var mv=e.target.closest&&e.target.closest("[data-mv]"); if(mv){ mMoveOpen(+mv.getAttribute("data-mv")); return; }
+    if(e.target.closest&&e.target.closest("a")) return;
+    var el=e.target.closest&&e.target.closest("[data-open]"); if(el){ var id=+el.getAttribute("data-open"); if(id) mOpen(id); }
+  });
   mRender();
 }
-function mNavBar(){ return [["today","Today"],["add","Add"],["partners","Partners"]].map(function(it){return '<button data-ms="'+it[0]+'" class="'+(mScreen===it[0]?"on":"")+'">'+it[1]+'</button>';}).join(""); }
+function mNavBar(){ var n=mRouteIds().length; return [["today","Today"],["route","Route"+(n?" ("+n+")":"")],["add","Add"],["partners","Partners"]].map(function(it){return '<button data-ms="'+it[0]+'" class="'+(mScreen===it[0]?"on":"")+'">'+it[1]+'</button>';}).join(""); }
+function mRouteIds(){ try{ var a=JSON.parse(localStorage.getItem("mRoute")||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function mRouteSave(a){ try{ localStorage.setItem("mRoute",JSON.stringify(a)); }catch(e){} }
+function mRouteToggle(id){ var a=mRouteIds(), i=a.indexOf(id); if(i>=0)a.splice(i,1); else a.push(id); mRouteSave(a); if(mScreen==="route")mRender(); var nav=document.getElementById("mNav"); if(nav){nav.innerHTML=mNavBar();[].forEach.call(nav.querySelectorAll("button"),function(b){b.onclick=function(){mGo(b.getAttribute("data-ms"));};});} }
+var mRoutePlan=null, mRoutePlanLoaded=false;
+var mRouteOpt=(function(){ try{ return JSON.parse(localStorage.getItem("mRouteOpt")||"null"); }catch(e){ return null; } })();
+function mLoadRoutePlan(cb){ fetch(SB_URL+"/rest/v1/route_plan?select=*&order=created_at.desc&limit=1",{headers:H}).then(function(r){return r.json();}).then(function(a){ mRoutePlan=(Array.isArray(a)&&a[0])||null; mRoutePlanLoaded=true; cb&&cb(); }).catch(function(){ mRoutePlanLoaded=true; cb&&cb(); }); }
+function mGetBase(resolved){ return new Promise(function(res){
+  function fallback(){ return (resolved&&resolved[0]) ? resolved[0] : {lat:48.4758,lon:-122.3370,name:"Base"}; }
+  if(navigator.geolocation){ var done=false; var t=setTimeout(function(){ if(!done){done=true; res(fallback());} },4500);
+    navigator.geolocation.getCurrentPosition(function(p){ if(done)return; done=true; clearTimeout(t); res({lat:p.coords.latitude,lon:p.coords.longitude,name:"You"}); }, function(){ if(done)return; done=true; clearTimeout(t); res(fallback()); }, {timeout:4500,maximumAge:60000});
+  } else res(fallback());
+}); }
+async function mOptimizeRoute(){
+  var btn=document.getElementById("mOptimizeBtn"); if(btn){btn.disabled=true;btn.innerHTML='⏳ Optimizing…';}
+  var ids=mRouteIds();
+  var stops=ids.map(function(id){return (ALL||[]).filter(function(x){return x.id===id;})[0];}).filter(Boolean)
+    .map(function(c){return {id:c.id,name:cName(c),territory:c.territory||"",address:c.address||"",lat:(c.lat!=null?c.lat:null),lon:(c.lon!=null?c.lon:null)};});
+  if(!stops.length){ if(btn){btn.disabled=false;btn.innerHTML='🧭 Optimize & navigate all';} return; }
+  for(var i=0;i<stops.length;i++){ try{ await dpResolveStop(stops[i]); }catch(e){} }
+  var resolved=stops.filter(function(s){return s.lat!=null&&s.lon!=null;});
+  if(!resolved.length){ if(btn){btn.disabled=false;btn.innerHTML='🧭 Optimize & navigate all';} alert("Couldn’t find addresses for these stops yet. Open each one and add an address, then try again."); return; }
+  var base=await mGetBase(resolved);
+  var opt=dpOptimize(base,resolved);
+  mRouteOpt={ order:opt.order, miles:opt.miles, maps_url:dpMapsUrl(base,opt.order), at:Date.now() };
+  try{ localStorage.setItem("mRouteOpt",JSON.stringify(mRouteOpt)); }catch(e){}
+  if(mScreen==="route") mRender();
+}
+var mMapObj=null;
+function mRenderMap(){
+  var box=document.getElementById("mRouteMap"); if(!box||typeof L==="undefined")return;
+  var pts=[], seen={};
+  function add(name,lat,lon){ if(lat==null||lon==null||isNaN(lat)||isNaN(lon))return; var k=(+lat).toFixed(4)+","+(+lon).toFixed(4); if(seen[k])return; seen[k]=1; pts.push({name:name||"Stop",lat:+lat,lon:+lon}); }
+  if(mRouteOpt&&mRouteOpt.order&&mRouteOpt.order.length) mRouteOpt.order.forEach(function(s){ add(s.name,s.lat,s.lon); });
+  else if(mRoutePlan&&mRoutePlan.stops) mRoutePlan.stops.forEach(function(s){ add(s.name,s.lat,s.lon); });
+  mRouteIds().forEach(function(id){ var c=(ALL||[]).filter(function(x){return x.id===id;})[0]; if(c) add(cName(c),c.lat,c.lon); });
+  if(!pts.length){ box.style.display="none"; return; }
+  box.style.display="block";
+  try{ if(mMapObj){ mMapObj.remove(); mMapObj=null; } }catch(e){}
+  try{
+    mMapObj=L.map(box,{zoomControl:true,attributionControl:false});
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(mMapObj);
+    var bounds=[];
+    pts.forEach(function(p,i){
+      var icon=L.divIcon({className:"",html:'<div style="background:var(--pink,#ff2d9b);color:#fff;width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.45);font-weight:700;font-size:12px"><span style="transform:rotate(45deg)">'+(i+1)+'</span></div>',iconSize:[26,26],iconAnchor:[13,26]});
+      L.marker([p.lat,p.lon],{icon:icon}).addTo(mMapObj).bindPopup((i+1)+". "+p.name);
+      bounds.push([p.lat,p.lon]);
+    });
+    if(bounds.length===1) mMapObj.setView(bounds[0],13); else mMapObj.fitBounds(bounds,{padding:[28,28]});
+    setTimeout(function(){ try{ mMapObj.invalidateSize(); }catch(e){} },180);
+  }catch(e){ box.style.display="none"; }
+}
+function mStopAvatar(s){ var c=s.id?((ALL||[]).filter(function(x){return x.id===s.id;})[0]):null; var src=c&&(c.profilePic||c.cardImage||(typeof PHOTOS!=="undefined"&&PHOTOS[c.id])); return '<div class="m-av">'+(src?'<img src="'+esc(src)+'">':esc((s.name||"?").trim().slice(0,1).toUpperCase()))+'</div>'; }
+function mStopNav(s){ if(s.address) return "https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(s.address)+"&travelmode=driving"; if(s.lat!=null&&s.lon!=null) return "https://www.google.com/maps/dir/?api=1&destination="+s.lat+","+s.lon+"&travelmode=driving"; return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent((s.name||"")+" "+(s.territory||"")); }
+function mRoute(){
+  if(!mRoutePlanLoaded){ mLoadRoutePlan(function(){ if(mScreen==="route") mRender(); }); return '<div class="m-card"><div class="m-h">Route</div><div class="m-meta">Loading today’s plan…</div></div>'; }
+  var html='<button class="m-btn grad full" id="mAddStopsBtn" style="margin-bottom:12px">➕ Add stops to route</button><div id="mRouteMap" style="height:220px;border-radius:12px;overflow:hidden;margin-bottom:12px;display:none"></div>', plan=mRoutePlan, stops=(plan&&plan.stops)||[];
+  if(stops.length){
+    html+='<div class="m-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div class="m-h" style="margin:0">Planned route'+(plan.plan_date?' · '+esc(String(plan.plan_date).slice(0,10)):'')+'</div><button class="m-btn" id="mRouteRefresh" style="padding:6px 10px;font-size:12px">↻</button></div><div class="m-meta">'+stops.length+' stops'+(plan.person?' · '+esc(plan.person):'')+'. Tap a stop to check in.</div>'+(plan.maps_url?'<a class="m-btn grad full" href="'+esc(plan.maps_url)+'" target="_blank" rel="noopener" style="margin-top:10px">'+gi("map")+' Navigate full route</a>':'')+'</div>';
+    html+=stops.map(function(s,i){
+      var tp=s.talkingPoints||"";
+      return '<div class="m-row" style="flex-direction:column;align-items:stretch;gap:6px"'+(s.id?(' data-open="'+s.id+'"'):'')+'>'
+        +'<div style="display:flex;align-items:center;gap:12px">'+mStopAvatar(s)+'<div style="flex:1;min-width:0"><div class="m-nm">'+(i+1)+'. '+esc(s.name||"Stop")+'</div><div class="m-meta">'+esc(s.address||s.territory||"")+'</div></div><a class="m-btn" href="'+mStopNav(s)+'" target="_blank" rel="noopener" style="padding:8px 10px">'+gi("map")+'</a></div>'
+        +(s.briefing?'<div class="m-meta" style="font-size:12.5px;line-height:1.45">'+esc(s.briefing)+'</div>':'')
+        +(tp?'<div style="font-size:12.5px;line-height:1.45"><b>Talking points:</b> '+esc(tp)+'</div>':'')
+        +(s.leaveBehind?'<div style="font-size:12.5px"><b>Leave-behind:</b> '+esc(s.leaveBehind)+'</div>':'')
+        +(s.id?'<button class="m-btn grad" data-open="'+s.id+'" style="margin-top:2px">🎤 Check in</button>':'<div class="m-meta" style="font-size:11px">Not in your CRM yet — add them first to check in.</div>')
+        +'</div>';
+    }).join("");
+  } else {
+    html+='<div class="m-card"><div class="m-h">Route</div><div class="m-meta">No planned route yet. Build one on the desktop Day Plan — it shows up here with talking points — or add your own stops below.</div><button class="m-btn" id="mRouteRefresh" style="margin-top:8px;padding:6px 12px;font-size:12px">↻ Check for a new plan</button></div>';
+  }
+  var ids=mRouteIds();
+  if(ids.length){
+    var optV=mRouteOpt;
+    html+='<div class="m-meta" style="margin:14px 0 8px;font-weight:700">Your added stops ('+ids.length+')</div>';
+    html+='<button class="m-btn grad full" id="mOptimizeBtn" style="margin-bottom:8px">🧭 Optimize & navigate all</button>';
+    if(optV&&optV.maps_url){ html+='<div class="m-card" style="margin-bottom:8px"><div class="m-meta">Optimized order · ~'+(Math.round(optV.miles)||0)+' mi round trip</div><a class="m-btn grad full" href="'+esc(optV.maps_url)+'" target="_blank" rel="noopener" style="margin-top:6px">'+gi("map")+' Navigate full route</a></div>'; }
+    var ordIds=(optV&&optV.order&&optV.order.length)?optV.order.map(function(s){return s.id;}).filter(function(x){return ids.indexOf(x)>=0;}):ids.slice();
+    ids.forEach(function(id){ if(ordIds.indexOf(id)<0) ordIds.push(id); });
+    html+=ordIds.map(function(id,idx){ var c=(ALL||[]).filter(function(x){return x.id===id;})[0]; if(!c) return ""; return '<div class="m-row" data-open="'+c.id+'">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-nm">'+(optV?(idx+1)+'. ':'')+esc(cName(c))+'</div><div class="m-meta">'+esc(c.address||c.business||c.type||"")+'</div></div><a class="m-btn" href="'+mStopNav({address:c.address,name:c.name,territory:c.territory})+'" target="_blank" rel="noopener" style="padding:8px 10px">'+gi("map")+'</a><button class="m-btn" data-rmroute="'+c.id+'" style="padding:8px 10px;color:#c0392b">✕</button></div>'; }).join("");
+  }
+  return html;
+}
+function mAddStops(){
+  if(document.getElementById("mAddStops")) return;
+  var ov=document.createElement("div"); ov.className="m-sheet"; ov.id="mAddStops";
+  var terrOpts='<option value="">All areas / territories</option>'+DP_TR.map(function(t){return '<option value="'+esc(t)+'">'+esc(t)+'</option>';}).join("");
+  var typeOpts='<option value="">All types</option>'+DP_TY.map(function(t){return '<option value="'+esc(t)+'">'+esc(t)+'</option>';}).join("");
+  ov.innerHTML='<div class="in" style="max-height:94vh;overflow:auto"><div class="m-h">Plan route — add stops</div><div class="m-meta" style="margin-bottom:8px">Filter by area &amp; type, then tap to add. Add as many as you want.</div>'
+    +'<select class="m-in" id="mAddTerr">'+terrOpts+'</select>'
+    +'<select class="m-in" id="mAddType">'+typeOpts+'</select>'
+    +'<input class="m-in" id="mAddSearch" placeholder="🔍 Search by name…">'
+    +'<div id="mAddCount" class="m-meta" style="margin:2px 0 6px"></div>'
+    +'<div id="mAddList" style="max-height:34vh;overflow:auto"></div>'
+    +'<button class="m-btn full" id="mFindNewBtn" style="margin-top:10px">✨ Find NEW businesses (AI)</button>'
+    +'<div class="m-meta" style="font-size:11px;margin-top:2px">Searches the web for places in the selected area/type that aren’t in your CRM yet.</div>'
+    +'<div id="mFindNewList" style="max-height:30vh;overflow:auto;margin-top:4px"></div>'
+    +'<button class="m-btn grad full" id="mAddDone" style="margin-top:10px">Done</button></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener("click",function(e){ if(e.target===ov){ ov.remove(); if(mScreen==="route") mRender(); } });
+  document.getElementById("mAddDone").onclick=function(){ ov.remove(); if(mScreen==="route") mRender(); };
+  document.getElementById("mAddTerr").onchange=mAddStopsList;
+  document.getElementById("mAddType").onchange=mAddStopsList;
+  var s=document.getElementById("mAddSearch"); if(s) s.oninput=mAddStopsList;
+  document.getElementById("mAddList").addEventListener("click",function(e){ var el=e.target.closest&&e.target.closest("[data-addid]"); if(el){ mRouteToggle(+el.getAttribute("data-addid")); mAddStopsList(); } });
+  var fnb=document.getElementById("mFindNewBtn"); if(fnb)fnb.onclick=mFindNew;
+  mAddStopsList();
+}
+var mNewFound=[];
+async function mFindNew(){
+  var terr=(document.getElementById("mAddTerr")||{}).value||"";
+  var type=(document.getElementById("mAddType")||{}).value||"";
+  var el=document.getElementById("mFindNewList"), btn=document.getElementById("mFindNewBtn");
+  if(!type){ if(el)el.innerHTML='<div class="m-meta" style="padding:8px;color:#c0392b">Pick a type above first (and an area if you can).</div>'; return; }
+  if(btn){btn.disabled=true;btn.innerHTML="⏳ Searching… (~30s)";}
+  if(el)el.innerHTML='<div class="m-meta" style="padding:8px">🌐 Web-searching for new '+esc(type)+(terr?' in '+esc(terr):'')+'…</div>';
+  var norm=function(s){return String(s||"").toLowerCase().replace(/\b(llc|inc|co|the|of|and|&|mini|self|storage|realty|real estate|group|team|properties|property|management)\b/g,"").replace(/[^a-z0-9]/g,"");};
+  var haveKeys={}; (ALL||[]).forEach(function(c){var bn=c.business||c.name; if(bn){haveKeys[norm(bn)]=1; if(c.name&&c.name!==bn)haveKeys[norm(c.name)]=1;}});
+  var excludeNames=(ALL||[]).filter(function(c){return (typeof typeMatches==="function")&&typeMatches(c.type,[type])&&(!terr||c.territory===terr);}).map(function(c){return c.business||c.name;}).filter(Boolean);
+  try{
+    var terrs=terr?[terr]:DP_TR.slice();
+    var r=await fetch(NEON_API+"/api/discoverNewLeads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"discoverNewLeads",opts:{territories:terrs,types:[type],limit:12,exclude:excludeNames}})}).then(function(x){return x.json();});
+    var list=(r&&(r.leads||r.results||r.businesses||r.addons))||[];
+    list=list.filter(function(b){var k=norm(b.name||b.business); return k && !haveKeys[k];});
+    mNewFound=list;
+    if(!list.length){ el.innerHTML='<div class="m-meta" style="padding:8px">No new businesses found. Try a different area or type.</div>'; }
+    else { el.innerHTML='<div class="m-meta" style="margin:4px 0;font-weight:700">'+list.length+' new — tap + to add to your CRM &amp; route</div>'+list.map(function(b,i){return '<div class="m-row"><div style="flex:1;min-width:0"><div class="m-nm">'+esc(b.name||b.business||"—")+'</div><div class="m-meta">'+esc(b.type||b.category||type)+(b.address?' · '+esc(b.address):"")+'</div></div><button class="m-btn grad" data-addnew="'+i+'" style="padding:6px 12px;flex:none">+ Add</button></div>';}).join("");
+      [].forEach.call(el.querySelectorAll("[data-addnew]"),function(bb){bb.onclick=function(){ mAddFoundPlace(+bb.getAttribute("data-addnew"),bb); };}); }
+  }catch(e){ if(el)el.innerHTML='<div class="m-meta" style="padding:8px;color:#c0392b">Search failed: '+esc(e.message)+'</div>'; }
+  if(btn){btn.disabled=false;btn.innerHTML="✨ Find NEW businesses (AI)";}
+}
+async function mAddFoundPlace(i,bb){
+  var b=mNewFound[i]||{}; if(!b)return; if(bb&&bb.disabled)return; if(bb){bb.disabled=true;bb.textContent="…";}
+  var ids=(ALL||[]).map(function(c){return +c.id;}).filter(function(n){return !isNaN(n);});
+  var nid=(ids.length?Math.max.apply(null,ids):0)+1;
+  var rec={id:nid,name:b.name||b.business||"New business",business:b.business||b.name||"",type:b.type||b.category||"",territory:b.territory||(document.getElementById("mAddTerr")||{}).value||"",address:b.address||"",dateAdded:new Date().toISOString()};
+  try{ await sbWrite("POST","contacts",rec); ALL.push(rec); var a=mRouteIds(); if(a.indexOf(nid)<0)a.push(nid); mRouteSave(a); if(bb){bb.textContent="✓ Added";} }
+  catch(e){ if(bb){bb.disabled=false;bb.textContent="+ Add";} alert("Couldn’t add: "+e.message); }
+}
+function mAddStopsList(){
+  var el=document.getElementById("mAddList"); if(!el)return;
+  var q=((document.getElementById("mAddSearch")||{}).value||"").toLowerCase().trim();
+  var terr=(document.getElementById("mAddTerr")||{}).value||"";
+  var type=(document.getElementById("mAddType")||{}).value||"";
+  var route=mRouteIds();
+  var rows=(ALL||[]).filter(function(c){
+    if(terr && (c.territory||"")!==terr) return false;
+    if(type && (typeof typeMatches==="function") && !typeMatches(c.type,[type])) return false;
+    if(q && ((c.name||"")+" "+(c.business||"")).toLowerCase().indexOf(q)<0) return false;
+    return true;
+  });
+  rows.sort(function(a,b){return String(cName(a)).localeCompare(String(cName(b)));});
+  var total=rows.length; rows=rows.slice(0,80);
+  var cnt=document.getElementById("mAddCount"); if(cnt)cnt.textContent=total+" match"+(total===1?"":"es")+(total>80?" (showing 80)":"");
+  el.innerHTML=rows.map(function(c){ var inR=route.indexOf(c.id)>=0; return '<div class="m-row" data-addid="'+c.id+'" style="cursor:pointer">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-nm">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+(c.territory?' · '+esc(c.territory):"")+'</div></div><div class="m-btn'+(inR?' grad':'')+'" style="padding:6px 12px;pointer-events:none;flex:none">'+(inR?'✓ Added':'+ Add')+'</div></div>'; }).join("")||'<div class="m-meta" style="padding:10px">No matches for those filters.</div>';
+}
 function mRender(){
   var body=document.getElementById("mBody"); if(!body)return;
   if(mScreen==="add") body.innerHTML=mAdd();
   else if(mScreen==="partners") body.innerHTML=mPartners();
+  else if(mScreen==="route") body.innerHTML=mRoute();
   else body.innerHTML=mToday();
   var nav=document.getElementById("mNav"); if(nav){ nav.innerHTML=mNavBar(); [].forEach.call(nav.querySelectorAll("button"),function(b){b.onclick=function(){mGo(b.getAttribute("data-ms"));};}); }
   mWire();
 }
-/* ---- Today: today's moves (live, with crew) + the route builder ---- */
-var mMoves=[], mRtQ="", mRtBusy=false, mRtMiles=null, mRtUrl=null, mRtErr="";
-function mLoadPicks(){ if(!dpPicks.length){ try{ var sv=JSON.parse(localStorage.getItem("dpPicks")||"[]"); if(Array.isArray(sv)&&sv.length) dpPicks=sv; }catch(e){} } }
+/* ---- Today's moves (live, with crew read from SmartMoving) + alert sheets ---- */
+var mMoves=[];
 function mMovesHtml(){
   mMoves=[];
   if(!DATA.refs&&!DATA.leads) return '<div class="m-meta"><span class="m-spin"></span> Loading today’s jobs…</div>';
@@ -1983,7 +2192,7 @@ function mMovesHtml(){
   (DATA.refs||[]).forEach(function(r){ if(String(r.date||"").slice(0,10)!==today)return; mMoves.push({t:r.jobName||"Move",partner:r.contactName?("Referred by "+r.contactName):"",status:r.status,sm:smTagOf(r.notes)}); });
   (DATA.leads||[]).forEach(function(l){ if(String(l.moveDate||"").slice(0,10)!==today)return; mMoves.push({t:l.customerName||"Move",partner:l.realtorName?("Portal · "+l.realtorName):"Portal lead",status:l.status,from:l.fromAddress||"",to:l.toAddress||"",sm:l.smJobId||null}); });
   if(!mMoves.length) return '<div class="m-meta">No moves scheduled today.</div>';
-  return mMoves.map(function(it,i){return '<div class="m-row" data-mv="'+i+'" style="padding:11px 12px"><div style="flex:1;min-width:0"><div class="m-nm" style="font-size:14.5px">'+esc(it.t)+'</div><div class="m-meta">'+esc(it.partner||"")+'</div></div>'+sbadge(it.status)+'</div>';}).join("");
+  return mMoves.map(function(it,i){return '<div class="m-row" data-mv="'+i+'" style="padding:11px 12px;cursor:pointer"><div style="flex:1;min-width:0"><div class="m-nm" style="font-size:14.5px">'+esc(it.t)+'</div><div class="m-meta">'+esc(it.partner||"")+'</div></div>'+sbadge(it.status)+'</div>';}).join("");
 }
 function mMoveOpen(i){
   var it=mMoves[i]; if(!it)return;
@@ -2020,73 +2229,12 @@ function mAlertSheet(title,items){
   sh.addEventListener("click",function(e){if(e.target===sh)sh.remove();});
   var cb=document.getElementById("mAlertClose"); if(cb)cb.onclick=function(){sh.remove();};
 }
-function mRtListHtml(){
-  if(!dpPicks.length) return '<div class="m-meta" style="margin-bottom:8px">No stops yet — search below to add some. Stops are shared with the desktop Day Plan.</div>';
-  return dpPicks.map(function(p,i){
-    var loc=(p.lat!=null&&p.lon!=null);
-    var nav=loc?("https://www.google.com/maps/dir/?api=1&destination="+p.lat+","+p.lon+"&travelmode=driving"):("https://www.google.com/maps/search/?api=1&query="+encodeURIComponent((p.name||"")+" "+(p.address||p.territory||"")));
-    return '<div class="m-row" style="padding:10px 12px"><div class="m-ix">'+(i+1)+'</div><div style="flex:1;min-width:0"><div class="m-nm" style="font-size:14px">'+esc(p.name||"Stop")+'</div><div class="m-meta">'+esc(p.address||p.territory||p.type||"")+'</div></div><a href="'+esc(nav)+'" target="_blank" rel="noopener" style="text-decoration:none;font-size:18px;padding:6px" title="Navigate to this stop">📍</a><button class="m-btn" data-rmstop="'+esc(String(p.id!=null?p.id:p.nid))+'" style="padding:7px 11px;font-size:13px">✕</button></div>';
-  }).join("");
-}
-function mRtResults(){
-  var el=document.getElementById("mRtResults"); if(!el)return;
-  var q=(mRtQ||"").toLowerCase().trim();
-  if(!q){ el.innerHTML=""; return; }
-  var have={}; dpPicks.forEach(function(p){ if(p.id!=null)have[p.id]=1; });
-  var rows=(ALL||[]).filter(function(c){ return !have[c.id] && ((c.name||"")+" "+(c.business||"")).toLowerCase().indexOf(q)>=0; }).slice(0,6);
-  el.innerHTML=rows.length?rows.map(function(c){return '<div class="m-row" data-addstop="'+c.id+'" style="padding:10px 12px"><div style="flex:1;min-width:0"><div class="m-nm" style="font-size:14px">'+esc(dpName(c))+'</div><div class="m-meta">'+esc(dpSubName(c))+'</div></div><div style="font-size:22px;color:var(--pink,#FF1493);font-weight:800;padding:0 6px">+</div></div>';}).join(""):'<div class="m-meta" style="padding:6px 2px">No matches in your places.</div>';
-  [].forEach.call(el.querySelectorAll("[data-addstop]"),function(b){b.onclick=function(){ dpAddPick(+b.getAttribute("data-addstop")); mRtQ=""; mRtMiles=null; mRtUrl=null; mRtErr=""; mRender(); };});
-}
-function mRtLoc(){
-  return new Promise(function(res){
-    if(!navigator.geolocation){res(null);return;}
-    var done=false;
-    var fin=function(v){ if(done)return; done=true; res(v); };
-    try{ navigator.geolocation.getCurrentPosition(function(p){ fin({lat:p.coords.latitude,lon:p.coords.longitude,name:"My location"}); },function(){ fin(null); },{timeout:6000,maximumAge:120000}); }catch(e){ fin(null); }
-    setTimeout(function(){ fin(null); },6500);
-  });
-}
-async function mRtBuild(){
-  if(mRtBusy||!dpPicks.length)return;
-  mRtBusy=true; mRtErr=""; mRtMiles=null; mRtUrl=null; mRender();
-  function say(s){ var m2=document.getElementById("mRtMsg"); if(m2)m2.innerHTML='<span class="m-spin"></span> '+esc(s); }
-  try{
-    say("Getting your location…");
-    var base=await mRtLoc();
-    if(!base){ say("Locating home base…"); base=await dpGeocodeBase("23528 Old Day Creek Rd, Sedro Woolley, WA 98284"); }
-    if(!base) throw new Error("Couldn’t get a start point — check signal / location permission and try again.");
-    for(var i=0;i<dpPicks.length;i++){ say("Finding addresses… "+(i+1)+"/"+dpPicks.length); await dpResolveStop(dpPicks[i]); }
-    dpSave();
-    var located=dpPicks.filter(function(p){return p.lat!=null&&p.lon!=null;});
-    var missing=dpPicks.filter(function(p){return !(p.lat!=null&&p.lon!=null);});
-    if(!located.length) throw new Error("None of the stops could be located — check signal and try again.");
-    var opt=dpOptimize(base,located);
-    dpPicks=opt.order.concat(missing); dpSave();
-    mRtMiles=opt.miles; mRtUrl=dpMapsUrl(base,opt.order);
-    if(missing.length) mRtErr=missing.length+" stop"+(missing.length>1?"s":"")+" couldn’t be located (listed last — add an address on their profile).";
-  }catch(e){ mRtErr=String((e&&e.message)||e); }
-  mRtBusy=false; mRender();
-}
 function mToday(){
-  mLoadPicks();
-  var html='<div class="m-card"><div class="m-h">Today’s moves</div>'+mMovesHtml()+'</div>';
-  var rtMsg;
-  if(mRtErr) rtMsg='<span style="color:#e24b4a">'+esc(mRtErr)+'</span>'+(mRtMiles!=null?' · optimized ≈ '+mRtMiles.toFixed(0)+' mi':'');
-  else if(mRtMiles!=null) rtMsg='Optimized round trip ≈ <b>'+mRtMiles.toFixed(0)+' miles</b>. Tap Navigate to open Google Maps.';
-  else rtMsg='Build orders your stops nearest-first from where you are and totals the miles.';
-  html+='<div class="m-card"><div class="m-h">My route <span class="m-meta" style="font-weight:600">· '+dpPicks.length+' stop'+(dpPicks.length===1?"":"s")+'</span></div>'
-    +'<div id="mRtList">'+mRtListHtml()+'</div>'
-    +'<input class="m-in" id="mRtSearch" placeholder="Add a stop — search your places…" value="'+esc(mRtQ)+'" style="margin-top:6px">'
-    +'<div id="mRtResults"></div>'
-    +'<div class="m-actions" style="margin-top:4px"><button class="m-btn grad" id="mRtGo"'+((dpPicks.length&&!mRtBusy)?'':' disabled')+'>'+(mRtBusy?'Routing…':'⚡ Build route')+'</button>'
-    +(mRtUrl?'<a class="m-btn" target="_blank" rel="noopener" href="'+esc(mRtUrl)+'">'+gi("map")+' Navigate</a>':'<button class="m-btn" disabled>'+gi("map")+' Navigate</button>')+'</div>'
-    +'<div class="m-meta" id="mRtMsg" style="margin-top:8px">'+rtMsg+'</div>'
-    +(dpPicks.length?'<button class="m-btn full" id="mRtClear" style="margin-top:10px">Clear stops</button>':'')
-    +'</div>';
   var rows=(ALL||[]).filter(function(c){return c.phone;});
   rows.sort(function(a,b){var da=daysSince(a),db=daysSince(b);da=(da===null?1e9:da);db=(db===null?1e9:db);return db-da;});
-  rows=rows.slice(0,15);
-  html+='<div class="m-card"><div class="m-h">Due for a check-in</div><div class="m-meta">Stalest first — tap to call, text, or log a visit.</div></div>';
+  rows=rows.slice(0,20);
+  var html='<div class="m-card"><div class="m-h">Today’s moves</div>'+mMovesHtml()+'</div>';
+  html+='<div class="m-card"><div class="m-h">Today’s touches</div><div class="m-meta">People due for a check-in — stalest first. Tap to call, text, or log a visit.</div></div>';
   html+=rows.map(function(c){var d=daysSince(c);return '<div class="m-row" data-open="'+c.id+'">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-nm">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+(d!=null?' · '+d+'d ago':' · new')+'</div></div></div>';}).join("");
   return html;
 }
@@ -2104,7 +2252,7 @@ function mAdd(){
    +'<div class="m-lbl">Territory</div><select class="m-in" id="acTerr"><option value=""></option>'+DP_TR.map(function(t){return '<option>'+esc(t)+'</option>';}).join("")+'</select>'
    +'<button class="m-btn grad full" id="mAddSave" style="margin-top:8px">Add contact</button><div id="mAddMsg" class="m-meta"></div></div>';
 }
-function mPartners(){ return '<input class="m-in" id="mSearch" placeholder="Search contacts &amp; partners…"><div id="mList"></div>'; }
+function mPartners(){ return '<div class="m-meta" style="margin:2px 0 10px">Search using the bar above, or browse everyone below.</div><div id="mList"></div>'; }
 function mDrawList(q){
   var el=document.getElementById("mList"); if(!el)return; q=(q||"").toLowerCase().trim();
   var rows=(ALL||[]).filter(function(c){ if(!q)return true; return ((c.name||"")+" "+(c.business||"")).toLowerCase().indexOf(q)>=0; });
@@ -2113,17 +2261,14 @@ function mDrawList(q){
   el.innerHTML=rows.map(function(c){return '<div class="m-row" data-open="'+c.id+'">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-nm">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+(c.portalActivatedAt?' · ✓ Active':'')+'</div></div></div>';}).join("")||'<div class="m-meta" style="padding:10px">No matches.</div>';
 }
 function mWire(){
-  [].forEach.call(document.querySelectorAll("#mBody [data-open]"),function(el){el.onclick=function(){mOpen(+el.getAttribute("data-open"));};});
   var sv=document.getElementById("mAddSave"); if(sv)sv.onclick=mSaveContact;
   var sc=document.getElementById("acScan"),f=document.getElementById("acCardFile"); if(sc&&f){sc.onclick=function(){f.click();};f.onchange=function(){if(f.files&&f.files[0])acScanCard(f.files[0]);};}
   var sp=document.getElementById("acSpeak"); if(sp)sp.onclick=acSpeak;
-  var srch=document.getElementById("mSearch"); if(srch){ mDrawList(""); srch.oninput=function(){mDrawList(srch.value);}; }
-  // Today / route wiring
-  [].forEach.call(document.querySelectorAll("#mBody [data-mv]"),function(el){el.onclick=function(){mMoveOpen(+el.getAttribute("data-mv"));};});
-  var rg=document.getElementById("mRtGo"); if(rg)rg.onclick=mRtBuild;
-  var rc=document.getElementById("mRtClear"); if(rc)rc.onclick=function(){ if(!confirm("Clear all "+dpPicks.length+" stops from your route?"))return; dpPicks=[]; dpSave(); mRtMiles=null; mRtUrl=null; mRtErr=""; mRender(); };
-  var rs=document.getElementById("mRtSearch"); if(rs){ rs.oninput=function(){ mRtQ=rs.value; mRtResults(); }; mRtResults(); }
-  [].forEach.call(document.querySelectorAll("#mBody [data-rmstop]"),function(b){b.onclick=function(){ dpRemovePick(b.getAttribute("data-rmstop")); mRtMiles=null; mRtUrl=null; mRtErr=""; mRender(); };});
+  var rr=document.getElementById("mRouteRefresh"); if(rr)rr.onclick=function(){ mRoutePlanLoaded=false; mRender(); };
+  var asb=document.getElementById("mAddStopsBtn"); if(asb)asb.onclick=mAddStops;
+  var ob=document.getElementById("mOptimizeBtn"); if(ob)ob.onclick=mOptimizeRoute;
+  if(document.getElementById("mRouteMap")) mRenderMap();
+  if(document.getElementById("mList")){ var hv=(document.getElementById("mTopSearch")||{}).value||""; mDrawList(hv); }
   window.__acNotes="";
 }
 async function mSaveContact(){
@@ -2141,23 +2286,105 @@ async function mSaveContact(){
   setTimeout(function(){ mGo("partners"); },1000);
 }
 function mOpen(id){
+  if(document.getElementById("mSheet")) return;
   var c=(ALL||[]).filter(function(x){return x.id===id;})[0]; if(!c)return; mSel=c;
-  var isR=/realtor/i.test(c.type||""); var ph=String(c.phone||"").replace(/[^0-9+]/g,"");
   var sheet=document.createElement("div"); sheet.className="m-sheet"; sheet.id="mSheet";
-  var inner='<div class="in"><div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-h" style="margin:0">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+'</div></div></div>';
-  inner+='<div class="m-actions" style="margin-bottom:10px">'+(c.phone?'<a class="m-btn" href="tel:'+esc(ph)+'">'+gi("phone")+' Call</a>':'')+(c.address?'<a class="m-btn" target="_blank" rel="noopener" href="https://maps.google.com/?q='+encodeURIComponent(c.address)+'">'+gi("map")+' Map</a>':'')+'</div>';
-  inner+='<button class="m-btn grad full" id="mTextBtn"'+(c.phone?'':' disabled')+'>'+gi("chat")+' Text from business line</button>';
-  inner+='<button class="m-btn full" id="mVisitBtn">'+gi("map")+' Log a visit</button>';
-  inner+='<button class="m-btn full" id="mNoteBtn">'+gi("note")+' Log a note</button>';
-  if(isR) inner+='<button class="m-btn full" id="mPortalBtn">'+gi("portal")+' '+(c.portalActivatedAt?"Deactivate portal":"Activate portal ($50 referrals)")+'</button>';
-  inner+='<div id="mSheetMsg" class="m-meta" style="margin-top:4px"></div><button class="m-btn full" id="mClose" style="margin-top:10px">Close</button></div>';
-  sheet.innerHTML=inner; document.body.appendChild(sheet);
+  sheet.innerHTML='<div class="in"><div class="m-meta" style="padding:24px;text-align:center">Loading profile…</div></div>';
+  document.body.appendChild(sheet);
   sheet.addEventListener("click",function(e){ if(e.target===sheet) sheet.remove(); });
+  sb("contacts?id=eq."+id+"&select=*").then(function(r){ if(r&&r[0]){ var f=r[0],k; for(k in f)c[k]=f[k]; var a=(ALL||[]).filter(function(x){return x.id===id;})[0]; if(a)for(k in f)a[k]=f[k]; } }).catch(function(){}).then(function(){ if(document.getElementById("mSheet")===sheet) mRenderProfile(c,sheet); });
+}
+function mReopen(id){ var s=document.getElementById("mSheet"); if(s)s.remove(); mOpen(id); }
+function mPill(txt,color){ return '<span style="display:inline-block;padding:3px 10px;border-radius:999px;border:1px solid '+(color?color+'66':'var(--border)')+';background:var(--surface2);font-size:11px;font-weight:700'+(color?';color:'+color:'')+'">'+esc(txt)+'</span>'; }
+function mRenderProfile(c,sheet){
+  var isR=/realtor/i.test(c.type||""); var ph=String(c.phone||"").replace(/[^0-9+]/g,"");
+  var pills=''; if(c.type)pills+=mPill(c.type,/realtor/i.test(c.type)?'var(--pink)':"");
+  if(c.tier)pills+=mPill(c.tier,(typeof tierColor==="function")?tierColor(c.tier):"");
+  if(c.territory)pills+=mPill(c.territory,"");
+  var person=(typeof cPerson==="function")?cPerson(c):""; var biz=person?('Contact: '+esc(person.replace(/^Contact: /,""))):((c.role?esc(c.role)+' at ':'')+esc(c.business||"—"));
+  var inner='<div class="in" style="max-height:94vh;overflow:auto">';
+  inner+='<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-h" style="margin:0">'+esc(cName(c))+'</div><div class="m-meta">'+biz+'</div>'+(pills?'<div style="margin-top:7px;display:flex;flex-wrap:wrap;gap:5px">'+pills+'</div>':'')+'</div></div>';
+  inner+=profileStatsStrip(c);
+  inner+='<button class="m-btn grad full" id="mVisitBtn" style="font-size:16px;padding:15px;margin-bottom:10px">🎤 Check in — log this visit</button>';
+  inner+='<div class="m-actions" style="margin-bottom:10px">'+(c.phone?'<a class="m-btn" href="tel:'+esc(ph)+'">'+gi("phone")+' Call</a>':'')+(c.phone?'<button class="m-btn" id="mTextBtn">'+gi("chat")+' Text</button>':'')+(c.address?'<a class="m-btn" target="_blank" rel="noopener" href="https://maps.google.com/?q='+encodeURIComponent(c.address)+'">'+gi("map")+' Map</a>':'')+'</div>';
+  var df=[["Phone",c.phone],["Email",c.email],["Address",c.address],["Type",c.type],["Tier",c.tier],["Territory",c.territory],["Owner",c.owner],["Last visit",c.lastVisit?fmtDate(c.lastVisit):""]];
+  var dh=''; df.forEach(function(f){ if(f[1]==null||f[1]==="")return; dh+='<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--border);font-size:13px"><span class="m-meta">'+f[0]+'</span><b style="text-align:right;word-break:break-word">'+esc(f[1])+'</b></div>'; });
+  inner+='<div class="m-card"><div class="m-h" style="font-size:15px">Details</div>'+(dh||'<div class="m-meta">No details yet.</div>')+'</div>';
+  inner+='<div class="m-card"><div class="m-h" style="font-size:15px">Notes &amp; history</div><div id="mSheetHist"></div></div>';
+  inner+='<div class="m-card"><div class="m-h" style="font-size:15px">Referrals</div><div id="mRefBox"><div class="m-meta">Loading…</div></div></div>';
+  if(isR){ inner+='<div class="m-card"><div class="m-h" style="font-size:15px">Recent listings</div><div class="m-meta" style="font-size:12px;margin-bottom:8px">Public listings where '+esc(firstName(c.name||""))+' is the agent (AI web search — best-effort).</div><button class="m-btn full" id="mListBtn">'+gi("search")+' Find recent listings</button><div id="mListBox" style="margin-top:8px"></div></div>'; }
+  var link="https://refer.neongiantmoving.com/?r="+((typeof slugOf==="function")?slugOf(c):c.id); var on=!!c.portalActivatedAt;
+  inner+='<div class="m-card"><div class="m-h" style="font-size:15px">'+gi("portal")+' Referral Portal</div><div class="m-meta" style="font-size:11px;word-break:break-all;margin-bottom:8px">'+esc(link)+'</div>'
+    +'<button class="m-btn '+(on?'':'grad')+' full" id="mPortalBtn">'+(on?'✓ Activated — tap to deactivate':'Activate portal ($50 referrals)')+'</button>'
+    +'<button class="m-btn full" id="mLinkBtn"'+(c.phone?'':' disabled')+' style="margin-top:6px">'+gi("chat")+' Text them this link</button></div>';
+  var inRoute=mRouteIds().indexOf(c.id)>=0;
+  inner+='<button class="m-btn full" id="mNoteBtn">'+gi("note")+' Quick note</button>';
+  inner+='<button class="m-btn full" id="mRouteBtn" style="margin-top:6px">'+(inRoute?"✓ In route — tap to remove":(gi("map")+" ➕ Add to route"))+'</button>';
+  inner+='<div id="mSheetMsg" class="m-meta" style="margin-top:4px"></div><button class="m-btn full" id="mClose" style="margin-top:10px">Close</button></div>';
+  sheet.innerHTML=inner;
   document.getElementById("mClose").onclick=function(){sheet.remove();};
   var tb=document.getElementById("mTextBtn"); if(tb&&c.phone)tb.onclick=function(){mCompose(c,"text");};
   var nb=document.getElementById("mNoteBtn"); if(nb)nb.onclick=function(){mCompose(c,"note");};
   var vb=document.getElementById("mVisitBtn"); if(vb)vb.onclick=function(){mCompose(c,"visit");};
-  var pb=document.getElementById("mPortalBtn"); if(pb)pb.onclick=function(){mTogglePortal(c);};
+  var pb=document.getElementById("mPortalBtn"); if(pb)pb.onclick=function(){ Promise.resolve(mTogglePortal(c)).then(function(){ mReopen(c.id); }); };
+  var rbt=document.getElementById("mRouteBtn"); if(rbt)rbt.onclick=function(){ mRouteToggle(c.id); sheet.remove(); };
+  var lb=document.getElementById("mLinkBtn"); if(lb&&c.phone)lb.onclick=function(){ mTextLink(c); };
+  var lst=document.getElementById("mListBtn"); if(lst)lst.onclick=function(){ mFindListings(c,"mListBox",lst); };
+  mLoadHist(c.id); mLoadProfileRefs(c,"mRefBox");
+}
+async function mLoadProfileRefs(c,boxId){
+  var box=document.getElementById(boxId); if(!box)return;
+  var refs=[],leads=[];
+  try{ refs=await sb("referrals?contactId=eq."+c.id+"&select=id,jobName,status,date,amount,contactName&order=date.desc"); }catch(e){}
+  if(/realtor/i.test(c.type||"")||c.portalActivatedAt){ try{ leads=await sb("portal_leads?realtorId=eq."+encodeURIComponent(c.id)+"&select=id,customerName,status,moveDate&order=id.desc"); }catch(e){} }
+  var norm=function(s){return String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");};
+  var seen={},merged=[];
+  (refs||[]).forEach(function(r){var k=norm(r.jobName);if(k)seen[k]=1;merged.push({jobName:r.jobName,status:r.status,date:r.date,amount:r.amount,source:"referral"});});
+  (leads||[]).forEach(function(l){var k=norm(l.customerName);if(k&&seen[k])return;if(k)seen[k]=1;merged.push({jobName:l.customerName,status:l.status,date:l.moveDate,amount:null,source:"portal"});});
+  merged.sort(function(a,b){var da=String(a.date||""),db=String(b.date||"");return db<da?-1:db>da?1:0;});
+  if(!box)return;
+  if(!merged.length){ box.innerHTML='<div class="m-meta">No referrals yet.</div>'; return; }
+  var tot=merged.length,bk=0,rev=0; merged.forEach(function(r){var s=String(r.status||"").toLowerCase();if(s==="booked"||s==="completed")bk++;rev+=(+r.amount||0);});
+  var html='<div style="display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden">'
+    +'<div style="flex:1;text-align:center;padding:8px"><div style="font-size:19px;font-weight:800">'+tot+'</div><div class="m-meta" style="font-size:10px">TOTAL</div></div>'
+    +'<div style="flex:1;text-align:center;padding:8px"><div style="font-size:19px;font-weight:800;color:var(--pink)">'+bk+'</div><div class="m-meta" style="font-size:10px">BOOKED</div></div>'
+    +'<div style="flex:1;text-align:center;padding:8px"><div style="font-size:19px;font-weight:800;color:#00C2A8">'+((typeof money==="function")?money(rev):"$"+rev)+'</div><div class="m-meta" style="font-size:10px">REFERRED $</div></div></div>';
+  html+=merged.slice(0,12).map(function(r){var amt=(+r.amount)?(" · $"+(+r.amount).toLocaleString()):""; return '<div style="padding:7px 0;border-top:1px solid var(--border)"><div class="m-nm" style="font-size:13px">'+esc(r.jobName||"—")+'</div><div class="m-meta" style="font-size:11px">'+esc(String(r.status||"")).toUpperCase()+' · '+esc(String(r.date||"").slice(0,10))+amt+(r.source==="portal"?' · via portal':'')+'</div></div>';}).join("");
+  box.innerHTML=html;
+}
+async function mFindListings(c,boxId,btn){
+  var box=document.getElementById(boxId); if(!box)return;
+  if(btn){btn.disabled=true;btn.innerHTML="⏳ Searching… (~20s)";}
+  box.innerHTML='<div class="m-meta" style="padding:6px">🌐 Searching public listings…</div>';
+  try{
+    var res=await fetch(NEON_API+"/api/checkListings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({opts:{name:c.name,brokerage:c.business||c.brokerage||"",area:c.territory||"Whatcom/Skagit County, WA"}})}).then(function(x){return x.json();});
+    var list=(res&&res.listings)||[];
+    if(!list.length){ box.innerHTML='<div class="m-meta">No recent public listings found right now.'+((res&&res.summary)?' '+esc(res.summary):'')+'</div>'; }
+    else { box.innerHTML=(res.count!=null?'<div class="m-meta" style="font-size:12px;margin-bottom:6px">'+res.count+' found</div>':'')+list.map(function(it){var addr,price; if(typeof it==="string"){var p=it.split(" - ");addr=p[0];price=p.slice(1).join(" - ");}else{addr=it.address||it.addr||it.title||"Listing";price=it.price||it.list_price||"";} return '<div style="padding:7px 0;border-top:1px solid var(--border)"><div class="m-nm" style="font-size:13px">'+esc(addr||"Listing")+'</div>'+(price?'<div class="m-meta" style="font-size:11px">'+esc(price)+'</div>':'')+'</div>';}).join(""); }
+  }catch(e){ box.innerHTML='<div class="m-meta" style="color:#c0392b">Search failed: '+esc(e.message)+'</div>'; }
+  if(btn){btn.disabled=false;btn.innerHTML=gi("search")+" Refresh listings";}
+}
+function mLoadHist(id){
+  var el=document.getElementById("mSheetHist"); if(!el)return;
+  el.innerHTML='<div class="m-meta" style="font-size:12px">Loading history…</div>';
+  Promise.all([
+    sb("contacts?id=eq."+id+"&select=notes,lastVisit,enrichmentNotes").then(function(r){return (r||[])[0]||{};}).catch(function(){return {};}),
+    sb("sms_messages?contact_id=eq."+id+"&select=direction,body,created_at&order=created_at.desc&limit=4").catch(function(){return [];})
+  ]).then(function(r){
+    var c=r[0]||{}, msgs=r[1]||[]; var html='';
+    var lv=c.lastVisit; if(lv) html+='<div style="font-size:12px;color:var(--text-dim)"><b style="color:var(--text)">Last visit:</b> '+esc(fmtDate(lv))+'</div>';
+    var notes=String(c.notes||c.enrichmentNotes||"").split(/\n+/).map(function(s){return s.trim();}).filter(Boolean);
+    if(notes.length){ html+='<div style="margin-top:6px"><b style="font-size:12px">Notes &amp; history</b>'+notes.slice(-5).reverse().map(function(n){return '<div style="font-size:12px;color:var(--text-dim);margin-top:3px;line-height:1.35">• '+esc(n.slice(0,200))+'</div>';}).join("")+'</div>'; }
+    if(msgs.length){ html+='<div style="margin-top:8px"><b style="font-size:12px">Recent texts</b>'+msgs.map(function(m){return '<div style="font-size:12px;color:var(--text-dim);margin-top:3px">'+(/out/i.test(m.direction||"")?"→ ":"← ")+esc(String(m.body||"").slice(0,90))+'</div>';}).join("")+'</div>'; }
+    el.innerHTML=html||'<div class="m-meta" style="font-size:12px">No notes or visit history yet.</div>';
+  }).catch(function(){ el.innerHTML='<div class="m-meta" style="font-size:12px">Couldn’t load history.</div>'; });
+}
+function mTextLink(c){
+  if(!c.phone){ alert("No phone on file for "+(c.name||"this contact")+"."); return; }
+  var slug=(typeof slugOf==="function")?slugOf(c):String(c.id);
+  var first=(typeof firstName==="function")?firstName(c.name||""):String(c.name||"").split(" ")[0];
+  mCompose(c,"text");
+  setTimeout(function(){ var t=document.getElementById("mMsg"); if(t){ t.value="Hi "+first+", here's your personal Neon Giant referral link — send it to anyone who's moving and you earn $50 for every completed move: https://refer.neongiantmoving.com/?r="+slug; } },90);
 }
 function mCompose(c,kind){
   var ov=document.createElement("div"); ov.className="m-sheet"; ov.id="mCompose";
