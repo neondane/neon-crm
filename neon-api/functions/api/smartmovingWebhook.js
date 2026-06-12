@@ -37,7 +37,10 @@ function classifyStage(o) {
   const jobsBlob = Array.isArray(o.jobs)
     ? o.jobs.map((j) => String((j && (j.jobStatus || j.status)) || '')).join(' ')
     : '';
-  const blob = (String(o.leadStatus || '') + ' ' + String(o.status || '') + ' ' + String(o.jobStatus || '') + ' ' + jobsBlob).toLowerCase();
+  let blob = (String(o.leadStatus || '') + ' ' + String(o.status || '') + ' ' + String(o.jobStatus || '') + ' ' + jobsBlob).toLowerCase();
+  // Estimate-phase labels ("4) Estimate Scheduled", "5) Estimate Sent") must NOT read as
+  // booked — strip them before matching so only a real Booked/Confirmed label hits.
+  blob = blob.replace(/estimate[^a-z]*(scheduled|sent|booked)/g, ' ').replace(/\bestimate\b/g, ' ');
   const today = new Date().toISOString().slice(0, 10);
   const svc = fmtDate(o.serviceDate);
   const paid = Array.isArray(o.payments) && o.payments.some((p) => Number(p && (p.amount || p.total || p.value)) > 0);
