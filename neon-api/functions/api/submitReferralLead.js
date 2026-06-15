@@ -88,23 +88,47 @@ const handler = endpoint(async ({ env, body, reply }) => {
   const sourceTag = 'Portal - ' + (realtor.name || 'Direct');
   const lead = { name: c.name, phone: c.phone, email: c.email, fromAddress: c.fromAddress, toAddress: c.toAddress, moveDate: c.moveDate, moveSize: c.moveSize, notes: c.notes };
 
-  const sm = await pushToSmartMoving(env, lead, realtor);
-
+  // 1) DURABLE FIRST — record the lead before anything that can fail, so a
+  //    referral is NEVER lost even if SmartMoving (or this function) errors out.
+  //    moveDate is a date column: send null (not '') when empty to avoid insert errors.
   let inserted = null;
   try {
     inserted = await db.insert('portal_leads', {
       customerName: c.name, customerPhone: c.phone, customerEmail: c.email || '',
       realtorId: realtor.id, realtorName: realtor.name, realtorEmail: realtor.email || '',
-      fromAddress: c.fromAddress || '', toAddress: c.toAddress || '', moveDate: c.moveDate || '',
+      fromAddress: c.fromAddress || '', toAddress: c.toAddress || '', moveDate: c.moveDate || null,
       moveSize: c.moveSize || '', notes: c.notes || '', sourceTag, status: 'new',
-      smJobId: (sm && sm.smJobId) || '', submittedAt: new Date().toISOString(),
+      smJobId: '', submittedAt: new Date().toISOString(),
     });
   } catch (e) {
     return reply({ ok: false, error: 'db_insert_failed', message: e.message }, 500);
   }
+  const leadId = inserted && inserted[0] ? inserted[0].id : null;
 
+  // 2) Push into SmartMoving.
+  const sm = await pushToSmartMoving(env, lead, realtor);
+
+  // 3) Reconcile the saved row with the REAL SmartMoving result — never a silent
+  //    success. On success, stamp the smJobId; on failure leave smJobId empty and
+  //    annotate the note so the failure is visible and the lead is recoverable.
+  if (leadId != null) {
+    try {
+      if (sm && sm.ok && sm.smJobId) {
+        await db.update('portal_leads', `id=eq.${leadId}`, { smJobId: String(sm.smJobId) });
+      } else if (!sm || !sm.ok) {
+        const why = (sm && sm.error) || 'unknown';
+        const flagged = ((c.notes || '').trim() + `\n[SMARTMOVING PUSH FAILED: ${why} — needs manual push]`).trim();
+        await db.update('portal_leads', `id=eq.${leadId}`, { notes: flagged });
+      }
+    } catch (_) { /* best-effort; the row already exists and is recoverable */ }
+  }
+
+  // 4) Team notification (best-effort; no-op until Resend is configured).
   await emailTeam(env, lead, realtor, sourceTag);
-  return reply({ ok: true, leadId: inserted && inserted[0] ? inserted[0].id : null, smartmoving: sm });
+
+  // 5) Respond truthfully. The lead is durably saved either way; smartmoving.ok
+  //    tells the caller whether it actually reached SmartMoving (queued if not).
+  return reply({ ok: true, leadId, smartmoving: sm });
 });
 
 export const onRequestPost = handler;
