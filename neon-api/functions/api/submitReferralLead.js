@@ -74,6 +74,16 @@ async function emailTeam(env, lead, realtor, sourceTag) {
 }
 
 const handler = endpoint(async ({ env, body, reply }) => {
+  // Health probe: confirms SmartMoving is configured WITHOUT creating a lead or
+  // touching the database. Used by the daily monitor. POST { healthcheck: true }.
+  if (body && body.healthcheck) {
+    return reply({
+      ok: !!(env.SMARTMOVING_API_KEY && env.SMARTMOVING_CLIENT_ID),
+      healthcheck: true,
+      configured: { apiKey: !!env.SMARTMOVING_API_KEY, clientId: !!env.SMARTMOVING_CLIENT_ID },
+    });
+  }
+
   const c = body.customer || {};
   if (!c.name || !c.phone) return reply({ ok: false, error: 'name_and_phone_required' }, 400);
 
