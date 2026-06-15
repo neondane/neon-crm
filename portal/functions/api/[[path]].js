@@ -227,7 +227,33 @@ async function handleSupabaseAction(action, payload, baseUrl, key, origin) {
       return jsonResponse({ ok: false, error: 'Name and phone are required.' }, 200, origin);
     }
 
-    // Look up the realtor so the lead carries their name/email (best-effort).
+    // ── SINGLE SOURCE OF TRUTH ───────────────────────────────────────────
+    // Hand the referral to neon-api, which is the ONE place that both pushes the
+    // lead into SmartMoving AND records it in portal_leads. This handler used to
+    // ONLY insert into Supabase and NEVER pushed to SmartMoving, so portal
+    // referrals silently never reached SmartMoving (lost revenue). Do NOT insert
+    // here on the happy path — let neon-api own it so the two paths can't diverge.
+    try {
+      const r = await fetch('https://neon-api.pages.dev/api/submitReferralLead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ realtorId: realtorId, customer: cust }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (j && j.ok) {
+        // neon-api saved the lead AND attempted SmartMoving. smartmoving.ok tells
+        // the truth about whether it actually landed (queued for retry if not).
+        return jsonResponse({ ok: true, id: j.leadId || null, smartmoving: j.smartmoving || null }, 200, origin);
+      }
+      // neon-api answered but did not confirm success → fall through to durable save.
+    } catch (e) {
+      // neon-api unreachable → fall through to durable save so the lead is NEVER lost.
+    }
+
+    // ── DURABLE FALLBACK ─────────────────────────────────────────────────
+    // neon-api failed/unreachable. Save the lead locally, flagged with an empty
+    // smJobId + a NEEDS-PUSH note, so it is never lost and a re-push to
+    // SmartMoving can recover it. We do not claim a clean success here.
     let realtorName = '', realtorEmail = '';
     try {
       const rows = await sbGet(baseUrl, key, 'contacts?id=eq.' + realtorId + '&select=name,email');
@@ -246,14 +272,19 @@ async function handleSupabaseAction(action, payload, baseUrl, key, origin) {
       toAddress: (cust.toAddress || '').trim(),
       moveDate: cust.moveDate ? cust.moveDate : null,
       moveSize: (cust.moveSize || '').trim(),
-      notes: (cust.notes || '').trim(),
+      notes: ((cust.notes || '').trim() + '\n[NEEDS SMARTMOVING PUSH — neon-api was unreachable at submit]').trim(),
       status: 'New',
       sourceTag: 'portal',
+      smJobId: '',
     };
 
-    const inserted = await sbInsert(baseUrl, key, 'portal_leads', row);
-    const newId = (inserted && inserted[0] && inserted[0].id) || null;
-    return jsonResponse({ ok: true, id: newId }, 200, origin);
+    try {
+      const inserted = await sbInsert(baseUrl, key, 'portal_leads', row);
+      const newId = (inserted && inserted[0] && inserted[0].id) || null;
+      return jsonResponse({ ok: true, id: newId, smartmoving: { ok: false, error: 'queued_neon_api_unreachable' } }, 200, origin);
+    } catch (e) {
+      return jsonResponse({ ok: false, error: 'Could not save your referral. Please try again or call us.' }, 200, origin);
+    }
   }
 
   return null; // not a Supabase action
