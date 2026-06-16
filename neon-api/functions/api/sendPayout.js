@@ -30,7 +30,9 @@ const handler = endpoint(async ({ env, body, reply }) => {
   if (!cents || cents < 100) return reply({ ok: false, error: 'invalid_amount', message: 'min $1' }, 400);
   // Money endpoint: require an idempotency key so a repeat/retry can't double-pay.
   if (!leadKey) return reply({ ok: false, error: 'missing_lead_key', message: 'leadId/key required for a safe payout' }, 400);
-  const ledgerKey = campaign + ':' + leadKey;
+  // Use the caller's key verbatim (e.g. "portal:26" / "manual:86") so the ledger key
+  // matches what the CRM uses to detect "paid" — no prefix drift.
+  const ledgerKey = leadKey;
 
   // Idempotency pre-check: if this lead+campaign was already paid, return the prior result (no double-send).
   const db = sb(env);
@@ -91,6 +93,7 @@ const handler = endpoint(async ({ env, body, reply }) => {
       amount: cents / 100,
       order_id: order.id,
       customer: customerName,
+      paid_by: 'tremendous',
       paid_at: new Date().toISOString().slice(0, 10),
     }, { returning: 'minimal' });
   } catch (e) {
