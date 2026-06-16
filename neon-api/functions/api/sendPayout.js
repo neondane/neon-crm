@@ -54,16 +54,31 @@ const handler = endpoint(async ({ env, body, reply }) => {
   }
   if (!fundingId) return reply({ ok: false, error: 'no_funding_source', message: 'No Tremendous funding source found on the account.' }, 503);
 
-  const tremReq = {
-    payment: { funding_source_id: fundingId },
-    reward: {
-      value: { denomination: cents / 100, currency_code: 'USD' },
-      campaign_id: env.TREMENDOUS_CAMPAIGN || undefined,
-      products: ['CHOICE_LINK'],
-      recipient: { name, email },
-      delivery: { method: 'EMAIL' },
-    },
+  // Campaign defines which reward types the recipient can pick. This is the correct
+  // "recipient chooses" mechanism — the old products:['CHOICE_LINK'] is NOT a valid product id.
+  let campaignId = env.TREMENDOUS_CAMPAIGN || '';
+  let campaignsSeen = [];
+  if (!campaignId) {
+    try {
+      const cr = await fetch(TREMENDOUS_BASE + '/campaigns', { headers: { Authorization: 'Bearer ' + TKEY } });
+      const cj = await cr.json();
+      campaignsSeen = ((cj && cj.campaigns) || []).map((c) => ({ id: c.id, name: c.name }));
+      campaignId = (campaignsSeen[0] && campaignsSeen[0].id) || '';
+    } catch (_) {}
+  }
+  const rewardObj = {
+    value: { denomination: cents / 100, currency_code: 'USD' },
+    recipient: { name, email },
+    delivery: { method: 'EMAIL' },
   };
+  if (campaignId) rewardObj.campaign_id = campaignId;
+  else rewardObj.products = ['CHOICE_LINK']; // legacy fallback (invalid) — kept only so the error stays visible
+  const tremReq = { payment: { funding_source_id: fundingId }, reward: rewardObj };
+
+  // Safe dry-run: build the exact request and return it WITHOUT calling Tremendous (no money moves).
+  if (body.dryRun === true) {
+    return reply({ ok: true, dryRun: true, wouldSend: tremReq, campaignId: campaignId || null, campaignsSeen, fundingId });
+  }
 
   let res, j;
   try {
