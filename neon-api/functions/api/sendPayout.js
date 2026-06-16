@@ -78,7 +78,8 @@ const handler = endpoint(async ({ env, body, reply }) => {
   }
   if (!res.ok || !j.order) {
     const msg = (j.errors && j.errors.message) || JSON.stringify(j).slice(0, 300);
-    return reply({ ok: false, error: 'tremendous_rejected', status: res.status, message: msg }, 502);
+    return reply({ ok: false, error: 'tremendous_rejected', status: res.status, message: msg,
+      raw: j, debug: { usedCampaign: !!env.TREMENDOUS_CAMPAIGN, usedProducts: tremReq.reward.products, fundingId } }, 502);
   }
 
   const order = j.order;
