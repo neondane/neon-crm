@@ -12,38 +12,36 @@ const run = async ({ env, reply }) => {
   if (!TKEY) return reply({ ok: false, error: 'tremendous_not_configured' }, 503);
   const H = { Authorization: 'Bearer ' + TKEY, Accept: 'application/json' };
 
+  const TIMEOUT = (ms) => (typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(ms) : undefined);
   // Funding balance (sanity: is this the account Dane is looking at?)
   let funding = [];
   try {
-    const fr = await fetch(BASE + '/funding_sources', { headers: H });
+    const fr = await fetch(BASE + '/funding_sources', { headers: H, signal: TIMEOUT(8000) });
     const fj = await fr.json();
     funding = ((fj && fj.funding_sources) || []).map((f) => ({ id: f.id, method: f.method, type: f.type, balance: f.meta && f.meta.available_cents != null ? f.meta.available_cents / 100 : (f.amount || null) }));
   } catch (_) {}
 
-  // Pull orders (paginate a few pages).
+  // Pull orders — single page (100 is plenty for reconciliation; keeps the worker well under its time limit).
   const out = [];
   let total = 0;
   try {
-    for (let page = 0; page < 6; page++) {
-      const r = await fetch(BASE + '/orders?limit=100&offset=' + page * 100, { headers: H });
-      const j = await r.json();
-      const orders = (j && j.orders) || [];
-      total += orders.length;
-      orders.forEach((o) => {
-        (o.rewards || [{}]).forEach((rw) => {
-          out.push({
-            orderId: o.id,
-            rewardId: rw.id || null,
-            status: o.status || rw.delivery && rw.delivery.status || null,
-            createdAt: o.created_at || null,
-            name: (rw.recipient && rw.recipient.name) || null,
-            email: (rw.recipient && rw.recipient.email) || null,
-            amount: (rw.value && rw.value.denomination) || null,
-          });
+    const r = await fetch(BASE + '/orders?limit=100', { headers: H, signal: TIMEOUT(9000) });
+    const j = await r.json();
+    const orders = (j && j.orders) || [];
+    total = orders.length;
+    orders.forEach((o) => {
+      (o.rewards || [{}]).forEach((rw) => {
+        out.push({
+          orderId: o.id,
+          rewardId: rw.id || null,
+          status: o.status || (rw.delivery && rw.delivery.status) || null,
+          createdAt: o.created_at || null,
+          name: (rw.recipient && rw.recipient.name) || null,
+          email: (rw.recipient && rw.recipient.email) || null,
+          amount: (rw.value && rw.value.denomination) || null,
         });
       });
-      if (orders.length < 100) break;
-    }
+    });
   } catch (e) { return reply({ ok: false, error: 'orders_fetch_failed', message: e.message, mode, funding }); }
 
   out.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
