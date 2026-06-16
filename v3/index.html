@@ -360,61 +360,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);display:flex
 .rbwrap{overflow-x:auto}
 @keyframes sp2{to{transform:rotate(360deg)}}
 @media(max-width:820px){.sidebar{width:60px}.navitem span.lbl{display:none}.navitem{justify-content:center}.list{width:100%}.detail{display:none}body.show-detail .list{display:none}body.show-detail .detail{display:block}}
-/* ---- Phone-width fit for the DESKTOP UI (demoing the full CRM on a phone) ---- */
-@media(max-width:760px){
-  .topbar{gap:8px;padding:8px 10px}
-  .logo{width:38px;height:38px;border-radius:10px;padding:3px}
-  .brand{font-size:14px;letter-spacing:.6px}
-  .brand .sub{display:none}
-  .search input{height:36px;font-size:13px;padding:0 12px}
-  .toggle{width:36px;height:36px;font-size:15px}
-  .sidebar{width:54px;padding:10px 5px}
-  .page{padding:14px 12px}
-  .pback{padding:10px 12px 0}
-  .ph{flex-wrap:wrap;gap:8px;margin-bottom:12px}
-  .ph h2{font-size:16px}
-  .cards{padding:14px 12px;grid-template-columns:1fr}
-  .stats{grid-template-columns:repeat(2,1fr);gap:9px;margin-bottom:14px}
-  .stat{padding:11px 12px}
-  .stat .big{font-size:20px}
-  .phero{flex-direction:column;align-items:flex-start;gap:14px;padding:18px 16px;min-height:0}
-  .phero .pa{width:84px;height:84px;font-size:26px}
-  .paedit{width:30px;height:30px;font-size:12px}
-  .phero h1{font-size:25px}
-  .phero .pbiz{font-size:14px;margin-top:6px}
-  .phero .pmeta{margin-top:9px}
-  .pcontact{margin-left:0;flex-direction:row;flex-wrap:wrap;align-items:center;gap:7px}
-  .cbtn{min-width:0;padding:8px 12px;font-size:12px}
-  .pbody{flex-direction:column;padding:12px;gap:12px}
-  .pleft{width:100%}
-  .chips{grid-template-columns:repeat(auto-fill,minmax(132px,1fr))}
-  .cgrid{grid-template-columns:1fr}
-  .tabs{gap:6px;margin-bottom:12px}
-  .tab{padding:8px 12px;font-size:12px}
-  .ptab{padding:9px 10px;font-size:12.5px}
-  .csub div{padding:10px 4px;font-size:11.5px}
-  .cal{gap:3px}
-  .caldow{font-size:9px;padding:2px}
-  .calcell{min-height:52px;padding:3px 4px;border-radius:7px}
-  .calcell .dn{font-size:10px}
-  .calev{font-size:8px;padding:1px 3px;margin-top:2px;border-radius:3px}
-  .pbhero{flex-direction:column;text-align:center;padding:18px;gap:12px}
-  .pbhero h1{font-size:22px}
-  .pbpills{justify-content:center}
-  .pbactions .btn{padding:11px 14px;flex:1}
-  .pbhook{grid-template-columns:1fr}
-  .tlrank{min-width:32px;font-size:16px}
-  .tlcard{padding:12px 12px 12px 14px;gap:10px}
-  .payrow{flex-wrap:wrap;gap:9px}
-  .crow2{padding:11px 12px;gap:11px}
-  .crow2 .av{width:42px;height:42px;font-size:13px}
-  .crow2 .nm{font-size:14.5px}
-  #lmap{height:300px}
-  .dpsel{flex-wrap:wrap}
-  .actlog .hd{flex-direction:column;align-items:flex-start}
-  .lead .top{flex-wrap:wrap}
-  .composer .crow{flex-wrap:wrap}
-}
 </style>
 </head>
 <body>
@@ -735,7 +680,7 @@ async function acSave(){
   var m=document.getElementById("acModal"); if(m)m.remove();
   openContact(nid);
   try{ await sbWrite("POST","contacts",rec); banner(name+" added to your contacts."); }
-  catch(e){ ngOutboxAdd({kind:"contact",rec:rec}); banner(name+" saved on this device — it'll sync to the database automatically."); }
+  catch(e){ banner("Added on screen — couldn't reach the database (saves once you're online/deployed)."); }
 }
 var current=null, editing=false, saveState="", saveCls="";
 var EDITABLE=[["name","Name"],["business","Business"],["type","Type"],["role","Role"],["phone","Phone"],["email","Email"],["territory","Territory"]];
@@ -853,7 +798,6 @@ function refsHtml(c){
       +rw("Referral value",amt||"—")
       +(r.jobName?rw("Job",esc(r.jobName)):"")
       +(r.contactName?rw("Referred by",esc(r.contactName)):"")
-      +(r.sm?'<div data-smcrew="'+esc(String(r.sm))+'" style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--border);font-size:13px"><span class="muted">Crew</span><b style="text-align:right">…</b></div>':"")
       +'</div>';
     var addBtn=(r.source==="portal")?'<span class="pill" style="font-size:10px">via portal</span>':'<button class="btn" data-addportal="'+i+'" title="Add this referral to the Referral Portal payout queue" style="font-size:11px;padding:5px 10px">'+gi("portal")+' Add to Portal</button>';
     return '<div class="lead refrow" data-rd="'+i+'" style="cursor:pointer"><div class="top"><div style="min-width:0"><div class="who">'+esc(r.jobName||"—")+'</div><div class="meta">'+esc(String(r.date||"").slice(0,10))+(amt?(" · "+amt):"")+'</div></div><div style="display:flex;align-items:center;gap:8px;flex:none">'+sbadge(r.status)+addBtn+'</div></div>'+det+'</div>';
@@ -906,7 +850,7 @@ function wireTab(c){
   var snd=document.getElementById("cSend"); if(snd)snd.onclick=function(){sendComposer(c);};
   var ct=document.getElementById("cTalk"); if(ct)ct.onclick=function(){aiDictate("cmsg",ct);};
   var ci=document.getElementById("cImprove"); if(ci)ci.onclick=function(){aiImprove("cmsg",ci,"cAiMsg");};
-  [].forEach.call(document.querySelectorAll(".refrow"),function(el){el.onclick=function(){var d=el.querySelector(".leaddet");if(d){d.style.display=(d.style.display==="none"?"block":"none");el.classList.toggle("open");if(d.style.display==="block")refCrewLoad(d.querySelector("[data-smcrew]"));}};});
+  [].forEach.call(document.querySelectorAll(".refrow"),function(el){el.onclick=function(){var d=el.querySelector(".leaddet");if(d){d.style.display=(d.style.display==="none"?"block":"none");el.classList.toggle("open");}};});
   [].forEach.call(document.querySelectorAll("[data-addportal]"),function(el){el.onclick=function(ev){ev.stopPropagation();var i=+el.getAttribute("data-addportal");addToPortal(c,(c._refs||[])[i],el);};});
   var lb=document.getElementById("lstBtn"); if(lb)lb.onclick=function(){profileCheckListings(c);};
 }
@@ -930,40 +874,16 @@ async function loadActivity(c){
 }
 async function loadRefs(c){
   var refs=[], leads=[];
-  try{ refs=await sb("referrals?contactId=eq."+c.id+"&select=id,jobName,status,date,amount,contactName,notes&order=date.desc"); }catch(e){}
+  try{ refs=await sb("referrals?contactId=eq."+c.id+"&select=id,jobName,status,date,amount,contactName&order=date.desc"); }catch(e){}
   // Realtor referrals also live in portal_leads (portal submissions) — merge them so the profile matches the Referral Portal.
   if(/realtor/i.test(c.type||"")||c.portalActivatedAt){ try{ leads=await sb("portal_leads?realtorId=eq."+encodeURIComponent(c.id)+"&select=id,customerName,status,moveDate,smJobId&order=id.desc"); }catch(e){} }
   var norm=function(s){return String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");};
   var seen={}, merged=[];
-  (refs||[]).forEach(function(r){ var k=norm(r.jobName); if(k)seen[k]=1; merged.push({id:r.id,jobName:r.jobName,status:r.status,date:r.date,amount:r.amount,contactName:r.contactName,source:"referral",sm:smTagOf(r.notes)}); });
-  (leads||[]).forEach(function(l){ var k=norm(l.customerName); if(k&&seen[k])return; if(k)seen[k]=1; merged.push({id:"pl"+l.id,jobName:l.customerName,status:l.status,date:l.moveDate,amount:null,contactName:c.name,source:"portal",sm:l.smJobId||null}); });
+  (refs||[]).forEach(function(r){ var k=norm(r.jobName); if(k)seen[k]=1; merged.push({id:r.id,jobName:r.jobName,status:r.status,date:r.date,amount:r.amount,contactName:r.contactName,source:"referral"}); });
+  (leads||[]).forEach(function(l){ var k=norm(l.customerName); if(k&&seen[k])return; if(k)seen[k]=1; merged.push({id:"pl"+l.id,jobName:l.customerName,status:l.status,date:l.moveDate,amount:null,contactName:c.name,source:"portal"}); });
   merged.sort(function(a,b){var da=String(a.date||""),db=String(b.date||"");return db<da?-1:db>da?1:0;});
   c._refs=merged;
   if(pTab==="referrals") redrawTab(c);
-}
-/* ---- Crew on job detail (#76): read LIVE from SmartMoving via /api/smJob (no crews table) ---- */
-function smTagOf(s){var m=/\[SM:([^\]\s]+)\]/.exec(String(s||""));return m?m[1]:null;}
-var __smCrew={};
-function refCrewText(j){
-  if(!j||j.ok===false) return '<span style="color:#e24b4a">Couldn’t reach SmartMoving — tap to retry</span>';
-  if(j.crew&&j.crew.length) return esc(j.crew.join(", "));
-  return '<span class="muted">No crew assigned yet</span>';
-}
-function refCrewLoad(elm,force){
-  if(!elm)return; var id=elm.getAttribute("data-smcrew"); if(!id)return;
-  var b=elm.querySelector("b"); if(!b)return;
-  if(__smCrew[id]&&__smCrew[id].ok!==false&&!force){ b.innerHTML=refCrewText(__smCrew[id]); return; }
-  if(elm.getAttribute("data-loading"))return;
-  elm.setAttribute("data-loading","1");
-  b.innerHTML='<span class="spin" style="width:14px;height:14px;border-width:2px"></span>';
-  var done=function(j){
-    __smCrew[id]=j||{ok:false}; elm.removeAttribute("data-loading");
-    b.innerHTML=refCrewText(j);
-    if(!j||j.ok===false){ b.style.cursor="pointer"; b.onclick=function(ev){ev.stopPropagation();refCrewLoad(elm,true);}; }
-    else { b.style.cursor=""; b.onclick=null; }
-  };
-  fetch(NEON_API+"/api/smJob",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({oppId:id})})
-    .then(function(x){return x.json();}).then(done).catch(function(){done(null);});
 }
 async function activatePortal(c){
   if(c.portalActivatedAt) return;
@@ -1068,7 +988,7 @@ async function sendText(payload){
 }
 async function sendComposer(c){
   var msg=(document.getElementById("cmsg")||{}).value||"";
-  if(cSub==="note"){ if(!msg.trim())return; var isVisit=!!(document.getElementById("cVisit")&&document.getElementById("cVisit").checked); var iso0=new Date().toISOString(); var stamp=(isVisit?"[Visit ":"[")+iso0.slice(0,10)+"] "+msg; var nn=(c.notes?c.notes+"\n":"")+stamp; c.notes=nn; var c2=ALL.filter(function(x){return x.id===c.id;})[0]; if(c2)c2.notes=nn; var patch={notes:nn}; if(isVisit){ c.lastVisit=iso0; if(c2)c2.lastVisit=iso0; patch.lastVisit=iso0;} try{await sbWrite("PATCH","contacts?id=eq."+c.id,patch);}catch(e){ ngOutboxAdd({kind:isVisit?"visit":"note",contactId:c.id,stamp:stamp,iso:iso0}); banner((isVisit?"Visit":"Note")+" saved on this device — it'll sync to the database automatically."); } pTab="notes"; renderProfile(); return; }
+  if(cSub==="note"){ if(!msg.trim())return; var isVisit=!!(document.getElementById("cVisit")&&document.getElementById("cVisit").checked); var stamp=(isVisit?"[Visit ":"[")+new Date().toISOString().slice(0,10)+"] "+msg; var nn=(c.notes?c.notes+"\n":"")+stamp; c.notes=nn; var c2=ALL.filter(function(x){return x.id===c.id;})[0]; if(c2)c2.notes=nn; var patch={notes:nn}; if(isVisit){var iso=new Date().toISOString(); c.lastVisit=iso; if(c2)c2.lastVisit=iso; patch.lastVisit=iso;} try{await sbWrite("PATCH","contacts?id=eq."+c.id,patch);}catch(e){} pTab="notes"; renderProfile(); return; }
   if(cSub==="text"){ if(!c.phone){alert("No phone on file.");return;} if(!msg.trim())return; var btn=document.getElementById("cSend"); if(btn){btn.disabled=true;btn.textContent="Sending…";} var sent=await sendText({to:c.phone,body:msg,contactId:c.id,kind:"manual"}); if(sent.ok){ var ta=document.getElementById("cmsg");if(ta)ta.value=""; if(ACT===null)ACT=[]; ACT.unshift({kind:"text",when:new Date().toISOString().slice(0,16).replace("T"," "),text:"→ "+msg}); redrawTab(c); try{ await sbWrite("POST","sms_messages",{contact_id:c.id,direction:"out",to_number:String(c.phone).replace(/[^0-9+]/g,""),from_number:"+13605885228",body:msg,kind:"manual",status:"sent",sent_at:new Date().toISOString()}); }catch(e){} ACT=null; loadActivity(c); }else{alert("Text not sent: "+sent.msg);} if(btn){btn.disabled=false;btn.textContent="Send";} return; }
   if(cSub==="email"){ if(!c.email){alert("No email on file.");return;} if(!msg.trim())return; if(!confirm("Send this email to "+c.name+"?"))return; try{var er=await fetch(NEON_API+"/api/sendEmail",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({to:c.email,subject:"Neon Giant Moving",body:msg,contactId:c.id})});var ej={};try{ej=await er.json();}catch(e){} if(er.ok&&ej.ok!==false){alert("Email sent.");loadActivity(c);}else{alert("Email not sent: "+(ej.message||ej.error||("HTTP "+er.status)));}}catch(e){alert("Send failed — check connection.");} return; }
   alert("Call logging comes next.");
@@ -1101,7 +1021,7 @@ async function renderPortal(){
       var res=await Promise.all([
         sb("portal_leads?select=id,customerName,realtorName,realtorId,status,moveDate,customerPhone,fromAddress,toAddress,notes,submittedAt&order=id.desc"),
         sb("referrals?select=id,contactId,contactName,jobName,status,date&order=date.desc"),
-        sb("contacts?or=(type.eq.Realtor,portalActivatedAt.not.is.null)&select=id,name,business,portalActivatedAt,profilePic,cardImage&order=name.asc"),
+        sb("contacts?or=(type.eq.Realtor,portalActivatedAt.not.is.null)&select=id,name,business,email,phone,portalActivatedAt,profilePic,cardImage&order=name.asc"),
         sb("paid_referrals?select=key,paid_at,partner"),
         sb("payout_queue?select=id,referral_id,contact_id,partner,customer,amount,added_at&order=id.desc").catch(function(){return [];})
       ]);
@@ -1222,10 +1142,18 @@ async function sendPayoutGo(it,btn){
   if(btn){ btn.disabled=true; btn.textContent="Sending…"; }
   try{
     var res=await fetch(NEON_API+"/api/sendPayout",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({realtorEmail:it.email,realtorName:it.partner,amount:it.amount,leadId:it.id,customerName:it.customer,testMode:false})}).then(function(x){return x.json();});
-    var okay = res && !res.error && (res.ok || res.order || res.status==="ok" || res.success);
-    if(okay){ banner("Sent $"+it.amount+" to "+it.partner+"."); await markPaid(it.key,it.partner,true); }
-    else { if(btn){btn.disabled=false;btn.textContent="Send $"+it.amount;} alert("Payout did NOT go through: "+(res&&(res.error||res.message)||"unknown error")+"\nNothing was charged. You can retry or Mark paid manually."); }
+      body:JSON.stringify({realtorEmail:it.email,realtorName:it.partner,amount:it.amount,leadId:it.key,key:it.key,customerName:it.customer,testMode:false})}).then(function(x){return x.json();});
+    // Only treat as paid on a REAL Tremendous order id (or a confirmed prior payment). The
+    // backend records the paid row itself (with the order id) — we don't write an unverified one.
+    var okay = res && res.ok===true && (res.orderId || res.alreadyPaid===true);
+    if(okay){
+      banner((res.alreadyPaid?"Already paid — ":"Sent $"+it.amount+" to ")+it.partner+(res.orderId?" (Tremendous "+res.orderId+")":"")+".");
+      var today=new Date().toISOString().slice(0,10);
+      if(PORTAL&&PORTAL.paid)PORTAL.paid.push({key:it.key,paid_at:today,partner:it.partner,order_id:res.orderId||null});
+      if(view==="portal")drawPortal();
+      if(res.ledgerWarning) alert("Heads up: payment went through but the ledger note failed — "+res.ledgerWarning);
+    }
+    else { if(btn){btn.disabled=false;btn.textContent="Send $"+it.amount;} alert("Payout did NOT go through: "+(res&&(res.error||res.message)||"unknown error")+"\nNothing was charged. You can retry."); }
   }catch(e){ if(btn){btn.disabled=false;btn.textContent="Send $"+it.amount;} alert("Payout failed to reach the service (nothing charged): "+e.message); }
 }
 async function markPaid(key,partner,skipConfirm){
@@ -1233,7 +1161,7 @@ async function markPaid(key,partner,skipConfirm){
   var today=new Date().toISOString().slice(0,10);
   if(PORTAL&&PORTAL.paid)PORTAL.paid.push({key:key,paid_at:today,partner:partner});
   if(view==="portal")drawPortal();
-  try{ await sbWrite("POST","paid_referrals",{key:key,partner:partner,amount:50,paid_at:today}); }
+  try{ await sbWrite("POST","paid_referrals",{key:key,partner:partner,amount:50,paid_at:today,paid_by:"manual"}); }
   catch(e){ /* best-effort; the payout endpoint also records server-side */ }
 }
 
@@ -1243,8 +1171,8 @@ function spinPage(title){ document.getElementById("view").innerHTML='<div class=
 function stat(big,lbl,color){ return '<div class="stat"><div class="big"'+(color?' style="color:'+color+'"':'')+'>'+big+'</div><div class="lbl">'+esc(lbl)+'</div></div>'; }
 async function ensureData(cb){
   if(DATA.refs&&DATA.leads&&DATA.paid){ cb&&cb(); return; }
-  try{DATA.refs=await sb("referrals?select=id,contactId,contactName,jobName,status,date,amount,notes&order=date.desc");}catch(e){DATA.refs=DATA.refs||[];}
-  try{DATA.leads=await sb("portal_leads?select=id,customerName,realtorName,realtorId,status,moveDate,submittedAt,fromAddress,toAddress,smJobId&order=id.desc");}catch(e){DATA.leads=DATA.leads||[];}
+  try{DATA.refs=await sb("referrals?select=id,contactId,contactName,jobName,status,date,amount&order=date.desc");}catch(e){DATA.refs=DATA.refs||[];}
+  try{DATA.leads=await sb("portal_leads?select=id,customerName,realtorName,realtorId,status,moveDate,submittedAt,fromAddress,toAddress&order=id.desc");}catch(e){DATA.leads=DATA.leads||[];}
   try{DATA.paid=await sb("paid_referrals?select=key,paid_at");}catch(e){DATA.paid=DATA.paid||[];}
   try{var sd=await sb("sms_messages?select=created_at");var ed=await sb("email_messages?select=created_at");DATA.msgDates=sd.map(function(m){return m.created_at;}).concat(ed.map(function(m){return m.created_at;})).filter(Boolean);}catch(e){DATA.msgDates=DATA.msgDates||[];}
   try{DATA.strikes=await sb("recruit_strikes?select=agent,count,summary,listed_at&order=listed_at.desc");}catch(e){DATA.strikes=DATA.strikes||[];}
@@ -1917,7 +1845,7 @@ var MOBILE_MODE = /[?&]m=1/.test(location.search) || (window.matchMedia && windo
 renderNav();
 loadContacts().then(function(){
   if(MOBILE_MODE){ var okM=false; try{ bootMobile(); okM=true; }catch(e){ try{console.warn("mobile boot failed",e);}catch(_){}}
-    if(okM){ setTimeout(function(){ try{ensureData(function(){ try{liveAlertCheck(true);}catch(e){} if(mScreen==="home"&&!document.getElementById("mSheet")&&!document.getElementById("mMvSheet")){ try{mRender();}catch(e){} } });}catch(e){} try{ngOutboxFlush();}catch(e){} },400); return; } }
+    if(okM){ setTimeout(function(){ try{ensureData(function(){});}catch(e){} },400); return; } }
   var last=""; try{last=localStorage.getItem("crmNav")||"";}catch(e){}
   if(last.indexOf("c:")===0){ var id=+last.slice(2); if(id&&ALL.some(function(x){return x.id===id;})){ go("contacts"); openContact(id); } else go("contacts"); }
   else if(last){ go(last); } else go("contacts");
@@ -1935,12 +1863,12 @@ function ngBeep(seq){
     });
   }catch(e){}
 }
-function ngToast(emoji,title,sub,color,onTap){
+function ngToast(emoji,title,sub,color){
   var t=document.createElement("div");
-  t.style.cssText="position:fixed;top:calc(18px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:99999;background:var(--surface,#fff);border:2px solid "+color+";border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.28);padding:14px 20px;max-width:92vw;font-family:inherit;display:flex;align-items:center;gap:12px;cursor:pointer";
+  t.style.cssText="position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:99999;background:var(--surface,#fff);border:2px solid "+color+";border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.28);padding:14px 20px;max-width:92vw;font-family:inherit;display:flex;align-items:center;gap:12px;cursor:pointer";
   t.innerHTML='<div style="font-size:26px">'+emoji+'</div><div style="min-width:0"><div style="font-weight:800;font-size:15px;color:'+color+'">'+esc(title)+'</div><div class="muted" style="font-size:13px">'+esc(sub)+'</div></div><div style="margin-left:8px;font-weight:700;opacity:.5">✕</div>';
   document.body.appendChild(t);
-  t.onclick=function(){ t.remove(); try{ if(typeof onTap==="function"){onTap();} else if(onTap!==null){go("portal");} }catch(e){} };
+  t.onclick=function(){ t.remove(); try{go("portal");}catch(e){} };
   setTimeout(function(){ try{t.style.transition="opacity .4s";t.style.opacity="0";setTimeout(function(){t.remove();},420);}catch(e){} }, 10000);
 }
 function liveAlertCheck(seedOnly){
@@ -1957,79 +1885,34 @@ function liveAlertCheck(seedOnly){
       ngBeep([{f:880,t:0,d:.18,v:.6},{f:1320,t:.16,d:.30,v:.65}]);
       try{navigator.vibrate&&navigator.vibrate([120,60,120]);}catch(e){}
       var l=newLeads[0];
-      ngToast("📣", newLeads.length>1?(newLeads.length+" new portal leads"):("New lead: "+(l.customerName||"—")), "From "+(l.realtorName||"the portal")+" — tap to open", "var(--cyan,#22BFE7)",
-        function(){ if(document.getElementById("mApp")) mAlertSheet("📣 New portal lead"+(newLeads.length>1?"s":""), newLeads.map(function(x){return {t:x.customerName||"—",s:"From "+(x.realtorName||"the portal")+(x.moveDate?" · move "+String(x.moveDate).slice(0,10):""),status:x.status};})); else go("portal"); });
+      ngToast("📣", newLeads.length>1?(newLeads.length+" new portal leads"):("New lead: "+(l.customerName||"—")), "From "+(l.realtorName||"the portal")+" — tap to open", "var(--cyan,#22BFE7)");
       try{localStorage.setItem("ngLastLeadId",maxLead);}catch(e){}
     }
     if(newRefs.length){
       ngBeep([{f:523,t:0,d:.16,v:.6,type:"triangle"},{f:659,t:.15,d:.16,v:.6,type:"triangle"},{f:784,t:.3,d:.36,v:.7,type:"triangle"}]);
       try{navigator.vibrate&&navigator.vibrate([200,80,200,80,260]);}catch(e){}
       var r=newRefs[0];
-      ngToast("🚚", newRefs.length>1?(newRefs.length+" new affiliate jobs"):("New affiliate job: "+(r.jobName||"—")), (r.contactName?("Referred by "+r.contactName):"New job in")+" — tap to open", "var(--pink,#FF1493)",
-        function(){ if(document.getElementById("mApp")) mAlertSheet("🚚 New affiliate job"+(newRefs.length>1?"s":""), newRefs.map(function(x){return {t:x.jobName||"—",s:(x.contactName?"Referred by "+x.contactName:"")+(x.date?" · "+String(x.date).slice(0,10):""),status:x.status};})); else go("portal"); });
+      ngToast("🚚", newRefs.length>1?(newRefs.length+" new affiliate jobs"):("New affiliate job: "+(r.jobName||"—")), (r.contactName?("Referred by "+r.contactName):"New job in")+" — tap to open", "var(--pink,#FF1493)");
       try{localStorage.setItem("ngLastRefId",maxRef);}catch(e){}
     }
   }catch(e){}
 }
-/* ---- Offline outbox: queued writes (visits/notes/new contacts) that NEVER get lost.
-       On poor signal the write is saved to this device and auto-synced on the next
-       refresh tick or when the connection comes back. ---- */
-function ngOutboxAll(){try{return JSON.parse(localStorage.getItem("ngOutbox")||"[]");}catch(e){return [];}}
-function ngOutboxSave(a){try{localStorage.setItem("ngOutbox",JSON.stringify(a||[]));}catch(e){}}
-function ngOutboxAdd(item){var a=ngOutboxAll();item.ts=Date.now();a.push(item);ngOutboxSave(a);}
-async function ngOutboxFlush(){
-  if(window.__ngFlushing)return; window.__ngFlushing=1;
-  try{
-    var a=ngOutboxAll(); if(!a.length)return;
-    var keep=[];
-    for(var i=0;i<a.length;i++){
-      var it=a[i], ok=false;
-      try{
-        if(it.kind==="contact"){ ok=await sbWrite("POST","contacts",it.rec); }
-        else if(it.kind==="note"||it.kind==="visit"){
-          // Re-merge against the LIVE notes so we never clobber newer edits,
-          // and never double-append if a retry already landed.
-          var cur=await sb("contacts?id=eq."+it.contactId+"&select=notes,lastVisit");
-          var row=cur&&cur[0];
-          if(!row){ ok=true; }
-          else{
-            var patch={}, notes=row.notes||"";
-            if(it.stamp&&notes.indexOf(it.stamp)<0) patch.notes=(notes?notes+"\n":"")+it.stamp;
-            if(it.kind==="visit"&&it.iso&&(!row.lastVisit||String(row.lastVisit)<it.iso)) patch.lastVisit=it.iso;
-            ok=Object.keys(patch).length?await sbWrite("PATCH","contacts?id=eq."+it.contactId,patch):true;
-          }
-        } else { ok=true; }
-      }catch(e){ ok=false; }
-      if(!ok) keep.push(it);
-    }
-    ngOutboxSave(keep);
-    if(keep.length<a.length){
-      var nn2=a.length-keep.length;
-      try{ if(document.getElementById("mApp")) ngToast("✅","Synced","Sent "+nn2+" saved update"+(nn2>1?"s":"")+" to the CRM.","#1d9e75",null); else banner(nn2+" queued update"+(nn2>1?"s":"")+" synced to the database."); }catch(e){}
-    }
-  } finally { window.__ngFlushing=0; }
-}
-window.addEventListener("online",function(){ try{ngOutboxFlush();}catch(e){} });
-
 /* ---- Live refresh: keep notifications + dashboard current without a reload ---- */
 async function refreshLive(){
-  try{ DATA.refs=await sb("referrals?select=id,contactId,contactName,jobName,status,date,amount,notes&order=date.desc"); }catch(e){}
-  try{ DATA.leads=await sb("portal_leads?select=id,customerName,realtorName,realtorId,status,moveDate,submittedAt,fromAddress,toAddress,smJobId&order=id.desc"); }catch(e){}
+  try{ DATA.refs=await sb("referrals?select=id,contactId,contactName,jobName,status,date,amount&order=date.desc"); }catch(e){}
+  try{ DATA.leads=await sb("portal_leads?select=id,customerName,realtorName,realtorId,status,moveDate,submittedAt,fromAddress,toAddress&order=id.desc"); }catch(e){}
   try{ DATA.paid=await sb("paid_referrals?select=key,paid_at"); }catch(e){}
   try{ var sd=await sb("sms_messages?select=created_at");var ed=await sb("email_messages?select=created_at");DATA.msgDates=sd.map(function(m){return m.created_at;}).concat(ed.map(function(m){return m.created_at;})).filter(Boolean); }catch(e){}
   try{ DATA.strikes=await sb("recruit_strikes?select=agent,count,summary,listed_at&order=listed_at.desc"); }catch(e){}
   try{ updateTopBadges(); }catch(e){}
   try{ liveAlertCheck(); }catch(e){}
-  try{ ngOutboxFlush(); }catch(e){}
   // refresh the at-a-glance dashboard only when it's open and nothing is mid-interaction
   if(view==="dashboard" && !document.getElementById("bellDrop") && !document.getElementById("avModal")){ try{ drawDashboard(); }catch(e){} }
-  // refresh the mobile Today screen only when idle (no sheet open)
-  if(document.getElementById("mApp") && mScreen==="home" && !document.getElementById("mSheet") && !document.getElementById("mCompose") && !document.getElementById("mMvSheet") && !document.getElementById("mAddStops")){ try{ mRender(); }catch(e){} }
 }
 setInterval(refreshLive, 180000); // every 3 minutes
 
 /* ================= SIMPLE MOBILE APP — gated by /?m=1 or phone width (additive; does not touch desktop) ================= */
-var mScreen="home", mSel=null;
+var mScreen="today", mSel=null;
 function mGo(s){ mScreen=s; if(s==="route") mRoutePlanLoaded=false; mRender(); }
 function mAvatar(c){var src=c&&(c.profilePic||c.cardImage||PHOTOS[c.id]);return '<div class="m-av">'+(src?'<img src="'+esc(src)+'">':esc(initials(cName(c)).toUpperCase()))+'</div>';}
 function bootMobile(){
@@ -2037,10 +1920,10 @@ function bootMobile(){
   var st=document.createElement("style"); st.id="mStyle";
   st.textContent="#mApp{position:fixed;inset:0;z-index:9000;background:var(--bg,#fff);color:var(--text,#1a1a2e);display:flex;flex-direction:column}"
   +"#mApp *{box-sizing:border-box}"
-  +".m-top{display:flex;align-items:center;gap:10px;padding:calc(12px + env(safe-area-inset-top,0px)) 16px 12px;border-bottom:1px solid var(--border,#e6e6ef);background:var(--surface,#fff)}"
+  +".m-top{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border,#e6e6ef);background:var(--surface,#fff)}"
   +".m-logo{font-weight:800;font-size:18px;letter-spacing:1px;color:var(--pink,#ff1493)}.m-sub{font-size:10px;letter-spacing:2px;color:var(--text-muted,#888)}"
-  +".m-body{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:14px 14px calc(96px + env(safe-area-inset-bottom,0px))}"
-  +".m-nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--surface,#fff);border-top:1px solid var(--border,#e6e6ef);z-index:9001;padding-bottom:env(safe-area-inset-bottom,0px)}"
+  +".m-body{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 92px}"
+  +".m-nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--surface,#fff);border-top:1px solid var(--border,#e6e6ef);z-index:9001}"
   +".m-nav button{flex:1;border:0;background:none;padding:11px 4px 16px;font:inherit;color:var(--text-muted,#888);font-size:12px;font-weight:600}.m-nav button.on{color:var(--pink,#ff1493)}"
   +".m-card{background:var(--surface,#fff);border:1px solid var(--border,#e6e6ef);border-radius:14px;padding:14px;margin-bottom:12px}"
   +".m-row{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--border,#e6e6ef);border-radius:14px;margin-bottom:10px;background:var(--surface,#fff)}"
@@ -2052,29 +1935,22 @@ function bootMobile(){
   +".m-btn.grad{background:linear-gradient(90deg,var(--pink,#ff1493),var(--cyan,#22bfe7));color:#fff;border:0}.m-btn.full{display:flex;width:100%;margin-bottom:10px}.m-btn[disabled]{opacity:.5}"
   +".m-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}"
   +".m-sheet{position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.45);display:flex;align-items:flex-end}.m-sheet .in{background:var(--bg,#fff);width:100%;max-height:90vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px 28px}"
-  +".m-h{font-size:18px;font-weight:800;margin:4px 0 12px}"
-  +".m-spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border,#ddd);border-top-color:var(--cyan,#22BFE7);border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px}";
+  +".m-h{font-size:18px;font-weight:800;margin:4px 0 12px}";
   document.head.appendChild(st);
   var app=document.createElement("div"); app.id="mApp";
-  app.innerHTML='<div class="m-top" style="flex-direction:column;align-items:stretch;gap:10px"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div class="m-logo">NEON <span style="color:var(--cyan,#22bfe7)">GIANT</span></div><div class="m-sub">FIELD CREW</div></div><button class="m-btn" id="mTheme" title="Light / dark" style="padding:7px 11px;font-size:14px">☾</button><button class="m-btn" id="mDesk" style="padding:7px 12px;font-size:12px">Desktop</button></div><input class="m-in" id="mTopSearch" placeholder="🔍 Search contacts &amp; partners…" style="margin:0"></div><div class="m-body" id="mBody"></div><div class="m-nav" id="mNav"></div>';
+  app.innerHTML='<div class="m-top" style="flex-direction:column;align-items:stretch;gap:10px"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div class="m-logo">NEON CRM</div><div class="m-sub">FIELD</div></div><button class="m-btn" id="mDesk" style="padding:7px 12px;font-size:12px">Desktop</button></div><input class="m-in" id="mTopSearch" placeholder="🔍 Search contacts &amp; partners…" style="margin:0"></div><div class="m-body" id="mBody"></div><div class="m-nav" id="mNav"></div>';
   document.body.appendChild(app);
   document.getElementById("mDesk").onclick=function(){ location.href=location.pathname+"?desktop=1"; };
-  var mtb=document.getElementById("mTheme");
-  if(mtb){ mtb.textContent=(document.documentElement.getAttribute("data-theme")==="dark"?"☀":"☾");
-    mtb.onclick=function(){ var t=document.documentElement.getAttribute("data-theme")==="light"?"dark":"light"; document.documentElement.setAttribute("data-theme",t); mtb.textContent=(t==="dark"?"☀":"☾"); try{localStorage.setItem("crmv2Theme",t);}catch(e){} }; }
   var ts=document.getElementById("mTopSearch"); if(ts) ts.oninput=function(){ if(mScreen!=="partners"){ mGo("partners"); } else { mDrawList(ts.value); } };
   // Delegated tap handler — every contact row (Today + Partners) opens its sheet, survives re-renders.
   document.getElementById("mBody").addEventListener("click",function(e){
     var rm=e.target.closest&&e.target.closest("[data-rmroute]"); if(rm){ e.stopPropagation(); mRouteToggle(+rm.getAttribute("data-rmroute")); return; }
-    var mv=e.target.closest&&e.target.closest("[data-mv]"); if(mv){ mMoveOpen(+mv.getAttribute("data-mv")); return; }
-    var mg=e.target.closest&&e.target.closest("[data-mgo]"); if(mg){ mGo(mg.getAttribute("data-mgo")); return; }
-    var bto=e.target.closest&&e.target.closest("[data-brainto]"); if(bto){ mBrainSave(+bto.getAttribute("data-brainto")); return; }
     if(e.target.closest&&e.target.closest("a")) return;
     var el=e.target.closest&&e.target.closest("[data-open]"); if(el){ var id=+el.getAttribute("data-open"); if(id) mOpen(id); }
   });
   mRender();
 }
-function mNavBar(){ var n=mRouteIds().length; return [["home","Home"],["route","Route"+(n?" ("+n+")":"")],["add","Add"],["brain","🎤 Drop"],["partners","People"]].map(function(it){return '<button data-ms="'+it[0]+'" class="'+(mScreen===it[0]?"on":"")+'">'+it[1]+'</button>';}).join(""); }
+function mNavBar(){ var n=mRouteIds().length; return [["today","Today"],["route","Route"+(n?" ("+n+")":"")],["add","Add"],["partners","Partners"]].map(function(it){return '<button data-ms="'+it[0]+'" class="'+(mScreen===it[0]?"on":"")+'">'+it[1]+'</button>';}).join(""); }
 function mRouteIds(){ try{ var a=JSON.parse(localStorage.getItem("mRoute")||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
 function mRouteSave(a){ try{ localStorage.setItem("mRoute",JSON.stringify(a)); }catch(e){} }
 function mRouteToggle(id){ var a=mRouteIds(), i=a.indexOf(id); if(i>=0)a.splice(i,1); else a.push(id); mRouteSave(a); if(mScreen==="route")mRender(); var nav=document.getElementById("mNav"); if(nav){nav.innerHTML=mNavBar();[].forEach.call(nav.querySelectorAll("button"),function(b){b.onclick=function(){mGo(b.getAttribute("data-ms"));};});} }
@@ -2151,12 +2027,52 @@ function mRoute(){
     var optV=mRouteOpt;
     html+='<div class="m-meta" style="margin:14px 0 8px;font-weight:700">Your added stops ('+ids.length+')</div>';
     html+='<button class="m-btn grad full" id="mOptimizeBtn" style="margin-bottom:8px">🧭 Optimize & navigate all</button>';
+    html+='<button class="m-btn full" id="mSaveRouteBtn" style="margin-bottom:8px">💾 Save this route</button>';
     if(optV&&optV.maps_url){ html+='<div class="m-card" style="margin-bottom:8px"><div class="m-meta">Optimized order · ~'+(Math.round(optV.miles)||0)+' mi round trip</div><a class="m-btn grad full" href="'+esc(optV.maps_url)+'" target="_blank" rel="noopener" style="margin-top:6px">'+gi("map")+' Navigate full route</a></div>'; }
     var ordIds=(optV&&optV.order&&optV.order.length)?optV.order.map(function(s){return s.id;}).filter(function(x){return ids.indexOf(x)>=0;}):ids.slice();
     ids.forEach(function(id){ if(ordIds.indexOf(id)<0) ordIds.push(id); });
     html+=ordIds.map(function(id,idx){ var c=(ALL||[]).filter(function(x){return x.id===id;})[0]; if(!c) return ""; return '<div class="m-row" data-open="'+c.id+'">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-nm">'+(optV?(idx+1)+'. ':'')+esc(cName(c))+'</div><div class="m-meta">'+esc(c.address||c.business||c.type||"")+'</div></div><a class="m-btn" href="'+mStopNav({address:c.address,name:c.name,territory:c.territory})+'" target="_blank" rel="noopener" style="padding:8px 10px">'+gi("map")+'</a><button class="m-btn" data-rmroute="'+c.id+'" style="padding:8px 10px;color:#c0392b">✕</button></div>'; }).join("");
   }
+  html+='<div class="m-card" style="margin-top:14px"><div class="m-h" style="font-size:15px">💾 Saved routes</div><div class="m-meta" style="font-size:11px;margin-bottom:6px">Routes you save here sync to every phone — Tyler can follow one you built.</div><div id="mSavedMsg" class="m-meta" style="font-size:12px"></div><div id="mSavedBox"><div class="m-meta">Loading…</div></div></div>';
   return html;
+}
+var mSavedRoutes=[];
+async function mSaveRoute(){
+  var ids=mRouteIds(), stops=[];
+  if(mRouteOpt&&mRouteOpt.order&&mRouteOpt.order.length) stops=mRouteOpt.order.map(function(s){return {id:s.id,name:s.name,address:s.address||"",lat:(s.lat!=null?s.lat:null),lon:(s.lon!=null?s.lon:null)};});
+  else stops=ids.map(function(id){var c=(ALL||[]).filter(function(x){return x.id===id;})[0]; return c?{id:c.id,name:cName(c),address:c.address||"",lat:(c.lat!=null?c.lat:null),lon:(c.lon!=null?c.lon:null)}:null;}).filter(Boolean);
+  if(!stops.length){ alert("Add some stops to the route first."); return; }
+  var name=prompt("Name this route:", "Route "+new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}));
+  if(!name) return;
+  var rec={ name:name, stops:stops, maps_url:(mRouteOpt&&mRouteOpt.maps_url)||"", miles:(mRouteOpt&&mRouteOpt.miles)||null, created_by:"mobile", created_at:new Date().toISOString() };
+  try{ await sbWrite("POST","saved_routes",rec); }catch(e){ alert("Couldn’t save: "+e.message+"\n\n(If this says the table is missing, the saved_routes table still needs to be created.)"); return; }
+  var msg=document.getElementById("mSavedMsg"); if(msg)msg.textContent='✓ Saved “'+name+'”.';
+  mLoadSavedRoutes();
+}
+function mLoadSavedRoutes(){
+  var box=document.getElementById("mSavedBox"); if(!box)return;
+  sb("saved_routes?select=*&order=created_at.desc&limit=40").then(function(a){
+    mSavedRoutes=a||[];
+    if(!mSavedRoutes.length){ box.innerHTML='<div class="m-meta">No saved routes yet. Build a route above, then tap “Save this route.”</div>'; return; }
+    box.innerHTML=mSavedRoutes.map(function(r){ var n=(r.stops&&r.stops.length)||0; return '<div class="m-row" style="flex-direction:column;align-items:stretch;gap:8px"><div><div class="m-nm">'+esc(r.name||"Route")+'</div><div class="m-meta">'+n+' stop'+(n===1?'':'s')+(r.miles?' · ~'+Math.round(r.miles)+' mi':'')+' · '+esc(String(r.created_at||"").slice(0,10))+'</div></div><div style="display:flex;gap:8px"><button class="m-btn grad" data-followrt="'+r.id+'" style="flex:1">▶ Follow this route</button>'+(r.maps_url?'<a class="m-btn" href="'+esc(r.maps_url)+'" target="_blank" rel="noopener" style="flex:none;padding:8px 12px">'+gi("map")+'</a>':'')+'<button class="m-btn" data-delrt="'+r.id+'" style="flex:none;padding:8px 12px;color:#c0392b">🗑</button></div></div>'; }).join("");
+    [].forEach.call(box.querySelectorAll("[data-followrt]"),function(b){b.onclick=function(){mFollowRoute(b.getAttribute("data-followrt"));};});
+    [].forEach.call(box.querySelectorAll("[data-delrt]"),function(b){b.onclick=function(){mDeleteRoute(b.getAttribute("data-delrt"));};});
+  }).catch(function(e){ box.innerHTML='<div class="m-meta" style="color:#c0392b">Couldn’t load saved routes — the saved_routes table may not exist yet.</div>'; });
+}
+function mFollowRoute(id){
+  var r=(mSavedRoutes||[]).filter(function(x){return String(x.id)===String(id);})[0]; if(!r)return;
+  var stops=r.stops||[];
+  var ids=stops.map(function(s){return s.id;}).filter(function(x){return x!=null;});
+  mRouteSave(ids);
+  mRouteOpt={ order:stops, miles:r.miles||0, maps_url:r.maps_url||"", at:Date.now() };
+  try{ localStorage.setItem("mRouteOpt",JSON.stringify(mRouteOpt)); }catch(e){}
+  if(mScreen==="route") mRender();
+  var b=document.getElementById("mBody"); if(b)b.scrollTop=0;
+}
+function mDeleteRoute(id){
+  var r=(mSavedRoutes||[]).filter(function(x){return String(x.id)===String(id);})[0];
+  if(!confirm("Delete saved route “"+((r&&r.name)||"this route")+"”? (Your contacts and history are untouched.)")) return;
+  sbWrite("DELETE","saved_routes?id=eq."+encodeURIComponent(id)).then(function(){ mLoadSavedRoutes(); }).catch(function(e){ alert("Couldn’t delete: "+e.message); });
 }
 function mAddStops(){
   if(document.getElementById("mAddStops")) return;
@@ -2236,99 +2152,17 @@ function mRender(){
   if(mScreen==="add") body.innerHTML=mAdd();
   else if(mScreen==="partners") body.innerHTML=mPartners();
   else if(mScreen==="route") body.innerHTML=mRoute();
-  else if(mScreen==="brain") body.innerHTML=mBrain();
-  else body.innerHTML=mHome();
+  else body.innerHTML=mToday();
   var nav=document.getElementById("mNav"); if(nav){ nav.innerHTML=mNavBar(); [].forEach.call(nav.querySelectorAll("button"),function(b){b.onclick=function(){mGo(b.getAttribute("data-ms"));};}); }
   mWire();
 }
-/* ---- Today's moves (live, with crew read from SmartMoving) + alert sheets ---- */
-var mMoves=[];
-function mMovesHtml(){
-  mMoves=[];
-  if(!DATA.refs&&!DATA.leads) return '<div class="m-meta"><span class="m-spin"></span> Loading today’s jobs…</div>';
-  var today=new Date().toISOString().slice(0,10);
-  (DATA.refs||[]).forEach(function(r){ if(String(r.date||"").slice(0,10)!==today)return; mMoves.push({t:r.jobName||"Move",partner:r.contactName?("Referred by "+r.contactName):"",status:r.status,sm:smTagOf(r.notes)}); });
-  (DATA.leads||[]).forEach(function(l){ if(String(l.moveDate||"").slice(0,10)!==today)return; mMoves.push({t:l.customerName||"Move",partner:l.realtorName?("Portal · "+l.realtorName):"Portal lead",status:l.status,from:l.fromAddress||"",to:l.toAddress||"",sm:l.smJobId||null}); });
-  if(!mMoves.length) return '<div class="m-meta">No moves scheduled today.</div>';
-  return mMoves.map(function(it,i){return '<div class="m-row" data-mv="'+i+'" style="padding:11px 12px;cursor:pointer"><div style="flex:1;min-width:0"><div class="m-nm" style="font-size:14.5px">'+esc(it.t)+'</div><div class="m-meta">'+esc(it.partner||"")+'</div></div>'+sbadge(it.status)+'</div>';}).join("");
-}
-function mMoveOpen(i){
-  var it=mMoves[i]; if(!it)return;
-  var old=document.getElementById("mMvSheet"); if(old)old.remove();
-  var sh=document.createElement("div"); sh.className="m-sheet"; sh.id="mMvSheet";
-  var lines='';
-  if(it.partner) lines+='<div class="m-meta" style="margin-bottom:6px">'+esc(it.partner)+'</div>';
-  lines+='<div style="margin-bottom:10px">'+sbadge(it.status)+'</div>';
-  if(it.from) lines+='<div class="m-meta">From: '+esc(it.from)+'</div>';
-  if(it.to) lines+='<div class="m-meta" style="margin-bottom:8px">To: '+esc(it.to)+'</div>';
-  if(it.from||it.to){ var dest=it.to||it.from; lines+='<a class="m-btn full" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(dest)+'&travelmode=driving" style="margin-top:6px">'+gi("map")+' Navigate</a>'; }
-  lines+='<div class="m-lbl" style="margin-top:10px">Crew (live from SmartMoving)</div><div id="mMvCrew" class="m-meta">'+(it.sm?'<span class="m-spin"></span> Loading crew…':'No SmartMoving link on this job yet.')+'</div>';
-  sh.innerHTML='<div class="in"><div class="m-h">'+esc(it.t)+'</div>'+lines+'<button class="m-btn full" id="mMvClose" style="margin-top:14px">Close</button></div>';
-  document.body.appendChild(sh);
-  sh.addEventListener("click",function(e){if(e.target===sh)sh.remove();});
-  var cb=document.getElementById("mMvClose"); if(cb)cb.onclick=function(){sh.remove();};
-  if(it.sm){
-    fetch(NEON_API+"/api/smJob",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({oppId:String(it.sm)})})
-      .then(function(x){return x.json();}).then(function(j){
-        var el=document.getElementById("mMvCrew"); if(!el)return;
-        if(j&&j.ok&&j.crew&&j.crew.length) el.innerHTML='<b style="color:var(--text,#111);font-size:14px">'+esc(j.crew.join(", "))+'</b>';
-        else if(j&&j.ok) el.textContent="No crew assigned yet.";
-        else el.textContent="Couldn’t reach SmartMoving — try again in a minute.";
-      }).catch(function(){ var el=document.getElementById("mMvCrew"); if(el)el.textContent="Couldn’t reach SmartMoving — check your signal."; });
-  }
-}
-function mAlertSheet(title,items){
-  var old=document.getElementById("mAlertSheetEl"); if(old)old.remove();
-  var sh=document.createElement("div"); sh.className="m-sheet"; sh.id="mAlertSheetEl";
-  sh.innerHTML='<div class="in"><div class="m-h">'+esc(title)+'</div>'
-    +(items||[]).map(function(it){return '<div class="m-row" style="padding:11px 12px"><div style="flex:1;min-width:0"><div class="m-nm" style="font-size:14.5px">'+esc(it.t||"—")+'</div><div class="m-meta">'+esc(it.s||"")+'</div></div>'+sbadge(it.status)+'</div>';}).join("")
-    +'<button class="m-btn full" id="mAlertClose" style="margin-top:10px">Close</button></div>';
-  document.body.appendChild(sh);
-  sh.addEventListener("click",function(e){if(e.target===sh)sh.remove();});
-  var cb=document.getElementById("mAlertClose"); if(cb)cb.onclick=function(){sh.remove();};
-}
-function mHome(){
-  var tiles=[["route","🧭","Plan my route","Build today’s stops & navigate"],["add","➕","Add a person","Scan a card, speak, or type"],["brain","🎤","Brain drop","Dictate visit notes hands-free"],["partners","👥","Partners","Look anyone up & log visits"]];
-  var html='<div class="m-card" style="background:linear-gradient(135deg,rgba(255,20,147,.09),rgba(34,191,231,.09))"><div class="m-h" style="margin-bottom:2px">What are we doing today?</div><div class="m-meta">Tap an action — everything saves straight to the CRM.</div></div>';
-  html+='<div class="m-actions" style="gap:10px;margin-bottom:12px">'+tiles.map(function(t){return '<button class="m-btn" data-mgo="'+t[0]+'" style="flex-direction:column;align-items:flex-start;gap:5px;padding:14px;min-height:98px;text-align:left"><span style="font-size:23px">'+t[1]+'</span><span style="font-weight:800;font-size:14.5px">'+t[2]+'</span><span class="m-meta" style="font-size:11px;font-weight:500;line-height:1.3">'+t[3]+'</span></button>';}).join("")+'</div>';
-  html+='<div class="m-card"><div class="m-h">Today’s moves</div>'+mMovesHtml()+'</div>';
-  var ob=ngOutboxAll().length;
-  if(ob) html+='<div class="m-card" style="border-color:#e0860066"><div class="m-meta">📦 '+ob+' update'+(ob>1?'s':'')+' saved on this phone — syncs automatically when you have signal.</div></div>';
+function mToday(){
+  var rows=(ALL||[]).filter(function(c){return c.phone;});
+  rows.sort(function(a,b){var da=daysSince(a),db=daysSince(b);da=(da===null?1e9:da);db=(db===null?1e9:db);return db-da;});
+  rows=rows.slice(0,20);
+  var html='<div class="m-card"><div class="m-h">Today’s touches</div><div class="m-meta">People due for a check-in — stalest first. Tap to call, text, or log a visit.</div></div>';
+  html+=rows.map(function(c){var d=daysSince(c);return '<div class="m-row" data-open="'+c.id+'">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-nm">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+(d!=null?' · '+d+'d ago':' · new')+'</div></div></div>';}).join("");
   return html;
-}
-/* ---- Brain drop: mass-dictate visit notes, clean with AI, attach to partners one by one ---- */
-var mBrainVisit=true;
-function mBrain(){
-  return '<div class="m-card"><div class="m-h">🎤 Brain drop</div><div class="m-meta" style="margin-bottom:10px">Tap Talk and dump everything from your visits — it types while you speak. Hit ✨ to clean it up, then tap the partner to file it. Repeat for the next stop.</div>'
-   +'<textarea class="m-in" id="mBrainTxt" rows="7" placeholder="“Stopped by Skagit Self Storage, talked to Savannah, two move-outs coming next month, wants more magnets…”"></textarea>'
-   +'<div style="display:flex;gap:8px;margin-bottom:10px"><button class="m-btn" id="mBrainTalk" style="flex:1">🎤 Talk</button><button class="m-btn" id="mBrainImp" style="flex:1">✨ Improve</button></div>'
-   +'<label class="m-meta" style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><input type="checkbox" id="mBrainChk"'+(mBrainVisit?' checked':'')+' style="width:18px;height:18px"> Log as a visit (updates their last-visit date)</label>'
-   +'<div class="m-lbl">File it under</div><input class="m-in" id="mBrainWho" placeholder="🔍 Search the partner / place…">'
-   +'<div id="mBrainList"></div>'
-   +'<div id="mBrainMsg" class="m-meta" style="margin-top:6px"></div></div>';
-}
-function mBrainList(){
-  var el=document.getElementById("mBrainList"); if(!el)return;
-  var q=((document.getElementById("mBrainWho")||{}).value||"").toLowerCase().trim();
-  if(!q){ el.innerHTML='<div class="m-meta" style="padding:6px 2px">Type a name above, then tap them to save this drop to their notes.</div>'; return; }
-  var rows=(ALL||[]).filter(function(c){ return ((c.name||"")+" "+(c.business||"")).toLowerCase().indexOf(q)>=0; }).slice(0,6);
-  el.innerHTML=rows.length?rows.map(function(c){return '<div class="m-row" data-brainto="'+c.id+'" style="padding:10px 12px;cursor:pointer">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-nm" style="font-size:14px">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+'</div></div><div style="font-weight:800;color:var(--pink,#FF1493);flex:none">Save →</div></div>';}).join(""):'<div class="m-meta" style="padding:6px 2px">No matches — check the spelling, or add them from the Add tab first.</div>';
-}
-async function mBrainSave(id){
-  var ta=document.getElementById("mBrainTxt"), msg=document.getElementById("mBrainMsg");
-  var t=(ta&&ta.value||"").trim();
-  if(!t){ if(msg)msg.innerHTML='<span style="color:#e24b4a">Nothing to save yet — Talk or type first.</span>'; return; }
-  var c=(ALL||[]).filter(function(x){return x.id===id;})[0]; if(!c)return;
-  if(_dictRec){try{_dictRec.stop();}catch(e){}}
-  var isVisit=!!((document.getElementById("mBrainChk")||{}).checked); mBrainVisit=isVisit;
-  var iso=new Date().toISOString();
-  var stamp=(isVisit?"[Visit ":"[")+iso.slice(0,10)+"] "+t;
-  var nn=(c.notes?c.notes+"\n":"")+stamp; c.notes=nn;
-  var patch={notes:nn}; if(isVisit){ c.lastVisit=iso; patch.lastVisit=iso; }
-  var synced=true;
-  try{ await sbWrite("PATCH","contacts?id=eq."+id,patch); }catch(e){ synced=false; ngOutboxAdd({kind:isVisit?"visit":"note",contactId:id,stamp:stamp,iso:iso}); }
-  if(ta)ta.value=""; var who=document.getElementById("mBrainWho"); if(who)who.value=""; mBrainList();
-  if(msg)msg.innerHTML='<span style="color:var(--pink);font-weight:700">✓ Saved to '+esc(cName(c))+(synced?'':' (on phone — will sync)')+'.</span> Ready for the next one.';
 }
 function mAdd(){
   return '<div class="m-card"><div class="m-h">Add a contact</div>'
@@ -2357,11 +2191,10 @@ function mWire(){
   var sc=document.getElementById("acScan"),f=document.getElementById("acCardFile"); if(sc&&f){sc.onclick=function(){f.click();};f.onchange=function(){if(f.files&&f.files[0])acScanCard(f.files[0]);};}
   var sp=document.getElementById("acSpeak"); if(sp)sp.onclick=acSpeak;
   var rr=document.getElementById("mRouteRefresh"); if(rr)rr.onclick=function(){ mRoutePlanLoaded=false; mRender(); };
-  var bt=document.getElementById("mBrainTalk"); if(bt)bt.onclick=function(){aiDictate("mBrainTxt",bt);};
-  var bi=document.getElementById("mBrainImp"); if(bi)bi.onclick=function(){aiImprove("mBrainTxt",bi,"mBrainMsg");};
-  var bw=document.getElementById("mBrainWho"); if(bw){ bw.oninput=mBrainList; mBrainList(); }
   var asb=document.getElementById("mAddStopsBtn"); if(asb)asb.onclick=mAddStops;
   var ob=document.getElementById("mOptimizeBtn"); if(ob)ob.onclick=mOptimizeRoute;
+  var srb=document.getElementById("mSaveRouteBtn"); if(srb)srb.onclick=mSaveRoute;
+  if(document.getElementById("mSavedBox")) mLoadSavedRoutes();
   if(document.getElementById("mRouteMap")) mRenderMap();
   if(document.getElementById("mList")){ var hv=(document.getElementById("mTopSearch")||{}).value||""; mDrawList(hv); }
   window.__acNotes="";
@@ -2377,7 +2210,7 @@ async function mSaveContact(){
   ALL.push(rec); ALL.sort(function(a,b){return String(a.name||"").localeCompare(String(b.name||""));});
   if(msg)msg.textContent="Saving…";
   try{ await sbWrite("POST","contacts",rec); if(msg)msg.innerHTML='<span style="color:var(--pink);font-weight:700">✓ '+esc(name)+' added.</span>'; }
-  catch(e){ ngOutboxAdd({kind:"contact",rec:rec}); if(msg)msg.innerHTML='<span style="color:var(--pink);font-weight:700">✓ '+esc(name)+' saved on your phone — syncs when you have signal.</span>'; }
+  catch(e){ if(msg)msg.textContent="Saved on screen — couldn’t reach the database."; }
   setTimeout(function(){ mGo("partners"); },1000);
 }
 function mOpen(id){
@@ -2500,14 +2333,12 @@ function mCompose(c,kind){
     if(_dictRec){try{_dictRec.stop();}catch(_){}}
     var btn=this; btn.disabled=true; btn.textContent="Working…";
     if(kind==="note"||kind==="visit"){
-      var iso=new Date().toISOString();
-      var stamp=(kind==="visit"?"[Visit ":"[")+iso.slice(0,10)+"] "+t;
+      var stamp=(kind==="visit"?"[Visit ":"[")+new Date().toISOString().slice(0,10)+"] "+t;
       var nn=(c.notes?c.notes+"\n":"")+stamp; c.notes=nn;
-      var patch={notes:nn}; if(kind==="visit"){ c.lastVisit=iso; patch.lastVisit=iso; }
+      var patch={notes:nn}; if(kind==="visit"){ var iso=new Date().toISOString(); c.lastVisit=iso; patch.lastVisit=iso; }
       var c2=(ALL||[]).filter(function(x){return x.id===c.id;})[0]; if(c2){c2.notes=nn; if(kind==="visit")c2.lastVisit=c.lastVisit;}
-      var synced=true;
-      try{await sbWrite("PATCH","contacts?id=eq."+c.id,patch);}catch(e){ synced=false; ngOutboxAdd({kind:kind,contactId:c.id,stamp:stamp,iso:iso}); }
-      ov.remove(); var s1=document.getElementById("mSheetMsg"); if(s1)s1.innerHTML='<span style="color:var(--pink);font-weight:700">✓ '+(kind==="visit"?"Visit logged.":"Note saved.")+(synced?"":" Saved on your phone — syncs when you have signal.")+'</span>'; return;
+      try{await sbWrite("PATCH","contacts?id=eq."+c.id,patch);}catch(e){}
+      ov.remove(); var s1=document.getElementById("mSheetMsg"); if(s1)s1.innerHTML='<span style="color:var(--pink);font-weight:700">✓ '+(kind==="visit"?"Visit logged.":"Note saved.")+'</span>'; return;
     }
     var sent=await sendText({to:c.phone,body:t,contactId:c.id,kind:"manual"});
     if(sent.ok){ try{ await sbWrite("POST","sms_messages",{contact_id:c.id,direction:"out",to_number:String(c.phone).replace(/[^0-9+]/g,""),from_number:"+13605885228",body:t,kind:"manual",status:"sent",sent_at:new Date().toISOString()}); }catch(e){} ov.remove(); var s2=document.getElementById("mSheetMsg"); if(s2)s2.innerHTML='<span style="color:var(--pink);font-weight:700">✓ Text sent.</span>'; }
