@@ -97,6 +97,12 @@ const handler = endpoint(async function (ctx) {
   if (!env.WP_BASE || !env.WP_USER || !env.WP_APP_PASSWORD) {
     return reply({ ok: false, error: 'wordpress_not_configured', note: 'Set WP_BASE, WP_USER, WP_APP_PASSWORD in the neon-api environment.' }, 503);
   }
+  if (body.action === 'whoami') {
+    var me = await wp(env, '/users/me?context=edit', 'GET');
+    var caps = (me.ok && me.json && me.json.capabilities) ? Object.keys(me.json.capabilities).filter(function (k) { return /publish_pages|edit_pages|administrator|create/.test(k); }) : null;
+    return reply({ ok: me.ok, status: me.status, authedAs: me.ok ? { id: me.json.id, name: me.json.name, slug: me.json.slug } : null, canPublishPages: caps, error: me.ok ? null : (me.json && me.json.code) || me.json });
+  }
+
   var o = (body && body.opts) || {};
   var slug = slugify(o.slug || o.name);
   if (!slug) return reply({ ok: false, error: 'missing_slug' }, 400);
