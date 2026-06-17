@@ -36,12 +36,28 @@ const handler = endpoint(async (ctx) => {
   var env = ctx.env, body = ctx.body || {}, reply = ctx.reply;
   var key = env.SMARTMOVING_API_KEY;
   if (!key) return reply({ ok: false, error: 'sm_not_configured' }, 503);
+  if (body.probe) {
+    var cands = ['/api/customers', '/api/leads', '/api/opportunities', '/api/jobs', '/api/moves', '/api/referral-sources', '/api/referralsources', '/api/providers', '/api/branches'];
+    var probe = [];
+    for (var i = 0; i < cands.length; i++) {
+      var pg = await smGet(key, cands[i] + '?Page=1&PageSize=3');
+      var pl = listFrom(pg.body);
+      probe.push({
+        path: cands[i], status: pg.status,
+        topKeys: (pg.body && typeof pg.body === 'object' && !Array.isArray(pg.body)) ? Object.keys(pg.body).slice(0, 12) : (Array.isArray(pg.body) ? 'array' : typeof pg.body),
+        itemKeys: pl[0] ? Object.keys(pl[0]).slice(0, 30) : null,
+      });
+    }
+    return reply({ ok: true, probe: probe });
+  }
+
   var q = norm(body.q || '');
   var pages = Math.min(+body.pages || 6, 12);
+  var path = body.path || '/api/customers';
   var matches = [], scanned = 0, sampleKeys = null, lastError = null;
 
   for (var page = 1; page <= pages; page++) {
-    var g = await smGet(key, '/api/opportunities?Page=' + page + '&PageSize=100');
+    var g = await smGet(key, path + (path.indexOf('?') >= 0 ? '&' : '?') + 'Page=' + page + '&PageSize=100');
     if (!g.ok) { lastError = { path: '/api/opportunities', status: g.status, body: typeof g.body === 'string' ? g.body.slice(0, 200) : g.body }; break; }
     var list = listFrom(g.body);
     if (!sampleKeys && list[0]) sampleKeys = Object.keys(list[0]);
