@@ -1164,7 +1164,7 @@ function drawPortal(){
         +'<div style="display:flex;align-items:center;gap:10px"><span class="due">'+money(it.amount)+' due</span>'
         +'<button class="btn grad" data-send="'+esc(it.key)+'" title="Send a Tremendous gift card now">Send $'+it.amount+'</button>'
         +'<button class="btn green" data-pay="'+esc(it.key)+'" data-partner="'+esc(it.partner||"")+'" title="Record as paid (if you paid outside the app)">Mark paid</button>'
-        +'<button class="btn" data-skip="'+esc(it.key)+'" data-qid="'+(it.qid!=null?it.qid:"")+'" data-partner="'+esc(it.partner||"")+'" data-customer="'+esc(it.customer||"")+'" title="Remove as a payout — keeps it as a referral, just won\'t pay it" style="color:#c0392b">Remove</button>'
+        +'<button class="btn" data-skip="'+esc(it.key)+'" data-qid="'+(it.qid!=null?it.qid:"")+'" data-partner="'+esc(it.partner||"")+'" data-customer="'+esc(it.customer||"")+'" title="Remove as a payout. Keeps it as a referral, just will not pay it." style="color:#c0392b">Remove</button>'
         +'</div></div>';
     });
   }else if(portalTab==="paid"){
@@ -1205,7 +1205,7 @@ function drawPortal(){
 }
 async function skipPayout(key,qid,partner,customer){
   if(!key) return;
-  if(!confirm("Remove this as a payout?\n\n\""+(customer||"This referral")+"\" stays on "+(partner||"the partner")+"’s record as a referral — it just won’t show in Payouts Due and nothing is paid.\n\n(Undo from the Paid tab → it’ll come back to Payouts Due if you delete the skip.)")) return;
+  if(!confirm("Remove this as a payout?\n\n"+(customer||"This referral")+" stays on "+(partner||"the partner")+"'s record as a referral. It just will not show in Payouts Due, and nothing is paid.\n\n(To undo, delete its row in the payout_skips table.)")) return;
   // optimistic: drop it locally so the row disappears immediately
   if(!PORTAL.skips) PORTAL.skips=[];
   PORTAL.skips.push({key:key,partner:partner||"",customer:customer||""});
