@@ -798,7 +798,7 @@ function activityHtml(){
   var hd='<div class="actlog"><div class="hd"><h3>Activity</h3><div class="filt">'+filts.map(function(x){return '<span class="'+(x===actFilter?"on":"")+'" data-af="'+x+'">'+x.charAt(0).toUpperCase()+x.slice(1)+'</span>';}).join("")+'</div></div>';
   if(ACT===null) return hd+'<div class="noact"><span class="spin"></span></div></div>';
   var shown=ACT.filter(function(it){return actFilter==="all"||(it.kind+"s")===actFilter;});
-  var body=shown.length?shown.map(function(it){return '<div class="actitem"><span class="k">'+esc(it.kind)+'</span> · '+esc(it.when)+'<div style="margin-top:3px">'+esc(it.text)+'</div></div>';}).join(""):'<div class="noact">No activity yet</div>';
+  var body=shown.length?shown.map(function(it){var ph=it.media?'<a href="'+esc(it.media)+'" target="_blank" rel="noopener"><img src="'+esc(it.media)+'" alt="photo" style="margin-top:6px;max-width:200px;max-height:200px;border-radius:10px;border:1px solid var(--border);display:block"></a>':'';return '<div class="actitem"><span class="k">'+esc(it.kind)+'</span> · '+esc(it.when)+'<div style="margin-top:3px">'+esc(it.text)+'</div>'+ph+'</div>';}).join(""):'<div class="noact">No activity yet</div>';
   return hd+body+'</div>';
 }
 function noteBox(c,kind){
@@ -856,32 +856,55 @@ function refsHtml(c){
     return '<div class="lead refrow" data-rd="'+i+'" style="cursor:pointer"><div class="top"><div style="min-width:0"><div class="who">'+esc(r.jobName||"—")+'</div><div class="meta">'+esc(String(r.date||"").slice(0,10))+(amt?(" · "+amt):"")+'</div></div><div style="display:flex;align-items:center;gap:8px;flex:none">'+sbadge(r.status)+addBtn+'</div></div>'+det+'</div>';
   }).join("");
 }
+function zillowUrl(addr){ return "https://www.zillow.com/homes/"+encodeURIComponent(String(addr||"").trim())+"_rb/"; }
+function listingMoney(n){ n=+n; return n?("$"+n.toLocaleString()):""; }
 function listingsHtml(c){
   var d=c._listings;
   var head='<div class="pcard"><h3>'+gi("search")+' Recent Listings</h3>'
-    +'<div class="muted" style="font-size:12.5px;margin-bottom:10px">Public listings where '+esc(firstName(c.name||c.business||""))+' is the listing agent — pulled live via AI web search (best-effort, not full MLS).</div>';
-  if(d===undefined) return head+'<button class="btn grad" id="lstBtn">'+gi("search")+' Find recent listings</button><div id="lstOut" style="margin-top:10px"></div></div>';
-  if(d&&d.loading) return head+'<div class="noact"><span class="spin"></span> Searching public listings… (~20s)</div></div>';
+    +'<div class="muted" style="font-size:12.5px;margin-bottom:10px">Active for-sale listings where '+esc(firstName(c.name||c.business||""))+' is the listing agent, from RentCast. Tap any listing to open it on Zillow.</div>';
+  if(d===undefined) return head+'<button class="btn grad" id="lstBtn">'+gi("search")+' Find listings</button><div id="lstOut" style="margin-top:10px"></div></div>';
+  if(d&&d.loading) return head+'<div class="noact"><span class="spin"></span> Pulling listings…</div></div>';
   var refresh='<button class="btn" id="lstBtn" style="margin-bottom:10px">'+gi("search")+' Refresh</button>';
   if(d&&d.error) return head+refresh+'<div class="muted" style="font-size:12.5px">'+esc(d.error)+'</div></div>';
   var list=(d&&d.listings)||[];
   var rows=list.length?list.map(function(it){
-    var addr,price;
-    if(typeof it==="string"){var p=it.split(" - ");addr=p[0];price=p.slice(1).join(" - ");}
-    else {addr=it.address||it.addr||it.title||"Listing";price=it.price||it.list_price||"";}
-    var url=(typeof it==="object"&&(it.url||it.link))||("https://www.google.com/search?q="+encodeURIComponent((addr||"")+" "+(c.business||c.brokerage||"")+" for sale"));
-    return '<a href="'+esc(url)+'" target="_blank" rel="noopener" class="lead" style="display:block;text-decoration:none;color:inherit"><div class="top"><div style="min-width:0"><div class="who">'+esc(addr||"Listing")+'</div>'+(price?'<div class="meta">'+esc(price)+'</div>':'')+'</div><div class="muted" style="font-size:11px;flex:none;align-self:center">View &#8599;</div></div></a>';
-  }).join(""):'<div class="noact">No recent public listings found right now.</div>';
+    var addr=(typeof it==="string")?it:(it.address||it.addr||it.title||"Listing");
+    var bits=[];
+    if(it&&it.price){bits.push(listingMoney(it.price));}
+    if(it&&(it.beds!=null)){bits.push(it.beds+" bd");}
+    if(it&&(it.baths!=null)){bits.push(it.baths+" ba");}
+    if(it&&it.sqft){bits.push((+it.sqft).toLocaleString()+" sqft");}
+    if(it&&it.type){bits.push(esc(it.type));}
+    var when=(it&&it.listedDate)?(" · listed "+String(it.listedDate).slice(0,10)):"";
+    var url=(it&&(it.url||it.link))||zillowUrl(addr);
+    return '<a href="'+esc(url)+'" target="_blank" rel="noopener" class="lead" style="display:block;text-decoration:none;color:inherit"><div class="top"><div style="min-width:0"><div class="who">'+esc(addr)+'</div><div class="meta">'+esc(bits.join(" · "))+when+'</div></div><div class="muted" style="font-size:11px;flex:none;align-self:center">Zillow &#8599;</div></div></a>';
+  }).join(""):'<div class="noact">No active listings found for them right now. (RentCast shows current for-sale listings; if they only have pending/sold or list under a team name, those may not appear.)</div>';
   var cnt=(d&&d.count!=null)?d.count:list.length;
-  return head+refresh+((cnt||(d&&d.summary))?'<div class="muted" style="font-size:12px;margin-bottom:8px">'+(cnt?cnt+' found':'')+((d&&d.summary)?(cnt?' · ':'')+esc(d.summary):'')+'</div>':'')+rows+'</div>';
+  return head+refresh+(cnt?'<div class="muted" style="font-size:12px;margin-bottom:8px">'+cnt+' active listing'+(cnt>1?"s":"")+'</div>':'')+rows+'</div>';
+}
+function rcAreaForContact(c){
+  var t=((c.territory||"")+" "+(c.business||"")).toLowerCase();
+  var M=[
+    [/anacortes/,48.5126,-122.6127],
+    [/mount vernon|mt vernon|skagit/,48.4201,-122.3340],
+    [/burlington/,48.4757,-122.3287],
+    [/sedro|woolley/,48.5044,-122.2362],
+    [/lynden/,48.9468,-122.4527],
+    [/ferndale/,48.8462,-122.5912],
+    [/blaine/,48.9937,-122.7474],
+    [/bellingham|whatcom/,48.7519,-122.4787]
+  ];
+  for(var i=0;i<M.length;i++){ if(M[i][0].test(t)) return {latitude:M[i][1],longitude:M[i][2],radius:25,state:"WA"}; }
+  return {latitude:48.62,longitude:-122.45,radius:45,state:"WA"};
 }
 async function profileCheckListings(c){
   c._listings={loading:true}; redrawTab(c);
+  var area=rcAreaForContact(c);
   try{
-    var res=await fetch(NEON_API+"/api/checkListings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({opts:{name:c.name,brokerage:c.business||c.brokerage||"",area:c.territory||"Whatcom/Skagit County, WA"}})}).then(function(x){return x.json();});
-    if(res&&res.ok!==false){ c._listings={count:res.count||0,summary:res.summary||"",listings:res.listings||[]}; }
-    else { c._listings={error:"Listing search isn't available yet — it needs the AI endpoint live. Try again after deploying."}; }
-  }catch(e){ c._listings={error:"Couldn't reach the listing search service (it connects once v2 is on the live domain)."}; }
+    var res=await fetch(NEON_API+"/api/rentcast",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"agentListings",opts:{agentName:c.name,latitude:area.latitude,longitude:area.longitude,radius:area.radius,state:area.state,limit:500}})}).then(function(x){return x.json();});
+    if(res&&res.ok!==false){ c._listings={count:res.matched||0,scanned:res.scanned||0,listings:res.listings||[]}; }
+    else { c._listings={error:"Listing lookup failed ("+((res&&(res.status||res.error))||"unknown")+"). Try Refresh in a moment."}; }
+  }catch(e){ c._listings={error:"Couldn't reach the listings service. Try Refresh in a moment."}; }
   if(pTab==="listings") redrawTab(c);
 }
 function redrawTab(c){var el=document.getElementById("ptcontent");if(el)el.innerHTML=tabContent(c);[].forEach.call(document.querySelectorAll(".ptab"),function(e){e.classList.toggle("active",e.getAttribute("data-pt")===pTab);});wireTab(c);}
@@ -940,7 +963,7 @@ async function addToPortal(c,r,btn){
 }
 async function loadActivity(c){
   var acc=[];
-  try{var sms=await sb("sms_messages?contact_id=eq."+c.id+"&select=direction,body,created_at&order=created_at.desc&limit=40");sms.forEach(function(m){acc.push({kind:"text",when:String(m.created_at||"").slice(0,16).replace("T"," "),text:(m.direction==="out"?"→ ":"← ")+(m.body||"")});});}catch(e){}
+  try{var sms;try{sms=await sb("sms_messages?contact_id=eq."+c.id+"&select=direction,body,created_at,media_url&order=created_at.desc&limit=40");}catch(e1){sms=await sb("sms_messages?contact_id=eq."+c.id+"&select=direction,body,created_at&order=created_at.desc&limit=40");}sms.forEach(function(m){acc.push({kind:"text",when:String(m.created_at||"").slice(0,16).replace("T"," "),text:(m.direction==="out"?"→ ":"← ")+(m.body||""),media:m.media_url||null});});}catch(e){}
   try{var em=await sb("email_messages?contact_id=eq."+c.id+"&select=direction,subject,created_at&order=created_at.desc&limit=40");em.forEach(function(m){acc.push({kind:"email",when:String(m.created_at||"").slice(0,16).replace("T"," "),text:(m.subject||"(email)")});});}catch(e){}
   acc.sort(function(a,b){return a.when<b.when?1:-1;});
   ACT=acc;
@@ -1069,7 +1092,7 @@ async function sendComposer(c){
   if(cSub==="note"){ if(!msg.trim())return; var isVisit=!!(document.getElementById("cVisit")&&document.getElementById("cVisit").checked); var stamp=(isVisit?"[Visit ":"[")+new Date().toISOString().slice(0,10)+"] "+msg; var nn=(c.notes?c.notes+"\n":"")+stamp; c.notes=nn; var c2=ALL.filter(function(x){return x.id===c.id;})[0]; if(c2)c2.notes=nn; var patch={notes:nn}; if(isVisit){var iso=new Date().toISOString(); c.lastVisit=iso; if(c2)c2.lastVisit=iso; patch.lastVisit=iso;} try{await sbWrite("PATCH","contacts?id=eq."+c.id,patch);}catch(e){} pTab="notes"; renderProfile(); return; }
   if(cSub==="text"){ if(!c.phone){alert("No phone on file.");return;} if(!msg.trim()&&!cImg)return; var btn=document.getElementById("cSend"); if(btn){btn.disabled=true;btn.textContent="Sending…";}
     var sent = cImg ? await sendPhoto({to:c.phone,body:msg,contactId:c.id,kind:"manual",imageBase64:cImg}) : await sendText({to:c.phone,body:msg,contactId:c.id,kind:"manual"});
-    if(sent.ok){ var hadImg=!!cImg; cImg=null; var ta=document.getElementById("cmsg");if(ta)ta.value=""; var logBody=(hadImg?"📷 ":"")+(msg||(hadImg?"Photo":"")); if(ACT===null)ACT=[]; ACT.unshift({kind:"text",when:new Date().toISOString().slice(0,16).replace("T"," "),text:"→ "+logBody}); redrawTab(c); try{ await sbWrite("POST","sms_messages",{contact_id:c.id,direction:"out",to_number:String(c.phone).replace(/[^0-9+]/g,""),from_number:"+13605885228",body:logBody,kind:"manual",status:"sent",sent_at:new Date().toISOString()}); }catch(e){} ACT=null; loadActivity(c); }else{alert((cImg?"Photo":"Text")+" not sent: "+sent.msg);} if(btn){btn.disabled=false;btn.textContent="Send";} return; }
+    if(sent.ok){ var hadImg=!!cImg; var mediaUrl=hadImg?(sent.mediaUrl||null):null; cImg=null; var ta=document.getElementById("cmsg");if(ta)ta.value=""; var logBody=(hadImg?"📷 ":"")+(msg||(hadImg?"Photo":"")); if(ACT===null)ACT=[]; ACT.unshift({kind:"text",when:new Date().toISOString().slice(0,16).replace("T"," "),text:"→ "+logBody,media:mediaUrl}); redrawTab(c); var row={contact_id:c.id,direction:"out",to_number:String(c.phone).replace(/[^0-9+]/g,""),from_number:"+13605885228",body:logBody,kind:"manual",status:"sent",sent_at:new Date().toISOString()}; if(mediaUrl)row.media_url=mediaUrl; try{ await sbWrite("POST","sms_messages",row); }catch(e){} ACT=null; loadActivity(c); }else{alert((cImg?"Photo":"Text")+" not sent: "+sent.msg);} if(btn){btn.disabled=false;btn.textContent="Send";} return; }
   if(cSub==="email"){ if(!c.email){alert("No email on file.");return;} if(!msg.trim())return; if(!confirm("Send this email to "+c.name+"?"))return; try{var er=await fetch(NEON_API+"/api/sendEmail",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({to:c.email,subject:"Neon Giant Moving",body:msg,contactId:c.id})});var ej={};try{ej=await er.json();}catch(e){} if(er.ok&&ej.ok!==false){alert("Email sent.");loadActivity(c);}else{alert("Email not sent: "+(ej.message||ej.error||("HTTP "+er.status)));}}catch(e){alert("Send failed — check connection.");} return; }
   alert("Call logging comes next.");
 }
@@ -2475,7 +2498,7 @@ function mCompose(c,kind){
     }
     var hadImg=!!cImg;
     var sent = hadImg ? await sendPhoto({to:c.phone,body:t,contactId:c.id,kind:"manual",imageBase64:cImg}) : await sendText({to:c.phone,body:t,contactId:c.id,kind:"manual"});
-    if(sent.ok){ cImg=null; var logBody=(hadImg?"📷 ":"")+(t||(hadImg?"Photo":"")); try{ await sbWrite("POST","sms_messages",{contact_id:c.id,direction:"out",to_number:String(c.phone).replace(/[^0-9+]/g,""),from_number:"+13605885228",body:logBody,kind:"manual",status:"sent",sent_at:new Date().toISOString()}); }catch(e){} ov.remove(); var s2=document.getElementById("mSheetMsg"); if(s2)s2.innerHTML='<span style="color:var(--pink);font-weight:700">✓ '+(hadImg?"Photo sent.":"Text sent.")+'</span>'; }
+    if(sent.ok){ var mediaUrl=hadImg?(sent.mediaUrl||null):null; cImg=null; var logBody=(hadImg?"📷 ":"")+(t||(hadImg?"Photo":"")); var row={contact_id:c.id,direction:"out",to_number:String(c.phone).replace(/[^0-9+]/g,""),from_number:"+13605885228",body:logBody,kind:"manual",status:"sent",sent_at:new Date().toISOString()}; if(mediaUrl)row.media_url=mediaUrl; try{ await sbWrite("POST","sms_messages",row); }catch(e){} ov.remove(); var s2=document.getElementById("mSheetMsg"); if(s2)s2.innerHTML='<span style="color:var(--pink);font-weight:700">✓ '+(hadImg?"Photo sent.":"Text sent.")+'</span>'; }
     else { if(m)m.textContent="Not sent: "+sent.msg; btn.disabled=false; btn.textContent="Send text"; }
   };
 }
