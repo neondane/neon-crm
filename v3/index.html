@@ -1094,9 +1094,10 @@ async function renderPortal(){
         sb("referrals?select=id,contactId,contactName,jobName,status,date&order=date.desc"),
         sb("contacts?or=(type.eq.Realtor,portalActivatedAt.not.is.null)&select=id,name,business,email,phone,portalActivatedAt,profilePic,cardImage&order=name.asc"),
         sb("paid_referrals?select=key,paid_at,partner"),
-        sb("payout_queue?select=id,referral_id,contact_id,partner,customer,amount,added_at&order=id.desc").catch(function(){return [];})
+        sb("payout_queue?select=id,referral_id,contact_id,partner,customer,amount,added_at&order=id.desc").catch(function(){return [];}),
+        sb("payout_skips?select=key,partner,customer&order=skipped_at.desc").catch(function(){return [];})
       ]);
-      PORTAL={leads:res[0]||[],refs:res[1]||[],realtors:res[2]||[],paid:res[3]||[],queue:res[4]||[]};
+      PORTAL={leads:res[0]||[],refs:res[1]||[],realtors:res[2]||[],paid:res[3]||[],queue:res[4]||[],skips:res[5]||[]};
     }catch(e){ document.getElementById("view").innerHTML='<div class="stub"><div><div class="big">Couldn’t reach the database</div><div>Open this once it’s deployed (live data needs the server).</div></div></div>'; return; }
   }
   drawPortal();
@@ -1129,6 +1130,9 @@ function payoutItems(){
   // attach the backing payout_queue row id (if any) so manually-added items can be removed
   var qidByKey={}; (PORTAL.queue||[]).forEach(function(q){var k="manual:"+(q.referral_id!=null?q.referral_id:("q"+q.id)); if(qidByKey[k]==null) qidByKey[k]=q.id;});
   items.forEach(function(it){ if(qidByKey[it.key]!=null) it.qid=qidByKey[it.key]; });
+  // "Remove as payout" — a skipped referral stays a referral but is dropped from Payouts Due.
+  var skipSet={}; (PORTAL.skips||[]).forEach(function(s){skipSet[s.key]=1;});
+  items=items.filter(function(it){return !skipSet[it.key];});
   return items;
 }
 function drawPortal(){
@@ -1160,7 +1164,7 @@ function drawPortal(){
         +'<div style="display:flex;align-items:center;gap:10px"><span class="due">'+money(it.amount)+' due</span>'
         +'<button class="btn grad" data-send="'+esc(it.key)+'" title="Send a Tremendous gift card now">Send $'+it.amount+'</button>'
         +'<button class="btn green" data-pay="'+esc(it.key)+'" data-partner="'+esc(it.partner||"")+'" title="Record as paid (if you paid outside the app)">Mark paid</button>'
-        +(it.qid!=null?'<button class="btn" data-remove="'+esc(it.key)+'" data-qid="'+it.qid+'" title="Remove from the portal (nothing is paid)" style="color:#c0392b">Remove</button>':'')
+        +'<button class="btn" data-skip="'+esc(it.key)+'" data-qid="'+(it.qid!=null?it.qid:"")+'" data-partner="'+esc(it.partner||"")+'" data-customer="'+esc(it.customer||"")+'" title="Remove as a payout — keeps it as a referral, just won\'t pay it" style="color:#c0392b">Remove</button>'
         +'</div></div>';
     });
   }else if(portalTab==="paid"){
@@ -1197,15 +1201,22 @@ function drawPortal(){
   [].forEach.call(document.querySelectorAll("#ptab .crow2[data-id]"),function(el){el.onclick=function(){openContact(+el.getAttribute("data-id"));};});
   [].forEach.call(document.querySelectorAll("[data-pay]"),function(el){el.onclick=function(){markPaid(el.getAttribute("data-pay"),el.getAttribute("data-partner"));};});
   [].forEach.call(document.querySelectorAll("[data-send]"),function(el){el.onclick=function(){var k=el.getAttribute("data-send");var it=due.filter(function(x){return x.key===k;})[0];if(it)sendPayoutGo(it,el);};});
-  [].forEach.call(document.querySelectorAll("[data-remove]"),function(el){el.onclick=function(){removeFromPortal(el.getAttribute("data-qid"));};});
+  [].forEach.call(document.querySelectorAll("[data-skip]"),function(el){el.onclick=function(){skipPayout(el.getAttribute("data-skip"),el.getAttribute("data-qid"),el.getAttribute("data-partner"),el.getAttribute("data-customer"));};});
 }
-async function removeFromPortal(qid){
-  if(qid==null) return;
-  if(!confirm("Remove this referral from the portal?\n\nIt will no longer show in Payouts Due. Nothing is paid. (You can re-add it from the partner's profile.)")) return;
-  if(PORTAL&&PORTAL.queue) PORTAL.queue=PORTAL.queue.filter(function(q){return String(q.id)!==String(qid);});
+async function skipPayout(key,qid,partner,customer){
+  if(!key) return;
+  if(!confirm("Remove this as a payout?\n\n\""+(customer||"This referral")+"\" stays on "+(partner||"the partner")+"’s record as a referral — it just won’t show in Payouts Due and nothing is paid.\n\n(Undo from the Paid tab → it’ll come back to Payouts Due if you delete the skip.)")) return;
+  // optimistic: drop it locally so the row disappears immediately
+  if(!PORTAL.skips) PORTAL.skips=[];
+  PORTAL.skips.push({key:key,partner:partner||"",customer:customer||""});
+  if(qid && PORTAL.queue) PORTAL.queue=PORTAL.queue.filter(function(q){return String(q.id)!==String(qid);});
   drawPortal();
-  try{ var r=await fetch(SB_URL+"/rest/v1/payout_queue?id=eq."+encodeURIComponent(qid),{method:"DELETE",headers:H}); if(!r.ok)throw new Error("SB "+r.status); }
-  catch(e){ alert("Removed on screen, but couldn't reach the database — it may reappear on reload."); }
+  banner('"'+(customer||"Referral")+'" removed from Payouts Due — still recorded as a referral.');
+  // persist the skip
+  try{ var r=await fetch(SB_URL+"/rest/v1/payout_skips",{method:"POST",headers:Object.assign({},H,{"Content-Type":"application/json",Prefer:"resolution=merge-duplicates,return=minimal"}),body:JSON.stringify({key:key,partner:partner||"",customer:customer||"",skipped_at:new Date().toISOString()})}); if(!r.ok&&r.status!==409)throw new Error("SB "+r.status); }
+  catch(e){ /* leave the local skip; it'll re-persist on next attempt */ }
+  // if it was also a manually-queued row, clear that too so it can't re-appear
+  if(qid){ try{ await fetch(SB_URL+"/rest/v1/payout_queue?id=eq."+encodeURIComponent(qid),{method:"DELETE",headers:H}); }catch(e){} }
 }
 async function sendPayoutGo(it,btn){
   if(!it.email){ alert("No email on file for "+(it.partner||"this partner")+". Add their email on their profile first, then send."); return; }
