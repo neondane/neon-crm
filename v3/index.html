@@ -710,7 +710,7 @@ async function openContact(id){
   try{ var full=await sb("contacts?id=eq."+id+"&select=*"); if(full[0]) current=full[0]; }catch(e){}
   renderProfile();
 }
-var pTab="conversation", cSub="text", ACT=null, actFilter="all";
+var pTab="conversation", cSub="text", ACT=null, actFilter="all", cImg=null;
 function slugOf(c){return String(c.name||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")+"-"+c.id;}
 function renderProfile(){
   var D=document.getElementById("view"), c=current; if(!D||!c) return;
@@ -788,6 +788,7 @@ function composerHtml(c){
   return '<div class="composer"><div class="csub">'+subs.map(function(s){return '<div class="'+(s[0]===cSub?"active":"")+'" data-cs="'+s[0]+'">'+gi(s[1])+' '+s[2]+'</div>';}).join("")
     +'</div><div class="cbody"><div class="cto">'+to+'</div><textarea id="cmsg" placeholder="'+(cSub==="note"?"Type or tap Talk and just speak…":"Type a message…")+'"></textarea>'
     +(cSub==="note"?'<div class="crow" style="justify-content:flex-start;gap:8px;margin-top:8px"><button class="btn" type="button" id="cTalk">🎤 Talk</button><button class="btn" type="button" id="cImprove">✨ Improve</button><span class="muted" id="cAiMsg" style="font-size:12px"></span></div>':'')
+    +(cSub==="text"?'<div class="crow" style="justify-content:flex-start;gap:8px;margin-top:8px"><button class="btn" type="button" id="cPhoto">'+gi("camera")+' Attach photo</button><span class="muted" id="cPhotoName" style="font-size:12px">'+(cImg?"Photo attached":"")+'</span></div><input type="file" id="cPhotoFile" accept="image/*" style="display:none"><div id="cPhotoPrev" style="margin-top:8px">'+(cImg?'<img src="'+cImg+'" style="max-width:160px;border-radius:10px;border:1px solid var(--border)">':'')+'</div>':'')
     +'<div class="crow"><label style="font-size:12px;color:var(--text-muted)"><input type="checkbox" id="cfollow"> Create a follow-up</label>'
     +(cSub==="note"?'<label style="font-size:12px;color:var(--text-muted);margin-left:12px"><input type="checkbox" id="cVisit"> Log as visit</label>':'')
     +'<button class="btn grad" id="cSend">'+btn+'</button></div></div></div>';
@@ -913,7 +914,9 @@ function wireProfile(c){
   wireTab(c);
 }
 function wireTab(c){
-  [].forEach.call(document.querySelectorAll(".csub div"),function(el){el.onclick=function(){cSub=el.getAttribute("data-cs");redrawTab(c);};});
+  [].forEach.call(document.querySelectorAll(".csub div"),function(el){el.onclick=function(){cSub=el.getAttribute("data-cs");cImg=null;redrawTab(c);};});
+  var cph=document.getElementById("cPhoto"), cpf=document.getElementById("cPhotoFile");
+  if(cph&&cpf){ cph.onclick=function(){cpf.click();}; cpf.onchange=function(){ var f=cpf.files&&cpf.files[0]; if(!f)return; var rd=new FileReader(); rd.onload=function(){ var im=new Image(); im.onload=function(){ cImg=avDownscale(im,1280); var p=document.getElementById("cPhotoPrev"); if(p)p.innerHTML='<img src="'+cImg+'" style="max-width:160px;border-radius:10px;border:1px solid var(--border)">'; var n=document.getElementById("cPhotoName"); if(n)n.textContent="Photo attached — tap Send"; }; im.src=rd.result; }; rd.readAsDataURL(f); }; }
   [].forEach.call(document.querySelectorAll("[data-af]"),function(el){el.onclick=function(){actFilter=el.getAttribute("data-af");redrawTab(c);};});
   var snd=document.getElementById("cSend"); if(snd)snd.onclick=function(){sendComposer(c);};
   var ct=document.getElementById("cTalk"); if(ct)ct.onclick=function(){aiDictate("cmsg",ct);};
@@ -1057,10 +1060,16 @@ async function sendText(payload){
   var b=await postSms("https://refer.neongiantmoving.com/api/smsOut",payload);
   return b.ok?b:a;
 }
+async function sendPhoto(payload){
+  try{ var r=await fetch(NEON_API+"/api/sendMms",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}); var j={}; try{j=await r.json();}catch(e){} return {ok:!!(r.ok&&j.ok!==false),msg:(j.message||j.error||("HTTP "+r.status)),mediaUrl:j.mediaUrl}; }
+  catch(e){ return {ok:false,msg:e.message}; }
+}
 async function sendComposer(c){
   var msg=(document.getElementById("cmsg")||{}).value||"";
   if(cSub==="note"){ if(!msg.trim())return; var isVisit=!!(document.getElementById("cVisit")&&document.getElementById("cVisit").checked); var stamp=(isVisit?"[Visit ":"[")+new Date().toISOString().slice(0,10)+"] "+msg; var nn=(c.notes?c.notes+"\n":"")+stamp; c.notes=nn; var c2=ALL.filter(function(x){return x.id===c.id;})[0]; if(c2)c2.notes=nn; var patch={notes:nn}; if(isVisit){var iso=new Date().toISOString(); c.lastVisit=iso; if(c2)c2.lastVisit=iso; patch.lastVisit=iso;} try{await sbWrite("PATCH","contacts?id=eq."+c.id,patch);}catch(e){} pTab="notes"; renderProfile(); return; }
-  if(cSub==="text"){ if(!c.phone){alert("No phone on file.");return;} if(!msg.trim())return; var btn=document.getElementById("cSend"); if(btn){btn.disabled=true;btn.textContent="Sending…";} var sent=await sendText({to:c.phone,body:msg,contactId:c.id,kind:"manual"}); if(sent.ok){ var ta=document.getElementById("cmsg");if(ta)ta.value=""; if(ACT===null)ACT=[]; ACT.unshift({kind:"text",when:new Date().toISOString().slice(0,16).replace("T"," "),text:"→ "+msg}); redrawTab(c); try{ await sbWrite("POST","sms_messages",{contact_id:c.id,direction:"out",to_number:String(c.phone).replace(/[^0-9+]/g,""),from_number:"+13605885228",body:msg,kind:"manual",status:"sent",sent_at:new Date().toISOString()}); }catch(e){} ACT=null; loadActivity(c); }else{alert("Text not sent: "+sent.msg);} if(btn){btn.disabled=false;btn.textContent="Send";} return; }
+  if(cSub==="text"){ if(!c.phone){alert("No phone on file.");return;} if(!msg.trim()&&!cImg)return; var btn=document.getElementById("cSend"); if(btn){btn.disabled=true;btn.textContent="Sending…";}
+    var sent = cImg ? await sendPhoto({to:c.phone,body:msg,contactId:c.id,kind:"manual",imageBase64:cImg}) : await sendText({to:c.phone,body:msg,contactId:c.id,kind:"manual"});
+    if(sent.ok){ var hadImg=!!cImg; cImg=null; var ta=document.getElementById("cmsg");if(ta)ta.value=""; var logBody=(hadImg?"📷 ":"")+(msg||(hadImg?"Photo":"")); if(ACT===null)ACT=[]; ACT.unshift({kind:"text",when:new Date().toISOString().slice(0,16).replace("T"," "),text:"→ "+logBody}); redrawTab(c); try{ await sbWrite("POST","sms_messages",{contact_id:c.id,direction:"out",to_number:String(c.phone).replace(/[^0-9+]/g,""),from_number:"+13605885228",body:logBody,kind:"manual",status:"sent",sent_at:new Date().toISOString()}); }catch(e){} ACT=null; loadActivity(c); }else{alert((cImg?"Photo":"Text")+" not sent: "+sent.msg);} if(btn){btn.disabled=false;btn.textContent="Send";} return; }
   if(cSub==="email"){ if(!c.email){alert("No email on file.");return;} if(!msg.trim())return; if(!confirm("Send this email to "+c.name+"?"))return; try{var er=await fetch(NEON_API+"/api/sendEmail",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({to:c.email,subject:"Neon Giant Moving",body:msg,contactId:c.id})});var ej={};try{ej=await er.json();}catch(e){} if(er.ok&&ej.ok!==false){alert("Email sent.");loadActivity(c);}else{alert("Email not sent: "+(ej.message||ej.error||("HTTP "+er.status)));}}catch(e){alert("Send failed — check connection.");} return; }
   alert("Call logging comes next.");
 }
@@ -2024,7 +2033,15 @@ function bootMobile(){
   +".m-btn.grad{background:linear-gradient(90deg,var(--pink,#ff1493),var(--cyan,#22bfe7));color:#fff;border:0}.m-btn.full{display:flex;width:100%;margin-bottom:10px}.m-btn[disabled]{opacity:.5}"
   +".m-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}"
   +".m-sheet{position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.45);display:flex;align-items:flex-end}.m-sheet .in{background:var(--bg,#fff);width:100%;max-height:90vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px 28px}"
-  +".m-h{font-size:18px;font-weight:800;margin:4px 0 12px}";
+  +".m-h{font-size:18px;font-weight:800;margin:4px 0 12px}"
+  +".m-hero{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:20px;border-radius:18px;border:0;background:linear-gradient(90deg,var(--pink,#ff1493),var(--cyan,#22bfe7));color:#fff;font:inherit;font-size:18px;font-weight:800;box-shadow:0 10px 24px rgba(255,20,147,.28);margin-bottom:14px}"
+  +".m-hero svg{width:26px;height:26px}"
+  +".m-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}"
+  +".m-tile{display:flex;align-items:flex-start;gap:12px;padding:16px;border-radius:16px;border:1px solid var(--border,#e6e6ef);background:var(--surface,#fff);color:var(--text,#1a1a2e);font:inherit;text-align:left}"
+  +".m-tile .ic{width:42px;height:42px;flex:none;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,rgba(255,20,147,.16),rgba(34,191,231,.16))}"
+  +".m-tile .ic svg{width:22px;height:22px}"
+  +".m-tile .tl{font-size:15px;font-weight:800;line-height:1.2}.m-tile .sb{font-size:11.5px;color:var(--text-muted,#888);margin-top:3px}"
+  +".m-sec{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--text-muted,#888);margin:8px 2px 10px}";
   document.head.appendChild(st);
   var app=document.createElement("div"); app.id="mApp";
   app.innerHTML='<div class="m-top" style="flex-direction:column;align-items:stretch;gap:10px"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div class="m-logo">NEON CRM</div><div class="m-sub">FIELD</div></div><button class="m-btn" id="mDesk" style="padding:7px 12px;font-size:12px">Desktop</button></div><input class="m-in" id="mTopSearch" placeholder="🔍 Search contacts &amp; partners…" style="margin:0"></div><div class="m-body" id="mBody"></div><div class="m-nav" id="mNav"></div>';
@@ -2039,7 +2056,7 @@ function bootMobile(){
   });
   mRender();
 }
-function mNavBar(){ var n=mRouteIds().length; return [["today","Today"],["route","Route"+(n?" ("+n+")":"")],["add","Add"],["partners","Partners"]].map(function(it){return '<button data-ms="'+it[0]+'" class="'+(mScreen===it[0]?"on":"")+'">'+it[1]+'</button>';}).join(""); }
+function mNavBar(){ var n=mRouteIds().length; return [["today","Home"],["route","Route"+(n?" ("+n+")":"")],["add","Add"],["partners","Partners"]].map(function(it){return '<button data-ms="'+it[0]+'" class="'+(mScreen===it[0]?"on":"")+'">'+it[1]+'</button>';}).join(""); }
 function mRouteIds(){ try{ var a=JSON.parse(localStorage.getItem("mRoute")||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
 function mRouteSave(a){ try{ localStorage.setItem("mRoute",JSON.stringify(a)); }catch(e){} }
 function mRouteToggle(id){ var a=mRouteIds(), i=a.indexOf(id); if(i>=0)a.splice(i,1); else a.push(id); mRouteSave(a); if(mScreen==="route")mRender(); var nav=document.getElementById("mNav"); if(nav){nav.innerHTML=mNavBar();[].forEach.call(nav.querySelectorAll("button"),function(b){b.onclick=function(){mGo(b.getAttribute("data-ms"));};});} }
@@ -2241,16 +2258,32 @@ function mRender(){
   if(mScreen==="add") body.innerHTML=mAdd();
   else if(mScreen==="partners") body.innerHTML=mPartners();
   else if(mScreen==="route") body.innerHTML=mRoute();
-  else body.innerHTML=mToday();
+  else body.innerHTML=mHome();
   var nav=document.getElementById("mNav"); if(nav){ nav.innerHTML=mNavBar(); [].forEach.call(nav.querySelectorAll("button"),function(b){b.onclick=function(){mGo(b.getAttribute("data-ms"));};}); }
   mWire();
 }
-function mToday(){
+function mStale(){
   var rows=(ALL||[]).filter(function(c){return c.phone;});
   rows.sort(function(a,b){var da=daysSince(a),db=daysSince(b);da=(da===null?1e9:da);db=(db===null?1e9:db);return db-da;});
-  rows=rows.slice(0,20);
-  var html='<div class="m-card"><div class="m-h">Today’s touches</div><div class="m-meta">People due for a check-in — stalest first. Tap to call, text, or log a visit.</div></div>';
-  html+=rows.map(function(c){var d=daysSince(c);return '<div class="m-row" data-open="'+c.id+'">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-nm">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+(d!=null?' · '+d+'d ago':' · new')+'</div></div></div>';}).join("");
+  return rows;
+}
+function mHome(){
+  var routeN=mRouteIds().length;
+  var rows=mStale(), due=rows.slice(0,4);
+  var hr=new Date().getHours(); var greet=hr<12?"Good morning":(hr<17?"Good afternoon":"Good evening");
+  var html='<div style="margin:2px 2px 14px"><div style="font-size:22px;font-weight:800">'+greet+'</div><div class="m-meta">What do you want to do?</div></div>';
+  html+='<button class="m-hero" id="mVoiceAdd">'+gi("chat")+' Add a contact by voice</button>';
+  var tile=function(id,icon,title,sub){return '<button class="m-tile" id="'+id+'"><div class="ic">'+gi(icon)+'</div><div><div class="tl">'+title+'</div><div class="sb">'+sub+'</div></div></button>';};
+  html+='<div class="m-grid">'
+    + tile("mtRoute","map","Plan a route",(routeN?routeN+" stop"+(routeN>1?"s":"")+" queued":"Build today’s stops"))
+    + tile("mtSearch","search","Search","Find a contact")
+    + tile("mtScan","camera","Scan a card","Add from a business card")
+    + tile("mtPartners","portal","Partners","Browse everyone")
+    +'</div>';
+  html+='<div class="m-sec">Needs a visit</div>';
+  html+= due.length ? due.map(function(c){var d=daysSince(c);return '<div class="m-row" data-open="'+c.id+'">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-nm">'+esc(cName(c))+'</div><div class="m-meta">'+esc(c.business||c.type||"")+(d!=null?' · '+d+'d ago':' · new')+'</div></div></div>';}).join("")
+       : '<div class="m-meta" style="padding:6px 2px">No contacts yet. Add your first one above.</div>';
+  if(rows.length>4) html+='<button class="m-btn full" id="mSeeAll" style="margin-top:4px">See all '+rows.length+' contacts</button>';
   return html;
 }
 function mAdd(){
@@ -2286,6 +2319,13 @@ function mWire(){
   if(document.getElementById("mSavedBox")) mLoadSavedRoutes();
   if(document.getElementById("mRouteMap")) mRenderMap();
   if(document.getElementById("mList")){ var hv=(document.getElementById("mTopSearch")||{}).value||""; mDrawList(hv); }
+  // Home-screen launcher tiles
+  var vh=document.getElementById("mVoiceAdd"); if(vh)vh.onclick=function(){ mGo("add"); setTimeout(function(){var b=document.getElementById("acSpeak"); if(b)b.click();},90); };
+  var tr=document.getElementById("mtRoute"); if(tr)tr.onclick=function(){ mGo("route"); };
+  var tse=document.getElementById("mtSearch"); if(tse)tse.onclick=function(){ mGo("partners"); setTimeout(function(){var s=document.getElementById("mTopSearch"); if(s)s.focus();},60); };
+  var tsc=document.getElementById("mtScan"); if(tsc)tsc.onclick=function(){ mGo("add"); setTimeout(function(){var b=document.getElementById("acScan"); if(b)b.click();},90); };
+  var tp=document.getElementById("mtPartners"); if(tp)tp.onclick=function(){ mGo("partners"); };
+  var sa=document.getElementById("mSeeAll"); if(sa)sa.onclick=function(){ mGo("partners"); };
   window.__acNotes="";
 }
 async function mSaveContact(){
@@ -2404,21 +2444,25 @@ function mTextLink(c){
   setTimeout(function(){ var t=document.getElementById("mMsg"); if(t){ t.value="Hi "+first+", here's your personal Neon Giant referral link — send it to anyone who's moving and you earn $50 for every completed move: https://refer.neongiantmoving.com/?r="+slug; } },90);
 }
 function mCompose(c,kind){
+  cImg=null;
   var ov=document.createElement("div"); ov.className="m-sheet"; ov.id="mCompose";
   var title=(kind==="text"?"Text ":kind==="visit"?"Log a visit — ":"Note on ")+cName(c);
   var ph=(kind==="text"?"Message…":kind==="visit"?"Talk or type what happened on the visit…":"Talk or type a note…");
   var sendLbl=(kind==="text"?"Send text":kind==="visit"?"Log visit":"Save note");
   var aiRow='<div style="display:flex;gap:8px;margin-bottom:10px"><button class="m-btn" id="mTalk" style="flex:1">🎤 Talk</button>'+(kind!=="text"?'<button class="m-btn" id="mImprove" style="flex:1">✨ Improve</button>':'')+'</div>';
+  var photoRow=(kind==="text")?'<button class="m-btn full" id="mPhoto" style="margin-bottom:10px">'+gi("camera")+' Attach photo</button><input type="file" id="mPhotoFile" accept="image/*" style="display:none"><div id="mPhotoPrev" style="margin-bottom:10px"></div>':'';
   ov.innerHTML='<div class="in"><div class="m-h">'+esc(title)+'</div>'+(kind==="text"?'<div class="m-meta" style="margin-bottom:8px">Sends from your business line (+1 360‑588‑5228) and logs it to their thread.</div>':'<div class="m-meta" style="margin-bottom:8px">Tap Talk and just speak — it types as you go. Hit ✨ Improve to clean it up.</div>')
-    +'<textarea class="m-in" id="mMsg" rows="6" placeholder="'+ph+'"></textarea>'+aiRow
+    +'<textarea class="m-in" id="mMsg" rows="6" placeholder="'+ph+'"></textarea>'+aiRow+photoRow
     +'<button class="m-btn grad full" id="mSend">'+sendLbl+'</button><div id="mCmsg" class="m-meta"></div><button class="m-btn full" id="mCcancel" style="margin-top:8px">Cancel</button></div>';
   document.body.appendChild(ov);
-  ov.addEventListener("click",function(e){if(e.target===ov){ if(_dictRec){try{_dictRec.stop();}catch(_){}} ov.remove();}});
-  document.getElementById("mCcancel").onclick=function(){ if(_dictRec){try{_dictRec.stop();}catch(_){}} ov.remove();};
+  ov.addEventListener("click",function(e){if(e.target===ov){ if(_dictRec){try{_dictRec.stop();}catch(_){}} cImg=null; ov.remove();}});
+  document.getElementById("mCcancel").onclick=function(){ if(_dictRec){try{_dictRec.stop();}catch(_){}} cImg=null; ov.remove();};
   var tk=document.getElementById("mTalk"); if(tk)tk.onclick=function(){aiDictate("mMsg",tk);};
   var im=document.getElementById("mImprove"); if(im)im.onclick=function(){aiImprove("mMsg",im,"mCmsg");};
+  var mph=document.getElementById("mPhoto"), mpf=document.getElementById("mPhotoFile");
+  if(mph&&mpf){ mph.onclick=function(){mpf.click();}; mpf.onchange=function(){ var f=mpf.files&&mpf.files[0]; if(!f)return; var rd=new FileReader(); rd.onload=function(){ var im2=new Image(); im2.onload=function(){ cImg=avDownscale(im2,1280); var p=document.getElementById("mPhotoPrev"); if(p)p.innerHTML='<img src="'+cImg+'" style="max-width:100%;border-radius:12px;border:1px solid var(--border)">'; mph.textContent="Photo attached — tap Send text"; }; im2.src=rd.result; }; rd.readAsDataURL(f); }; }
   document.getElementById("mSend").onclick=async function(){
-    var t=((document.getElementById("mMsg")||{}).value||""); var m=document.getElementById("mCmsg"); if(!t.trim())return;
+    var t=((document.getElementById("mMsg")||{}).value||""); var m=document.getElementById("mCmsg"); if(!t.trim()&&!(kind==="text"&&cImg))return;
     if(_dictRec){try{_dictRec.stop();}catch(_){}}
     var btn=this; btn.disabled=true; btn.textContent="Working…";
     if(kind==="note"||kind==="visit"){
@@ -2429,8 +2473,9 @@ function mCompose(c,kind){
       try{await sbWrite("PATCH","contacts?id=eq."+c.id,patch);}catch(e){}
       ov.remove(); var s1=document.getElementById("mSheetMsg"); if(s1)s1.innerHTML='<span style="color:var(--pink);font-weight:700">✓ '+(kind==="visit"?"Visit logged.":"Note saved.")+'</span>'; return;
     }
-    var sent=await sendText({to:c.phone,body:t,contactId:c.id,kind:"manual"});
-    if(sent.ok){ try{ await sbWrite("POST","sms_messages",{contact_id:c.id,direction:"out",to_number:String(c.phone).replace(/[^0-9+]/g,""),from_number:"+13605885228",body:t,kind:"manual",status:"sent",sent_at:new Date().toISOString()}); }catch(e){} ov.remove(); var s2=document.getElementById("mSheetMsg"); if(s2)s2.innerHTML='<span style="color:var(--pink);font-weight:700">✓ Text sent.</span>'; }
+    var hadImg=!!cImg;
+    var sent = hadImg ? await sendPhoto({to:c.phone,body:t,contactId:c.id,kind:"manual",imageBase64:cImg}) : await sendText({to:c.phone,body:t,contactId:c.id,kind:"manual"});
+    if(sent.ok){ cImg=null; var logBody=(hadImg?"📷 ":"")+(t||(hadImg?"Photo":"")); try{ await sbWrite("POST","sms_messages",{contact_id:c.id,direction:"out",to_number:String(c.phone).replace(/[^0-9+]/g,""),from_number:"+13605885228",body:logBody,kind:"manual",status:"sent",sent_at:new Date().toISOString()}); }catch(e){} ov.remove(); var s2=document.getElementById("mSheetMsg"); if(s2)s2.innerHTML='<span style="color:var(--pink);font-weight:700">✓ '+(hadImg?"Photo sent.":"Text sent.")+'</span>'; }
     else { if(m)m.textContent="Not sent: "+sent.msg; btn.disabled=false; btn.textContent="Send text"; }
   };
 }
