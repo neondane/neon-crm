@@ -57,10 +57,18 @@ const handler = endpoint(async ({ env, body, reply }) => {
 
   if (action === 'agentListings') {
     const agent = norm(o.agentName);
-    const g = await rc(env, '/listings/sale?' + qs({ city: o.city, state: o.state || 'WA', zipCode: o.zipCode, status: o.status || 'Active', limit: 500 }));
+    // Accept either a city/zip OR a lat/long/radius area (one call covers a whole region).
+    const g = await rc(env, '/listings/sale?' + qs({
+      city: o.city, state: o.state || 'WA', zipCode: o.zipCode,
+      latitude: o.latitude, longitude: o.longitude, radius: o.radius,
+      status: o.status || 'Active', limit: Math.min(+o.limit || 500, 500),
+    }));
     if (!g.ok) return reply({ ok: false, action, status: g.status, body: g.body });
     const list = Array.isArray(g.body) ? g.body : [];
-    const matches = list.filter((L) => { const n = norm(agentOf(L).name); return n && agent && (n.indexOf(agent) >= 0 || agent.indexOf(n) >= 0); }).map(slimListing);
+    const matches = list
+      .filter((L) => { const n = norm(agentOf(L).name); return n && agent && (n.indexOf(agent) >= 0 || agent.indexOf(n) >= 0); })
+      .map(slimListing)
+      .sort((a, b) => String(b.listedDate || '').localeCompare(String(a.listedDate || '')));
     return reply({ ok: true, action, agentName: o.agentName, scanned: list.length, matched: matches.length, listings: matches });
   }
 
