@@ -57,19 +57,28 @@ const handler = endpoint(async ({ env, body, reply }) => {
 
   if (action === 'agentListings') {
     const agent = norm(o.agentName);
-    // Accept either a city/zip OR a lat/long/radius area (one call covers a whole region).
-    const g = await rc(env, '/listings/sale?' + qs({
-      city: o.city, state: o.state || 'WA', zipCode: o.zipCode,
-      latitude: o.latitude, longitude: o.longitude, radius: o.radius,
-      status: o.status || 'Active', limit: Math.min(+o.limit || 500, 500),
-    }));
-    if (!g.ok) return reply({ ok: false, action, status: g.status, body: g.body });
-    const list = Array.isArray(g.body) ? g.body : [];
-    const matches = list
-      .filter((L) => { const n = norm(agentOf(L).name); return n && agent && (n.indexOf(agent) >= 0 || agent.indexOf(n) >= 0); })
-      .map(slimListing)
-      .sort((a, b) => String(b.listedDate || '').localeCompare(String(a.listedDate || '')));
-    return reply({ ok: true, action, agentName: o.agentName, scanned: list.length, matched: matches.length, listings: matches });
+    // RentCast caps each call at 500 and has no agent filter, so we page through the
+    // area (offset) and match the listing agent ourselves. Cap pages to bound cost.
+    const maxPages = Math.min(+o.maxPages || 4, 6);
+    let scanned = 0, matches = [], pages = 0, lastStatus = 0;
+    for (let pg = 0; pg < maxPages; pg++) {
+      const g = await rc(env, '/listings/sale?' + qs({
+        city: o.city, state: o.state || 'WA', zipCode: o.zipCode,
+        latitude: o.latitude, longitude: o.longitude, radius: o.radius,
+        status: o.status || 'Active', limit: 500, offset: pg * 500,
+      }));
+      lastStatus = g.status;
+      if (!g.ok) { if (pg === 0) return reply({ ok: false, action, status: g.status, body: g.body }); break; }
+      const list = Array.isArray(g.body) ? g.body : [];
+      scanned += list.length; pages++;
+      list.forEach((L) => { const n = norm(agentOf(L).name); if (n && agent && (n.indexOf(agent) >= 0 || agent.indexOf(n) >= 0)) matches.push(slimListing(L)); });
+      if (list.length < 500) break; // got the whole area
+    }
+    // de-dupe by address and sort newest first
+    const seen = {}, uniq = [];
+    matches.forEach((m) => { const k = norm(m.address); if (k && !seen[k]) { seen[k] = 1; uniq.push(m); } });
+    uniq.sort((a, b) => String(b.listedDate || '').localeCompare(String(a.listedDate || '')));
+    return reply({ ok: true, action, agentName: o.agentName, scanned, pages, status: lastStatus, matched: uniq.length, listings: uniq });
   }
 
   if (action === 'ownerLookup') {
