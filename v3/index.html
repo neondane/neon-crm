@@ -701,7 +701,7 @@ async function acSave(){
   catch(e){ banner("Added on screen — couldn't reach the database (saves once you're online/deployed)."); }
 }
 var current=null, editing=false, saveState="", saveCls="";
-var EDITABLE=[["name","Name"],["business","Business"],["type","Type"],["role","Role"],["phone","Phone"],["email","Email"],["territory","Territory"]];
+var EDITABLE=[["name","Name"],["business","Business"],["type","Type"],["role","Role"],["phone","Phone"],["email","Email"],["territory","Territory"],["website","Website (for landing page)"],["facebook","Facebook URL"],["instagram","Instagram URL"],["linkedin","LinkedIn URL"]];
 async function openContact(id){
   activeId=id; editing=false; saveState=""; saveCls=""; pTab="conversation"; cSub="text"; ACT=null;
   try{markRead(id);}catch(e){} // opening a person's thread marks their messages read
@@ -917,6 +917,7 @@ function buildLpOpts(c){
   var area=String(c.territory||"").replace(/.*—\s*/,"").trim();
   return { slug:lpSlug(c), name:c.name, brokerage:c.business||"", role:c.role||"", headshot:c.profilePic||c.cardImage||"",
     phone:c.phone||"", email:c.email||"", areas:(area?[area]:[]), bio:c.bio||"",
+    website:c.website||"", facebook:c.facebook||"", instagram:c.instagram||"", linkedin:c.linkedin||"",
     // CTA goes to the CLIENT intake page (they get $50 off + the partner gets credited),
     // NOT the realtor's portal/earnings dashboard.
     referLink:"https://refer.neongiantmoving.com/move?r="+slugOf(c) };
