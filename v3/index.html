@@ -704,6 +704,7 @@ var current=null, editing=false, saveState="", saveCls="";
 var EDITABLE=[["name","Name"],["business","Business"],["type","Type"],["role","Role"],["phone","Phone"],["email","Email"],["territory","Territory"]];
 async function openContact(id){
   activeId=id; editing=false; saveState=""; saveCls=""; pTab="conversation"; cSub="text"; ACT=null;
+  try{markRead(id);}catch(e){} // opening a person's thread marks their messages read
   try{localStorage.setItem("crmNav","c:"+id);}catch(e){}
   document.getElementById("view").innerHTML='<div class="page"><div class="noact"><span class="spin"></span></div></div>';
   current=ALL.filter(function(c){return c.id===id;})[0]||{};
@@ -798,7 +799,7 @@ function activityHtml(){
   var hd='<div class="actlog"><div class="hd"><h3>Activity</h3><div class="filt">'+filts.map(function(x){return '<span class="'+(x===actFilter?"on":"")+'" data-af="'+x+'">'+x.charAt(0).toUpperCase()+x.slice(1)+'</span>';}).join("")+'</div></div>';
   if(ACT===null) return hd+'<div class="noact"><span class="spin"></span></div></div>';
   var shown=ACT.filter(function(it){return actFilter==="all"||(it.kind+"s")===actFilter;});
-  var body=shown.length?shown.map(function(it){var ph=it.media?'<a href="'+esc(it.media)+'" target="_blank" rel="noopener"><img src="'+esc(it.media)+'" alt="photo" style="margin-top:6px;max-width:200px;max-height:200px;border-radius:10px;border:1px solid var(--border);display:block"></a>':'';return '<div class="actitem"><span class="k">'+esc(it.kind)+'</span> · '+esc(it.when)+'<div style="margin-top:3px">'+esc(it.text)+'</div>'+ph+'</div>';}).join(""):'<div class="noact">No activity yet</div>';
+  var body=shown.length?shown.map(function(it){var ph=it.media?'<a href="'+esc(it.media)+'" target="_blank" rel="noopener"><img src="'+esc(it.media)+'" alt="photo" style="margin-top:6px;max-width:200px;max-height:200px;border-radius:10px;border:1px solid var(--border);display:block"></a>':'';var camIc=it.media?'<span class="ti" style="vertical-align:-3px;margin-right:4px">'+gi("camera")+'</span>':'';return '<div class="actitem"><span class="k">'+esc(it.kind)+'</span> · '+esc(it.when)+'<div style="margin-top:3px">'+camIc+esc(it.text)+'</div>'+ph+'</div>';}).join(""):'<div class="noact">No activity yet</div>';
   return hd+body+'</div>';
 }
 function noteBox(c,kind){
@@ -1089,12 +1090,18 @@ async function sendPhoto(payload){
 }
 async function sendComposer(c){
   var msg=(document.getElementById("cmsg")||{}).value||"";
-  if(cSub==="note"){ if(!msg.trim())return; var isVisit=!!(document.getElementById("cVisit")&&document.getElementById("cVisit").checked); var stamp=(isVisit?"[Visit ":"[")+new Date().toISOString().slice(0,10)+"] "+msg; var nn=(c.notes?c.notes+"\n":"")+stamp; c.notes=nn; var c2=ALL.filter(function(x){return x.id===c.id;})[0]; if(c2)c2.notes=nn; var patch={notes:nn}; if(isVisit){var iso=new Date().toISOString(); c.lastVisit=iso; if(c2)c2.lastVisit=iso; patch.lastVisit=iso;} try{await sbWrite("PATCH","contacts?id=eq."+c.id,patch);}catch(e){} pTab="notes"; renderProfile(); return; }
+  var wantFollow=!!(document.getElementById("cfollow")&&document.getElementById("cfollow").checked);
+  if(cSub==="note"){ if(!msg.trim())return; var isVisit=!!(document.getElementById("cVisit")&&document.getElementById("cVisit").checked); var stamp=(isVisit?"[Visit ":"[")+new Date().toISOString().slice(0,10)+"] "+msg; var nn=(c.notes?c.notes+"\n":"")+stamp; c.notes=nn; var c2=ALL.filter(function(x){return x.id===c.id;})[0]; if(c2)c2.notes=nn; var patch={notes:nn}; if(isVisit){var iso=new Date().toISOString(); c.lastVisit=iso; if(c2)c2.lastVisit=iso; patch.lastVisit=iso;} try{await sbWrite("PATCH","contacts?id=eq."+c.id,patch);}catch(e){} if(wantFollow)createFollowup(c,3,msg.slice(0,80)); pTab="notes"; renderProfile(); return; }
   if(cSub==="text"){ if(!c.phone){alert("No phone on file.");return;} if(!msg.trim()&&!cImg)return; var btn=document.getElementById("cSend"); if(btn){btn.disabled=true;btn.textContent="Sending…";}
     var sent = cImg ? await sendPhoto({to:c.phone,body:msg,contactId:c.id,kind:"manual",imageBase64:cImg}) : await sendText({to:c.phone,body:msg,contactId:c.id,kind:"manual"});
-    if(sent.ok){ var hadImg=!!cImg; var mediaUrl=hadImg?(sent.mediaUrl||null):null; cImg=null; var ta=document.getElementById("cmsg");if(ta)ta.value=""; var logBody=(hadImg?"📷 ":"")+(msg||(hadImg?"Photo":"")); if(ACT===null)ACT=[]; ACT.unshift({kind:"text",when:new Date().toISOString().slice(0,16).replace("T"," "),text:"→ "+logBody,media:mediaUrl}); redrawTab(c); var row={contact_id:c.id,direction:"out",to_number:String(c.phone).replace(/[^0-9+]/g,""),from_number:"+13605885228",body:logBody,kind:"manual",status:"sent",sent_at:new Date().toISOString()}; if(mediaUrl)row.media_url=mediaUrl; try{ await sbWrite("POST","sms_messages",row); }catch(e){} ACT=null; loadActivity(c); }else{alert((cImg?"Photo":"Text")+" not sent: "+sent.msg);} if(btn){btn.disabled=false;btn.textContent="Send";} return; }
+    if(sent.ok){ var hadImg=!!cImg; var mediaUrl=hadImg?(sent.mediaUrl||null):null; cImg=null; var ta=document.getElementById("cmsg");if(ta)ta.value=""; var logBody=(msg||(hadImg?"Photo":"")); if(ACT===null)ACT=[]; ACT.unshift({kind:"text",when:new Date().toISOString().slice(0,16).replace("T"," "),text:"→ "+logBody,media:mediaUrl}); redrawTab(c); var row={contact_id:c.id,direction:"out",to_number:String(c.phone).replace(/[^0-9+]/g,""),from_number:"+13605885228",body:logBody,kind:"manual",status:"sent",sent_at:new Date().toISOString()}; if(mediaUrl)row.media_url=mediaUrl; try{ await sbWrite("POST","sms_messages",row); }catch(e){} if(wantFollow)createFollowup(c,3,msg.slice(0,80)); ACT=null; loadActivity(c); }else{alert((cImg?"Photo":"Text")+" not sent: "+sent.msg);} if(btn){btn.disabled=false;btn.textContent="Send";} return; }
   if(cSub==="email"){ if(!c.email){alert("No email on file.");return;} if(!msg.trim())return; if(!confirm("Send this email to "+c.name+"?"))return; try{var er=await fetch(NEON_API+"/api/sendEmail",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({to:c.email,subject:"Neon Giant Moving",body:msg,contactId:c.id})});var ej={};try{ej=await er.json();}catch(e){} if(er.ok&&ej.ok!==false){alert("Email sent.");loadActivity(c);}else{alert("Email not sent: "+(ej.message||ej.error||("HTTP "+er.status)));}}catch(e){alert("Send failed — check connection.");} return; }
   alert("Call logging comes next.");
+}
+async function createFollowup(c,days,note){
+  var dd=new Date(Date.now()+((+days||3)*86400000)).toISOString().slice(0,10);
+  try{ await sbWrite("POST","followups",{contact_id:c.id,due_date:dd,note:note||"",done:false,created_at:new Date().toISOString()}); if(!DATA.followups)DATA.followups=[]; DATA.followups.push({id:"tmp"+Date.now(),contact_id:c.id,due_date:dd,note:note||"",done:false}); try{updateTopBadges();}catch(e){} banner("Follow-up set for "+dd+" — it'll show in your To-do when it's due."); }
+  catch(e){ /* followups table may not exist yet */ }
 }
 async function doSave(){
   var changes={};
@@ -1290,6 +1297,9 @@ async function ensureData(cb){
   try{DATA.paid=await sb("paid_referrals?select=key,paid_at");}catch(e){DATA.paid=DATA.paid||[];}
   try{var sd=await sb("sms_messages?select=created_at");var ed=await sb("email_messages?select=created_at");DATA.msgDates=sd.map(function(m){return m.created_at;}).concat(ed.map(function(m){return m.created_at;})).filter(Boolean);}catch(e){DATA.msgDates=DATA.msgDates||[];}
   try{DATA.strikes=await sb("recruit_strikes?select=agent,count,summary,listed_at&order=listed_at.desc");}catch(e){DATA.strikes=DATA.strikes||[];}
+  await loadUnreadSrc();
+  try{DATA.skips=await sb("payout_skips?select=key");}catch(e){DATA.skips=DATA.skips||[];}
+  try{DATA.followups=await sb("followups?select=id,contact_id,due_date,note,done&order=due_date.asc");}catch(e){DATA.followups=DATA.followups||[];}
   cb&&cb();
 }
 function strikeMap(){var m={};(DATA.strikes||[]).forEach(function(s){var k=String(s.agent||"").toLowerCase().trim();if(!m[k])m[k]=s;});return m;}
@@ -1389,10 +1399,13 @@ function drawInbox(){
   var dirSel='<select id="ibDir">'+[["all","All"],["in","Needs reply (they texted last)"],["out","I replied last"]].map(function(o){return '<option value="'+o[0]+'"'+(inboxDir===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
   var html='<div class="page"><div class="ph"><h2>'+gi("inbox")+' Inbox</h2><span class="muted" style="margin-left:auto;font-weight:600">'+threads.length+' conversations</span></div>';
   html+='<div class="cfilters">'+chanSel+dirSel+'</div>';
+  var _rd=crmRead(), _li=DATA.lastIn||{};
   html+=threads.length?'<div class="clist">'+threads.map(function(t){
     var c=ALL.filter(function(x){return +x.id===+t.cid;})[0]||{id:t.cid,name:nameOf(t.cid)};
+    var un=_li[t.cid]&&(!_rd[t.cid]||_li[t.cid]>_rd[t.cid]);
+    var dot=un?'<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--pink,#ff1493);margin-right:7px;flex:none"></span>':'';
     return '<div class="crow2" data-id="'+t.cid+'"><div class="av">'+(PHOTOS[t.cid]?'<img src="'+esc(PHOTOS[t.cid])+'" alt="">':esc(initials(cName(c)).toUpperCase()))+'</div>'
-      +'<div class="meta"><div class="nm">'+esc(cName(c))+'<span class="temp '+(t.latest.kind==="text"?"cool":"warm")+'">'+t.latest.kind+'</span></div><div class="sub">'+(t.latest.dir==="out"?"→ ":"← ")+esc(t.latest.text)+'</div></div>'
+      +'<div class="meta"><div class="nm" style="display:flex;align-items:center'+(un?";font-weight:800":"")+'">'+dot+esc(cName(c))+'<span class="temp '+(t.latest.kind==="text"?"cool":"warm")+'">'+t.latest.kind+'</span></div><div class="sub"'+(un?' style="font-weight:600;color:var(--text)"':'')+'>'+(t.latest.dir==="out"?"→ ":"← ")+esc(t.latest.text)+'</div></div>'
       +'<div class="right"><div class="days" style="font-size:12px">'+esc(t.latest.when.slice(0,10))+'</div><div class="cnt">'+t.count+'</div></div></div>';
   }).join("")+'</div>':'<div class="noact">No conversations match those filters.</div>';
   html+='</div>';
@@ -1912,48 +1925,60 @@ function topAlerts(){
   return {stale:stale,due:due,newLeads:newLeads,recentMsgs:recentMsgs};
 }
 function setBadge(id,n){var el=document.getElementById(id);if(!el)return;if(n>0){el.textContent=n>99?"99+":n;el.style.display="";}else el.style.display="none";}
+/* To-do = individual action items that PERSIST until you act on them or dismiss them.
+   Opening the bell does NOT clear them — they go away when the underlying thing is done. */
 function notifItems(){
-  var a=topAlerts(),items=[];
-  var strikes=activeStrikes().length;
-  if(strikes)items.push({k:"strike",n:strikes,ic:"flame",txt:"<b>"+strikes+"</b> target"+(strikes>1?"s":"")+" just listed — strike now",go:"recruit"});
-  if(a.stale)items.push({k:"stale",n:a.stale,ic:"bell",txt:"<b>"+a.stale+"</b> contacts need follow-up",go:"contacts"});
-  if(a.due>0)items.push({k:"due",n:a.due,ic:"cash",txt:"<b>"+money(a.due)+"</b> in payouts due",go:"portal"});
-  if(a.newLeads)items.push({k:"lead",n:a.newLeads,ic:"flag",txt:"<b>"+a.newLeads+"</b> new portal leads",go:"portal"});
-  if(a.recentMsgs)items.push({k:"msg",n:a.recentMsgs,ic:"inbox",txt:"<b>"+a.recentMsgs+"</b> messages this week",go:"inbox"});
+  var items=[];
+  var paidMap={};(DATA.paid||[]).forEach(function(p){paidMap[p.key]=1;});
+  var skipMap={};(DATA.skips||[]).forEach(function(s){skipMap[s.key]=1;});
+  var actMap={};ALL.forEach(function(c){if(c.portalActivatedAt)actMap[String(c.id)]=String(c.portalActivatedAt).slice(0,10);});
+  // New portal leads (until triaged)
+  (DATA.leads||[]).forEach(function(l){var s=String(l.status||"").toLowerCase();if(s==="new"||s===""){items.push({k:"lead:"+l.id,ic:"flag",txt:"New lead: <b>"+esc(l.customerName||"—")+"</b>"+(l.realtorName?(" from "+esc(l.realtorName)):""),go:"portal"});}});
+  // Payouts due (completed referral, activated partner, not paid, not removed)
+  (DATA.leads||[]).forEach(function(l){if(String(l.status||"").toLowerCase()!=="completed")return;var key="portal:"+l.id;if(paidMap[key]||skipMap[key])return;items.push({k:"due:"+key,ic:"cash",txt:"Payout due: <b>$50</b> to "+esc(l.realtorName||"partner")+(l.customerName?(" — "+esc(l.customerName)):""),go:"portal"});});
+  (DATA.refs||[]).forEach(function(r){if(String(r.status||"").toLowerCase()!=="completed")return;var a=actMap[String(r.contactId)];if(!a)return;if(String(r.date||"").slice(0,10)<a)return;var key="manual:"+r.id;if(paidMap[key]||skipMap[key])return;items.push({k:"due:"+key,ic:"cash",txt:"Payout due: <b>$50</b> to "+esc(r.contactName||"partner")+(r.jobName?(" — "+esc(r.jobName)):""),go:"portal"});});
+  // Listing strikes (until reviewed)
+  activeStrikes().forEach(function(s){items.push({k:"strike:"+String(s.agent||"").toLowerCase().replace(/[^a-z0-9]/g,""),ic:"flame",txt:"Strike: <b>"+esc(s.agent)+"</b> listed with a competitor",go:"recruit"});});
+  // Follow-ups due (until marked done)
+  var today=new Date().toISOString().slice(0,10);
+  (DATA.followups||[]).forEach(function(f){if(f.done)return;if(String(f.due_date||"").slice(0,10)>today)return;var nm=(ALL.filter(function(x){return +x.id===+f.contact_id;})[0]||{}).name||("Contact "+f.contact_id);items.push({k:"fu:"+f.id,ic:"note",txt:"Follow up with <b>"+esc(nm)+"</b>"+(f.note?(" — "+esc(f.note)):""),go:"contacts",cid:f.contact_id,fu:f.id});});
   return items;
 }
 function notifDis(){try{return JSON.parse(localStorage.getItem("crmNotifDismiss")||"{}");}catch(e){return {};}}
 function notifSave(d){try{localStorage.setItem("crmNotifDismiss",JSON.stringify(d));}catch(e){}}
-function notifActive(){var dis=notifDis();return notifItems().filter(function(it){return !(dis[it.k]!=null&&it.n<=dis[it.k]);});}
+function notifActive(){var dis=notifDis();return notifItems().filter(function(it){return !dis[it.k];});}
+/* Inbox unread: a thread is unread until you OPEN that person. Per-contact read stamps. */
+function crmRead(){try{return JSON.parse(localStorage.getItem("crmRead")||"{}");}catch(e){return {};}}
+function markRead(id){if(id==null)return;var r=crmRead();r[String(id)]=new Date().toISOString();try{localStorage.setItem("crmRead",JSON.stringify(r));}catch(e){}try{updateTopBadges();}catch(e){}if(view==="inbox"&&DATA.msgs){try{drawInbox();}catch(e){}}}
+function unreadThreads(){var last=DATA.lastIn||{},rd=crmRead(),out=[];Object.keys(last).forEach(function(cid){var t=last[cid];if(t&&(!rd[cid]||t>rd[cid]))out.push(+cid);});return out;}
+async function loadUnreadSrc(){try{var si=await sb("sms_messages?direction=eq.in&select=contact_id,created_at&order=created_at.desc&limit=600");var ei=[];try{ei=await sb("email_messages?direction=eq.in&select=contact_id,created_at&order=created_at.desc&limit=600");}catch(e){}DATA.lastIn={};si.concat(ei).forEach(function(m){if(m.contact_id==null)return;var k=String(m.contact_id);if(!DATA.lastIn[k]||m.created_at>DATA.lastIn[k])DATA.lastIn[k]=m.created_at;});}catch(e){DATA.lastIn=DATA.lastIn||{};}}
 function crmSeen(){try{return JSON.parse(localStorage.getItem("crmSeen")||"{}");}catch(e){return {};}}
 function crmSeenSet(k){var s=crmSeen();s[k]=new Date().toISOString();try{localStorage.setItem("crmSeen",JSON.stringify(s));}catch(e){} try{updateTopBadges();}catch(e){}}
 function crmSeenInit(){var s=crmSeen(),ch=false;["inbox","leads"].forEach(function(k){if(!s[k]){s[k]=new Date().toISOString();ch=true;}});if(ch){try{localStorage.setItem("crmSeen",JSON.stringify(s));}catch(e){}}}
 function updateTopBadges(){
   if(!ALL||!ALL.length)return;
-  var a=topAlerts();
-  setBadge("bFollow",a.newLeads);
+  setBadge("bInbox",unreadThreads().length);
   setBadge("bBell",notifActive().length);
-  setBadge("bInbox",a.recentMsgs);
+  var tf=document.getElementById("tFollow"); if(tf)tf.style.display="none"; // 2-badge model: To-do + Inbox
 }
 function toggleBell(){
   var ex=document.getElementById("bellDrop");if(ex){ex.remove();document.removeEventListener("mousedown",_bellOff);return;}
   var items=notifActive();
   var d=document.createElement("div");d.className="tdrop";d.id="bellDrop";
-  var head='<div class="tdhrow"><span class="tdh">Alerts</span>'+(items.length?'<button class="tdclear" id="notifClear">Mark all read</button>':'')+'</div>';
-  var body=items.length?items.map(function(it){return '<div class="tdrow2"><button class="tdrow" data-go="'+it.go+'"><span class="ti">'+gi(it.ic)+'</span><span>'+it.txt+'</span></button><button class="tddis" data-dis="'+it.k+'" data-n="'+it.n+'" title="Dismiss">✕</button></div>';}).join(""):'<div class="tdrow" style="cursor:default"><span class="ti">'+gi("check")+'</span><span>You\'re all caught up</span></div>';
+  var head='<div class="tdhrow"><span class="tdh">To-do</span>'+(items.length?'<button class="tdclear" id="notifClear">Clear all</button>':'')+'</div>';
+  var body=items.length?items.map(function(it){return '<div class="tdrow2"><button class="tdrow" data-go="'+it.go+'"'+(it.cid!=null?' data-cid="'+it.cid+'"':'')+(it.fu!=null?' data-fu="'+it.fu+'"':'')+'><span class="ti">'+gi(it.ic)+'</span><span>'+it.txt+'</span></button><button class="tddis" data-dis="'+esc(it.k)+'" title="Dismiss">✕</button></div>';}).join(""):'<div class="tdrow" style="cursor:default"><span class="ti">'+gi("check")+'</span><span>You\'re all caught up</span></div>';
   d.innerHTML=head+body;
   var bell=document.getElementById("tBell");document.body.appendChild(d);
   var r=bell.getBoundingClientRect();d.style.top=(r.bottom+8)+"px";d.style.right=Math.max(10,(window.innerWidth-r.right))+"px";
-  // opening the bell acknowledges what's currently there, so the badge clears once you've looked
-  var _ack=notifDis();items.forEach(function(it){_ack[it.k]=it.n;});notifSave(_ack);setTimeout(function(){try{updateTopBadges();}catch(e){}},20);
-  [].forEach.call(d.querySelectorAll("[data-go]"),function(b){b.onclick=function(){var v=b.getAttribute("data-go");d.remove();document.removeEventListener("mousedown",_bellOff);if(v)go(v);};});
-  [].forEach.call(d.querySelectorAll("[data-dis]"),function(b){b.onclick=function(e){e.stopPropagation();var dis=notifDis();dis[b.getAttribute("data-dis")]=+b.getAttribute("data-n");notifSave(dis);updateTopBadges();d.remove();document.removeEventListener("mousedown",_bellOff);toggleBell();};});
-  var clr=document.getElementById("notifClear");if(clr)clr.onclick=function(){var dis=notifDis();notifItems().forEach(function(it){dis[it.k]=it.n;});notifSave(dis);updateTopBadges();d.remove();document.removeEventListener("mousedown",_bellOff);};
+  // NOTE: opening the bell does NOT clear anything — items persist until you act or dismiss them.
+  [].forEach.call(d.querySelectorAll("[data-go]"),function(b){b.onclick=function(){var v=b.getAttribute("data-go");var cid=b.getAttribute("data-cid");d.remove();document.removeEventListener("mousedown",_bellOff);if(cid){go("contacts");openContact(+cid);}else if(v)go(v);};});
+  [].forEach.call(d.querySelectorAll("[data-dis]"),function(b){b.onclick=function(e){e.stopPropagation();var dis=notifDis();dis[b.getAttribute("data-dis")]=1;notifSave(dis);updateTopBadges();d.remove();document.removeEventListener("mousedown",_bellOff);toggleBell();};});
+  var clr=document.getElementById("notifClear");if(clr)clr.onclick=function(){var dis=notifDis();notifItems().forEach(function(it){dis[it.k]=1;});notifSave(dis);updateTopBadges();d.remove();document.removeEventListener("mousedown",_bellOff);};
   setTimeout(function(){document.addEventListener("mousedown",_bellOff);},0);
 }
 function _bellOff(e){var d=document.getElementById("bellDrop");if(d&&!d.contains(e.target)&&e.target.id!=="tBell"){d.remove();document.removeEventListener("mousedown",_bellOff);}}
-document.getElementById("tFollow").onclick=function(){crmSeenSet("leads");go("portal");};
-document.getElementById("tInbox").onclick=function(){crmSeenSet("inbox");go("inbox");};
+document.getElementById("tFollow").onclick=function(){go("portal");};
+document.getElementById("tInbox").onclick=function(){go("inbox");};
 document.getElementById("tBell").onclick=toggleBell;
 document.addEventListener("keydown",function(e){if(e.key!=="Escape")return;var m=document.getElementById("avModal");if(m){avCloseModal();return;}var b=document.getElementById("bellDrop");if(b){b.remove();document.removeEventListener("mousedown",_bellOff);return;}closeAvMenu();});
 document.getElementById("q").addEventListener("input",function(){
@@ -2025,6 +2050,8 @@ async function refreshLive(){
   try{ DATA.paid=await sb("paid_referrals?select=key,paid_at"); }catch(e){}
   try{ var sd=await sb("sms_messages?select=created_at");var ed=await sb("email_messages?select=created_at");DATA.msgDates=sd.map(function(m){return m.created_at;}).concat(ed.map(function(m){return m.created_at;})).filter(Boolean); }catch(e){}
   try{ DATA.strikes=await sb("recruit_strikes?select=agent,count,summary,listed_at&order=listed_at.desc"); }catch(e){}
+  try{ await loadUnreadSrc(); }catch(e){}
+  try{ DATA.followups=await sb("followups?select=id,contact_id,due_date,note,done&order=due_date.asc"); }catch(e){}
   try{ updateTopBadges(); }catch(e){}
   try{ liveAlertCheck(); }catch(e){}
   // refresh the at-a-glance dashboard only when it's open and nothing is mid-interaction
@@ -2498,7 +2525,7 @@ function mCompose(c,kind){
     }
     var hadImg=!!cImg;
     var sent = hadImg ? await sendPhoto({to:c.phone,body:t,contactId:c.id,kind:"manual",imageBase64:cImg}) : await sendText({to:c.phone,body:t,contactId:c.id,kind:"manual"});
-    if(sent.ok){ var mediaUrl=hadImg?(sent.mediaUrl||null):null; cImg=null; var logBody=(hadImg?"📷 ":"")+(t||(hadImg?"Photo":"")); var row={contact_id:c.id,direction:"out",to_number:String(c.phone).replace(/[^0-9+]/g,""),from_number:"+13605885228",body:logBody,kind:"manual",status:"sent",sent_at:new Date().toISOString()}; if(mediaUrl)row.media_url=mediaUrl; try{ await sbWrite("POST","sms_messages",row); }catch(e){} ov.remove(); var s2=document.getElementById("mSheetMsg"); if(s2)s2.innerHTML='<span style="color:var(--pink);font-weight:700">✓ '+(hadImg?"Photo sent.":"Text sent.")+'</span>'; }
+    if(sent.ok){ var mediaUrl=hadImg?(sent.mediaUrl||null):null; cImg=null; var logBody=(t||(hadImg?"Photo":"")); var row={contact_id:c.id,direction:"out",to_number:String(c.phone).replace(/[^0-9+]/g,""),from_number:"+13605885228",body:logBody,kind:"manual",status:"sent",sent_at:new Date().toISOString()}; if(mediaUrl)row.media_url=mediaUrl; try{ await sbWrite("POST","sms_messages",row); }catch(e){} ov.remove(); var s2=document.getElementById("mSheetMsg"); if(s2)s2.innerHTML='<span style="color:var(--pink);font-weight:700">✓ '+(hadImg?"Photo sent.":"Text sent.")+'</span>'; }
     else { if(m)m.textContent="Not sent: "+sent.msg; btn.disabled=false; btn.textContent="Send text"; }
   };
 }
