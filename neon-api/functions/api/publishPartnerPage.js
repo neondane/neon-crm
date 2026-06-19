@@ -51,7 +51,32 @@ function pageHtml(o) {
   };
   var callBtn = o.phone ? pill('tel:' + phoneClean, 'Call ' + esc(first), true) : '';
   var emailBtn = o.email ? pill('mailto:' + esc(o.email), 'Email', false) : '';
-  var quoteBtn = pill(refer, 'Get my moving quote', !o.phone);
+  var quoteBtn = pill(refer, 'Claim your $50 offer', !o.phone);
+
+  // Socials + website (render only the ones filled in the CRM)
+  function socIcon(href, lbl, svg) { return '<a href="' + esc(href) + '" target="_blank" rel="noopener" aria-label="' + lbl + '" style="display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:50%;border:1px solid ' + LINE + ';color:' + WHITE + ';margin:0 9px 0 0">' + svg + '</a>'; }
+  var SVG_FB = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M14 9h3V6h-3c-1.66 0-3 1.34-3 3v2H8v3h3v7h3v-7h2.5l.5-3H14V9c0-.55.45-1 1-1z"/></svg>';
+  var SVG_IG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r="1.1" fill="currentColor" stroke="none"/></svg>';
+  var SVG_IN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6.94 8.5v9H4v-9h2.94zM5.47 7A1.74 1.74 0 1 1 5.47 3.5 1.74 1.74 0 0 1 5.47 7zM9 8.5h2.82v1.23h.04c.4-.72 1.36-1.48 2.8-1.48 3 0 3.55 1.97 3.55 4.53v4.72H15.3v-4.18c0-1 0-2.28-1.39-2.28-1.39 0-1.6 1.09-1.6 2.21v4.25H9.4v-9z"/></svg>';
+  var SVG_WEB = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18"/></svg>';
+  var socialBar = '';
+  [['Facebook', o.facebook, SVG_FB], ['Instagram', o.instagram, SVG_IG], ['LinkedIn', o.linkedin, SVG_IN], ['Website', o.website, SVG_WEB]].forEach(function (s) { if (s[1]) socialBar += socIcon(s[1], s[0], s[2]); });
+  socialBar = socialBar ? '<div style="margin-top:18px">' + socialBar + '</div>' : '';
+  var websiteRow = o.website ? '<a href="' + esc(o.website) + '" target="_blank" rel="noopener" style="display:block;padding:12px 0;border-top:1px solid ' + LINE + ';color:' + CYAN + ';font-weight:600;text-decoration:none">Visit ' + esc(first) + '&#39;s website &#8599;</a>' : '';
+
+  // Visible FAQ about the agent + the offer
+  var faqRows = [
+    ['Who is ' + name + '?', name + ' is a ' + (city ? city + ' ' : '') + 'REALTOR' + (o.brokerage ? ' with ' + o.brokerage : '') + ', working with buyers, sellers, and investors' + (areas.length ? ' across ' + areas.slice(0, 4).join(', ') : '') + '.'],
+    ['How do ' + first + '’s clients save on their move?', 'Book through Neon Giant as a ' + name + ' client and you automatically get ' + offer.join(', ') + '. No codes needed.'],
+    ['What areas does ' + first + ' serve?', (areas.length ? areas.join(', ') + '.' : 'The Whatcom and Skagit County area.')],
+    ['How do I claim the offer?', 'Tap any "Claim your offer" button on this page for a free quote. Mention ' + first + ' and the offer is applied automatically.']
+  ];
+  var faqHtml = faqRows.map(function (q) { return '<details style="border-top:1px solid ' + LINE + ';padding:16px 0"><summary style="cursor:pointer;font-family:' + HEAD + ';font-weight:500;font-size:16.5px;color:' + WHITE + ';list-style:none">' + esc(q[0]) + '</summary><p style="color:' + DIM + ';font-size:15px;margin-top:10px;line-height:1.7">' + esc(q[1]) + '</p></details>'; }).join('');
+  var faqSection = '<div style="' + sec + ';padding-top:0"><div style="' + kicker + '">Common questions</div><h2 style="' + h2 + ';font-size:24px">Got questions?</h2><div style="margin-top:16px">' + faqHtml + '</div></div>';
+
+  // Scroll-in animation. SAFE: sections default to fully visible; the script opts them
+  // into the reveal, so if WordPress ever strips the script the page is still readable.
+  var animScript = "<script>(function(){var r=document.getElementById('ngLanding');if(!r||!('IntersectionObserver' in window))return;var secs=[].slice.call(r.children);var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});},{threshold:.06,rootMargin:'0px 0px -40px 0px'});secs.forEach(function(s){var vis=s.getBoundingClientRect().top<(window.innerHeight*0.92);s.classList.add('ngrv');if(vis){requestAnimationFrame(function(){s.classList.add('in');});}else{io.observe(s);}});})();</script>";
 
   var sec = 'padding:54px 28px;max-width:1000px;margin:0 auto';
   var kicker = 'font-family:' + HEAD + ';font-weight:700;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:' + CYAN;
@@ -76,8 +101,8 @@ function pageHtml(o) {
 
   // Break out of the theme's content column to full width, and kill the theme's huge
   // page-area padding so our hero starts right under the site header.
-  var fixCss = '<style>.tg-page-area{padding-top:0!important;padding-bottom:0!important}.tg-page-area .container,.tg-page-area .row,.tg-page-area [class*=col-]{max-width:100%!important;padding-left:0!important;padding-right:0!important;margin:0!important}</style>';
-  return fixCss + '<div style="background:' + INK + ';color:' + TXT + ';font-family:' + SANS + ';line-height:1.65;margin:0;width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);overflow:hidden">'
+  var fixCss = '<style>.tg-page-area{padding-top:0!important;padding-bottom:0!important}.tg-page-area .container,.tg-page-area .row,.tg-page-area [class*=col-]{max-width:100%!important;padding-left:0!important;padding-right:0!important;margin:0!important}#ngLanding .ngrv{opacity:0;transform:translateY(42px);transition:opacity .9s ease,transform 1.2s cubic-bezier(.16,.68,.28,1)}#ngLanding .ngrv.in{opacity:1;transform:none}#ngLanding details summary::-webkit-details-marker{display:none}</style>';
+  return fixCss + '<div id="ngLanding" style="background:' + INK + ';color:' + TXT + ';font-family:' + SANS + ';line-height:1.65;margin:0;width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);overflow:hidden">'
     + '<div style="position:relative;overflow:hidden;border-bottom:1px solid ' + LINE + ';background:radial-gradient(105% 80% at 34% 42%,rgba(255,47,160,.40),rgba(255,47,160,0) 56%),radial-gradient(90% 90% at 100% 100%,rgba(43,198,255,.18),transparent 60%),#120814">'
     + (o.bigfoot ? '<img src="' + esc(o.bigfoot) + '" alt="" aria-hidden="true" style="position:absolute;right:-30px;bottom:-20px;width:380px;max-width:42%;opacity:.16">' : '')
     + '<div style="position:relative;z-index:2;display:flex;flex-wrap:wrap;gap:40px;align-items:center;justify-content:center;max-width:1000px;margin:0 auto;padding:64px 28px">'
@@ -88,6 +113,7 @@ function pageHtml(o) {
     + '<div style="font-family:' + HEAD + ';font-weight:500;font-size:19px;color:' + WHITE + '">' + roleLine + '</div>'
     + (areas.length ? '<div style="margin-top:10px;color:' + DIM + ';font-weight:500">Serving ' + esc(areas.slice(0, 5).join(', ')) + '</div>' : '')
     + '<div style="margin-top:24px">' + callBtn + emailBtn + quoteBtn + '</div>'
+    + socialBar
     + '</div></div></div>'
     + '<div style="background:linear-gradient(90deg,rgba(255,47,160,.12),rgba(43,198,255,.12));border-bottom:1px solid ' + LINE + ';text-align:center;padding:16px 24px;font-family:' + HEAD + ';font-weight:500;color:' + WHITE + '">' + esc(first) + '&#39;s clients get <b style="color:' + PINK + '">$50 off your move</b> plus free materials and Giant Guard Move Protection.</div>'
     + '<div style="' + sec + '"><div style="' + kicker + '">The client offer</div><h2 style="' + h2 + '">Move for less, and stress-free</h2>'
@@ -100,14 +126,16 @@ function pageHtml(o) {
     + (o.phone ? '<div style="padding:12px 0;border-top:1px solid ' + LINE + ';margin-top:10px;color:' + WHITE + ';font-weight:500">' + esc(o.phone) + '</div>' : '')
     + (o.email ? '<div style="padding:12px 0;border-top:1px solid ' + LINE + ';color:' + WHITE + ';font-weight:500;word-break:break-all">' + esc(o.email) + '</div>' : '')
     + (o.brokerage ? '<div style="padding:12px 0;border-top:1px solid ' + LINE + ';color:' + WHITE + ';font-weight:500">' + esc(o.brokerage) + '</div>' : '')
-    + (o.email ? pill('mailto:' + esc(o.email), 'Message ' + esc(first), true) : pill(refer, 'Get a quote', true)) + '</div></div>'
+    + websiteRow
+    + '<div style="margin-top:14px">' + (o.email ? pill('mailto:' + esc(o.email), 'Message ' + esc(first), true) : pill(refer, 'Get a quote', true)) + '</div></div></div>'
     + (areaChips ? '<div style="' + sec + ';padding-top:0"><div style="' + kicker + '">Areas served</div><h2 style="' + h2 + ';font-size:24px">Where ' + esc(first) + ' works</h2><div style="margin-top:14px">' + areaChips + '</div></div>' : '')
     + '<div style="' + sec + ';padding-top:0"><div style="' + kicker + '">Reviews</div><h2 style="' + h2 + ';font-size:24px">Rated 5.0 across 400+ moves <span style="color:#FFB02E">&#9733;&#9733;&#9733;&#9733;&#9733;</span></h2><div style="color:' + DIM + ';margin-top:8px">Real Google reviews from Neon Giant Moving customers.</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px">' + quoteCards + '</div></div>'
     + '<div style="' + sec + ';padding-top:0"><div style="' + card + '"><h2 style="' + h2 + ';font-size:23px">' + esc(name) + ', REALTOR' + (city ? ' in ' + esc(city) : '') + '</h2><p style="color:' + TXT + ';font-size:15.5px;line-height:1.85;margin-top:12px">If you are searching for <b style="color:' + WHITE + '">' + esc(name) + ', Realtor' + (city ? ' in ' + esc(city) : '') + '</b>, you have found ' + esc(first) + '. ' + esc(name) + ' is a trusted agent' + (o.brokerage ? ' with <b style="color:' + WHITE + '">' + esc(o.brokerage) + '</b>' : '') + ' and a referral partner of <b style="color:' + WHITE + '">Neon Giant Moving &amp; Junk Removal</b>. Every ' + esc(name) + ' client automatically gets ' + esc(offer.join(', ')) + '.</p></div></div>'
-    + '<div style="' + sec + ';padding-top:0"><div style="' + card + ';text-align:center;padding:52px 28px;background:radial-gradient(circle at 30% 0%,rgba(255,47,160,.22),transparent 55%),radial-gradient(circle at 80% 100%,rgba(43,198,255,.2),transparent 55%),' + PANEL + '"><h2 style="' + h2 + ';font-size:32px">Ready to move? Let&#39;s make it a bright one.</h2><p style="max-width:560px;margin:14px auto 24px;color:' + TXT + ';font-size:17px">Big moves, bright attitude, zero stress. Book with Neon Giant and ' + esc(first) + '&#39;s clients save $50 plus free boxes.</p>' + pill(refer, 'Get my free moving quote', true) + '</div></div>'
+    + faqSection
+    + '<div style="' + sec + ';padding-top:0"><div style="' + card + ';text-align:center;padding:52px 28px;background:radial-gradient(circle at 30% 0%,rgba(255,47,160,.22),transparent 55%),radial-gradient(circle at 80% 100%,rgba(43,198,255,.2),transparent 55%),' + PANEL + '"><h2 style="' + h2 + ';font-size:32px">Ready to move? Let&#39;s make it a bright one.</h2><p style="max-width:560px;margin:14px auto 24px;color:' + TXT + ';font-size:17px">Big moves, bright attitude, zero stress. Mention ' + esc(first) + ' and your $50 offer is applied automatically.</p>' + pill(refer, 'Claim your $50 moving offer', true) + '</div></div>'
     + '<div style="border-top:1px solid ' + LINE + ';background:#04060a;padding:34px 28px;text-align:center"><div style="font-family:' + HEAD + ';color:' + WHITE + ';font-weight:500">' + esc(name) + (o.brokerage ? ', ' + esc(o.brokerage) : '') + '</div><div style="font-size:11.5px;color:#5e656f;max-width:620px;margin:10px auto 0;line-height:1.5">' + esc(name) + ' is an independent licensed real estate agent and a referral partner of Neon Giant Moving and Junk Removal. Equal Housing Opportunity. Neon Giant Moving is not a real estate brokerage.</div></div>'
     + '<script type="application/ld+json">' + ld1 + '</script><script type="application/ld+json">' + ld2 + '</script>'
-    + '</div>';
+    + '</div>' + animScript;
 }
 
 async function ngWp(env, payload) {
