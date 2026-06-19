@@ -74,7 +74,10 @@ function pageHtml(o) {
   var ld1 = '{"@context":"https://schema.org","@type":"RealEstateAgent","name":' + js(name) + (o.brokerage ? ',"worksFor":{"@type":"Organization","name":' + js(o.brokerage) + '}' : '') + (areas.length ? ',"areaServed":[' + areas.map(function (a) { return js(a + ', WA'); }).join(',') + ']' : '') + (o.phone ? ',"telephone":' + js(phoneClean) : '') + ',"memberOf":{"@type":"Organization","name":"Neon Giant Moving & Junk Removal"}}';
   var ld2 = '{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":' + js('Who is ' + name + '?') + ',"acceptedAnswer":{"@type":"Answer","text":' + js(name + ' is a ' + (city ? city + ' ' : '') + 'REALTOR' + (o.brokerage ? ' with ' + o.brokerage : '') + '.') + '}},{"@type":"Question","name":' + js(first + ' client savings') + ',"acceptedAnswer":{"@type":"Answer","text":' + js(first + ' clients get ' + offer.join(', ') + ' with Neon Giant Moving.') + '}}]}';
 
-  return '<div style="background:' + INK + ';color:' + TXT + ';font-family:' + SANS + ';line-height:1.65;margin:0;border-radius:14px;overflow:hidden">'
+  // Break out of the theme's content column to full width, and kill the theme's huge
+  // page-area padding so our hero starts right under the site header.
+  var fixCss = '<style>.tg-page-area{padding-top:0!important;padding-bottom:0!important}.tg-page-area .container,.tg-page-area .row,.tg-page-area [class*=col-]{max-width:100%!important;padding-left:0!important;padding-right:0!important;margin:0!important}</style>';
+  return fixCss + '<div style="background:' + INK + ';color:' + TXT + ';font-family:' + SANS + ';line-height:1.65;margin:0;width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);overflow:hidden">'
     + '<div style="position:relative;overflow:hidden;border-bottom:1px solid ' + LINE + ';background:radial-gradient(105% 80% at 34% 42%,rgba(255,47,160,.40),rgba(255,47,160,0) 56%),radial-gradient(90% 90% at 100% 100%,rgba(43,198,255,.18),transparent 60%),#120814">'
     + (o.bigfoot ? '<img src="' + esc(o.bigfoot) + '" alt="" aria-hidden="true" style="position:absolute;right:-30px;bottom:-20px;width:380px;max-width:42%;opacity:.16">' : '')
     + '<div style="position:relative;z-index:2;display:flex;flex-wrap:wrap;gap:40px;align-items:center;justify-content:center;max-width:1000px;margin:0 auto;padding:64px 28px">'
