@@ -913,10 +913,19 @@ function redrawTab(c){var el=document.getElementById("ptcontent");if(el)el.inner
 function lpSlug(c){ return String(c.name||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,""); }
 function lpGet(id){ try{ return (JSON.parse(localStorage.getItem("crmLanding")||"{}"))[id]||null; }catch(e){ return null; } }
 function lpSet(id,v){ try{ var m=JSON.parse(localStorage.getItem("crmLanding")||"{}"); if(v)m[id]=v; else delete m[id]; localStorage.setItem("crmLanding",JSON.stringify(m)); }catch(e){} }
+function lpAreas(c){
+  var t=((c.territory||"")+" "+(c.business||"")).toLowerCase();
+  var spec=String(c.territory||"").replace(/.*—\s*/,"").trim();
+  var whatcom=["Bellingham","Ferndale","Lynden","Blaine","Whatcom County"];
+  var skagit=["Anacortes","Mount Vernon","Burlington","La Conner","Sedro-Woolley","Skagit County"];
+  var list=/whatcom|bellingham|ferndale|lynden|blaine/.test(t)?whatcom.slice():skagit.slice();
+  if(spec && list.map(function(x){return x.toLowerCase();}).indexOf(spec.toLowerCase())<0) list=[spec].concat(list);
+  var seen={},out=[]; list.forEach(function(x){var k=x.toLowerCase(); if(x&&!seen[k]){seen[k]=1;out.push(x);}});
+  return out.slice(0,5);
+}
 function buildLpOpts(c){
-  var area=String(c.territory||"").replace(/.*—\s*/,"").trim();
   return { slug:lpSlug(c), name:c.name, brokerage:c.business||"", role:c.role||"", headshot:c.profilePic||c.cardImage||"",
-    phone:c.phone||"", email:c.email||"", areas:(area?[area]:[]), bio:c.bio||"",
+    phone:c.phone||"", email:c.email||"", areas:lpAreas(c), bio:c.bio||"",
     website:c.website||"", facebook:c.facebook||"", instagram:c.instagram||"", linkedin:c.linkedin||"",
     // CTA goes to the CLIENT intake page (they get $50 off + the partner gets credited),
     // NOT the realtor's portal/earnings dashboard.
@@ -935,9 +944,9 @@ function landingCardHtml(c){
   return head+'<div style="font-size:12px;margin-bottom:8px">'+dot+'</div>'
     +'<div class="prow" style="flex-wrap:wrap;gap:8px">'
     +'<a class="btn" href="'+esc(st.url||"#")+'" target="_blank" rel="noopener">'+(live?"View page":"Preview")+' ↗</a>'
-    +(live?'':'<button class="btn grad" id="lpLive">Publish live</button>')
+    +(live?'':'<button class="btn grad" id="lpLive">Activate · go live</button>')
     +'<button class="btn" id="lpUpdate">Update</button>'
-    +'<button class="btn" id="lpUnpub" style="color:#c0392b">'+(live?"Unpublish":"Delete draft")+'</button>'
+    +'<button class="btn" id="lpUnpub" style="color:#c0392b">'+(live?"Deactivate · take down":"Delete draft")+'</button>'
     +'</div><div id="lpMsg" class="muted" style="font-size:11px;margin-top:6px"></div>';
 }
 function wireLpCard(c){
@@ -945,7 +954,18 @@ function wireLpCard(c){
   var cr=document.getElementById("lpCreate"); if(cr)cr.onclick=function(){ lpDo(c,"publish","draft"); };
   var lv=document.getElementById("lpLive"); if(lv)lv.onclick=function(){ if(confirm("Publish "+(c.name||"this agent")+"’s page LIVE on neongiantmoving.com?\n\nIt becomes public and indexable by Google.")) lpDo(c,"publish","publish"); };
   var up=document.getElementById("lpUpdate"); if(up)up.onclick=function(){ var st=lpGet(c.id)||{}; lpDo(c,"publish",st.status==="live"?"publish":"draft"); };
-  var un=document.getElementById("lpUnpub"); if(un)un.onclick=function(){ var st=lpGet(c.id)||{}; if(st.status==="live"){ if(confirm("Unpublish this page (revert to a private draft)?")) lpDo(c,"unpublish",null); } else { if(confirm("Delete this draft page?")) lpDo(c,"delete",null); } };
+  var un=document.getElementById("lpUnpub"); if(un)un.onclick=function(){ var st=lpGet(c.id)||{}; if(st.status==="live"){ if(confirm("Deactivate "+(c.name||"this")+"’s page — take it down off neongiantmoving.com?\n\nIt reverts to a private draft (nothing is deleted). You can re-activate any time.")) lpDo(c,"unpublish",null); } else { if(confirm("Delete this draft page?")) lpDo(c,"delete",null); } };
+}
+async function lpRefreshState(c){
+  if(!c||!/realtor/i.test(c.type||"")) return;
+  try{
+    var r=await fetch(NEON_API+"/api/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"status",opts:{slug:lpSlug(c)}})}).then(function(x){return x.json();});
+    if(!r||!r.ok) return;
+    var cur=lpGet(c.id)||{};
+    if(r.live){ lpSet(c.id,{url:r.url||cur.url,status:"live"}); }
+    else if(cur.status==="live"){ lpSet(c.id,{url:cur.url,status:"draft"}); }
+    var card=document.getElementById("lpCard"); if(card){ card.innerHTML=landingCardHtml(c); wireLpCard(c); }
+  }catch(e){}
 }
 async function lpDo(c,action,status){
   var msg=document.getElementById("lpMsg");
@@ -973,7 +993,7 @@ function wireProfile(c){
   var ab=document.getElementById("actBtn"); if(ab)ab.onclick=function(){activatePortal(c);};
   var db2=document.getElementById("deactBtn"); if(db2)db2.onclick=function(){deactivatePortal(c);};
   var cp=document.getElementById("copyBtn"); if(cp)cp.onclick=function(){var l="https://refer.neongiantmoving.com/?r="+slugOf(c);try{navigator.clipboard.writeText(l);}catch(e){}cp.textContent="Copied!";setTimeout(function(){cp.textContent="Copy";},1500);};
-  wireLpCard(c);
+  wireLpCard(c); lpRefreshState(c);
   var an=document.getElementById("aNote"); if(an)an.onclick=function(){pTab="conversation";cSub="note";renderProfile();};
   var ae=document.getElementById("aEdit"); if(ae)ae.onclick=function(){editing=true;renderProfile();};
   [].forEach.call(document.querySelectorAll(".ptab"),function(el){el.onclick=function(){pTab=el.getAttribute("data-pt");if(pTab==="referrals"&&c._refs===undefined)loadRefs(c);redrawTab(c);};});
