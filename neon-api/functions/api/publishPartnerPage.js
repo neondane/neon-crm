@@ -47,7 +47,7 @@ function pageHtml(o) {
   var pill = function (href, label, grad) {
     var base = 'display:inline-block;font-family:' + HEAD + ';font-weight:600;font-size:15px;padding:14px 26px;border-radius:50px;text-decoration:none;margin:6px 8px 0 0;';
     var style = grad ? (base + 'background:' + GRAD + ';color:#fff;box-shadow:0 0 28px rgba(255,47,160,.5)') : (base + 'background:transparent;color:' + WHITE + ';border:1.5px solid rgba(255,255,255,.28)');
-    return '<a href="' + esc(href) + '" style="' + style + '">' + label + '</a>';
+    return '<a class="ngp" href="' + esc(href) + '" style="' + style + '">' + label + '</a>';
   };
   var callBtn = o.phone ? pill('tel:' + phoneClean, 'Call ' + esc(first), true) : '';
   var emailBtn = o.email ? pill('mailto:' + esc(o.email), 'Email', false) : '';
@@ -72,13 +72,13 @@ function pageHtml(o) {
     ['How do I claim the offer?', 'Tap any "Claim your offer" button on this page for a free quote. Mention ' + first + ' and the offer is applied automatically.']
   ];
   var faqHtml = faqRows.map(function (q) { return '<details style="border-top:1px solid ' + LINE + ';padding:16px 0"><summary style="cursor:pointer;font-family:' + HEAD + ';font-weight:500;font-size:16.5px;color:' + WHITE + ';list-style:none">' + esc(q[0]) + '</summary><p style="color:' + DIM + ';font-size:15px;margin-top:10px;line-height:1.7">' + esc(q[1]) + '</p></details>'; }).join('');
-  var faqSection = '<div style="' + sec + ';padding-top:0"><div style="' + kicker + '">Common questions</div><h2 style="' + h2 + ';font-size:24px">Got questions?</h2><div style="margin-top:16px">' + faqHtml + '</div></div>';
+  var faqSection = '<div style="' + sec + ';padding-top:0"><div style="' + kicker + '">Common questions</div><h2 style="' + h2 + ';font-size:24px">Got questions?</h2><div class="ngc" style="' + card + ';margin-top:16px;padding-top:6px">' + faqHtml + '</div></div>';
 
   // Scroll-in animation. SAFE: sections default to fully visible; the script opts them
   // into the reveal, so if WordPress ever strips the script the page is still readable.
   // Bulletproof reveal: element.animate() always ends at the natural (visible) state, so
   // if it ever fails the section just stays visible. No persistent hidden CSS = can't blank.
-  var animScript = "<script>(function(){var r=document.getElementById('ngLanding');if(!r||typeof r.animate!=='function')return;[].slice.call(r.children).forEach(function(s,i){try{s.animate([{opacity:0,transform:'translateY(38px)'},{opacity:1,transform:'none'}],{duration:1000,delay:Math.min(i*110,1300),easing:'cubic-bezier(.16,.68,.28,1)',fill:'backwards'});}catch(e){}});})();</script>";
+  var animScript = "<script>(function(){var r=document.getElementById('ngLanding');if(!r||!('IntersectionObserver' in window))return;var secs=[].slice.call(r.children);secs.forEach(function(s,i){var dx=(i%2?90:-90);s.style.setProperty('opacity','0','important');s.style.setProperty('transform','translate('+dx+'px,40px)','important');});r.getBoundingClientRect();secs.forEach(function(s){s.style.setProperty('transition','opacity 1.1s ease, transform 1.5s cubic-bezier(.16,.68,.28,1)','important');});function show(s){s.style.setProperty('opacity','1','important');s.style.setProperty('transform','none','important');}var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){show(e.target);io.unobserve(e.target);}});},{threshold:.04,rootMargin:'0px 0px -60px 0px'});secs.forEach(function(s){io.observe(s);});secs.forEach(function(s,i){if(s.getBoundingClientRect().top<window.innerHeight*0.95){setTimeout(function(){show(s);},120+i*120);}});setTimeout(function(){secs.forEach(show);},3500);})();</script>";
 
   var sec = 'padding:54px 28px;max-width:1000px;margin:0 auto';
   var kicker = 'font-family:' + HEAD + ';font-weight:700;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:' + CYAN;
@@ -87,12 +87,12 @@ function pageHtml(o) {
   var chip = 'display:inline-block;background:' + PANEL2 + ';border:1px solid ' + LINE + ';border-radius:50px;padding:9px 17px;font-weight:500;font-size:14px;color:' + WHITE + ';margin:5px 8px 0 0';
 
   var offerCards = offer.map(function (x) {
-    return '<div style="display:flex;gap:13px;align-items:flex-start;background:' + PANEL2 + ';border:1px solid ' + LINE + ';border-radius:14px;padding:16px"><span style="width:30px;height:30px;flex:none;border-radius:8px;background:' + GRAD + ';display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700">&#10003;</span><div style="font-weight:500;color:' + WHITE + ';font-size:15px">' + esc(x) + '</div></div>';
+    return '<div class="ngm" style="display:flex;gap:13px;align-items:flex-start;background:' + PANEL2 + ';border:1px solid ' + LINE + ';border-radius:14px;padding:16px"><span style="width:30px;height:30px;flex:none;border-radius:8px;background:' + GRAD + ';display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700">&#10003;</span><div style="font-weight:500;color:' + WHITE + ';font-size:15px">' + esc(x) + '</div></div>';
   }).join('');
 
-  var areaChips = areas.length ? areas.map(function (a) { return '<span style="' + chip + '">' + esc(a) + '</span>'; }).join('') : '';
+  var areaChips = areas.length ? areas.map(function (a) { return '<span class="ngchip" style="' + chip + '">' + esc(a) + '</span>'; }).join('') : '';
   var quoteCards = reviews.map(function (r) {
-    return '<div style="' + card + '"><div style="font-family:' + HEAD + ';font-weight:700;font-size:40px;line-height:.5;color:' + CYAN + '">&#8220;</div><p style="font-size:16px;color:' + WHITE + ';line-height:1.6;margin:8px 0 0">' + esc(r.text) + '</p><div style="margin-top:14px;font-family:' + HEAD + ';font-weight:500;color:' + DIM + ';font-size:13.5px">' + esc(r.by) + '</div></div>';
+    return '<div class="ngc" style="' + card + '"><div style="font-family:' + HEAD + ';font-weight:700;font-size:40px;line-height:.5;color:' + CYAN + '">&#8220;</div><p style="font-size:16px;color:' + WHITE + ';line-height:1.6;margin:8px 0 0">' + esc(r.text) + '</p><div style="margin-top:14px;font-family:' + HEAD + ';font-weight:500;color:' + DIM + ';font-size:13.5px">' + esc(r.by) + '</div></div>';
   }).join('');
 
   var bio = o.bio ? esc(o.bio) : (esc(name) + ' helps ' + (city ? esc(city) + ' ' : '') + 'families buy and sell with confidence' + (o.brokerage ? ' at ' + esc(o.brokerage) : '') + ', and sends clients to Neon Giant so move day stays bright.');
@@ -103,7 +103,7 @@ function pageHtml(o) {
 
   // Break out of the theme's content column to full width, and kill the theme's huge
   // page-area padding so our hero starts right under the site header.
-  var fixCss = '<style>.page-hero-area{display:none!important}.tg-page-area{padding-top:0!important;padding-bottom:0!important}.tg-page-area .container,.tg-page-area .row,.tg-page-area [class*=col-]{max-width:100%!important;padding-left:0!important;padding-right:0!important;margin:0!important}#ngLanding details summary::-webkit-details-marker{display:none}</style>';
+  var fixCss = '<style>.page-hero-area{display:none!important}.tg-page-area{padding-top:0!important;padding-bottom:0!important}.tg-page-area .container,.tg-page-area .row,.tg-page-area [class*=col-]{max-width:100%!important;padding-left:0!important;padding-right:0!important;margin:0!important}#ngLanding details summary::-webkit-details-marker{display:none}#ngLanding .ngc{transition:transform .5s cubic-bezier(.16,.68,.28,1),box-shadow .5s,border-color .45s}#ngLanding .ngc:hover{transform:translateY(-9px) scale(1.012);box-shadow:0 28px 72px rgba(0,0,0,.55);border-color:rgba(43,198,255,.5)}#ngLanding .ngp{transition:transform .35s cubic-bezier(.16,.68,.28,1),box-shadow .35s,filter .35s}#ngLanding .ngp:hover{transform:translateY(-3px) scale(1.04);filter:brightness(1.08)}#ngLanding .ngm{transition:transform .45s ease,border-color .45s,box-shadow .45s}#ngLanding .ngm:hover{transform:translateY(-5px);border-color:rgba(43,198,255,.5);box-shadow:0 14px 36px rgba(0,0,0,.4)}#ngLanding .ngchip{transition:transform .35s ease,border-color .35s,color .35s}#ngLanding .ngchip:hover{transform:translateY(-3px);border-color:#2BC6FF;color:#fff}#ngLanding details{transition:border-color .4s}#ngLanding details:hover summary{color:#2BC6FF}</style>';
   return fixCss + '<div id="ngLanding" style="background:' + INK + ';color:' + TXT + ';font-family:' + SANS + ';line-height:1.65;margin:0;width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);overflow:hidden">'
     + '<div style="position:relative;overflow:hidden;border-bottom:1px solid ' + LINE + ';background:radial-gradient(105% 80% at 34% 42%,rgba(255,47,160,.40),rgba(255,47,160,0) 56%),radial-gradient(90% 90% at 100% 100%,rgba(43,198,255,.18),transparent 60%),#120814">'
     + (o.bigfoot ? '<img src="' + esc(o.bigfoot) + '" alt="" aria-hidden="true" style="position:absolute;right:-30px;bottom:-20px;width:380px;max-width:42%;opacity:.16">' : '')
@@ -119,12 +119,12 @@ function pageHtml(o) {
     + '</div></div></div>'
     + '<div style="background:linear-gradient(90deg,rgba(255,47,160,.12),rgba(43,198,255,.12));border-bottom:1px solid ' + LINE + ';text-align:center;padding:16px 24px;font-family:' + HEAD + ';font-weight:500;color:' + WHITE + '">' + esc(first) + '&#39;s clients get <b style="color:' + PINK + '">$50 off your move</b> plus free materials and Giant Guard Move Protection.</div>'
     + '<div style="' + sec + '"><div style="' + kicker + '">The client offer</div><h2 style="' + h2 + '">Move for less, and stress-free</h2>'
-    + '<div style="' + card + ';margin-top:22px;position:relative;overflow:hidden"><div style="font-family:' + HEAD + ';font-weight:700;font-size:42px;line-height:1;color:' + WHITE + ';text-shadow:0 0 30px rgba(255,47,160,.55)"><span style="color:' + PINK + '">$50 off</span> your move</div>'
+    + '<div class="ngc" style="' + card + ';margin-top:22px;position:relative;overflow:hidden"><div style="font-family:' + HEAD + ';font-weight:700;font-size:42px;line-height:1;color:' + WHITE + ';text-shadow:0 0 30px rgba(255,47,160,.55)"><span style="color:' + PINK + '">$50 off</span> your move</div>'
     + '<div style="color:' + DIM + ';font-size:13px;margin-top:6px">4-hour minimum. Applied automatically as a ' + esc(first) + ' client.</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:22px">' + offerCards + '</div></div></div>'
     + '<div style="' + sec + ';padding-top:0;display:grid;grid-template-columns:1.5fr 1fr;gap:24px">'
-    + '<div style="' + card + '"><div style="' + kicker + '">About</div><h2 style="' + h2 + ';font-size:24px">About ' + esc(name) + '</h2><p style="font-size:16px;line-height:1.85;color:' + TXT + ';margin-top:12px">' + bio + '</p></div>'
-    + '<div style="' + card + '"><div style="' + kicker + '">Contact</div><h2 style="' + h2 + ';font-size:24px">Reach ' + esc(first) + '</h2>'
+    + '<div class="ngc" style="' + card + '"><div style="' + kicker + '">About</div><h2 style="' + h2 + ';font-size:24px">About ' + esc(name) + '</h2><p style="font-size:16px;line-height:1.85;color:' + TXT + ';margin-top:12px">' + bio + '</p></div>'
+    + '<div class="ngc" style="' + card + '"><div style="' + kicker + '">Contact</div><h2 style="' + h2 + ';font-size:24px">Reach ' + esc(first) + '</h2>'
     + (o.phone ? '<div style="padding:12px 0;border-top:1px solid ' + LINE + ';margin-top:10px;color:' + WHITE + ';font-weight:500">' + esc(o.phone) + '</div>' : '')
     + (o.email ? '<div style="padding:12px 0;border-top:1px solid ' + LINE + ';color:' + WHITE + ';font-weight:500;word-break:break-all">' + esc(o.email) + '</div>' : '')
     + (o.brokerage ? '<div style="padding:12px 0;border-top:1px solid ' + LINE + ';color:' + WHITE + ';font-weight:500">' + esc(o.brokerage) + '</div>' : '')
