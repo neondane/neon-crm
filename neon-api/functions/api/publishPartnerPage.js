@@ -76,7 +76,9 @@ function pageHtml(o) {
 
   // Scroll-in animation. SAFE: sections default to fully visible; the script opts them
   // into the reveal, so if WordPress ever strips the script the page is still readable.
-  var animScript = "<script>(function(){var r=document.getElementById('ngLanding');if(!r||!('IntersectionObserver' in window))return;var secs=[].slice.call(r.children);var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});},{threshold:.06,rootMargin:'0px 0px -40px 0px'});secs.forEach(function(s){var vis=s.getBoundingClientRect().top<(window.innerHeight*0.92);s.classList.add('ngrv');if(vis){requestAnimationFrame(function(){s.classList.add('in');});}else{io.observe(s);}});})();</script>";
+  // Bulletproof reveal: element.animate() always ends at the natural (visible) state, so
+  // if it ever fails the section just stays visible. No persistent hidden CSS = can't blank.
+  var animScript = "<script>(function(){var r=document.getElementById('ngLanding');if(!r||typeof r.animate!=='function')return;[].slice.call(r.children).forEach(function(s,i){try{s.animate([{opacity:0,transform:'translateY(38px)'},{opacity:1,transform:'none'}],{duration:1000,delay:Math.min(i*110,1300),easing:'cubic-bezier(.16,.68,.28,1)',fill:'backwards'});}catch(e){}});})();</script>";
 
   var sec = 'padding:54px 28px;max-width:1000px;margin:0 auto';
   var kicker = 'font-family:' + HEAD + ';font-weight:700;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:' + CYAN;
@@ -101,11 +103,11 @@ function pageHtml(o) {
 
   // Break out of the theme's content column to full width, and kill the theme's huge
   // page-area padding so our hero starts right under the site header.
-  var fixCss = '<style>.page-hero-area{display:none!important}.tg-page-area{padding-top:0!important;padding-bottom:0!important}.tg-page-area .container,.tg-page-area .row,.tg-page-area [class*=col-]{max-width:100%!important;padding-left:0!important;padding-right:0!important;margin:0!important}#ngLanding .ngrv{opacity:0;transform:translateY(42px);transition:opacity .9s ease,transform 1.2s cubic-bezier(.16,.68,.28,1)}#ngLanding .ngrv.in{opacity:1;transform:none}#ngLanding details summary::-webkit-details-marker{display:none}</style>';
+  var fixCss = '<style>.page-hero-area{display:none!important}.tg-page-area{padding-top:0!important;padding-bottom:0!important}.tg-page-area .container,.tg-page-area .row,.tg-page-area [class*=col-]{max-width:100%!important;padding-left:0!important;padding-right:0!important;margin:0!important}#ngLanding details summary::-webkit-details-marker{display:none}</style>';
   return fixCss + '<div id="ngLanding" style="background:' + INK + ';color:' + TXT + ';font-family:' + SANS + ';line-height:1.65;margin:0;width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);overflow:hidden">'
     + '<div style="position:relative;overflow:hidden;border-bottom:1px solid ' + LINE + ';background:radial-gradient(105% 80% at 34% 42%,rgba(255,47,160,.40),rgba(255,47,160,0) 56%),radial-gradient(90% 90% at 100% 100%,rgba(43,198,255,.18),transparent 60%),#120814">'
     + (o.bigfoot ? '<img src="' + esc(o.bigfoot) + '" alt="" aria-hidden="true" style="position:absolute;right:-30px;bottom:-20px;width:380px;max-width:42%;opacity:.16">' : '')
-    + '<div style="position:relative;z-index:2;display:flex;flex-wrap:wrap;gap:40px;align-items:center;justify-content:center;max-width:1000px;margin:0 auto;padding:64px 28px">'
+    + '<div style="position:relative;z-index:2;display:flex;flex-wrap:wrap;gap:40px;align-items:center;justify-content:center;max-width:1000px;margin:0 auto;padding:132px 28px 64px">'
     + ring
     + '<div style="flex:1;min-width:280px">'
     + '<span style="display:inline-block;background:rgba(43,198,255,.1);border:1px solid rgba(43,198,255,.4);color:' + CYAN + ';font-family:' + HEAD + ';font-weight:500;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;padding:7px 15px;border-radius:50px">Preferred Real Estate Partner</span>'
