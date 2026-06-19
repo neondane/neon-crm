@@ -101,7 +101,7 @@ function pageHtml(o) {
 
   // Break out of the theme's content column to full width, and kill the theme's huge
   // page-area padding so our hero starts right under the site header.
-  var fixCss = '<style>.tg-page-area{padding-top:0!important;padding-bottom:0!important}.tg-page-area .container,.tg-page-area .row,.tg-page-area [class*=col-]{max-width:100%!important;padding-left:0!important;padding-right:0!important;margin:0!important}#ngLanding .ngrv{opacity:0;transform:translateY(42px);transition:opacity .9s ease,transform 1.2s cubic-bezier(.16,.68,.28,1)}#ngLanding .ngrv.in{opacity:1;transform:none}#ngLanding details summary::-webkit-details-marker{display:none}</style>';
+  var fixCss = '<style>.page-hero-area{display:none!important}.tg-page-area{padding-top:0!important;padding-bottom:0!important}.tg-page-area .container,.tg-page-area .row,.tg-page-area [class*=col-]{max-width:100%!important;padding-left:0!important;padding-right:0!important;margin:0!important}#ngLanding .ngrv{opacity:0;transform:translateY(42px);transition:opacity .9s ease,transform 1.2s cubic-bezier(.16,.68,.28,1)}#ngLanding .ngrv.in{opacity:1;transform:none}#ngLanding details summary::-webkit-details-marker{display:none}</style>';
   return fixCss + '<div id="ngLanding" style="background:' + INK + ';color:' + TXT + ';font-family:' + SANS + ';line-height:1.65;margin:0;width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);overflow:hidden">'
     + '<div style="position:relative;overflow:hidden;border-bottom:1px solid ' + LINE + ';background:radial-gradient(105% 80% at 34% 42%,rgba(255,47,160,.40),rgba(255,47,160,0) 56%),radial-gradient(90% 90% at 100% 100%,rgba(43,198,255,.18),transparent 60%),#120814">'
     + (o.bigfoot ? '<img src="' + esc(o.bigfoot) + '" alt="" aria-hidden="true" style="position:absolute;right:-30px;bottom:-20px;width:380px;max-width:42%;opacity:.16">' : '')
@@ -178,6 +178,11 @@ const handler = endpoint(async function (ctx) {
     status: (body.status === 'publish') ? 'publish' : 'draft',
     seo_title: seoTitle,
     seo_description: seoDesc,
+    // card fields for the /partners hub directory
+    card_name: o.name || '',
+    card_brokerage: o.brokerage || '',
+    card_headshot: o.headshot || '',
+    card_city: city,
   });
 
   if (!res.ok || !res.json || res.json.ok === false) {
