@@ -18,6 +18,11 @@ const handler = endpoint(async ({ env, body, reply }) => {
   const html = body.html ? String(body.html) : undefined;
   const contactId = body.contactId != null ? body.contactId : null;
   const sender = body.sender ? String(body.sender) : '';
+  // Optional attachments: [{ filename, content (base64) }]
+  const attachments = Array.isArray(body.attachments)
+    ? body.attachments.filter(function (a) { return a && a.filename && a.content; })
+        .map(function (a) { return { filename: String(a.filename), content: String(a.content) }; })
+    : undefined;
   if (!/^\S+@\S+\.\S+$/.test(to)) return reply({ ok: false, error: 'invalid_email' }, 400);
   if (!text && !html) return reply({ ok: false, error: 'missing_body' }, 400);
 
@@ -30,7 +35,7 @@ const handler = endpoint(async ({ env, body, reply }) => {
     res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to, subject, text: text || undefined, html }),
+      body: JSON.stringify({ from, to, subject, text: text || undefined, html, attachments: (attachments && attachments.length) ? attachments : undefined }),
     });
     j = await res.json();
   } catch (e) {
