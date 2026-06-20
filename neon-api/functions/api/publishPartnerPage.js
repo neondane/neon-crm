@@ -196,7 +196,7 @@ const handler = endpoint(async function (ctx) {
 
   var areas = (o.areas || []).filter(Boolean);
   var city = areas.length ? areas[0] : '';
-  var offer = (o.offer || []).filter(Boolean);
+  var offer = (o.offer || []).filter(Boolean).map(function (x) { return (typeof x === 'string') ? x : (x && x.t) || ''; }).filter(Boolean);
   var seoTitle = (o.name || 'Realtor') + (city ? ', ' + city + ' Realtor' : '') + ' | Neon Giant Moving Partner';
   var seoDesc = (o.name || 'This agent') + ' is a ' + (city ? city + ' ' : '') + 'REALTOR' + (o.brokerage ? ' with ' + o.brokerage : '') + '. Clients get ' + (offer.length ? offer.join(', ') : 'an exclusive moving offer') + ' with Neon Giant Moving.';
 
@@ -213,6 +213,7 @@ const handler = endpoint(async function (ctx) {
     card_brokerage: o.brokerage || '',
     card_headshot: o.headshot || '',
     card_city: city,
+    card_role: o.role || 'REALTOR',
   });
 
   if (!res.ok || !res.json || res.json.ok === false) {
