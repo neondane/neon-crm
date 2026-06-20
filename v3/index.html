@@ -738,6 +738,13 @@ function renderProfile(){
     var tierOpts=["","Tier 1","Tier 2","Tier 3","Tier 4","Tier 5"].map(function(o){return '<option value="'+o+'"'+(String(c.tier||"")===o?" selected":"")+'>'+(o||"No tier")+'</option>';}).join("");
     rws+='<div class="efield"><label>Tier</label><select data-k="tier" class="esel">'+tierOpts+'</select></div>';
     rws+='<div class="efield"><label>Notes</label><textarea data-k="notes" rows="5">'+esc(c.notes||"")+'</textarea></div>';
+    if(/realtor/i.test(c.type||"")){
+      var pTagOpts=["","Elite","Founding Partner","Top Producer"].map(function(o){return '<option value="'+o+'"'+(String(c.partner_tag||"")===o?" selected":"")+'>'+(o||"No badge")+'</option>';}).join("");
+      rws+='<div class="efield" style="grid-column:1/-1;margin-top:8px;border-top:1px solid var(--border);padding-top:12px"><label style="font-weight:700;color:var(--accent);text-transform:uppercase;font-size:11px;letter-spacing:1px">Landing page</label><div class="muted" style="font-size:11px">Fills in their public partner page — leave blank for the clean default.</div></div>';
+      rws+='<div class="efield"><label>Partner badge</label><select data-k="partner_tag" class="esel">'+pTagOpts+'</select></div>';
+      rws+='<div class="efield"><label>Specialties (comma-separated)</label><input data-k="specialties" value="'+esc(c.specialties||"")+'" placeholder="First-time buyers, Waterfront, Relocation"></div>';
+      rws+='<div class="efield" style="grid-column:1/-1"><label>Bio (their story, on the page)</label><textarea data-k="bio" rows="4" placeholder="A sentence or two about '+esc(firstName(c.name||"this agent"))+' — leave blank to use the default.">'+esc(c.bio||"")+'</textarea></div>';
+    }
     D.innerHTML='<div class="pscroll">'+back+head+'<div class="cards"><div class="card" style="grid-column:1/-1"><h3>Edit contact</h3>'+rws+'</div></div></div>';
     var sv=document.getElementById("saveBtn"); if(sv)sv.onclick=doSave;
     var cc=document.getElementById("cancelBtn"); if(cc)cc.onclick=function(){editing=false;saveState="";saveCls="";renderProfile();};
@@ -926,6 +933,7 @@ function lpAreas(c){
 function buildLpOpts(c){
   return { slug:lpSlug(c), name:c.name, brokerage:c.business||"", role:c.role||"", headshot:c.profilePic||c.cardImage||"",
     phone:c.phone||"", email:c.email||"", areas:lpAreas(c), bio:c.bio||"",
+    specialties:c.specialties||"", tier:c.partner_tag||"",
     website:c.website||"", facebook:c.facebook||"", instagram:c.instagram||"", linkedin:c.linkedin||"",
     // CTA goes to the CLIENT intake page (they get $50 off + the partner gets credited),
     // NOT the realtor's portal/earnings dashboard.
@@ -944,6 +952,7 @@ function landingCardHtml(c){
   return head+'<div style="font-size:12px;margin-bottom:8px">'+dot+'</div>'
     +'<div class="prow" style="flex-wrap:wrap;gap:8px">'
     +'<a class="btn" href="'+esc(st.url||"#")+'" target="_blank" rel="noopener">'+(live?"View page":"Preview")+' ↗</a>'
+    +'<button class="btn" id="lpCopy">Copy link</button>'
     +(live?'':'<button class="btn grad" id="lpLive">Activate · go live</button>')
     +'<button class="btn" id="lpUpdate">Update</button>'
     +'<button class="btn" id="lpUnpub" style="color:#c0392b">'+(live?"Deactivate · take down":"Delete draft")+'</button>'
@@ -952,6 +961,7 @@ function landingCardHtml(c){
 function wireLpCard(c){
   if(!document.getElementById("lpCard")) return;
   var cr=document.getElementById("lpCreate"); if(cr)cr.onclick=function(){ lpDo(c,"publish","draft"); };
+  var cp=document.getElementById("lpCopy"); if(cp)cp.onclick=function(){ var st=lpGet(c.id)||{}; var u=st.url||("https://neongiantmoving.com/partners/"+lpSlug(c)+"/"); try{navigator.clipboard.writeText(u);}catch(e){} var m=document.getElementById("lpMsg"); if(m)m.textContent="Page link copied: "+u; };
   var lv=document.getElementById("lpLive"); if(lv)lv.onclick=function(){ if(confirm("Publish "+(c.name||"this agent")+"’s page LIVE on neongiantmoving.com?\n\nIt becomes public and indexable by Google.")) lpDo(c,"publish","publish"); };
   var up=document.getElementById("lpUpdate"); if(up)up.onclick=function(){ var st=lpGet(c.id)||{}; lpDo(c,"publish",st.status==="live"?"publish":"draft"); };
   var un=document.getElementById("lpUnpub"); if(un)un.onclick=function(){ var st=lpGet(c.id)||{}; if(st.status==="live"){ if(confirm("Deactivate "+(c.name||"this")+"’s page — take it down off neongiantmoving.com?\n\nIt reverts to a private draft (nothing is deleted). You can re-activate any time.")) lpDo(c,"unpublish",null); } else { if(confirm("Delete this draft page?")) lpDo(c,"delete",null); } };
