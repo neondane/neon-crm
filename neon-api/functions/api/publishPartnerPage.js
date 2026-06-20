@@ -92,6 +92,8 @@ function pageHtml(o) {
   }).join('');
 
   var areaChips = areas.length ? areas.map(function (a) { return '<span class="ngchip" style="' + chip + '">' + esc(a) + '</span>'; }).join('') : '';
+  var specs = String(o.specialties || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+  var specChips = specs.length ? specs.map(function (s) { return '<span class="ngchip" style="' + chip + '">' + esc(s) + '</span>'; }).join('') : '';
 
   // Visible FAQ about the agent + the offer (defined here so sec/card/kicker/h2 exist)
   var faqRows = [
@@ -149,6 +151,7 @@ function pageHtml(o) {
     + websiteRow
     + '<div style="margin-top:14px">' + (o.email ? pill('mailto:' + esc(o.email), 'Message ' + esc(first), true) : pill(refer, 'Get a quote', true)) + '</div></div></div>'
     + (areaChips ? '<div style="' + sec + ';padding-top:0"><div style="' + kicker + '">Areas served</div><h2 style="' + h2 + ';font-size:24px">Where ' + esc(first) + ' works</h2><div style="margin-top:14px">' + areaChips + '</div></div>' : '')
+    + (specChips ? '<div style="' + sec + ';padding-top:0"><div style="' + kicker + '">Specialties</div><h2 style="' + h2 + ';font-size:24px">What ' + esc(first) + ' is known for</h2><div style="margin-top:14px">' + specChips + '</div></div>' : '')
     + '<div style="padding:54px 0"><div style="max-width:1000px;margin:0 auto;padding:0 28px"><div style="' + kicker + '">Reviews</div><h2 style="' + h2 + ';font-size:24px">Rated 4.9 from 400+ Google reviews <span style="color:#FFB02E">&#9733;&#9733;&#9733;&#9733;&#9733;</span></h2><div style="color:' + DIM + ';margin-top:8px">Real reviews from Neon Giant Moving &amp; Junk Removal customers.</div></div><div class="ngmqwrap" style="overflow:hidden;margin-top:24px"><div class="ngmq" style="display:flex;gap:18px;width:max-content;padding:6px 28px">' + quoteCards + quoteCards + '</div></div></div>'
     + brokerBand
     + '<div style="' + sec + ';padding-top:0"><div style="' + card + '"><h2 style="' + h2 + ';font-size:23px">' + esc(name) + ', REALTOR' + (city ? ' in ' + esc(city) : '') + '</h2><p style="color:' + TXT + ';font-size:15.5px;line-height:1.85;margin-top:12px">If you are searching for <b style="color:' + WHITE + '">' + esc(name) + ', Realtor' + (city ? ' in ' + esc(city) : '') + '</b>, you have found ' + esc(first) + '. ' + esc(name) + ' is a trusted agent' + (o.brokerage ? ' with <b style="color:' + WHITE + '">' + esc(o.brokerage) + '</b>' : '') + ' and a referral partner of <b style="color:' + WHITE + '">Neon Giant Moving &amp; Junk Removal</b>. Every ' + esc(name) + ' client automatically gets ' + esc(offerTitles) + '.</p></div></div>'
@@ -214,6 +217,7 @@ const handler = endpoint(async function (ctx) {
     card_headshot: o.headshot || '',
     card_city: city,
     card_role: o.role || 'REALTOR',
+    card_tier: o.tier || '',
   });
 
   if (!res.ok || !res.json || res.json.ok === false) {
