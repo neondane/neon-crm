@@ -197,8 +197,8 @@ const handler = endpoint(async function (ctx) {
   var areas = (o.areas || []).filter(Boolean);
   var city = areas.length ? areas[0] : '';
   var offer = (o.offer || []).filter(Boolean).map(function (x) { return (typeof x === 'string') ? x : (x && x.t) || ''; }).filter(Boolean);
-  var seoTitle = (o.name || 'Realtor') + (city ? ', ' + city + ' Realtor' : '') + ' | Neon Giant Moving Partner';
-  var seoDesc = (o.name || 'This agent') + ' is a ' + (city ? city + ' ' : '') + 'REALTOR' + (o.brokerage ? ' with ' + o.brokerage : '') + '. Clients get ' + (offer.length ? offer.join(', ') : 'an exclusive moving offer') + ' with Neon Giant Moving.';
+  var seoTitle = (o.name || 'Realtor') + ', Premier ' + (city ? city + ' ' : '') + 'Realtor — VIP Moves & Neon Giant Partner';
+  var seoDesc = (o.name || 'This agent') + ' is a premier ' + (city ? city + ' ' : '') + 'REALTOR' + (o.brokerage ? ' with ' + o.brokerage : '') + '. ' + (o.name || 'Their') + ' clients get ' + (offer.length ? offer.join(', ') : '$50 off, free moving materials, and Giant Guard Move Protection') + ' with Neon Giant Moving.';
 
   var res = await ngWp(env, {
     slug: slug,
