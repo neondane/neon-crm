@@ -1508,31 +1508,36 @@ async function loadMsgs(cb){
 }
 var inboxChan="all", inboxDir="all";
 function drawInbox(){
+  var _rd=crmRead(), _li=DATA.lastIn||{};
+  function isUnread(cid){return !!(_li[cid]&&(!_rd[cid]||_li[cid]>_rd[cid]));}
   var byC={}; DATA.msgs.forEach(function(m){if(m.cid==null)return;if(!byC[m.cid]){byC[m.cid]={cid:m.cid,latest:m,count:0};}byC[m.cid].count++;});
   var threads=Object.keys(byC).map(function(k){return byC[k];}).sort(function(a,b){return a.latest.when<b.latest.when?1:-1;});
   var nameOf=function(id){var c=ALL.filter(function(x){return +x.id===+id;})[0];return c?c.name:("Contact "+id);};
+  var unreadCount=Object.keys(byC).filter(function(cid){return isUnread(cid);}).length;
   var f=(document.getElementById("q").value||"").toLowerCase().trim();
   if(f) threads=threads.filter(function(t){return nameOf(t.cid).toLowerCase().indexOf(f)>=0||(t.latest.text||"").toLowerCase().indexOf(f)>=0;});
   if(inboxChan!=="all") threads=threads.filter(function(t){return t.latest.kind===inboxChan;});
-  if(inboxDir==="in") threads=threads.filter(function(t){return t.latest.dir!=="out";});
+  if(inboxDir==="unread") threads=threads.filter(function(t){return isUnread(t.cid);});
+  else if(inboxDir==="in") threads=threads.filter(function(t){return t.latest.dir!=="out";});
   else if(inboxDir==="out") threads=threads.filter(function(t){return t.latest.dir==="out";});
   var chanSel='<select id="ibChan">'+[["all","All channels"],["text","Texts"],["email","Emails"]].map(function(o){return '<option value="'+o[0]+'"'+(inboxChan===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
-  var dirSel='<select id="ibDir">'+[["all","All"],["in","Needs reply (they texted last)"],["out","I replied last"]].map(function(o){return '<option value="'+o[0]+'"'+(inboxDir===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
-  var html='<div class="page"><div class="ph"><h2>'+gi("inbox")+' Inbox</h2><span class="muted" style="margin-left:auto;font-weight:600">'+threads.length+' conversations</span></div>';
-  html+='<div class="cfilters">'+chanSel+dirSel+'</div>';
-  var _rd=crmRead(), _li=DATA.lastIn||{};
+  var dirSel='<select id="ibDir">'+[["all","All"],["unread","Unread only"],["in","Needs reply (they texted last)"],["out","I replied last"]].map(function(o){return '<option value="'+o[0]+'"'+(inboxDir===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
+  var html='<div class="page"><div class="ph"><h2>'+gi("inbox")+' Inbox</h2><span class="muted" style="margin-left:auto;font-weight:600">'+threads.length+' conversations'+(unreadCount?' · '+unreadCount+' unread':'')+'</span></div>';
+  html+='<div class="cfilters">'+chanSel+dirSel+(unreadCount?'<button class="btn" id="ibAllRead">✓ Mark all read</button>':'')+'</div>';
   html+=threads.length?'<div class="clist">'+threads.map(function(t){
     var c=ALL.filter(function(x){return +x.id===+t.cid;})[0]||{id:t.cid,name:nameOf(t.cid)};
-    var un=_li[t.cid]&&(!_rd[t.cid]||_li[t.cid]>_rd[t.cid]);
+    var un=isUnread(t.cid);
     var dot=un?'<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--pink,#ff1493);margin-right:7px;flex:none"></span>':'';
     return '<div class="crow2" data-id="'+t.cid+'"><div class="av">'+(PHOTOS[t.cid]?'<img src="'+esc(PHOTOS[t.cid])+'" alt="">':esc(initials(cName(c)).toUpperCase()))+'</div>'
       +'<div class="meta"><div class="nm" style="display:flex;align-items:center'+(un?";font-weight:800":"")+'">'+dot+esc(cName(c))+'<span class="temp '+(t.latest.kind==="text"?"cool":"warm")+'">'+t.latest.kind+'</span></div><div class="sub"'+(un?' style="font-weight:600;color:var(--text)"':'')+'>'+(t.latest.dir==="out"?"→ ":"← ")+esc(t.latest.text)+'</div></div>'
-      +'<div class="right"><div class="days" style="font-size:12px">'+esc(t.latest.when.slice(0,10))+'</div><div class="cnt">'+t.count+'</div></div></div>';
-  }).join("")+'</div>':'<div class="noact">No conversations match those filters.</div>';
+      +'<div class="right"><div class="days" style="font-size:12px">'+esc(t.latest.when.slice(0,10))+'</div>'+(un?'<button class="btn ibmr" data-mr="'+t.cid+'" style="padding:2px 9px;font-size:11px;margin-top:4px">✓ Read</button>':'<div class="cnt">'+t.count+'</div>')+'</div></div>';
+  }).join("")+'</div>':'<div class="noact">'+(inboxDir==="unread"?"No unread conversations — you\'re all caught up.":"No conversations match those filters.")+'</div>';
   html+='</div>';
   document.getElementById("view").innerHTML=html;
   var ic=document.getElementById("ibChan"); if(ic)ic.onchange=function(){inboxChan=ic.value;drawInbox();};
-  var id=document.getElementById("ibDir"); if(id)id.onchange=function(){inboxDir=id.value;drawInbox();};
+  var idd=document.getElementById("ibDir"); if(idd)idd.onchange=function(){inboxDir=idd.value;drawInbox();};
+  var ar=document.getElementById("ibAllRead"); if(ar)ar.onclick=function(){var r=crmRead();Object.keys(byC).forEach(function(cid){if(isUnread(cid))r[cid]=new Date().toISOString();});try{localStorage.setItem("crmRead",JSON.stringify(r));}catch(e){}try{updateTopBadges();}catch(e){}drawInbox();};
+  [].forEach.call(document.querySelectorAll(".ibmr"),function(b){b.onclick=function(e){e.stopPropagation();markRead(+b.getAttribute("data-mr"));};});
   wireContactClicks();
 }
 
