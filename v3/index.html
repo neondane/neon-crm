@@ -849,8 +849,36 @@ function activityHtml(){
   var hd='<div class="actlog"><div class="hd"><h3>Activity</h3><div class="filt">'+filts.map(function(x){return '<span class="'+(x===actFilter?"on":"")+'" data-af="'+x+'">'+x.charAt(0).toUpperCase()+x.slice(1)+'</span>';}).join("")+'</div></div>';
   if(ACT===null) return hd+'<div class="noact"><span class="spin"></span></div></div>';
   var shown=ACT.filter(function(it){return actFilter==="all"||(it.kind+"s")===actFilter;});
-  var body=shown.length?shown.map(function(it){var ph=it.media?'<a href="'+esc(it.media)+'" target="_blank" rel="noopener"><img src="'+esc(it.media)+'" alt="photo" style="margin-top:6px;max-width:200px;max-height:200px;border-radius:10px;border:1px solid var(--border);display:block"></a>':'';var camIc=it.media?'<span class="ti" style="vertical-align:-3px;margin-right:4px">'+gi("camera")+'</span>':'';return '<div class="actitem"><span class="k">'+esc(it.kind)+'</span> · '+esc(it.when)+'<div style="margin-top:3px">'+camIc+esc(it.text)+'</div>'+ph+'</div>';}).join(""):'<div class="noact">No activity yet</div>';
+  var pins=actPins(current?current.id:0);
+  var sorted=shown.slice().sort(function(a,b){var pa=pins.indexOf(actKey(a))>=0?0:1,pb=pins.indexOf(actKey(b))>=0?0:1;return pa-pb;});
+  var body=shown.length?sorted.map(function(it){
+    var key=actKey(it), pinned=pins.indexOf(key)>=0;
+    var ph=it.media?'<a href="'+esc(it.media)+'" target="_blank" rel="noopener"><img src="'+esc(it.media)+'" alt="photo" style="margin-top:6px;max-width:200px;max-height:200px;border-radius:10px;border:1px solid var(--border);display:block"></a>':'';
+    var camIc=it.media?'<span class="ti" style="vertical-align:-3px;margin-right:4px">'+gi("camera")+'</span>':'';
+    var pinMark=pinned?'<span title="Pinned" style="margin-right:5px">📌</span>':'';
+    var dots='<button class="actdots" data-adots="'+esc(key)+'" data-akind="'+esc(it.kind)+'" title="More" style="position:absolute;top:6px;right:6px;border:none;background:transparent;cursor:pointer;font-size:20px;line-height:1;color:var(--text-muted);padding:0 8px;border-radius:6px">⋯</button>';
+    return '<div class="actitem'+(pinned?' pinned':'')+'" data-akey="'+esc(key)+'" style="position:relative">'+dots+'<span class="k">'+esc(it.kind)+'</span> · '+esc(it.when)+pinMark+'<div style="margin-top:3px;padding-right:28px">'+camIc+esc(it.text)+'</div>'+ph+'</div>';
+  }).join(""):'<div class="noact">No activity yet</div>';
   return hd+body+'</div>';
+}
+function actKey(it){return (it.kind||"")+"|"+(it.when||"")+"|"+String(it.text||"").slice(0,40);}
+function actPins(cid){try{var p=JSON.parse(localStorage.getItem("crmPins")||"{}");return p[String(cid)]||[];}catch(e){return [];}}
+function actTogglePin(cid,key){try{var p=JSON.parse(localStorage.getItem("crmPins")||"{}");var a=p[String(cid)]||[];var i=a.indexOf(key);if(i>=0)a.splice(i,1);else a.unshift(key);p[String(cid)]=a;localStorage.setItem("crmPins",JSON.stringify(p));}catch(e){}if(current)redrawTab(current);}
+function closeActMenu(){var m=document.getElementById("actMenu");if(m)m.remove();document.removeEventListener("mousedown",_actMenuOff);}
+function _actMenuOff(e){var m=document.getElementById("actMenu");if(m&&!m.contains(e.target)&&!(e.target.classList&&e.target.classList.contains("actdots")))closeActMenu();}
+function actMenu(btn,key,kind,c){
+  closeActMenu();
+  var pinned=actPins(c.id).indexOf(key)>=0;
+  var m=document.createElement("div");m.className="avmenu";m.id="actMenu";
+  m.innerHTML='<button data-act="read">✓ Mark read</button><button data-act="reply">↩ Reply</button><button data-act="pin">📌 '+(pinned?"Unpin":"Pin")+'</button>';
+  document.body.appendChild(m);
+  var r=btn.getBoundingClientRect();m.style.left=Math.max(8,Math.min(r.right-180,window.innerWidth-200))+"px";m.style.top=(r.bottom+4)+"px";
+  [].forEach.call(m.querySelectorAll("[data-act]"),function(b){b.onclick=function(){var a=b.getAttribute("data-act");closeActMenu();
+    if(a==="read"){markRead(c.id);try{banner("Marked read — cleared from notifications.");}catch(e){}}
+    else if(a==="reply"){cSub=(kind==="email"?"email":"text");redrawTab(c);setTimeout(function(){var t=document.getElementById("cmsg");if(t){t.scrollIntoView({behavior:"smooth",block:"center"});t.focus();}},80);}
+    else if(a==="pin"){actTogglePin(c.id,key);}
+  };});
+  setTimeout(function(){document.addEventListener("mousedown",_actMenuOff);},0);
 }
 function noteBox(c,kind){
   var isV=kind==="visit";
@@ -1060,6 +1088,7 @@ function wireTab(c){
   var cph=document.getElementById("cPhoto"), cpf=document.getElementById("cPhotoFile");
   if(cph&&cpf){ cph.onclick=function(){cpf.click();}; cpf.onchange=function(){ var f=cpf.files&&cpf.files[0]; if(!f)return; var rd=new FileReader(); rd.onload=function(){ var im=new Image(); im.onload=function(){ cImg=avDownscale(im,1280); var p=document.getElementById("cPhotoPrev"); if(p)p.innerHTML='<img src="'+cImg+'" style="max-width:160px;border-radius:10px;border:1px solid var(--border)">'; var n=document.getElementById("cPhotoName"); if(n)n.textContent="Photo attached — tap Send"; }; im.src=rd.result; }; rd.readAsDataURL(f); }; }
   [].forEach.call(document.querySelectorAll("[data-af]"),function(el){el.onclick=function(){actFilter=el.getAttribute("data-af");redrawTab(c);};});
+  [].forEach.call(document.querySelectorAll("[data-adots]"),function(el){el.onclick=function(ev){ev.stopPropagation();actMenu(el,el.getAttribute("data-adots"),el.getAttribute("data-akind"),c);};});
   var snd=document.getElementById("cSend"); if(snd)snd.onclick=function(){sendComposer(c);};
   var ct=document.getElementById("cTalk"); if(ct)ct.onclick=function(){aiDictate("cmsg",ct);};
   var ci=document.getElementById("cImprove"); if(ci)ci.onclick=function(){aiImprove("cmsg",ci,"cAiMsg");};
