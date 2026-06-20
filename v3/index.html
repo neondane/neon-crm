@@ -789,12 +789,30 @@ function tabContent(c){
   if(pTab==="visits") return visitsTab(c);
   return composerHtml(c)+activityHtml();
 }
+var emailAttach=null;
+function emailTemplates(c){
+  var f=firstName(c.name||"there");
+  var slug=(typeof lpSlug==="function")?lpSlug(c):"";
+  var pageUrl="https://neongiantmoving.com/partners/"+slug+"/";
+  var ref="https://refer.neongiantmoving.com/move?r="+slugOf(c);
+  var portal="https://refer.neongiantmoving.com/?r="+slugOf(c);
+  return [
+   {name:"Preferred Partner invite",subject:"You’re one of our Preferred Partners, "+f,
+    body:"Hi "+f+",\n\nYou’ve sent business our way and we’d love to make it official — welcome to the Neon Giant Preferred Partner program.\n\n• Your clients get $50 off, free materials, Giant Guard Move Protection, and priority scheduling.\n• You get your own portal to submit referrals and watch every client’s move happen live.\n• You get rewarded — the more you move with us, the more unlocks.\n\nIt costs you nothing and makes you the hero who sent the best movers in town. Reply “I’m in” and I’ll set you up today.\n\nBig moves, bright attitude,\nNeon Giant Moving & Junk Removal\n360.588.4700"},
+   {name:"Your page is live",subject:f+", your Neon Giant partner page is live",
+    body:"Hi "+f+",\n\nYou’re live! Here’s your partner page: "+pageUrl+"\n\nWant a custom bio, your specialties, or your stats added? Just reply and we’ll drop them in.\n\nShare your link with any client who’s moving — they get $50 off automatically and it’s tracked in your portal: "+portal+"\n\nReferral link: "+ref+"\n\nBig moves, bright attitude,\nNeon Giant Moving & Junk Removal\n360.588.4700"},
+   {name:"Re-engagement / hello",subject:"Still here whenever your clients need us, "+f,
+    body:"Hi "+f+",\n\nJust a friendly note that your Neon Giant Preferred Partner perks are still active — any client you send gets $50 off, free materials, and a move-day experience that reflects well on you.\n\nGot someone moving soon? Send them here: "+ref+"\n\nAlways happy to make you look good.\n\nBig moves, bright attitude,\nNeon Giant Moving & Junk Removal\n360.588.4700"}
+  ];
+}
 function composerHtml(c){
   var subs=[["note","note","Note"],["email","email","Email"],["call","phone","Call"],["text","chat","Text"]];
   var to=cSub==="email"?("To: "+esc(c.email||"no email on file")):("To: "+esc(c.name)+" <"+esc(c.phone||"no phone")+">");
   var btn=cSub==="email"?"Send Email":(cSub==="text"?"Send Text":(cSub==="call"?"Log Call":"Save Note"));
+  var emailHead=cSub==="email"?('<select id="emTpl" class="esel" style="width:100%;margin-bottom:6px"><option value="">Template… (optional)</option>'+emailTemplates(c).map(function(t,i){return '<option value="'+i+'">'+esc(t.name)+'</option>';}).join("")+'</select><input id="emSubject" placeholder="Subject" style="width:100%;box-sizing:border-box;margin-bottom:6px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:14px">'):'';
   return '<div class="composer"><div class="csub">'+subs.map(function(s){return '<div class="'+(s[0]===cSub?"active":"")+'" data-cs="'+s[0]+'">'+gi(s[1])+' '+s[2]+'</div>';}).join("")
-    +'</div><div class="cbody"><div class="cto">'+to+'</div><textarea id="cmsg" placeholder="'+(cSub==="note"?"Type or tap Talk and just speak…":"Type a message…")+'"></textarea>'
+    +'</div><div class="cbody"><div class="cto">'+to+'</div>'+emailHead+'<textarea id="cmsg" placeholder="'+(cSub==="note"?"Type or tap Talk and just speak…":"Type a message…")+'"></textarea>'
+    +(cSub==="email"?'<div class="crow" style="justify-content:flex-start;gap:8px;margin-top:8px"><button class="btn" type="button" id="emAttachBtn">'+gi("note")+' Attach file</button><span class="muted" id="emAttachName" style="font-size:12px">'+(emailAttach?esc(emailAttach.filename):"")+'</span></div><input type="file" id="emAttachFile" style="display:none">':'')
     +(cSub==="note"?'<div class="crow" style="justify-content:flex-start;gap:8px;margin-top:8px"><button class="btn" type="button" id="cTalk">🎤 Talk</button><button class="btn" type="button" id="cImprove">✨ Improve</button><span class="muted" id="cAiMsg" style="font-size:12px"></span></div>':'')
     +(cSub==="text"?'<div class="crow" style="justify-content:flex-start;gap:8px;margin-top:8px"><button class="btn" type="button" id="cPhoto">'+gi("camera")+' Attach photo</button><span class="muted" id="cPhotoName" style="font-size:12px">'+(cImg?"Photo attached":"")+'</span></div><input type="file" id="cPhotoFile" accept="image/*" style="display:none"><div id="cPhotoPrev" style="margin-top:8px">'+(cImg?'<img src="'+cImg+'" style="max-width:160px;border-radius:10px;border:1px solid var(--border)">':'')+'</div>':'')
     +'<div class="crow"><label style="font-size:12px;color:var(--text-muted)"><input type="checkbox" id="cfollow"> Create a follow-up</label>'
@@ -1018,6 +1036,9 @@ function wireTab(c){
   var snd=document.getElementById("cSend"); if(snd)snd.onclick=function(){sendComposer(c);};
   var ct=document.getElementById("cTalk"); if(ct)ct.onclick=function(){aiDictate("cmsg",ct);};
   var ci=document.getElementById("cImprove"); if(ci)ci.onclick=function(){aiImprove("cmsg",ci,"cAiMsg");};
+  var etp=document.getElementById("emTpl"); if(etp)etp.onchange=function(){ var i=this.value; if(i===""){return;} var t=emailTemplates(c)[+i]; if(!t)return; var su=document.getElementById("emSubject"); if(su)su.value=t.subject; var bd=document.getElementById("cmsg"); if(bd)bd.value=t.body; };
+  var eab=document.getElementById("emAttachBtn"); if(eab)eab.onclick=function(){ var f=document.getElementById("emAttachFile"); if(f)f.click(); };
+  var eaf=document.getElementById("emAttachFile"); if(eaf)eaf.onchange=function(){ var file=this.files&&this.files[0]; if(!file)return; if(file.size>4500000){alert("File too large (max ~4MB).");this.value="";return;} var r=new FileReader(); r.onload=function(){ emailAttach={filename:file.name,content:String(r.result).split(",")[1]}; var n=document.getElementById("emAttachName"); if(n)n.textContent=file.name; }; r.readAsDataURL(file); };
   var ns=document.getElementById("nSave"); if(ns)ns.onclick=function(){saveProfileNote(c,pTab==="visits"?"visit":"note");};
   var nt=document.getElementById("nTalk"); if(nt)nt.onclick=function(){aiDictate("nbox",nt);};
   var ni=document.getElementById("nImprove"); if(ni)ni.onclick=function(){aiImprove("nbox",ni,"nAiMsg");};
@@ -1168,7 +1189,7 @@ async function sendComposer(c){
   if(cSub==="text"){ if(!c.phone){alert("No phone on file.");return;} if(!msg.trim()&&!cImg)return; var btn=document.getElementById("cSend"); if(btn){btn.disabled=true;btn.textContent="Sending…";}
     var sent = cImg ? await sendPhoto({to:c.phone,body:msg,contactId:c.id,kind:"manual",imageBase64:cImg}) : await sendText({to:c.phone,body:msg,contactId:c.id,kind:"manual"});
     if(sent.ok){ var hadImg=!!cImg; var mediaUrl=hadImg?(sent.mediaUrl||null):null; cImg=null; var ta=document.getElementById("cmsg");if(ta)ta.value=""; var logBody=(msg||(hadImg?"Photo":"")); if(ACT===null)ACT=[]; ACT.unshift({kind:"text",when:new Date().toISOString().slice(0,16).replace("T"," "),text:"→ "+logBody,media:mediaUrl}); redrawTab(c); var row={contact_id:c.id,direction:"out",to_number:String(c.phone).replace(/[^0-9+]/g,""),from_number:"+13605885228",body:logBody,kind:"manual",status:"sent",sent_at:new Date().toISOString()}; if(mediaUrl)row.media_url=mediaUrl; try{ await sbWrite("POST","sms_messages",row); }catch(e){} if(wantFollow)createFollowup(c,3,msg.slice(0,80)); ACT=null; loadActivity(c); }else{alert((cImg?"Photo":"Text")+" not sent: "+sent.msg);} if(btn){btn.disabled=false;btn.textContent="Send";} return; }
-  if(cSub==="email"){ if(!c.email){alert("No email on file.");return;} if(!msg.trim())return; if(!confirm("Send this email to "+c.name+"?"))return; try{var er=await fetch(NEON_API+"/api/sendEmail",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({to:c.email,subject:"Neon Giant Moving",body:msg,contactId:c.id})});var ej={};try{ej=await er.json();}catch(e){} if(er.ok&&ej.ok!==false){alert("Email sent.");loadActivity(c);}else{alert("Email not sent: "+(ej.message||ej.error||("HTTP "+er.status)));}}catch(e){alert("Send failed — check connection.");} return; }
+  if(cSub==="email"){ if(!c.email){alert("No email on file.");return;} if(!msg.trim())return; var subjEl=document.getElementById("emSubject"); var subj=(subjEl&&subjEl.value.trim())||"A note from Neon Giant Moving"; if(!confirm("Send this email to "+c.name+"?"))return; var ebtn=document.getElementById("cSend"); if(ebtn){ebtn.disabled=true;ebtn.textContent="Sending…";} var payload={to:c.email,subject:subj,body:msg,contactId:c.id}; if(emailAttach)payload.attachments=[emailAttach]; try{var er=await fetch(NEON_API+"/api/sendEmail",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});var ej={};try{ej=await er.json();}catch(e){} if(er.ok&&ej.ok!==false){ emailAttach=null; var eta=document.getElementById("cmsg"); if(eta)eta.value=""; if(subjEl)subjEl.value=""; if(wantFollow)createFollowup(c,7,"Email: "+subj); banner("Email sent."); loadActivity(c); }else{alert("Email not sent: "+(ej.message||ej.error||("HTTP "+er.status)));}}catch(e){alert("Send failed — check connection.");} if(ebtn){ebtn.disabled=false;ebtn.textContent="Send Email";} return; }
   alert("Call logging comes next.");
 }
 async function createFollowup(c,days,note){
