@@ -708,16 +708,17 @@ async function acSave(){
 }
 var current=null, editing=false, saveState="", saveCls="";
 var EDITABLE=[["name","Name"],["business","Business"],["type","Type"],["role","Role"],["phone","Phone"],["email","Email"],["territory","Territory"],["website","Website (for landing page)"],["facebook","Facebook URL"],["instagram","Instagram URL"],["linkedin","LinkedIn URL"]];
-async function openContact(id){
+async function openContact(id, focusInbound){
   activeId=id; editing=false; saveState=""; saveCls=""; pTab="conversation"; cSub="text"; ACT=null;
-  try{markRead(id);}catch(e){} // opening a person's thread marks their messages read
+  _focusInbound=!!focusInbound; // deep-link: scroll to + highlight the latest inbound message
+  // NOTE: opening a thread no longer auto-marks it read — only an explicit "Mark read" clears a notification (SmartMoving-style "deal with later").
   try{localStorage.setItem("crmNav","c:"+id);}catch(e){}
   document.getElementById("view").innerHTML='<div class="page"><div class="noact"><span class="spin"></span></div></div>';
   current=ALL.filter(function(c){return c.id===id;})[0]||{};
   try{ var full=await sb("contacts?id=eq."+id+"&select=*"); if(full[0]) current=full[0]; }catch(e){}
   renderProfile();
 }
-var pTab="conversation", cSub="text", ACT=null, actFilter="all", cImg=null;
+var pTab="conversation", cSub="text", ACT=null, actFilter="all", cImg=null, _focusInbound=false;
 function slugOf(c){return String(c.name||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")+"-"+c.id;}
 function renderProfile(){
   var D=document.getElementById("view"), c=current; if(!D||!c) return;
@@ -871,7 +872,8 @@ function activityHtml(){
     var marks=(flagged?'<span title="Unread" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#e0245e;margin-right:6px;vertical-align:1px"></span>':'')+(pinned?'<span title="Pinned" class="pinmark" style="margin-right:5px;color:var(--brand-pink, #e0245e)">'+gi("pin")+'</span>':'');
     var dots='<button class="actdots" data-adots="'+esc(key)+'" data-akind="'+esc(it.kind)+'" title="More" style="position:absolute;top:6px;right:6px;border:none;background:transparent;cursor:pointer;line-height:1;color:var(--text-muted);padding:2px 6px;border-radius:6px">'+gi("more")+'</button>';
     var ring=flagged?';box-shadow:inset 3px 0 0 #e0245e':'';
-    return '<div class="actitem'+(pinned?' pinned':'')+(flagged?' unread':'')+'" data-akey="'+esc(key)+'" style="position:relative'+ring+'">'+dots+'<span class="k">'+esc(it.kind)+'</span> · '+esc(it.when)+' '+marks+'<div style="margin-top:3px;padding-right:28px">'+camIc+esc(it.text)+'</div>'+ph+'</div>';
+    var inbound=/^\s*←/.test(it.text||"")?1:0;
+    return '<div class="actitem'+(pinned?' pinned':'')+(flagged?' unread':'')+'" data-akey="'+esc(key)+'" data-in="'+inbound+'" style="position:relative'+ring+'">'+dots+'<span class="k">'+esc(it.kind)+'</span> · '+esc(it.when)+' '+marks+'<div style="margin-top:3px;padding-right:28px">'+camIc+esc(it.text)+'</div>'+ph+'</div>';
   }).join(""):'<div class="noact">No activity yet</div>';
   return hd+body+'</div>';
 }
@@ -1118,6 +1120,22 @@ function wireTab(c){
   [].forEach.call(document.querySelectorAll(".refrow"),function(el){el.onclick=function(){var d=el.querySelector(".leaddet");if(d){d.style.display=(d.style.display==="none"?"block":"none");el.classList.toggle("open");}};});
   [].forEach.call(document.querySelectorAll("[data-addportal]"),function(el){el.onclick=function(ev){ev.stopPropagation();var i=+el.getAttribute("data-addportal");addToPortal(c,(c._refs||[])[i],el);};});
   var lb=document.getElementById("lstBtn"); if(lb)lb.onclick=function(){profileCheckListings(c);};
+  if(_focusInbound && pTab==="conversation" && document.querySelector(".actitem")){
+    _focusInbound=false;
+    setTimeout(function(){
+      var items=document.querySelectorAll(".actitem"), target=null;
+      for(var i=0;i<items.length;i++){ if(items[i].getAttribute("data-in")==="1"){ target=items[i]; break; } }
+      if(!target&&items.length) target=items[0];
+      if(target){
+        target.scrollIntoView({behavior:"smooth",block:"center"});
+        var ob=target.style.boxShadow, obg=target.style.background;
+        target.style.transition="background .3s, box-shadow .3s";
+        target.style.background="var(--pink-tint, rgba(255,20,147,.10))";
+        target.style.boxShadow="0 0 0 2px var(--pink,#ff1493)";
+        setTimeout(function(){ target.style.background=obg; target.style.boxShadow=ob; }, 2400);
+      }
+    }, 120);
+  }
 }
 async function addToPortal(c,r,btn){
   if(!r) return;
@@ -1585,6 +1603,8 @@ function drawInbox(){
   var ar=document.getElementById("ibAllRead"); if(ar)ar.onclick=function(){var r=crmRead();Object.keys(byC).forEach(function(cid){if(isUnread(cid))r[cid]=new Date().toISOString();});try{localStorage.setItem("crmRead",JSON.stringify(r));}catch(e){}try{updateTopBadges();}catch(e){}drawInbox();};
   [].forEach.call(document.querySelectorAll(".ibmr"),function(b){b.onclick=function(e){e.stopPropagation();markRead(+b.getAttribute("data-mr"));};});
   wireContactClicks();
+  // Inbox click is a notification deep-link: jump to + highlight the latest inbound message (don't auto-mark-read).
+  [].forEach.call(document.querySelectorAll(".crow2[data-id]"),function(el){el.onclick=function(){openContact(+el.getAttribute("data-id"),true);};});
 }
 
 /* ---------------- Calendar ---------------- */
@@ -2143,7 +2163,7 @@ function toggleBell(){
   var bell=document.getElementById("tBell");document.body.appendChild(d);
   var r=bell.getBoundingClientRect();d.style.top=(r.bottom+8)+"px";d.style.right=Math.max(10,(window.innerWidth-r.right))+"px";
   // NOTE: opening the bell does NOT clear anything — items persist until you act or dismiss them.
-  [].forEach.call(d.querySelectorAll("[data-go]"),function(b){b.onclick=function(){var v=b.getAttribute("data-go");var cid=b.getAttribute("data-cid");d.remove();document.removeEventListener("mousedown",_bellOff);if(cid){go("contacts");openContact(+cid);}else if(v)go(v);};});
+  [].forEach.call(d.querySelectorAll("[data-go]"),function(b){b.onclick=function(){var v=b.getAttribute("data-go");var cid=b.getAttribute("data-cid");d.remove();document.removeEventListener("mousedown",_bellOff);if(cid){go("contacts");openContact(+cid,true);}else if(v)go(v);};});
   [].forEach.call(d.querySelectorAll("[data-dis]"),function(b){b.onclick=function(e){e.stopPropagation();var dis=notifDis();dis[b.getAttribute("data-dis")]=1;notifSave(dis);updateTopBadges();d.remove();document.removeEventListener("mousedown",_bellOff);toggleBell();};});
   var clr=document.getElementById("notifClear");if(clr)clr.onclick=function(){var dis=notifDis();notifItems().forEach(function(it){dis[it.k]=1;});notifSave(dis);updateTopBadges();d.remove();document.removeEventListener("mousedown",_bellOff);};
   setTimeout(function(){document.addEventListener("mousedown",_bellOff);},0);
