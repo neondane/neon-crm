@@ -776,25 +776,30 @@ function leftCol(c){
   var actions='<div class="pcard"><h3>Actions</h3><button class="actbtn" id="aNote">'+gi("note")+' Add note</button><button class="actbtn" id="aEdit">'+gi("edit")+' Edit info</button></div>';
   return '<div class="pleft">'+contact+details+remindersCard(c)+portal+actions+'</div>';
 }
+function fmtTime12(t){ if(!t)return ""; var p=String(t).split(":"); var h=parseInt(p[0],10)||0, m=p[1]||"00"; var ap=h>=12?"PM":"AM"; var h12=h%12; if(h12===0)h12=12; return h12+":"+m+" "+ap; }
 function remindersCard(c){
   var today=new Date().toISOString().slice(0,10);
-  var mine=(DATA.followups||[]).filter(function(f){return +f.contact_id===+c.id&&!f.done;}).sort(function(a,b){return String(a.due_date||"").localeCompare(String(b.due_date||""));});
-  var rows=mine.length?mine.map(function(f){var od=String(f.due_date||"").slice(0,10)<=today;return '<div class="field" style="align-items:flex-start;gap:8px"><span class="v" style="flex:1">'+(od?'<b style="color:#e08600">⏰ ':'')+esc(String(f.due_date||"").slice(0,10))+(od?'</b>':'')+(f.note?(' — '+esc(f.note)):'')+'</span><button class="btn" data-rdone="'+esc(f.id)+'" style="padding:2px 9px;font-size:11px">Done</button></div>';}).join(""):'<div class="muted" style="font-size:12px">No reminders set.</div>';
-  var dflt=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
+  var mine=(DATA.followups||[]).filter(function(f){return +f.contact_id===+c.id&&!f.done;}).sort(function(a,b){return String((a.due_date||"")+(a.due_time||"")).localeCompare(String((b.due_date||"")+(b.due_time||"")));});
+  var rows=mine.length?mine.map(function(f){var od=String(f.due_date||"").slice(0,10)<=today;var tm=f.due_time?(" · "+fmtTime12(f.due_time)):"";return '<div class="field" style="align-items:flex-start;gap:8px"><span class="v" style="flex:1">'+(od?'<b style="color:#e08600">⏰ ':'')+esc(String(f.due_date||"").slice(0,10))+tm+(od?'</b>':'')+(f.note?(' — '+esc(f.note)):'')+'</span><button class="btn" data-rdone="'+esc(f.id)+'" style="padding:2px 9px;font-size:11px">Done</button></div>';}).join(""):'<div class="muted" style="font-size:12px">No reminders set.</div>';
+  var dflt=new Date(Date.now()+7*86400000).toISOString().slice(0,10)+'T09:00';
   return '<div class="pcard"><h3>'+gi("note")+' Reminders</h3>'+rows
     +'<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">'
-    +'<input type="date" id="remDate" value="'+dflt+'" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);margin-bottom:6px">'
+    +'<input type="datetime-local" id="remDate" value="'+dflt+'" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);margin-bottom:6px">'
     +'<input id="remNote" placeholder="What to remember (follow-up, birthday call…)" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);margin-bottom:6px">'
     +'<button class="btn grad" id="remSet" style="width:100%">Set reminder</button></div></div>';
 }
 async function setReminder(c){
   var dEl=document.getElementById("remDate"),nEl=document.getElementById("remNote");
-  var dd=dEl?dEl.value:"",note=nEl?nEl.value.trim():"";
-  if(!dd){alert("Pick a date for the reminder.");return;}
+  var raw=dEl?dEl.value:"",note=nEl?nEl.value.trim():"";
+  if(!raw){alert("Pick a date & time for the reminder.");return;}
+  var dd=raw.slice(0,10), tt=(raw.length>=16?raw.slice(11,16):"");
   var btn=document.getElementById("remSet"); if(btn){btn.disabled=true;btn.textContent="Setting…";}
-  var row={contact_id:c.id,due_date:dd,note:note,done:false,created_at:new Date().toISOString()};
-  try{ var ins=await sbWrite("POST","followups",row); if(!DATA.followups)DATA.followups=[]; DATA.followups.push((ins&&ins[0])?ins[0]:Object.assign({id:"tmp"+Date.now()},row)); try{updateTopBadges();}catch(e){} banner("Reminder set for "+dd+(note?(" — "+note):"")+"."); renderProfile(); }
-  catch(e){ if(btn){btn.disabled=false;btn.textContent="Set reminder";} alert("Couldn't save the reminder — check connection."); }
+  var row={contact_id:c.id,due_date:dd,due_time:tt,note:note,done:false,created_at:new Date().toISOString()};
+  var ins=null, saved=false;
+  try{ ins=await sbWrite("POST","followups",row); saved=true; }
+  catch(e){ try{ ins=await sbWrite("POST","followups",{contact_id:c.id,due_date:dd,note:note,done:false,created_at:new Date().toISOString()}); saved=true; }catch(e2){} }
+  if(saved){ if(!DATA.followups)DATA.followups=[]; DATA.followups.push((ins&&ins[0])?ins[0]:Object.assign({id:"tmp"+Date.now()},row)); try{updateTopBadges();}catch(e){} banner("Reminder set for "+dd+(tt?(" "+fmtTime12(tt)):"")+(note?(" — "+note):"")+"."); renderProfile(); }
+  else { if(btn){btn.disabled=false;btn.textContent="Set reminder";} alert("Couldn't save the reminder — check connection."); }
 }
 async function reminderDone(id){
   try{ await sbWrite("PATCH","followups?id=eq."+encodeURIComponent(id),{done:true}); }catch(e){}
@@ -849,32 +854,38 @@ function activityHtml(){
   var hd='<div class="actlog"><div class="hd"><h3>Activity</h3><div class="filt">'+filts.map(function(x){return '<span class="'+(x===actFilter?"on":"")+'" data-af="'+x+'">'+x.charAt(0).toUpperCase()+x.slice(1)+'</span>';}).join("")+'</div></div>';
   if(ACT===null) return hd+'<div class="noact"><span class="spin"></span></div></div>';
   var shown=ACT.filter(function(it){return actFilter==="all"||(it.kind+"s")===actFilter;});
-  var pins=actPins(current?current.id:0);
-  var sorted=shown.slice().sort(function(a,b){var pa=pins.indexOf(actKey(a))>=0?0:1,pb=pins.indexOf(actKey(b))>=0?0:1;return pa-pb;});
+  var cid=current?current.id:0;
+  var pins=actPins(cid), flags=actFlags(cid);
+  // pinned + manually-unread float to the top (SmartMoving style); rest stay in time order
+  var sorted=shown.slice().sort(function(a,b){var pa=(pins.indexOf(actKey(a))>=0||flags.indexOf(actKey(a))>=0)?0:1,pb=(pins.indexOf(actKey(b))>=0||flags.indexOf(actKey(b))>=0)?0:1;return pa-pb;});
   var body=shown.length?sorted.map(function(it){
-    var key=actKey(it), pinned=pins.indexOf(key)>=0;
+    var key=actKey(it), pinned=pins.indexOf(key)>=0, flagged=flags.indexOf(key)>=0;
     var ph=it.media?'<a href="'+esc(it.media)+'" target="_blank" rel="noopener"><img src="'+esc(it.media)+'" alt="photo" style="margin-top:6px;max-width:200px;max-height:200px;border-radius:10px;border:1px solid var(--border);display:block"></a>':'';
     var camIc=it.media?'<span class="ti" style="vertical-align:-3px;margin-right:4px">'+gi("camera")+'</span>':'';
-    var pinMark=pinned?'<span title="Pinned" style="margin-right:5px">📌</span>':'';
+    var marks=(flagged?'<span title="Unread" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#e0245e;margin-right:6px;vertical-align:1px"></span>':'')+(pinned?'<span title="Pinned" style="margin-right:5px">📌</span>':'');
     var dots='<button class="actdots" data-adots="'+esc(key)+'" data-akind="'+esc(it.kind)+'" title="More" style="position:absolute;top:6px;right:6px;border:none;background:transparent;cursor:pointer;font-size:20px;line-height:1;color:var(--text-muted);padding:0 8px;border-radius:6px">⋯</button>';
-    return '<div class="actitem'+(pinned?' pinned':'')+'" data-akey="'+esc(key)+'" style="position:relative">'+dots+'<span class="k">'+esc(it.kind)+'</span> · '+esc(it.when)+pinMark+'<div style="margin-top:3px;padding-right:28px">'+camIc+esc(it.text)+'</div>'+ph+'</div>';
+    var ring=flagged?';box-shadow:inset 3px 0 0 #e0245e':'';
+    return '<div class="actitem'+(pinned?' pinned':'')+(flagged?' unread':'')+'" data-akey="'+esc(key)+'" style="position:relative'+ring+'">'+dots+'<span class="k">'+esc(it.kind)+'</span> · '+esc(it.when)+' '+marks+'<div style="margin-top:3px;padding-right:28px">'+camIc+esc(it.text)+'</div>'+ph+'</div>';
   }).join(""):'<div class="noact">No activity yet</div>';
   return hd+body+'</div>';
 }
 function actKey(it){return (it.kind||"")+"|"+(it.when||"")+"|"+String(it.text||"").slice(0,40);}
 function actPins(cid){try{var p=JSON.parse(localStorage.getItem("crmPins")||"{}");return p[String(cid)]||[];}catch(e){return [];}}
 function actTogglePin(cid,key){try{var p=JSON.parse(localStorage.getItem("crmPins")||"{}");var a=p[String(cid)]||[];var i=a.indexOf(key);if(i>=0)a.splice(i,1);else a.unshift(key);p[String(cid)]=a;localStorage.setItem("crmPins",JSON.stringify(p));}catch(e){}if(current)redrawTab(current);}
+function actFlags(cid){try{var p=JSON.parse(localStorage.getItem("crmMsgFlags")||"{}");return p[String(cid)]||[];}catch(e){return [];}}
+function actSetFlag(cid,key,on){try{var p=JSON.parse(localStorage.getItem("crmMsgFlags")||"{}");var a=p[String(cid)]||[];var i=a.indexOf(key);if(on&&i<0)a.unshift(key);if(!on&&i>=0)a.splice(i,1);p[String(cid)]=a;localStorage.setItem("crmMsgFlags",JSON.stringify(p));}catch(e){}}
 function closeActMenu(){var m=document.getElementById("actMenu");if(m)m.remove();document.removeEventListener("mousedown",_actMenuOff);}
 function _actMenuOff(e){var m=document.getElementById("actMenu");if(m&&!m.contains(e.target)&&!(e.target.classList&&e.target.classList.contains("actdots")))closeActMenu();}
 function actMenu(btn,key,kind,c){
   closeActMenu();
-  var pinned=actPins(c.id).indexOf(key)>=0;
+  var pinned=actPins(c.id).indexOf(key)>=0, flagged=actFlags(c.id).indexOf(key)>=0;
   var m=document.createElement("div");m.className="avmenu";m.id="actMenu";
-  m.innerHTML='<button data-act="read">✓ Mark read</button><button data-act="reply">↩ Reply</button><button data-act="pin">📌 '+(pinned?"Unpin":"Pin")+'</button>';
+  m.innerHTML='<button data-act="unread">🔴 '+(flagged?"Clear unread":"Mark unread")+'</button><button data-act="read">✓ Mark read</button><button data-act="reply">↩ Reply</button><button data-act="pin">📌 '+(pinned?"Unpin":"Pin")+'</button>';
   document.body.appendChild(m);
   var r=btn.getBoundingClientRect();m.style.left=Math.max(8,Math.min(r.right-180,window.innerWidth-200))+"px";m.style.top=(r.bottom+4)+"px";
   [].forEach.call(m.querySelectorAll("[data-act]"),function(b){b.onclick=function(){var a=b.getAttribute("data-act");closeActMenu();
-    if(a==="read"){markRead(c.id);try{banner("Marked read — cleared from notifications.");}catch(e){}}
+    if(a==="unread"){ var on=!flagged; actSetFlag(c.id,key,on); if(on){ try{var rr=crmRead();delete rr[String(c.id)];localStorage.setItem("crmRead",JSON.stringify(rr));}catch(e){} } try{updateTopBadges();}catch(e){} redrawTab(c); try{banner(on?"Marked unread — pinned to top & shown as a notification.":"Cleared unread flag.");}catch(e){} }
+    else if(a==="read"){ actSetFlag(c.id,key,false); markRead(c.id); redrawTab(c); try{banner("Marked read — cleared from notifications.");}catch(e){} }
     else if(a==="reply"){cSub=(kind==="email"?"email":"text");redrawTab(c);setTimeout(function(){var t=document.getElementById("cmsg");if(t){t.scrollIntoView({behavior:"smooth",block:"center"});t.focus();}},80);}
     else if(a==="pin"){actTogglePin(c.id,key);}
   };});
