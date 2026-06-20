@@ -437,7 +437,13 @@ var ICONS={
  camera:SVA+'<path d="M3.4 8.6h3l1.5-2.1h6.2l1.5 2.1h3a1.5 1.5 0 0 1 1.5 1.5v8.4a1.5 1.5 0 0 1-1.5 1.5H3.4a1.5 1.5 0 0 1-1.5-1.5V10.1a1.5 1.5 0 0 1 1.5-1.5z"/><circle cx="12" cy="13.4" r="3.2"/></svg>',
  search:SVA+'<circle cx="10.6" cy="10.6" r="6"/><path d="M15 15l5 5"/></svg>',
  check:SVA+'<path d="M5 12.6 9.6 17 19 7"/></svg>',
- flame:SVA+'<path d="M12 2.5c2.5 3 5 5 5 8.5a5 5 0 0 1-10 0c0-1.5.6-2.9 1.6-3.9C8.4 8.4 9 10.4 10.4 10.9 9.3 8.2 10.4 5 12 2.5z"/></svg>'
+ flame:SVA+'<path d="M12 2.5c2.5 3 5 5 5 8.5a5 5 0 0 1-10 0c0-1.5.6-2.9 1.6-3.9C8.4 8.4 9 10.4 10.4 10.9 9.3 8.2 10.4 5 12 2.5z"/></svg>',
+ reply:SVA+'<path d="M9.5 7 4.5 12l5 5"/><path d="M4.5 12h8.5a6 6 0 0 1 6 6v1.2"/></svg>',
+ pin:SVA+'<path d="M8 3h8M9.6 3v5L7 12.2h10L14.4 8V3M12 16.2V21"/></svg>',
+ more:SVA+'<circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg>',
+ clock:SVA+'<circle cx="12" cy="12" r="8.2"/><path d="M12 7.4V12l3 2"/></svg>',
+ mic:SVA+'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v3.4M9 20.4h6"/></svg>',
+ sparkle:SVA+'<path d="M12 3l1.8 4.6L18.5 9l-4.7 1.4L12 15l-1.8-4.6L5.5 9l4.7-1.4z"/><path d="M18.2 14l.7 1.9 1.9.7-1.9.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7z"/></svg>'
 };
 function gi(name){return '<span class="gi">'+(ICONS[name]||"")+'</span>';}
 var NAV=[
@@ -675,16 +681,16 @@ function aiDictate(taId, btn){
   if(btn){ btn.setAttribute("data-lbl",btn.innerHTML); btn.innerHTML="● Listening — tap to stop"; btn.style.color="#e24b4a"; }
   rec.onresult=function(ev){ for(var i=ev.resultIndex;i<ev.results.length;i++){ if(ev.results[i].isFinal){ var t=ev.results[i][0].transcript.trim(); if(t){ ta.value=(ta.value?ta.value.replace(/\s*$/,"")+" ":"")+t; ta.dispatchEvent(new Event("input")); } } } };
   rec.onerror=function(){};
-  rec.onend=function(){ _dictRec=null; if(_dictBtn){ _dictBtn.innerHTML=_dictBtn.getAttribute("data-lbl")||"🎤 Talk"; _dictBtn.style.color=""; _dictBtn=null; } };
+  rec.onend=function(){ _dictRec=null; if(_dictBtn){ _dictBtn.innerHTML=_dictBtn.getAttribute("data-lbl")||(gi("mic")+" Talk"); _dictBtn.style.color=""; _dictBtn=null; } };
   try{ rec.start(); }catch(e){ _dictRec=null; }
 }
 function aiImprove(taId, btn, statusId){
   var ta=document.getElementById(taId); if(!ta||!ta.value.trim()){ return; }
-  var orig=ta.value, ot=btn?btn.innerHTML:""; if(btn){btn.disabled=true;btn.innerHTML="✨ Improving…";}
+  var orig=ta.value, ot=btn?btn.innerHTML:""; if(btn){btn.disabled=true;btn.innerHTML=gi("sparkle")+" Improving…";}
   var st=statusId?document.getElementById(statusId):null;
   fetch(NEON_API+"/api/improveNotes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:orig})})
     .then(function(x){return x.json();})
-    .then(function(j){ if(j&&j.ok&&j.improved){ ta.value=j.improved; ta.dispatchEvent(new Event("input")); if(st)st.textContent="Cleaned up ✓"; } else if(st){ st.textContent=(j&&j.error)?("Couldn't improve: "+j.error):"Couldn't improve — kept your text."; } if(btn){btn.disabled=false;btn.innerHTML=ot;} })
+    .then(function(j){ if(j&&j.ok&&j.improved){ ta.value=j.improved; ta.dispatchEvent(new Event("input")); if(st)st.textContent="Cleaned up."; } else if(st){ st.textContent=(j&&j.error)?("Couldn't improve: "+j.error):"Couldn't improve — kept your text."; } if(btn){btn.disabled=false;btn.innerHTML=ot;} })
     .catch(function(){ if(st)st.textContent="Couldn't reach the AI — kept your text."; if(btn){btn.disabled=false;btn.innerHTML=ot;} });
 }
 async function acSave(){
@@ -780,7 +786,7 @@ function fmtTime12(t){ if(!t)return ""; var p=String(t).split(":"); var h=parseI
 function remindersCard(c){
   var today=new Date().toISOString().slice(0,10);
   var mine=(DATA.followups||[]).filter(function(f){return +f.contact_id===+c.id&&!f.done;}).sort(function(a,b){return String((a.due_date||"")+(a.due_time||"")).localeCompare(String((b.due_date||"")+(b.due_time||"")));});
-  var rows=mine.length?mine.map(function(f){var od=String(f.due_date||"").slice(0,10)<=today;var tm=f.due_time?(" · "+fmtTime12(f.due_time)):"";return '<div class="field" style="align-items:flex-start;gap:8px"><span class="v" style="flex:1">'+(od?'<b style="color:#e08600">⏰ ':'')+esc(String(f.due_date||"").slice(0,10))+tm+(od?'</b>':'')+(f.note?(' — '+esc(f.note)):'')+'</span><button class="btn" data-rdone="'+esc(f.id)+'" style="padding:2px 9px;font-size:11px">Done</button></div>';}).join(""):'<div class="muted" style="font-size:12px">No reminders set.</div>';
+  var rows=mine.length?mine.map(function(f){var od=String(f.due_date||"").slice(0,10)<=today;var tm=f.due_time?(" · "+fmtTime12(f.due_time)):"";return '<div class="field" style="align-items:flex-start;gap:8px"><span class="v" style="flex:1">'+(od?'<b style="color:#e08600">'+gi("clock")+' ':'')+esc(String(f.due_date||"").slice(0,10))+tm+(od?'</b>':'')+(f.note?(' — '+esc(f.note)):'')+'</span><button class="btn" data-rdone="'+esc(f.id)+'" style="padding:2px 9px;font-size:11px">Done</button></div>';}).join(""):'<div class="muted" style="font-size:12px">No reminders set.</div>';
   var dflt=new Date(Date.now()+7*86400000).toISOString().slice(0,10)+'T09:00';
   return '<div class="pcard"><h3>'+gi("note")+' Reminders</h3>'+rows
     +'<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">'
@@ -843,7 +849,7 @@ function composerHtml(c){
   return '<div class="composer"><div class="csub">'+subs.map(function(s){return '<div class="'+(s[0]===cSub?"active":"")+'" data-cs="'+s[0]+'">'+gi(s[1])+' '+s[2]+'</div>';}).join("")
     +'</div><div class="cbody"><div class="cto">'+to+'</div>'+emailHead+'<textarea id="cmsg" placeholder="'+(cSub==="note"?"Type or tap Talk and just speak…":"Type a message…")+'"></textarea>'
     +(cSub==="email"?'<div class="crow" style="justify-content:flex-start;gap:8px;margin-top:8px"><button class="btn" type="button" id="emAttachBtn">'+gi("note")+' Attach file</button><span class="muted" id="emAttachName" style="font-size:12px">'+(emailAttach?esc(emailAttach.filename):"")+'</span></div><input type="file" id="emAttachFile" style="display:none">':'')
-    +(cSub==="note"?'<div class="crow" style="justify-content:flex-start;gap:8px;margin-top:8px"><button class="btn" type="button" id="cTalk">🎤 Talk</button><button class="btn" type="button" id="cImprove">✨ Improve</button><span class="muted" id="cAiMsg" style="font-size:12px"></span></div>':'')
+    +(cSub==="note"?'<div class="crow" style="justify-content:flex-start;gap:8px;margin-top:8px"><button class="btn" type="button" id="cTalk">'+gi("mic")+' Talk</button><button class="btn" type="button" id="cImprove">'+gi("sparkle")+' Improve</button><span class="muted" id="cAiMsg" style="font-size:12px"></span></div>':'')
     +(cSub==="text"?'<div class="crow" style="justify-content:flex-start;gap:8px;margin-top:8px"><button class="btn" type="button" id="cPhoto">'+gi("camera")+' Attach photo</button><span class="muted" id="cPhotoName" style="font-size:12px">'+(cImg?"Photo attached":"")+'</span></div><input type="file" id="cPhotoFile" accept="image/*" style="display:none"><div id="cPhotoPrev" style="margin-top:8px">'+(cImg?'<img src="'+cImg+'" style="max-width:160px;border-radius:10px;border:1px solid var(--border)">':'')+'</div>':'')
     +'<div class="crow"><label style="font-size:12px;color:var(--text-muted)"><input type="checkbox" id="cfollow"> Create a follow-up</label>'
     +(cSub==="note"?'<label style="font-size:12px;color:var(--text-muted);margin-left:12px"><input type="checkbox" id="cVisit"> Log as visit</label>':'')
@@ -862,8 +868,8 @@ function activityHtml(){
     var key=actKey(it), pinned=pins.indexOf(key)>=0, flagged=flags.indexOf(key)>=0;
     var ph=it.media?'<a href="'+esc(it.media)+'" target="_blank" rel="noopener"><img src="'+esc(it.media)+'" alt="photo" style="margin-top:6px;max-width:200px;max-height:200px;border-radius:10px;border:1px solid var(--border);display:block"></a>':'';
     var camIc=it.media?'<span class="ti" style="vertical-align:-3px;margin-right:4px">'+gi("camera")+'</span>':'';
-    var marks=(flagged?'<span title="Unread" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#e0245e;margin-right:6px;vertical-align:1px"></span>':'')+(pinned?'<span title="Pinned" style="margin-right:5px">📌</span>':'');
-    var dots='<button class="actdots" data-adots="'+esc(key)+'" data-akind="'+esc(it.kind)+'" title="More" style="position:absolute;top:6px;right:6px;border:none;background:transparent;cursor:pointer;font-size:20px;line-height:1;color:var(--text-muted);padding:0 8px;border-radius:6px">⋯</button>';
+    var marks=(flagged?'<span title="Unread" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#e0245e;margin-right:6px;vertical-align:1px"></span>':'')+(pinned?'<span title="Pinned" class="pinmark" style="margin-right:5px;color:var(--brand-pink, #e0245e)">'+gi("pin")+'</span>':'');
+    var dots='<button class="actdots" data-adots="'+esc(key)+'" data-akind="'+esc(it.kind)+'" title="More" style="position:absolute;top:6px;right:6px;border:none;background:transparent;cursor:pointer;line-height:1;color:var(--text-muted);padding:2px 6px;border-radius:6px">'+gi("more")+'</button>';
     var ring=flagged?';box-shadow:inset 3px 0 0 #e0245e':'';
     return '<div class="actitem'+(pinned?' pinned':'')+(flagged?' unread':'')+'" data-akey="'+esc(key)+'" style="position:relative'+ring+'">'+dots+'<span class="k">'+esc(it.kind)+'</span> · '+esc(it.when)+' '+marks+'<div style="margin-top:3px;padding-right:28px">'+camIc+esc(it.text)+'</div>'+ph+'</div>';
   }).join(""):'<div class="noact">No activity yet</div>';
@@ -880,7 +886,7 @@ function actMenu(btn,key,kind,c){
   closeActMenu();
   var pinned=actPins(c.id).indexOf(key)>=0, flagged=actFlags(c.id).indexOf(key)>=0;
   var m=document.createElement("div");m.className="avmenu";m.id="actMenu";
-  m.innerHTML='<button data-act="unread">🔴 '+(flagged?"Clear unread":"Mark unread")+'</button><button data-act="read">✓ Mark read</button><button data-act="reply">↩ Reply</button><button data-act="pin">📌 '+(pinned?"Unpin":"Pin")+'</button>';
+  m.innerHTML='<button data-act="unread">'+gi("flag")+' '+(flagged?"Clear unread":"Mark unread")+'</button><button data-act="read">'+gi("check")+' Mark read</button><button data-act="reply">'+gi("reply")+' Reply</button><button data-act="pin">'+gi("pin")+' '+(pinned?"Unpin":"Pin")+'</button>';
   document.body.appendChild(m);
   var r=btn.getBoundingClientRect();m.style.left=Math.max(8,Math.min(r.right-180,window.innerWidth-200))+"px";m.style.top=(r.bottom+4)+"px";
   [].forEach.call(m.querySelectorAll("[data-act]"),function(b){b.onclick=function(){var a=b.getAttribute("data-act");closeActMenu();
@@ -896,7 +902,7 @@ function noteBox(c,kind){
   var ph=isV?"What happened on this visit? Type, or tap Talk and just speak…":"Type a note, or tap Talk and just speak…";
   return '<div class="composer"><div class="cbody">'
     +'<textarea id="nbox" placeholder="'+ph+'"></textarea>'
-    +'<div class="crow" style="justify-content:flex-start;gap:8px;margin-top:8px"><button class="btn" type="button" id="nTalk">🎤 Talk</button><button class="btn" type="button" id="nImprove">✨ Improve</button><span class="muted" id="nAiMsg" style="font-size:12px"></span></div>'
+    +'<div class="crow" style="justify-content:flex-start;gap:8px;margin-top:8px"><button class="btn" type="button" id="nTalk">'+gi("mic")+' Talk</button><button class="btn" type="button" id="nImprove">'+gi("sparkle")+' Improve</button><span class="muted" id="nAiMsg" style="font-size:12px"></span></div>'
     +'<div class="crow"><span class="muted" style="font-size:12px">'+(isV?"Logs a dated visit on this contact.":"Saved to this contact’s notes.")+'</span><button class="btn grad" id="nSave">'+(isV?"Log visit":"Save note")+'</button></div>'
     +'</div></div>';
 }
@@ -1775,8 +1781,8 @@ function dpCheckIn(id, name){
   var ov=document.createElement("div"); ov.className="avmodal"; ov.id="dpCheckModal";
   ov.innerHTML='<div class="avbox" style="width:460px;max-width:94vw;text-align:left">'
     +'<h3>'+gi("map")+' Check in — '+esc(name||c.name||"Stop")+'</h3>'
-    +'<div class="sub">Log this visit. Tap Talk and just speak, then ✨ Improve to clean it up.</div>'
-    +'<div style="display:flex;gap:8px;margin:6px 0 10px"><button class="btn" type="button" id="dpTalk">🎤 Talk</button><button class="btn" type="button" id="dpImprove">✨ Improve</button></div>'
+    +'<div class="sub">Log this visit. Tap Talk and just speak, then Improve to clean it up.</div>'
+    +'<div style="display:flex;gap:8px;margin:6px 0 10px"><button class="btn" type="button" id="dpTalk">'+gi("mic")+' Talk</button><button class="btn" type="button" id="dpImprove">'+gi("sparkle")+' Improve</button></div>'
     +'<textarea id="dpVisitMsg" rows="5" style="width:100%;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);padding:10px;font-family:inherit;outline:none" placeholder="What happened on the visit…"></textarea>'
     +'<div id="dpVisitStatus" class="muted" style="font-size:12px;margin-top:6px"></div>'
     +'<div class="avact" style="margin-top:12px"><button class="btn grad" id="dpVisitSave">Log visit</button><button class="btn" id="dpVisitCancel">Cancel</button></div></div>';
@@ -2060,7 +2066,7 @@ async function pbCheckListings(r){
     var listHtml=listArr.length?('<div style="margin-top:10px">'+listArr.map(function(it){var addr,price;if(typeof it==="string"){var idx=it.lastIndexOf(" - ");if(idx>0){addr=it.slice(0,idx);price=it.slice(idx+3);}else{addr=it;price="";}}else{addr=it.address||it.title||"Listing";price=it.price||"";}return '<div class="lead" style="margin-bottom:8px"><div class="top"><div style="min-width:0"><div class="who">'+esc(addr||"Listing")+'</div>'+(price?'<div class="meta">'+esc(price)+'</div>':'')+'</div></div></div>';}).join("")+'</div>'):'';
     out.innerHTML='<div class="pbdossier">'+(c?('<b style="color:var(--pink)">'+c+' recent listing'+(c>1?'s':'')+' found — strike now.</b>\n'):'No recent listings found right now.\n')+esc(sum||"")+'</div>'+listHtml;
     if(c>0){ try{ await fetch(SB_URL+"/rest/v1/recruit_strikes",{method:"POST",headers:Object.assign({},H,{"Content-Type":"application/json","Prefer":"resolution=merge-duplicates"}),body:JSON.stringify({agent:r.name,count:c,summary:sum||"",listed_at:new Date().toISOString()})}); DATA.strikes=await sb("recruit_strikes?select=agent,count,summary,listed_at&order=listed_at.desc"); updateTopBadges(); }catch(e){} }
-  }catch(e){ out.innerHTML='<div class="muted" style="font-size:12.5px">AI listing checks connect once the AI functions are deployed (deploy-ai). Once live, a found listing flags a 🔥 strike on the Recruit Board and in your alerts.</div>'; }
+  }catch(e){ out.innerHTML='<div class="muted" style="font-size:12.5px">AI listing checks connect once the AI functions are deployed (deploy-ai). Once live, a found listing flags a '+gi("flame")+' strike on the Recruit Board and in your alerts.</div>'; }
   btn.disabled=false;btn.innerHTML=gi("search")+" Check recent listings";
 }
 async function pbAddToCrm(r){
@@ -2197,14 +2203,14 @@ function liveAlertCheck(seedOnly){
       ngBeep([{f:880,t:0,d:.18,v:.6},{f:1320,t:.16,d:.30,v:.65}]);
       try{navigator.vibrate&&navigator.vibrate([120,60,120]);}catch(e){}
       var l=newLeads[0];
-      ngToast("📣", newLeads.length>1?(newLeads.length+" new portal leads"):("New lead: "+(l.customerName||"—")), "From "+(l.realtorName||"the portal")+" — tap to open", "var(--cyan,#22BFE7)");
+      ngToast(gi("megaphone"), newLeads.length>1?(newLeads.length+" new portal leads"):("New lead: "+(l.customerName||"—")), "From "+(l.realtorName||"the portal")+" — tap to open", "var(--cyan,#22BFE7)");
       try{localStorage.setItem("ngLastLeadId",maxLead);}catch(e){}
     }
     if(newRefs.length){
       ngBeep([{f:523,t:0,d:.16,v:.6,type:"triangle"},{f:659,t:.15,d:.16,v:.6,type:"triangle"},{f:784,t:.3,d:.36,v:.7,type:"triangle"}]);
       try{navigator.vibrate&&navigator.vibrate([200,80,200,80,260]);}catch(e){}
       var r=newRefs[0];
-      ngToast("🚚", newRefs.length>1?(newRefs.length+" new affiliate jobs"):("New affiliate job: "+(r.jobName||"—")), (r.contactName?("Referred by "+r.contactName):"New job in")+" — tap to open", "var(--pink,#FF1493)");
+      ngToast(gi("bolt"), newRefs.length>1?(newRefs.length+" new affiliate jobs"):("New affiliate job: "+(r.jobName||"—")), (r.contactName?("Referred by "+r.contactName):"New job in")+" — tap to open", "var(--pink,#FF1493)");
       try{localStorage.setItem("ngLastRefId",maxRef);}catch(e){}
     }
   }catch(e){}
@@ -2290,10 +2296,10 @@ async function mOptimizeRoute(){
   var ids=mRouteIds();
   var stops=ids.map(function(id){return (ALL||[]).filter(function(x){return x.id===id;})[0];}).filter(Boolean)
     .map(function(c){return {id:c.id,name:cName(c),territory:c.territory||"",address:c.address||"",lat:(c.lat!=null?c.lat:null),lon:(c.lon!=null?c.lon:null)};});
-  if(!stops.length){ if(btn){btn.disabled=false;btn.innerHTML='🧭 Optimize & navigate all';} return; }
+  if(!stops.length){ if(btn){btn.disabled=false;btn.innerHTML=gi("map")+' Optimize & navigate all';} return; }
   for(var i=0;i<stops.length;i++){ try{ await dpResolveStop(stops[i]); }catch(e){} }
   var resolved=stops.filter(function(s){return s.lat!=null&&s.lon!=null;});
-  if(!resolved.length){ if(btn){btn.disabled=false;btn.innerHTML='🧭 Optimize & navigate all';} alert("Couldn’t find addresses for these stops yet. Open each one and add an address, then try again."); return; }
+  if(!resolved.length){ if(btn){btn.disabled=false;btn.innerHTML=gi("map")+' Optimize & navigate all';} alert("Couldn’t find addresses for these stops yet. Open each one and add an address, then try again."); return; }
   var base=await mGetBase(resolved);
   var opt=dpOptimize(base,resolved);
   mRouteOpt={ order:opt.order, miles:opt.miles, maps_url:dpMapsUrl(base,opt.order), at:Date.now() };
@@ -2328,7 +2334,7 @@ function mStopAvatar(s){ var c=s.id?((ALL||[]).filter(function(x){return x.id===
 function mStopNav(s){ if(s.address) return "https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(s.address)+"&travelmode=driving"; if(s.lat!=null&&s.lon!=null) return "https://www.google.com/maps/dir/?api=1&destination="+s.lat+","+s.lon+"&travelmode=driving"; return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent((s.name||"")+" "+(s.territory||"")); }
 function mRoute(){
   if(!mRoutePlanLoaded){ mLoadRoutePlan(function(){ if(mScreen==="route") mRender(); }); return '<div class="m-card"><div class="m-h">Route</div><div class="m-meta">Loading today’s plan…</div></div>'; }
-  var html='<button class="m-btn grad full" id="mAddStopsBtn" style="margin-bottom:12px">➕ Add stops to route</button><div id="mRouteMap" style="height:220px;border-radius:12px;overflow:hidden;margin-bottom:12px;display:none"></div>', plan=mRoutePlan, stops=(plan&&plan.stops)||[];
+  var html='<button class="m-btn grad full" id="mAddStopsBtn" style="margin-bottom:12px">'+gi("contacts")+' Add stops to route</button><div id="mRouteMap" style="height:220px;border-radius:12px;overflow:hidden;margin-bottom:12px;display:none"></div>', plan=mRoutePlan, stops=(plan&&plan.stops)||[];
   if(stops.length){
     html+='<div class="m-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div class="m-h" style="margin:0">Planned route'+(plan.plan_date?' · '+esc(String(plan.plan_date).slice(0,10)):'')+'</div><button class="m-btn" id="mRouteRefresh" style="padding:6px 10px;font-size:12px">↻</button></div><div class="m-meta">'+stops.length+' stops'+(plan.person?' · '+esc(plan.person):'')+'. Tap a stop to check in.</div>'+(plan.maps_url?'<a class="m-btn grad full" href="'+esc(plan.maps_url)+'" target="_blank" rel="noopener" style="margin-top:10px">'+gi("map")+' Navigate full route</a>':'')+'</div>';
     html+=stops.map(function(s,i){
@@ -2338,7 +2344,7 @@ function mRoute(){
         +(s.briefing?'<div class="m-meta" style="font-size:12.5px;line-height:1.45">'+esc(s.briefing)+'</div>':'')
         +(tp?'<div style="font-size:12.5px;line-height:1.45"><b>Talking points:</b> '+esc(tp)+'</div>':'')
         +(s.leaveBehind?'<div style="font-size:12.5px"><b>Leave-behind:</b> '+esc(s.leaveBehind)+'</div>':'')
-        +(s.id?'<button class="m-btn grad" data-open="'+s.id+'" style="margin-top:2px">🎤 Check in</button>':'<div class="m-meta" style="font-size:11px">Not in your CRM yet — add them first to check in.</div>')
+        +(s.id?'<button class="m-btn grad" data-open="'+s.id+'" style="margin-top:2px">'+gi("mic")+' Check in</button>':'<div class="m-meta" style="font-size:11px">Not in your CRM yet — add them first to check in.</div>')
         +'</div>';
     }).join("");
   } else {
@@ -2348,14 +2354,14 @@ function mRoute(){
   if(ids.length){
     var optV=mRouteOpt;
     html+='<div class="m-meta" style="margin:14px 0 8px;font-weight:700">Your added stops ('+ids.length+')</div>';
-    html+='<button class="m-btn grad full" id="mOptimizeBtn" style="margin-bottom:8px">🧭 Optimize & navigate all</button>';
-    html+='<button class="m-btn full" id="mSaveRouteBtn" style="margin-bottom:8px">💾 Save this route</button>';
+    html+='<button class="m-btn grad full" id="mOptimizeBtn" style="margin-bottom:8px">'+gi("map")+' Optimize & navigate all</button>';
+    html+='<button class="m-btn full" id="mSaveRouteBtn" style="margin-bottom:8px">'+gi("note")+' Save this route</button>';
     if(optV&&optV.maps_url){ html+='<div class="m-card" style="margin-bottom:8px"><div class="m-meta">Optimized order · ~'+(Math.round(optV.miles)||0)+' mi round trip</div><a class="m-btn grad full" href="'+esc(optV.maps_url)+'" target="_blank" rel="noopener" style="margin-top:6px">'+gi("map")+' Navigate full route</a></div>'; }
     var ordIds=(optV&&optV.order&&optV.order.length)?optV.order.map(function(s){return s.id;}).filter(function(x){return ids.indexOf(x)>=0;}):ids.slice();
     ids.forEach(function(id){ if(ordIds.indexOf(id)<0) ordIds.push(id); });
     html+=ordIds.map(function(id,idx){ var c=(ALL||[]).filter(function(x){return x.id===id;})[0]; if(!c) return ""; return '<div class="m-row" data-open="'+c.id+'">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-nm">'+(optV?(idx+1)+'. ':'')+esc(cName(c))+'</div><div class="m-meta">'+esc(c.address||c.business||c.type||"")+'</div></div><a class="m-btn" href="'+mStopNav({address:c.address,name:c.name,territory:c.territory})+'" target="_blank" rel="noopener" style="padding:8px 10px">'+gi("map")+'</a><button class="m-btn" data-rmroute="'+c.id+'" style="padding:8px 10px;color:#c0392b">✕</button></div>'; }).join("");
   }
-  html+='<div class="m-card" style="margin-top:14px"><div class="m-h" style="font-size:15px">💾 Saved routes</div><div class="m-meta" style="font-size:11px;margin-bottom:6px">Routes you save here sync to every phone — Tyler can follow one you built.</div><div id="mSavedMsg" class="m-meta" style="font-size:12px"></div><div id="mSavedBox"><div class="m-meta">Loading…</div></div></div>';
+  html+='<div class="m-card" style="margin-top:14px"><div class="m-h" style="font-size:15px">'+gi("note")+' Saved routes</div><div class="m-meta" style="font-size:11px;margin-bottom:6px">Routes you save here sync to every phone — Tyler can follow one you built.</div><div id="mSavedMsg" class="m-meta" style="font-size:12px"></div><div id="mSavedBox"><div class="m-meta">Loading…</div></div></div>';
   return html;
 }
 var mSavedRoutes=[];
@@ -2404,10 +2410,10 @@ function mAddStops(){
   ov.innerHTML='<div class="in" style="max-height:94vh;overflow:auto"><div class="m-h">Plan route — add stops</div><div class="m-meta" style="margin-bottom:8px">Filter by area &amp; type, then tap to add. Add as many as you want.</div>'
     +'<select class="m-in" id="mAddTerr">'+terrOpts+'</select>'
     +'<select class="m-in" id="mAddType">'+typeOpts+'</select>'
-    +'<input class="m-in" id="mAddSearch" placeholder="🔍 Search by name…">'
+    +'<input class="m-in" id="mAddSearch" placeholder="Search by name…">'
     +'<div id="mAddCount" class="m-meta" style="margin:2px 0 6px"></div>'
     +'<div id="mAddList" style="max-height:34vh;overflow:auto"></div>'
-    +'<button class="m-btn full" id="mFindNewBtn" style="margin-top:10px">✨ Find NEW businesses (AI)</button>'
+    +'<button class="m-btn full" id="mFindNewBtn" style="margin-top:10px">'+gi("sparkle")+' Find NEW businesses (AI)</button>'
     +'<div class="m-meta" style="font-size:11px;margin-top:2px">Searches the web for places in the selected area/type that aren’t in your CRM yet.</div>'
     +'<div id="mFindNewList" style="max-height:30vh;overflow:auto;margin-top:4px"></div>'
     +'<button class="m-btn grad full" id="mAddDone" style="margin-top:10px">Done</button></div>';
@@ -2428,7 +2434,7 @@ async function mFindNew(){
   var el=document.getElementById("mFindNewList"), btn=document.getElementById("mFindNewBtn");
   if(!type){ if(el)el.innerHTML='<div class="m-meta" style="padding:8px;color:#c0392b">Pick a type above first (and an area if you can).</div>'; return; }
   if(btn){btn.disabled=true;btn.innerHTML="⏳ Searching… (~30s)";}
-  if(el)el.innerHTML='<div class="m-meta" style="padding:8px">🌐 Web-searching for new '+esc(type)+(terr?' in '+esc(terr):'')+'…</div>';
+  if(el)el.innerHTML='<div class="m-meta" style="padding:8px">'+gi("search")+' Web-searching for new '+esc(type)+(terr?' in '+esc(terr):'')+'…</div>';
   var norm=function(s){return String(s||"").toLowerCase().replace(/\b(llc|inc|co|the|of|and|&|mini|self|storage|realty|real estate|group|team|properties|property|management)\b/g,"").replace(/[^a-z0-9]/g,"");};
   var haveKeys={}; (ALL||[]).forEach(function(c){var bn=c.business||c.name; if(bn){haveKeys[norm(bn)]=1; if(c.name&&c.name!==bn)haveKeys[norm(c.name)]=1;}});
   var excludeNames=(ALL||[]).filter(function(c){return (typeof typeMatches==="function")&&typeMatches(c.type,[type])&&(!terr||c.territory===terr);}).map(function(c){return c.business||c.name;}).filter(Boolean);
@@ -2442,7 +2448,7 @@ async function mFindNew(){
     else { el.innerHTML='<div class="m-meta" style="margin:4px 0;font-weight:700">'+list.length+' new — tap + to add to your CRM &amp; route</div>'+list.map(function(b,i){return '<div class="m-row"><div style="flex:1;min-width:0"><div class="m-nm">'+esc(b.name||b.business||"—")+'</div><div class="m-meta">'+esc(b.type||b.category||type)+(b.address?' · '+esc(b.address):"")+'</div></div><button class="m-btn grad" data-addnew="'+i+'" style="padding:6px 12px;flex:none">+ Add</button></div>';}).join("");
       [].forEach.call(el.querySelectorAll("[data-addnew]"),function(bb){bb.onclick=function(){ mAddFoundPlace(+bb.getAttribute("data-addnew"),bb); };}); }
   }catch(e){ if(el)el.innerHTML='<div class="m-meta" style="padding:8px;color:#c0392b">Search failed: '+esc(e.message)+'</div>'; }
-  if(btn){btn.disabled=false;btn.innerHTML="✨ Find NEW businesses (AI)";}
+  if(btn){btn.disabled=false;btn.innerHTML=gi("sparkle")+" Find NEW businesses (AI)";}
 }
 async function mAddFoundPlace(i,bb){
   var b=mNewFound[i]||{}; if(!b)return; if(bb&&bb.disabled)return; if(bb){bb.disabled=true;bb.textContent="…";}
@@ -2578,7 +2584,7 @@ function mRenderProfile(c,sheet){
   var inner='<div class="in" style="max-height:94vh;overflow:auto">';
   inner+='<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">'+mAvatar(c)+'<div style="flex:1;min-width:0"><div class="m-h" style="margin:0">'+esc(cName(c))+'</div><div class="m-meta">'+biz+'</div>'+(pills?'<div style="margin-top:7px;display:flex;flex-wrap:wrap;gap:5px">'+pills+'</div>':'')+'</div></div>';
   inner+=profileStatsStrip(c);
-  inner+='<button class="m-btn grad full" id="mVisitBtn" style="font-size:16px;padding:15px;margin-bottom:10px">🎤 Check in — log this visit</button>';
+  inner+='<button class="m-btn grad full" id="mVisitBtn" style="font-size:16px;padding:15px;margin-bottom:10px">'+gi("mic")+' Check in — log this visit</button>';
   inner+='<div class="m-actions" style="margin-bottom:10px">'+(c.phone?'<a class="m-btn" href="tel:'+esc(ph)+'">'+gi("phone")+' Call</a>':'')+(c.phone?'<button class="m-btn" id="mTextBtn">'+gi("chat")+' Text</button>':'')+(c.address?'<a class="m-btn" target="_blank" rel="noopener" href="https://maps.google.com/?q='+encodeURIComponent(c.address)+'">'+gi("map")+' Map</a>':'')+'</div>';
   var df=[["Phone",c.phone],["Email",c.email],["Address",c.address],["Type",c.type],["Tier",c.tier],["Territory",c.territory],["Owner",c.owner],["Last visit",c.lastVisit?fmtDate(c.lastVisit):""]];
   var dh=''; df.forEach(function(f){ if(f[1]==null||f[1]==="")return; dh+='<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--border);font-size:13px"><span class="m-meta">'+f[0]+'</span><b style="text-align:right;word-break:break-word">'+esc(f[1])+'</b></div>'; });
@@ -2592,7 +2598,7 @@ function mRenderProfile(c,sheet){
     +'<button class="m-btn full" id="mLinkBtn"'+(c.phone?'':' disabled')+' style="margin-top:6px">'+gi("chat")+' Text them this link</button></div>';
   var inRoute=mRouteIds().indexOf(c.id)>=0;
   inner+='<button class="m-btn full" id="mNoteBtn">'+gi("note")+' Quick note</button>';
-  inner+='<button class="m-btn full" id="mRouteBtn" style="margin-top:6px">'+(inRoute?"✓ In route — tap to remove":(gi("map")+" ➕ Add to route"))+'</button>';
+  inner+='<button class="m-btn full" id="mRouteBtn" style="margin-top:6px">'+(inRoute?"✓ In route — tap to remove":(gi("map")+" Add to route"))+'</button>';
   inner+='<div id="mSheetMsg" class="m-meta" style="margin-top:4px"></div><button class="m-btn full" id="mClose" style="margin-top:10px">Close</button></div>';
   sheet.innerHTML=inner;
   document.getElementById("mClose").onclick=function(){sheet.remove();};
@@ -2628,7 +2634,7 @@ async function mLoadProfileRefs(c,boxId){
 async function mFindListings(c,boxId,btn){
   var box=document.getElementById(boxId); if(!box)return;
   if(btn){btn.disabled=true;btn.innerHTML="⏳ Searching… (~20s)";}
-  box.innerHTML='<div class="m-meta" style="padding:6px">🌐 Searching public listings…</div>';
+  box.innerHTML='<div class="m-meta" style="padding:6px">'+gi("search")+' Searching public listings…</div>';
   try{
     var res=await fetch(NEON_API+"/api/checkListings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({opts:{name:c.name,brokerage:c.business||c.brokerage||"",area:c.territory||"Whatcom/Skagit County, WA"}})}).then(function(x){return x.json();});
     var list=(res&&res.listings)||[];
@@ -2665,9 +2671,9 @@ function mCompose(c,kind){
   var title=(kind==="text"?"Text ":kind==="visit"?"Log a visit — ":"Note on ")+cName(c);
   var ph=(kind==="text"?"Message…":kind==="visit"?"Talk or type what happened on the visit…":"Talk or type a note…");
   var sendLbl=(kind==="text"?"Send text":kind==="visit"?"Log visit":"Save note");
-  var aiRow='<div style="display:flex;gap:8px;margin-bottom:10px"><button class="m-btn" id="mTalk" style="flex:1">🎤 Talk</button>'+(kind!=="text"?'<button class="m-btn" id="mImprove" style="flex:1">✨ Improve</button>':'')+'</div>';
+  var aiRow='<div style="display:flex;gap:8px;margin-bottom:10px"><button class="m-btn" id="mTalk" style="flex:1">'+gi("mic")+' Talk</button>'+(kind!=="text"?'<button class="m-btn" id="mImprove" style="flex:1">'+gi("sparkle")+' Improve</button>':'')+'</div>';
   var photoRow=(kind==="text")?'<button class="m-btn full" id="mPhoto" style="margin-bottom:10px">'+gi("camera")+' Attach photo</button><input type="file" id="mPhotoFile" accept="image/*" style="display:none"><div id="mPhotoPrev" style="margin-bottom:10px"></div>':'';
-  ov.innerHTML='<div class="in"><div class="m-h">'+esc(title)+'</div>'+(kind==="text"?'<div class="m-meta" style="margin-bottom:8px">Sends from your business line (+1 360‑588‑5228) and logs it to their thread.</div>':'<div class="m-meta" style="margin-bottom:8px">Tap Talk and just speak — it types as you go. Hit ✨ Improve to clean it up.</div>')
+  ov.innerHTML='<div class="in"><div class="m-h">'+esc(title)+'</div>'+(kind==="text"?'<div class="m-meta" style="margin-bottom:8px">Sends from your business line (+1 360‑588‑5228) and logs it to their thread.</div>':'<div class="m-meta" style="margin-bottom:8px">Tap Talk and just speak — it types as you go. Hit Improve to clean it up.</div>')
     +'<textarea class="m-in" id="mMsg" rows="6" placeholder="'+ph+'"></textarea>'+aiRow+photoRow
     +'<button class="m-btn grad full" id="mSend">'+sendLbl+'</button><div id="mCmsg" class="m-meta"></div><button class="m-btn full" id="mCcancel" style="margin-top:8px">Cancel</button></div>';
   document.body.appendChild(ov);
