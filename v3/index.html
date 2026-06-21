@@ -465,7 +465,8 @@ var NAV=[
   ["inbox","Inbox"],["calendar","Calendar"],["dayplan","Day Plan"],
   ["topleads","Top Leads"],["map","Map"],["recruit","Recruit Board"],["radar","Listing Radar"]
 ];
-var view="contacts";
+var view="contacts", profileFrom="contacts";
+function viewLabel(v){ var m={}; NAV.forEach(function(n){m[n[0]]=n[1];}); return m[v]||"Back"; }
 function renderNav(){
   document.getElementById("sidebar").innerHTML=NAV.map(function(n){
     return '<div class="navitem'+(n[0]===view?" active":"")+'" data-v="'+n[0]+'"><span class="ic">'+(ICONS[n[0]]||"")+'</span><span class="lbl">'+esc(n[1])+'</span></div>';
@@ -724,6 +725,7 @@ async function acSave(){
 var current=null, editing=false, saveState="", saveCls="";
 var EDITABLE=[["name","Name"],["business","Business"],["type","Type"],["role","Role"],["phone","Phone"],["email","Email"],["territory","Territory"],["website","Website (for landing page)"],["facebook","Facebook URL"],["instagram","Instagram URL"],["linkedin","LinkedIn URL"]];
 async function openContact(id, focusInbound){
+  if(NAV.some(function(n){return n[0]===view;})) profileFrom=view; // remember where we came from
   activeId=id; editing=false; saveState=""; saveCls=""; pTab="conversation"; cSub="text"; ACT=null;
   if(window.pendingDraft && (+window.pendingDraft.cid)===(+id)){ cSub=(window.pendingDraft.channel==="email"?"email":"text"); }
   _focusInbound=!!focusInbound; // deep-link: scroll to + highlight the latest inbound message
@@ -738,7 +740,7 @@ var pTab="conversation", cSub="text", ACT=null, actFilter="all", cImg=null, _foc
 function slugOf(c){return String(c.name||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")+"-"+c.id;}
 function renderProfile(){
   var D=document.getElementById("view"), c=current; if(!D||!c) return;
-  var back='<div class="pback"><button class="btn" id="backBtn">← Contacts</button></div>';
+  var back='<div class="pback"><button class="btn" id="backBtn">← '+esc(viewLabel(profileFrom))+'</button></div>';
   var av=c.profilePic||c.cardImage||""; var avHtml=av?'<img src="'+esc(av)+'" alt="">':esc(initials(cName(c)).toUpperCase());
   var act=editing?'<div><button class="btn grad" id="saveBtn">Save</button><button class="btn" id="cancelBtn">Cancel</button></div>':'<button class="btn" id="editBtn">Edit</button>';
   var pills='';
@@ -771,7 +773,7 @@ function renderProfile(){
     D.innerHTML='<div class="pscroll">'+back+head+'<div class="cards"><div class="card" style="grid-column:1/-1"><h3>Edit contact</h3>'+rws+'</div></div></div>';
     var sv=document.getElementById("saveBtn"); if(sv)sv.onclick=doSave;
     var cc=document.getElementById("cancelBtn"); if(cc)cc.onclick=function(){editing=false;saveState="";saveCls="";renderProfile();};
-    var bk=document.getElementById("backBtn"); if(bk)bk.onclick=function(){renderContacts("");};
+    var bk=document.getElementById("backBtn"); if(bk)bk.onclick=function(){go(profileFrom||"contacts");};
     var ve=document.getElementById("avEdit"); if(ve)ve.onclick=avMenu;
     return;
   }
@@ -1129,7 +1131,7 @@ async function lpDo(c,action,status){
   }catch(e){ if(msg)msg.textContent="Failed to reach the publisher: "+e.message; }
 }
 function wireProfile(c){
-  var bk=document.getElementById("backBtn"); if(bk)bk.onclick=function(){renderContacts("");};
+  var bk=document.getElementById("backBtn"); if(bk)bk.onclick=function(){go(profileFrom||"contacts");};
   var eb=document.getElementById("editBtn"); if(eb)eb.onclick=function(){editing=true;renderProfile();};
   var ve=document.getElementById("avEdit"); if(ve)ve.onclick=avMenu;
   var ab=document.getElementById("actBtn"); if(ab)ab.onclick=function(){activatePortal(c);};
