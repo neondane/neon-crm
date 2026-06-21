@@ -892,7 +892,7 @@ function actMenu(btn,key,kind,c){
   document.body.appendChild(m);
   var r=btn.getBoundingClientRect();m.style.left=Math.max(8,Math.min(r.right-180,window.innerWidth-200))+"px";m.style.top=(r.bottom+4)+"px";
   [].forEach.call(m.querySelectorAll("[data-act]"),function(b){b.onclick=function(){var a=b.getAttribute("data-act");closeActMenu();
-    if(a==="unread"){ var on=!flagged; actSetFlag(c.id,key,on); if(on){ try{var rr=crmRead();delete rr[String(c.id)];localStorage.setItem("crmRead",JSON.stringify(rr));}catch(e){} } try{updateTopBadges();}catch(e){} redrawTab(c); try{banner(on?"Marked unread — pinned to top & shown as a notification.":"Cleared unread flag.");}catch(e){} }
+    if(a==="unread"){ var on=!flagged; actSetFlag(c.id,key,on); if(on){ try{var rr=crmRead();delete rr[String(c.id)];localStorage.setItem("crmRead",JSON.stringify(rr));}catch(e){} crmReadServerDelete(c.id); } try{updateTopBadges();}catch(e){} redrawTab(c); try{banner(on?"Marked unread — pinned to top & shown as a notification.":"Cleared unread flag.");}catch(e){} }
     else if(a==="read"){ actSetFlag(c.id,key,false); markRead(c.id); redrawTab(c); try{banner("Marked read — cleared from notifications.");}catch(e){} }
     else if(a==="reply"){cSub=(kind==="email"?"email":"text");redrawTab(c);setTimeout(function(){var t=document.getElementById("cmsg");if(t){t.scrollIntoView({behavior:"smooth",block:"center"});t.focus();}},80);}
     else if(a==="pin"){actTogglePin(c.id,key);}
@@ -1483,8 +1483,9 @@ async function ensureData(cb){
   try{var sd=await sb("sms_messages?select=created_at");var ed=await sb("email_messages?select=created_at");DATA.msgDates=sd.map(function(m){return m.created_at;}).concat(ed.map(function(m){return m.created_at;})).filter(Boolean);}catch(e){DATA.msgDates=DATA.msgDates||[];}
   try{DATA.strikes=await sb("recruit_strikes?select=agent,count,summary,listed_at&order=listed_at.desc");}catch(e){DATA.strikes=DATA.strikes||[];}
   await loadUnreadSrc();
+  await loadReadState();
   try{DATA.skips=await sb("payout_skips?select=key");}catch(e){DATA.skips=DATA.skips||[];}
-  try{DATA.followups=await sb("followups?select=id,contact_id,due_date,note,done&order=due_date.asc");}catch(e){DATA.followups=DATA.followups||[];}
+  try{DATA.followups=await sb("followups?select=id,contact_id,due_date,due_time,note,done&order=due_date.asc");}catch(e){ try{DATA.followups=await sb("followups?select=id,contact_id,due_date,note,done&order=due_date.asc");}catch(e2){DATA.followups=DATA.followups||[];} }
   cb&&cb();
 }
 function strikeMap(){var m={};(DATA.strikes||[]).forEach(function(s){var k=String(s.agent||"").toLowerCase().trim();if(!m[k])m[k]=s;});return m;}
@@ -1600,7 +1601,7 @@ function drawInbox(){
   document.getElementById("view").innerHTML=html;
   var ic=document.getElementById("ibChan"); if(ic)ic.onchange=function(){inboxChan=ic.value;drawInbox();};
   var idd=document.getElementById("ibDir"); if(idd)idd.onchange=function(){inboxDir=idd.value;drawInbox();};
-  var ar=document.getElementById("ibAllRead"); if(ar)ar.onclick=function(){var r=crmRead();Object.keys(byC).forEach(function(cid){if(isUnread(cid))r[cid]=new Date().toISOString();});try{localStorage.setItem("crmRead",JSON.stringify(r));}catch(e){}try{updateTopBadges();}catch(e){}drawInbox();};
+  var ar=document.getElementById("ibAllRead"); if(ar)ar.onclick=function(){var r=crmRead();Object.keys(byC).forEach(function(cid){if(isUnread(cid)){r[cid]=new Date().toISOString();crmReadServerUpsert(cid);}});try{localStorage.setItem("crmRead",JSON.stringify(r));}catch(e){}try{updateTopBadges();}catch(e){}drawInbox();};
   [].forEach.call(document.querySelectorAll(".ibmr"),function(b){b.onclick=function(e){e.stopPropagation();markRead(+b.getAttribute("data-mr"));};});
   wireContactClicks();
   // Inbox click is a notification deep-link: jump to + highlight the latest inbound message (don't auto-mark-read).
@@ -2141,7 +2142,11 @@ function notifSave(d){try{localStorage.setItem("crmNotifDismiss",JSON.stringify(
 function notifActive(){var dis=notifDis();return notifItems().filter(function(it){return !dis[it.k];});}
 /* Inbox unread: a thread is unread until you OPEN that person. Per-contact read stamps. */
 function crmRead(){try{return JSON.parse(localStorage.getItem("crmRead")||"{}");}catch(e){return {};}}
-function markRead(id){if(id==null)return;var r=crmRead();r[String(id)]=new Date().toISOString();try{localStorage.setItem("crmRead",JSON.stringify(r));}catch(e){}try{updateTopBadges();}catch(e){}if(view==="inbox"&&DATA.msgs){try{drawInbox();}catch(e){}}}
+/* ---- Cross-device read-state (Supabase read_state table mirrors localStorage crmRead) ---- */
+function crmReadServerUpsert(id){ try{ fetch(SB_URL+"/rest/v1/read_state",{method:"POST",headers:Object.assign({},H,{"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"}),body:JSON.stringify({contact_id:+id,read_at:new Date().toISOString()})}); }catch(e){} }
+function crmReadServerDelete(id){ try{ fetch(SB_URL+"/rest/v1/read_state?contact_id=eq."+(+id),{method:"DELETE",headers:H}); }catch(e){} }
+async function loadReadState(){ try{ var rows=await sb("read_state?select=contact_id,read_at"); var r=crmRead(); (rows||[]).forEach(function(x){ var cid=String(x.contact_id); if(!r[cid]||String(x.read_at)>r[cid]) r[cid]=x.read_at; }); try{localStorage.setItem("crmRead",JSON.stringify(r));}catch(e){} try{updateTopBadges();}catch(e){} if(view==="inbox"&&DATA.msgs){try{drawInbox();}catch(e){}} }catch(e){} }
+function markRead(id){if(id==null)return;var r=crmRead();r[String(id)]=new Date().toISOString();try{localStorage.setItem("crmRead",JSON.stringify(r));}catch(e){}crmReadServerUpsert(id);try{updateTopBadges();}catch(e){}if(view==="inbox"&&DATA.msgs){try{drawInbox();}catch(e){}}}
 function unreadThreads(){var last=DATA.lastIn||{},rd=crmRead(),out=[];Object.keys(last).forEach(function(cid){var t=last[cid];if(t&&(!rd[cid]||t>rd[cid]))out.push(+cid);});return out;}
 async function loadUnreadSrc(){try{var si=await sb("sms_messages?direction=eq.in&select=contact_id,created_at&order=created_at.desc&limit=600");var ei=[];try{ei=await sb("email_messages?direction=eq.in&select=contact_id,created_at&order=created_at.desc&limit=600");}catch(e){}DATA.lastIn={};si.concat(ei).forEach(function(m){if(m.contact_id==null)return;var k=String(m.contact_id);if(!DATA.lastIn[k]||m.created_at>DATA.lastIn[k])DATA.lastIn[k]=m.created_at;});}catch(e){DATA.lastIn=DATA.lastIn||{};}}
 function crmSeen(){try{return JSON.parse(localStorage.getItem("crmSeen")||"{}");}catch(e){return {};}}
@@ -2243,7 +2248,8 @@ async function refreshLive(){
   try{ var sd=await sb("sms_messages?select=created_at");var ed=await sb("email_messages?select=created_at");DATA.msgDates=sd.map(function(m){return m.created_at;}).concat(ed.map(function(m){return m.created_at;})).filter(Boolean); }catch(e){}
   try{ DATA.strikes=await sb("recruit_strikes?select=agent,count,summary,listed_at&order=listed_at.desc"); }catch(e){}
   try{ await loadUnreadSrc(); }catch(e){}
-  try{ DATA.followups=await sb("followups?select=id,contact_id,due_date,note,done&order=due_date.asc"); }catch(e){}
+  try{ await loadReadState(); }catch(e){}
+  try{ DATA.followups=await sb("followups?select=id,contact_id,due_date,due_time,note,done&order=due_date.asc"); }catch(e){ try{ DATA.followups=await sb("followups?select=id,contact_id,due_date,note,done&order=due_date.asc"); }catch(e2){} }
   try{ updateTopBadges(); }catch(e){}
   try{ liveAlertCheck(); }catch(e){}
   // refresh the at-a-glance dashboard only when it's open and nothing is mid-interaction
