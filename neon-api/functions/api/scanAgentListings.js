@@ -88,33 +88,36 @@ const handler = endpoint(async ({ env, body, reply }) => {
 
   // 4) Partner nudges: only for NEW listings posted within recentDays whose agent is in the CRM.
   const cutoff = new Date(Date.now() - recentDays * 86400000).toISOString().slice(0, 10);
-  let alertsCreated = 0, partnerMatches = 0;
+  let alertsCreated = 0, partnerMatches = 0, alertError = null;
   const recent = newRows.filter((r) => r.agent_name && (!r.listed_date || r.listed_date >= cutoff));
   if (recent.length) {
     let contactMap = {};
     try {
       const cs = await db.select('contacts?select=id,name&limit=5000');
       (cs || []).forEach((c) => { const k = norm(c.name); if (k) contactMap[k] = c.id; });
-    } catch (e) {}
+    } catch (e) { alertError = 'contacts:' + String(e.message || e); }
     const alertRows = [];
     for (const r of recent) {
       const cid = contactMap[norm(r.agent_name)]; if (!cid) continue;
       partnerMatches++;
       alertRows.push({
-        contact_id: cid, agent_name: r.agent_name, address: r.address, city: r.city, price: r.price,
+        contact_id: cid, agent_name: r.agent_name, address: r.address, city: r.city,
+        price: (r.price == null || r.price === '') ? null : Number(r.price),
         channel: r.agent_phone ? 'text' : 'email', status: 'pending',
         draft_message: 'Hi ' + firstName(r.agent_name) + ' — saw your new listing at ' + r.address + ' just hit the market, congrats! '
           + 'Whenever your seller is lining up movers, Neon Giant will take great care of them. Want me to send over your VIP referral link?',
       });
     }
-    if (alertRows.length) {
-      try { await db.insert('agent_alerts', alertRows, { returning: 'minimal' }); alertsCreated = alertRows.length; } catch (e) {}
+    // Insert in small batches so one bad row can't sink them all, and surface any error.
+    for (let i = 0; i < alertRows.length; i += 25) {
+      try { await db.insert('agent_alerts', alertRows.slice(i, i + 25), { returning: 'minimal' }); alertsCreated += Math.min(25, alertRows.length - i); }
+      catch (e) { if (!alertError) alertError = 'insert:' + String(e.message || e); }
     }
   }
 
   return reply({
     ok: true, citiesScanned: cities.length, rcCalls: cities.length, totalActive,
-    scanned: rows.length, newListings: newRows.length, partnerMatches, alertsCreated, cityErrors,
+    scanned: rows.length, newListings: newRows.length, partnerMatches, alertsCreated, alertError, cityErrors,
   });
 });
 
