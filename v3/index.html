@@ -2128,13 +2128,47 @@ function agentLeaderboardHtml(q){
 var radarQuery="";
 function radarCard(l){ var st=radarStatus(l.agent_name); var idx=(DATA.radarListings||[]).indexOf(l);
   var act = st.id
-    ? ('<button class="btn grad" data-rmsgt="'+idx+'">'+gi("chat")+' Text</button><button class="btn" data-rmsge="'+idx+'">'+gi("email")+' Email</button>')
+    ? ('<button class="btn grad" data-reng="'+idx+'">'+gi("megaphone")+' Engage</button><button class="btn" data-rmsgt="'+idx+'">'+gi("chat")+' Text</button><button class="btn" data-rmsge="'+idx+'">'+gi("email")+' Email</button>')
     : ('<button class="btn grad" data-radd="'+idx+'">+ Add to Recruit</button>');
   return '<div class="lrcard"><div class="lrtop"><span class="lraddr">'+esc(l.address||'')+'</span><span class="lrprice">'+(l.price?money(l.price):'')+'</span></div>'
     +'<div class="lrmeta">'+esc(l.city||'')+' · '+esc(cityCounty(l.city))+' County</div>'
     +'<div style="margin-top:7px">'+domBadge(l.listed_date)+(l.listed_date?'<span class="muted" style="font-size:11px"> · listed '+esc(l.listed_date)+'</span>':'')+'</div>'
     +'<div class="lragent"><b>'+esc(l.agent_name||'Unknown agent')+'</b> <span class="rbst '+st.cls+'">'+st.s+'</span></div>'
     +'<div class="lract">'+act+'<a class="btn" href="'+zillowUrl(l.address)+'" target="_blank" rel="noopener">'+gi("search")+' View</a></div></div>';
+}
+async function socialEngage(idx){
+  var l=(DATA.radarListings||[])[idx]; if(!l)return;
+  var st=radarStatus(l.agent_name); if(!st.id){ banner("Add this agent to your CRM first."); return; }
+  var c=(ALL||[]).filter(function(x){return +x.id===+st.id;})[0]||{};
+  var links=[]; if(c.facebook)links.push(["Facebook",c.facebook]); if(c.instagram)links.push(["Instagram",c.instagram]); if(c.linkedin)links.push(["LinkedIn",c.linkedin]);
+  var ov=document.createElement("div"); ov.className="avmodal"; ov.id="socModal";
+  ov.innerHTML='<div class="avbox" style="width:540px;max-width:94vw;text-align:left">'
+    +'<h3>'+gi("megaphone")+' Engage '+esc(c.name||l.agent_name)+'</h3>'
+    +'<div class="sub">New listing: '+esc(shortAddr(l.address))+(l.city?(', '+esc(l.city)):'')+'</div>'
+    +'<div style="margin:12px 0;display:flex;gap:6px;flex-wrap:wrap">'+(links.length?links.map(function(x){return '<a class="btn grad" href="'+esc(x[1])+'" target="_blank" rel="noopener">'+esc(x[0])+' →</a>';}).join(''):'<span class="muted" style="font-size:12.5px">No social links on file yet. <button class="btn" id="socEditLinks">Add their socials</button></span>')+'</div>'
+    +'<div style="font-weight:700;font-size:13px;margin:4px 0 8px">Suggested comments — tap to copy, then paste on their post</div>'
+    +'<div id="socComments"><div class="muted" style="font-size:12.5px"><span class="spin"></span> Writing a few options…</div></div>'
+    +'<div class="avact" style="margin-top:14px"><button class="btn grad" id="socDone">'+gi("check")+' Mark engaged</button><button class="btn" id="socCancel">Close</button></div></div>';
+  document.body.appendChild(ov);
+  document.getElementById("socCancel").onclick=function(){ov.remove();};
+  var elk=document.getElementById("socEditLinks"); if(elk)elk.onclick=function(){ov.remove();openContact(+st.id);};
+  document.getElementById("socDone").onclick=function(){ markSocialEngaged(c,l); ov.remove(); };
+  try{
+    var r=await fetch(NEON_API+"/api/suggestComments",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({agentName:c.name||l.agent_name,address:l.address,city:l.city})});
+    var j=await r.json(); var cm=(j&&j.comments)||[];
+    var box=document.getElementById("socComments"); if(box){
+      box.innerHTML=cm.length?cm.map(function(t){return '<div class="soccmt" data-copy="'+esc(t)+'" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px;cursor:pointer;line-height:1.45">'+esc(t)+'<span class="muted" style="font-size:11px;float:right;margin-left:8px">copy</span></div>';}).join(''):'<div class="muted" style="font-size:12.5px">Could not generate comments — write your own.</div>';
+      [].forEach.call(document.querySelectorAll(".soccmt"),function(d){d.onclick=function(){try{navigator.clipboard.writeText(d.getAttribute("data-copy"));}catch(e){} banner("Comment copied — paste it on their post.");};});
+    }
+  }catch(e){ var b2=document.getElementById("socComments"); if(b2)b2.innerHTML='<div class="muted" style="font-size:12.5px">Could not reach the AI — write your own comment.</div>'; }
+}
+function markSocialEngaged(c,l){
+  if(!c||c.id==null)return;
+  var stamp="[Social "+new Date().toISOString().slice(0,10)+"] Engaged on their new listing "+shortAddr(l&&l.address)+".";
+  var nn=(c.notes?c.notes+"\n":"")+stamp; c.notes=nn;
+  var c2=ALL.filter(function(x){return +x.id===+c.id;})[0]; if(c2)c2.notes=nn;
+  try{ sbWrite("PATCH","contacts?id=eq."+c.id,{notes:nn}); }catch(e){}
+  banner("Logged — engaged with "+firstName(c.name||"")+" on social.");
 }
 function drawRadar(){
   var agents=DATA.marketAgents||[], listings=DATA.radarListings||[];
@@ -2186,6 +2220,7 @@ function drawRadar(){
   [].forEach.call(document.querySelectorAll("[data-radd]"),function(b){b.onclick=function(){addAgentFromListing(+b.getAttribute("data-radd"));};});
   [].forEach.call(document.querySelectorAll("[data-rmsgt]"),function(b){b.onclick=function(){var l=(DATA.radarListings||[])[+b.getAttribute("data-rmsgt")];if(l)messageAgent(l.agent_name,l.agent_phone,l.agent_email,"",l.city,"text",l.address,l.city);};});
   [].forEach.call(document.querySelectorAll("[data-rmsge]"),function(b){b.onclick=function(){var l=(DATA.radarListings||[])[+b.getAttribute("data-rmsge")];if(l)messageAgent(l.agent_name,l.agent_phone,l.agent_email,"",l.city,"email",l.address,l.city);};});
+  [].forEach.call(document.querySelectorAll("[data-reng]"),function(b){b.onclick=function(){socialEngage(+b.getAttribute("data-reng"));};});
 }
 async function sendNudge(id, editedText){
   var a=(DATA.agentAlerts||[]).filter(function(x){return x.id===id;})[0]; if(!a||a.contact_id==null)return;
