@@ -104,8 +104,8 @@ const handler = endpoint(async ({ env, body, reply }) => {
         contact_id: cid, agent_name: r.agent_name, address: r.address, city: r.city,
         price: (r.price == null || r.price === '') ? null : Number(r.price),
         channel: r.agent_phone ? 'text' : 'email', status: 'pending',
-        draft_message: 'Hi ' + firstName(r.agent_name) + ' — saw your new listing at ' + r.address + ' just hit the market, congrats! '
-          + 'Whenever your seller is lining up movers, Neon Giant will take great care of them. Want me to send over your VIP referral link?',
+        draft_message: 'Hey ' + firstName(r.agent_name) + ', congrats on the new listing at ' + r.address + '! '
+          + 'Whenever your seller starts thinking about movers, we would love to take great care of them and make you look good. Want me to send over your VIP link?',
       });
     }
     // Insert in small batches so one bad row can't sink them all, and surface any error.
