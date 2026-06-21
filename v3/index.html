@@ -726,6 +726,7 @@ async function acSave(){
 var current=null, editing=false, saveState="", saveCls="";
 var EDITABLE=[["name","Name"],["business","Business"],["type","Type"],["role","Role"],["phone","Phone"],["email","Email"],["territory","Territory"],["website","Website (for landing page)"],["facebook","Facebook URL"],["instagram","Instagram URL"],["linkedin","LinkedIn URL"]];
 async function openContact(id, focusInbound){
+  if(window.pendingDraft && (+window.pendingDraft.cid)!==(+id)) window.pendingDraft=null; // stale draft from another agent
   if(NAV.some(function(n){return n[0]===view;})) profileFrom=view; // remember where we came from
   activeId=id; editing=false; saveState=""; saveCls=""; pTab="conversation"; cSub="text"; ACT=null;
   if(window.pendingDraft && (+window.pendingDraft.cid)===(+id)){ cSub=(window.pendingDraft.channel==="email"?"email":"text"); }
@@ -1149,7 +1150,7 @@ function wireProfile(c){
   wireTab(c);
 }
 function wireTab(c){
-  [].forEach.call(document.querySelectorAll(".csub div"),function(el){el.onclick=function(){cSub=el.getAttribute("data-cs");cImg=null;redrawTab(c);};});
+  [].forEach.call(document.querySelectorAll(".csub div"),function(el){el.onclick=function(){window.pendingDraft=null;cSub=el.getAttribute("data-cs");cImg=null;redrawTab(c);};});
   var cph=document.getElementById("cPhoto"), cpf=document.getElementById("cPhotoFile");
   if(cph&&cpf){ cph.onclick=function(){cpf.click();}; cpf.onchange=function(){ var f=cpf.files&&cpf.files[0]; if(!f)return; var rd=new FileReader(); rd.onload=function(){ var im=new Image(); im.onload=function(){ cImg=avDownscale(im,1280); var p=document.getElementById("cPhotoPrev"); if(p)p.innerHTML='<img src="'+cImg+'" style="max-width:160px;border-radius:10px;border:1px solid var(--border)">'; var n=document.getElementById("cPhotoName"); if(n)n.textContent="Photo attached — tap Send"; }; im.src=rd.result; }; rd.readAsDataURL(f); }; }
   [].forEach.call(document.querySelectorAll("[data-af]"),function(el){el.onclick=function(){actFilter=el.getAttribute("data-af");redrawTab(c);};});
@@ -1167,7 +1168,7 @@ function wireTab(c){
   [].forEach.call(document.querySelectorAll(".refrow"),function(el){el.onclick=function(){var d=el.querySelector(".leaddet");if(d){d.style.display=(d.style.display==="none"?"block":"none");el.classList.toggle("open");}};});
   [].forEach.call(document.querySelectorAll("[data-addportal]"),function(el){el.onclick=function(ev){ev.stopPropagation();var i=+el.getAttribute("data-addportal");addToPortal(c,(c._refs||[])[i],el);};});
   var lb=document.getElementById("lstBtn"); if(lb)lb.onclick=function(){profileCheckListings(c);};
-  if(window.pendingDraft && c && (+window.pendingDraft.cid)===(+c.id)){ var pdbox=document.getElementById("cmsg"); if(pdbox){ pdbox.value=window.pendingDraft.text; setTimeout(function(){try{pdbox.focus();pdbox.scrollIntoView({behavior:"smooth",block:"center"});}catch(e){}},80); window.pendingDraft=null; try{banner("Draft loaded — review and hit Send.");}catch(e){} } }
+  if(window.pendingDraft && c && (+window.pendingDraft.cid)===(+c.id)){ var pdbox=document.getElementById("cmsg"); if(pdbox && !pdbox.value){ pdbox.value=window.pendingDraft.text; setTimeout(function(){try{pdbox.focus();}catch(e){}},80); } }
   if(_focusInbound && pTab==="conversation" && document.querySelector(".actitem")){
     _focusInbound=false;
     setTimeout(function(){
@@ -1322,6 +1323,7 @@ async function sendPhoto(payload){
   catch(e){ return {ok:false,msg:e.message}; }
 }
 async function sendComposer(c){
+  window.pendingDraft=null;
   var msg=(document.getElementById("cmsg")||{}).value||"";
   var wantFollow=!!(document.getElementById("cfollow")&&document.getElementById("cfollow").checked);
   if(cSub==="note"){ if(!msg.trim())return; var isVisit=!!(document.getElementById("cVisit")&&document.getElementById("cVisit").checked); var stamp=(isVisit?"[Visit ":"[")+new Date().toISOString().slice(0,10)+"] "+msg; var nn=(c.notes?c.notes+"\n":"")+stamp; c.notes=nn; var c2=ALL.filter(function(x){return x.id===c.id;})[0]; if(c2)c2.notes=nn; var patch={notes:nn}; if(isVisit){var iso=new Date().toISOString(); c.lastVisit=iso; if(c2)c2.lastVisit=iso; patch.lastVisit=iso;} try{await sbWrite("PATCH","contacts?id=eq."+c.id,patch);}catch(e){} if(wantFollow)createFollowup(c,3,msg.slice(0,80)); pTab="notes"; renderProfile(); return; }
