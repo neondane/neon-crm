@@ -2098,8 +2098,9 @@ function drawRadar(){
         +'<div class="lract"><button class="btn grad" data-rsend="'+a.id+'">'+gi(a.channel==="email"?"email":"chat")+' Review & send</button><button class="btn" data-rdis="'+a.id+'">Dismiss</button></div></div>';
     }).join("")+'</div>'; }
   } else {
-    if(!fresh.length){ html+='<div class="noact">No new listings in the last few days yet. The 6am sweep fills this in.</div>'; }
-    else { html+='<div class="lrgrid">'+fresh.map(function(l,i){ var st=radarStatus(l.agent_name);
+    var feed=listings.slice().filter(function(l){return l.address;}).sort(function(a,b){return String(b.listed_date||"").localeCompare(String(a.listed_date||""));}).slice(0,48);
+    if(!feed.length){ html+='<div class="noact">No listings yet — the 6am sweep fills this in.</div>'; }
+    else { html+='<div class="lrgrid">'+feed.map(function(l,i){ var st=radarStatus(l.agent_name);
       var act=st.id?('<button class="btn" data-ragent="'+st.id+'">'+gi("chat")+' Message</button>'):('<button class="btn grad" data-radd="'+listings.indexOf(l)+'">+ Add agent</button>');
       return '<div class="lrcard"><div class="lrtop"><span class="lraddr">'+esc(l.address||'')+'</span><span class="lrprice">'+(l.price?money(l.price):'')+'</span></div>'
         +'<div class="lrmeta">'+esc(l.city||'')+(l.listed_date?(' · listed '+esc(l.listed_date)):'')+'</div>'
