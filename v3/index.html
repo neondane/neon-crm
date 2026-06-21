@@ -369,6 +369,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);display:flex
 .lragent{margin-top:9px;font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .lrdraft{margin-top:9px;font-size:12.5px;color:var(--text);background:var(--surface2,rgba(0,0,0,.03));border-radius:10px;padding:9px 11px;line-height:1.45}
 .lract{margin-top:11px;display:flex;gap:8px;flex-wrap:wrap}
+.dombadge{font-weight:800;font-size:12px}
 @keyframes sp2{to{transform:rotate(360deg)}}
 @media(max-width:820px){.sidebar{width:60px}.navitem span.lbl{display:none}.navitem{justify-content:center}.list{width:100%}.detail{display:none}body.show-detail .list{display:none}body.show-detail .detail{display:block}}
 @media(max-width:760px){
@@ -857,13 +858,28 @@ function emailTemplates(c){
     body:"Hi "+f+",\n\nJust a friendly note that your Neon Giant Preferred Partner perks are still active — any client you send gets $50 off, free materials, and a move-day experience that reflects well on you.\n\nGot someone moving soon? Send them here: "+ref+"\n\nAlways happy to make you look good.\n\nBig moves, bright attitude,\nNeon Giant Moving & Junk Removal\n360.588.4700"}
   ];
 }
+function ngTextTemplates(c){ var f=firstName((c&&c.name)||"there"); return [
+ {name:"Just listed — congrats", body:"Hey "+f+", congrats on the new listing! Whenever your seller starts thinking about movers, we'd love to take great care of them and make you look good. Want me to send over your VIP link so it's easy to pass along?"},
+ {name:"Quick intro", body:"Hi "+f+", this is Dane with Neon Giant Moving. We work with a bunch of agents around here and take really good care of their clients on move day. Would love to be your go-to movers. Mind if I send a little info over?"},
+ {name:"Referral program", body:"Hey "+f+", quick one for you. We run a referral program for agents where your clients get hooked up and you get a thank you from us on every move. Want me to set you up with your own link?"},
+ {name:"Checking in", body:"Hi "+f+", just checking in. You got anybody coming up that's going to need movers? Happy to hold a spot on the calendar for your people."},
+ {name:"Went pending", body:"Hey "+f+", saw one of yours is going pending, nice work. If your seller needs a hand getting everything moved, we're ready when they are. Want me to reach out, or would you rather pass along my info?"}
+]; }
+function ngEmailTemplates(c){ var f=firstName((c&&c.name)||"there"); return [
+ {name:"Just listed", subject:"Congrats on the new listing", body:"Hey "+f+",\n\nCongrats on the new listing! Figured I would reach out while it is fresh. When your seller gets to the point of lining up movers, we would love to take great care of them for you. We are local, we are fast, and we make the agent look good every time.\n\nWant me to send over your VIP link so it is easy to pass along? Just say the word.\n\nThanks,\nDane\nNeon Giant Moving"},
+ {name:"Intro / let's work together", subject:"Movers your clients will actually thank you for", body:"Hi "+f+",\n\nThis is Dane over at Neon Giant Moving. We work with a lot of agents around Skagit and Whatcom, and our whole thing is making your clients' move day easy so it reflects well on you.\n\nIf you have buyers or sellers coming up, I would love to be your go-to movers. Happy to send over some info or grab a coffee sometime.\n\nTalk soon,\nDane\nNeon Giant Moving"},
+ {name:"Referral program", subject:"A thank you on every move", body:"Hey "+f+",\n\nWanted to make sure you knew about our agent referral program. Short version: your clients get taken care of, and you get a thank you from us on every move they book. No catch, just our way of saying we appreciate you sending folks our way.\n\nWant me to set you up with your own link? Takes about two minutes.\n\nThanks,\nDane\nNeon Giant Moving"}
+]; }
+function emailTemplatesAll(c){ return ngEmailTemplates(c).concat(emailTemplates(c)); }
 function composerHtml(c){
   var subs=[["note","note","Note"],["email","email","Email"],["call","phone","Call"],["text","chat","Text"]];
   var to=cSub==="email"?("To: "+esc(c.email||"no email on file")):("To: "+esc(c.name)+" <"+esc(c.phone||"no phone")+">");
   var btn=cSub==="email"?"Send Email":(cSub==="text"?"Send Text":(cSub==="call"?"Log Call":"Save Note"));
-  var emailHead=cSub==="email"?('<select id="emTpl" class="esel" style="width:100%;margin-bottom:6px"><option value="">Template… (optional)</option>'+emailTemplates(c).map(function(t,i){return '<option value="'+i+'">'+esc(t.name)+'</option>';}).join("")+'</select><input id="emSubject" placeholder="Subject" style="width:100%;box-sizing:border-box;margin-bottom:6px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:14px">'):'';
+  var tplSel=function(id){return '<select id="'+id+'" class="esel" style="width:100%;margin-bottom:6px;padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:13px"><option value="">Pick a template… (optional)</option>';};
+  var emailHead=cSub==="email"?(tplSel("emTpl")+emailTemplatesAll(c).map(function(t,i){return '<option value="'+i+'">'+esc(t.name)+'</option>';}).join("")+'</select><input id="emSubject" placeholder="Subject" style="width:100%;box-sizing:border-box;margin-bottom:6px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:14px">'):'';
+  var textHead=cSub==="text"?(tplSel("cmTpl")+ngTextTemplates(c).map(function(t,i){return '<option value="'+i+'">'+esc(t.name)+'</option>';}).join("")+'</select>'):'';
   return '<div class="composer"><div class="csub">'+subs.map(function(s){return '<div class="'+(s[0]===cSub?"active":"")+'" data-cs="'+s[0]+'">'+gi(s[1])+' '+s[2]+'</div>';}).join("")
-    +'</div><div class="cbody"><div class="cto">'+to+'</div>'+emailHead+'<textarea id="cmsg" placeholder="'+(cSub==="note"?"Type or tap Talk and just speak…":"Type a message…")+'"></textarea>'
+    +'</div><div class="cbody"><div class="cto">'+to+'</div>'+emailHead+textHead+'<textarea id="cmsg" placeholder="'+(cSub==="note"?"Type or tap Talk and just speak…":"Type a message…")+'"></textarea>'
     +(cSub==="email"?'<div class="crow" style="justify-content:flex-start;gap:8px;margin-top:8px"><button class="btn" type="button" id="emAttachBtn">'+gi("note")+' Attach file</button><span class="muted" id="emAttachName" style="font-size:12px">'+(emailAttach?esc(emailAttach.filename):"")+'</span></div><input type="file" id="emAttachFile" style="display:none">':'')
     +(cSub==="note"?'<div class="crow" style="justify-content:flex-start;gap:8px;margin-top:8px"><button class="btn" type="button" id="cTalk">'+gi("mic")+' Talk</button><button class="btn" type="button" id="cImprove">'+gi("sparkle")+' Improve</button><span class="muted" id="cAiMsg" style="font-size:12px"></span></div>':'')
     +(cSub==="text"?'<div class="crow" style="justify-content:flex-start;gap:8px;margin-top:8px"><button class="btn" type="button" id="cPhoto">'+gi("camera")+' Attach photo</button><span class="muted" id="cPhotoName" style="font-size:12px">'+(cImg?"Photo attached":"")+'</span></div><input type="file" id="cPhotoFile" accept="image/*" style="display:none"><div id="cPhotoPrev" style="margin-top:8px">'+(cImg?'<img src="'+cImg+'" style="max-width:160px;border-radius:10px;border:1px solid var(--border)">':'')+'</div>':'')
@@ -1126,7 +1142,8 @@ function wireTab(c){
   var snd=document.getElementById("cSend"); if(snd)snd.onclick=function(){sendComposer(c);};
   var ct=document.getElementById("cTalk"); if(ct)ct.onclick=function(){aiDictate("cmsg",ct);};
   var ci=document.getElementById("cImprove"); if(ci)ci.onclick=function(){aiImprove("cmsg",ci,"cAiMsg");};
-  var etp=document.getElementById("emTpl"); if(etp)etp.onchange=function(){ var i=this.value; if(i===""){return;} var t=emailTemplates(c)[+i]; if(!t)return; var su=document.getElementById("emSubject"); if(su)su.value=t.subject; var bd=document.getElementById("cmsg"); if(bd)bd.value=t.body; };
+  var etp=document.getElementById("emTpl"); if(etp)etp.onchange=function(){ var i=this.value; if(i===""){return;} var t=emailTemplatesAll(c)[+i]; if(!t)return; var su=document.getElementById("emSubject"); if(su&&t.subject)su.value=t.subject; var bd=document.getElementById("cmsg"); if(bd)bd.value=t.body; };
+  var ctp=document.getElementById("cmTpl"); if(ctp)ctp.onchange=function(){ var i=this.value; if(i===""){return;} var t=ngTextTemplates(c)[+i]; if(!t)return; var bd=document.getElementById("cmsg"); if(bd){bd.value=t.body;bd.focus();} };
   var eab=document.getElementById("emAttachBtn"); if(eab)eab.onclick=function(){ var f=document.getElementById("emAttachFile"); if(f)f.click(); };
   var eaf=document.getElementById("emAttachFile"); if(eaf)eaf.onchange=function(){ var file=this.files&&this.files[0]; if(!file)return; if(file.size>4500000){alert("File too large (max ~4MB).");this.value="";return;} var r=new FileReader(); r.onload=function(){ emailAttach={filename:file.name,content:String(r.result).split(",")[1]}; var n=document.getElementById("emAttachName"); if(n)n.textContent=file.name; }; r.readAsDataURL(file); };
   var ns=document.getElementById("nSave"); if(ns)ns.onclick=function(){saveProfileNote(c,pTab==="visits"?"visit":"note");};
@@ -2057,6 +2074,17 @@ function drawRecruit(){
 var radarTab="listed";
 function radarCMap(){ var m={}; (ALL||[]).forEach(function(c){ var k=String(c.name||"").toLowerCase().replace(/[^a-z0-9]/g,""); if(k)m[k]=c; }); return m; }
 function radarStatus(name){ var k=String(name||"").toLowerCase().replace(/[^a-z0-9]/g,""); var c=radarCMap()[k]; if(!c)return{s:"NEW",cls:"target",id:null}; return c.portalActivatedAt?{s:"PARTNER",cls:"partner",id:c.id}:{s:"IN CRM",cls:"crm",id:c.id}; }
+var radarFeedQuery="", radarTerr="all", radarSort="newest", radarStat="all", radarMinPrice=0;
+var RADAR_COUNTY={}; (function(){
+  var w=["bellingham","ferndale","lynden","blaine","birchbay","everson","sumas","custer","nooksack"];
+  var s=["mountvernon","burlington","anacortes","sedrowoolley","laconner","concrete"];
+  var sn=["stanwood","arlington","marysville","everett","lakestevens","snohomish","monroe","granitefalls"];
+  w.forEach(function(c){RADAR_COUNTY[c]="Whatcom";}); s.forEach(function(c){RADAR_COUNTY[c]="Skagit";}); sn.forEach(function(c){RADAR_COUNTY[c]="Snohomish";});
+})();
+function cityCounty(city){ return RADAR_COUNTY[String(city||"").toLowerCase().replace(/[^a-z]/g,"")]||"Other"; }
+function domDays(d){ if(!d)return null; var t=Date.parse(String(d)+"T00:00:00"); if(isNaN(t))return null; return Math.max(0,Math.floor((Date.now()-t)/86400000)); }
+function domBadge(d){ var n=domDays(d); if(n==null)return '<span class="dombadge" style="color:var(--text-muted)">listed date n/a</span>'; var col=n<=3?'#1d9e75':(n>30?'#e08600':'var(--text)'); var lbl=n===0?'Listed today':(n===1?'1 day on market':(n+' days on market')); return '<span class="dombadge" style="color:'+col+'">'+lbl+'</span>'; }
+function zillowUrl(addr){ return "https://www.zillow.com/homes/"+encodeURIComponent(String(addr||"").trim())+"_rb/"; }
 function renderRadar(){ spinPage("Listing Radar"); ensureData(function(){
   var need=[];
   if(DATA.marketAgents==null){ DATA.marketAgents=[]; need.push(sb("market_agents?select=name,phone,email,office,areas,listing_count,last_listed&order=listing_count.desc&limit=600").then(function(m){DATA.marketAgents=m||[];}).catch(function(){})); }
@@ -2098,19 +2126,42 @@ function drawRadar(){
         +'<div class="lract"><button class="btn grad" data-rsend="'+a.id+'">'+gi(a.channel==="email"?"email":"chat")+' Review & send</button><button class="btn" data-rdis="'+a.id+'">Dismiss</button></div></div>';
     }).join("")+'</div>'; }
   } else {
-    var feed=listings.slice().filter(function(l){return l.address;}).sort(function(a,b){return String(b.listed_date||"").localeCompare(String(a.listed_date||""));}).slice(0,48);
-    if(!feed.length){ html+='<div class="noact">No listings yet — the 6am sweep fills this in.</div>'; }
-    else { html+='<div class="lrgrid">'+feed.map(function(l,i){ var st=radarStatus(l.agent_name);
-      var act=st.id?('<button class="btn" data-ragent="'+st.id+'">'+gi("chat")+' Message</button>'):('<button class="btn grad" data-radd="'+listings.indexOf(l)+'">+ Add agent</button>');
+    var terrSel='<select id="rfTerr">'+[["all","All counties"],["Skagit","Skagit"],["Whatcom","Whatcom"],["Snohomish","Snohomish"]].map(function(o){return '<option value="'+o[0]+'"'+(radarTerr===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
+    var sortSel='<select id="rfSort">'+[["newest","Newest listed"],["oldest","Longest on market"],["pricehi","Price: high → low"],["pricelo","Price: low → high"]].map(function(o){return '<option value="'+o[0]+'"'+(radarSort===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
+    var statSel='<select id="rfStat">'+[["all","All agents"],["partner","Partners"],["crm","In CRM"],["new","New agents"]].map(function(o){return '<option value="'+o[0]+'"'+(radarStat===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
+    var priceSel='<select id="rfPrice">'+[[0,"Any price"],[400000,"$400k+"],[600000,"$600k+"],[900000,"$900k+"],[1500000,"$1.5M+"]].map(function(o){return '<option value="'+o[0]+'"'+(radarMinPrice===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
+    html+='<div class="cfilters" style="margin-bottom:12px;flex-wrap:wrap">'+terrSel+sortSel+statSel+priceSel+'<input id="rfSearch" placeholder="Search address or agent…" value="'+esc(radarFeedQuery)+'" style="flex:1;min-width:150px"></div>';
+    var feed=listings.slice().filter(function(l){return l.address;});
+    if(radarTerr!=="all") feed=feed.filter(function(l){return cityCounty(l.city)===radarTerr;});
+    if(radarStat!=="all") feed=feed.filter(function(l){var s=radarStatus(l.agent_name).s; return (radarStat==="partner"&&s==="PARTNER")||(radarStat==="crm"&&s==="IN CRM")||(radarStat==="new"&&s==="NEW");});
+    if(radarMinPrice>0) feed=feed.filter(function(l){return (+l.price||0)>=radarMinPrice;});
+    var fq=radarFeedQuery.toLowerCase().trim(); if(fq) feed=feed.filter(function(l){return (((l.address||'')+' '+(l.agent_name||'')).toLowerCase().indexOf(fq)>=0);});
+    feed.sort(function(a,b){
+      if(radarSort==="oldest") return String(a.listed_date||"9999").localeCompare(String(b.listed_date||"9999"));
+      if(radarSort==="pricehi") return (+b.price||0)-(+a.price||0);
+      if(radarSort==="pricelo") return (+a.price||0)-(+b.price||0);
+      return String(b.listed_date||"").localeCompare(String(a.listed_date||""));
+    });
+    html+='<div class="muted" style="font-size:12px;margin-bottom:10px">'+feed.length+' listing'+(feed.length===1?'':'s')+(feed.length>60?' (showing 60)':'')+'</div>';
+    feed=feed.slice(0,60);
+    if(!feed.length){ html+='<div class="noact">No listings match those filters.</div>'; }
+    else { html+='<div class="lrgrid">'+feed.map(function(l){ var st=radarStatus(l.agent_name); var idx=listings.indexOf(l);
+      var act=st.id?('<button class="btn" data-ragent="'+st.id+'">'+gi("chat")+' Message</button>'):('<button class="btn grad" data-radd="'+idx+'">+ Add agent</button>');
       return '<div class="lrcard"><div class="lrtop"><span class="lraddr">'+esc(l.address||'')+'</span><span class="lrprice">'+(l.price?money(l.price):'')+'</span></div>'
-        +'<div class="lrmeta">'+esc(l.city||'')+(l.listed_date?(' · listed '+esc(l.listed_date)):'')+'</div>'
+        +'<div class="lrmeta">'+esc(l.city||'')+' · '+esc(cityCounty(l.city))+' County</div>'
+        +'<div style="margin-top:7px">'+domBadge(l.listed_date)+(l.listed_date?'<span class="muted" style="font-size:11px"> · listed '+esc(l.listed_date)+'</span>':'')+'</div>'
         +'<div class="lragent"><b>'+esc(l.agent_name||'Unknown agent')+'</b> <span class="rbst '+st.cls+'">'+st.s+'</span></div>'
-        +'<div class="lract">'+act+'</div></div>';
+        +'<div class="lract">'+act+'<a class="btn" href="'+zillowUrl(l.address)+'" target="_blank" rel="noopener">'+gi("search")+' View</a></div></div>';
     }).join("")+'</div>'; }
   }
   html+='</div>';
   document.getElementById("view").innerHTML=html;
   [].forEach.call(document.querySelectorAll("[data-rtab]"),function(t){t.onclick=function(){radarTab=t.getAttribute("data-rtab");drawRadar();};});
+  var ft=document.getElementById("rfTerr"); if(ft)ft.onchange=function(){radarTerr=ft.value;drawRadar();};
+  var fso=document.getElementById("rfSort"); if(fso)fso.onchange=function(){radarSort=fso.value;drawRadar();};
+  var fst=document.getElementById("rfStat"); if(fst)fst.onchange=function(){radarStat=fst.value;drawRadar();};
+  var fp=document.getElementById("rfPrice"); if(fp)fp.onchange=function(){radarMinPrice=+fp.value;drawRadar();};
+  var fse=document.getElementById("rfSearch"); if(fse)fse.oninput=function(){radarFeedQuery=fse.value;var p=fse.selectionStart;drawRadar();var ni=document.getElementById("rfSearch");if(ni){ni.focus();try{ni.setSelectionRange(p,p);}catch(e){}}};
   var rs=document.getElementById("radarSearch"); if(rs){rs.oninput=function(){radarQuery=rs.value;var p=rs.selectionStart;drawRadar();var ni=document.getElementById("radarSearch");if(ni){ni.focus();try{ni.setSelectionRange(p,p);}catch(e){}}};}
   [].forEach.call(document.querySelectorAll("[data-ragent]"),function(b){b.onclick=function(){openContact(+b.getAttribute("data-ragent"));};});
   [].forEach.call(document.querySelectorAll("[data-raddmkt]"),function(b){b.onclick=function(){addMarketAgent(b.getAttribute("data-raddmkt"));};});
