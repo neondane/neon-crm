@@ -724,7 +724,7 @@ var current=null, editing=false, saveState="", saveCls="";
 var EDITABLE=[["name","Name"],["business","Business"],["type","Type"],["role","Role"],["phone","Phone"],["email","Email"],["territory","Territory"],["website","Website (for landing page)"],["facebook","Facebook URL"],["instagram","Instagram URL"],["linkedin","LinkedIn URL"]];
 async function openContact(id, focusInbound){
   activeId=id; editing=false; saveState=""; saveCls=""; pTab="conversation"; cSub="text"; ACT=null;
-  if(window.pendingDraft && window.pendingDraft.cid===id){ cSub=(window.pendingDraft.channel==="email"?"email":"text"); }
+  if(window.pendingDraft && (+window.pendingDraft.cid)===(+id)){ cSub=(window.pendingDraft.channel==="email"?"email":"text"); }
   _focusInbound=!!focusInbound; // deep-link: scroll to + highlight the latest inbound message
   // NOTE: opening a thread no longer auto-marks it read — only an explicit "Mark read" clears a notification (SmartMoving-style "deal with later").
   try{localStorage.setItem("crmNav","c:"+id);}catch(e){}
@@ -1135,7 +1135,7 @@ function wireTab(c){
   [].forEach.call(document.querySelectorAll(".refrow"),function(el){el.onclick=function(){var d=el.querySelector(".leaddet");if(d){d.style.display=(d.style.display==="none"?"block":"none");el.classList.toggle("open");}};});
   [].forEach.call(document.querySelectorAll("[data-addportal]"),function(el){el.onclick=function(ev){ev.stopPropagation();var i=+el.getAttribute("data-addportal");addToPortal(c,(c._refs||[])[i],el);};});
   var lb=document.getElementById("lstBtn"); if(lb)lb.onclick=function(){profileCheckListings(c);};
-  if(window.pendingDraft && c && window.pendingDraft.cid===c.id){ var pdbox=document.getElementById("cmsg"); if(pdbox){ pdbox.value=window.pendingDraft.text; setTimeout(function(){try{pdbox.focus();pdbox.scrollIntoView({behavior:"smooth",block:"center"});}catch(e){}},80); window.pendingDraft=null; try{banner("Draft loaded — review and hit Send.");}catch(e){} } }
+  if(window.pendingDraft && c && (+window.pendingDraft.cid)===(+c.id)){ var pdbox=document.getElementById("cmsg"); if(pdbox){ pdbox.value=window.pendingDraft.text; setTimeout(function(){try{pdbox.focus();pdbox.scrollIntoView({behavior:"smooth",block:"center"});}catch(e){}},80); window.pendingDraft=null; try{banner("Draft loaded — review and hit Send.");}catch(e){} } }
   if(_focusInbound && pTab==="conversation" && document.querySelector(".actitem")){
     _focusInbound=false;
     setTimeout(function(){
