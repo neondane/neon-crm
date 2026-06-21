@@ -370,6 +370,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);display:flex
 .lrdraft{margin-top:9px;font-size:12.5px;color:var(--text);background:var(--surface2,rgba(0,0,0,.03));border-radius:10px;padding:9px 11px;line-height:1.45}
 .lract{margin-top:11px;display:flex;gap:8px;flex-wrap:wrap}
 .dombadge{font-weight:800;font-size:12px}
+.lrsec{font-weight:800;font-size:14px;margin:6px 0 12px;display:flex;align-items:center;gap:8px}
 @keyframes sp2{to{transform:rotate(360deg)}}
 @media(max-width:820px){.sidebar{width:60px}.navitem span.lbl{display:none}.navitem{justify-content:center}.list{width:100%}.detail{display:none}body.show-detail .list{display:none}body.show-detail .detail{display:block}}
 @media(max-width:760px){
@@ -860,7 +861,8 @@ function emailTemplates(c){
     body:"Hi "+f+",\n\nJust a friendly note that your Neon Giant Preferred Partner perks are still active — any client you send gets $50 off, free materials, and a move-day experience that reflects well on you.\n\nGot someone moving soon? Send them here: "+ref+"\n\nAlways happy to make you look good.\n\nBig moves, bright attitude,\nNeon Giant Moving & Junk Removal\n360.588.4700"}
   ];
 }
-function ngListingAddr(c, addr){ if(addr)return addr; if(window._listingCtx && +window._listingCtx.cid===+((c&&c.id)||0)) return window._listingCtx.address||""; return ""; }
+function shortAddr(a){ return String(a||"").split(",")[0].replace(/\s+(SE|SW|NE|NW|N|S|E|W)$/,"").trim(); }
+function ngListingAddr(c, addr){ var a=addr; if(!a && window._listingCtx && +window._listingCtx.cid===+((c&&c.id)||0)) a=window._listingCtx.address||""; return shortAddr(a); }
 function ngTextTemplates(c, addr){ var f=firstName((c&&c.name)||"there"); var a=ngListingAddr(c,addr);
  var L=a?[
   {name:"Just listed — congrats", body:"Hey "+f+", congrats on the new listing over at "+a+"! Whenever your seller starts thinking about movers, we'd love to take great care of them and make you look good. Want me to send over your VIP link so it's easy to pass along?"},
@@ -2116,43 +2118,43 @@ function agentLeaderboardHtml(q){
   var h='<div class="rbwrap"><table class="rbtable"><thead><tr><th>#</th><th>Agent</th><th>Contact</th><th>Areas</th><th>Listings</th><th>Status</th><th></th></tr></thead><tbody>';
   h+=rows.map(function(a,i){ var st=radarStatus(a.name);
     var contact=(a.phone?esc(a.phone):'')+(a.phone&&a.email?' · ':'')+(a.email?esc(a.email):'')||'<span class="muted">—</span>';
-    var act=st.id?('<button class="btn" data-ragent="'+st.id+'">Open</button>'):('<button class="btn grad" data-mmsgt="'+esc(a.name)+'">Text</button> <button class="btn" data-mmsge="'+esc(a.name)+'">Email</button> <button class="btn" data-raddmkt="'+esc(a.name)+'">Add</button>');
+    var act=st.id?('<button class="btn" data-ragent="'+st.id+'">Open</button>'):('<button class="btn grad" data-raddmkt="'+esc(a.name)+'">+ Add to Recruit</button>');
     return '<tr><td class="rbrank">#'+(i+1)+'</td><td class="rbname">'+esc(a.name)+'<div class="muted" style="font-size:11px">'+esc(a.office||'')+'</div></td><td style="font-size:12px">'+contact+'</td><td style="font-size:12px">'+esc(a.areas||'—')+'</td><td class="rbtxn"><b>'+(+a.listing_count||0)+'</b></td><td><span class="rbst '+st.cls+'">'+st.s+'</span></td><td>'+act+'</td></tr>';
   }).join("");
   return h+'</tbody></table></div>';
 }
 var radarQuery="";
+function radarCard(l){ var st=radarStatus(l.agent_name); var idx=(DATA.radarListings||[]).indexOf(l);
+  var act = st.id
+    ? ('<button class="btn grad" data-rmsgt="'+idx+'">'+gi("chat")+' Text</button><button class="btn" data-rmsge="'+idx+'">'+gi("email")+' Email</button>')
+    : ('<button class="btn grad" data-radd="'+idx+'">+ Add to Recruit</button>');
+  return '<div class="lrcard"><div class="lrtop"><span class="lraddr">'+esc(l.address||'')+'</span><span class="lrprice">'+(l.price?money(l.price):'')+'</span></div>'
+    +'<div class="lrmeta">'+esc(l.city||'')+' · '+esc(cityCounty(l.city))+' County</div>'
+    +'<div style="margin-top:7px">'+domBadge(l.listed_date)+(l.listed_date?'<span class="muted" style="font-size:11px"> · listed '+esc(l.listed_date)+'</span>':'')+'</div>'
+    +'<div class="lragent"><b>'+esc(l.agent_name||'Unknown agent')+'</b> <span class="rbst '+st.cls+'">'+st.s+'</span></div>'
+    +'<div class="lract">'+act+'<a class="btn" href="'+zillowUrl(l.address)+'" target="_blank" rel="noopener">'+gi("search")+' View</a></div></div>';
+}
 function drawRadar(){
-  var alerts=DATA.agentAlerts||[], agents=DATA.marketAgents||[], listings=DATA.radarListings||[];
-  var today=new Date().toISOString().slice(0,10), cut=new Date(Date.now()-3*86400000).toISOString().slice(0,10);
-  var fresh=listings.filter(function(l){return l.listed_date&&l.listed_date>=cut;});
+  var agents=DATA.marketAgents||[], listings=DATA.radarListings||[];
+  var cut=new Date(Date.now()-3*86400000).toISOString().slice(0,10);
+  var freshN=listings.filter(function(l){return l.listed_date&&l.listed_date>=cut;}).length;
+  var partnerN=listings.filter(function(l){return !!radarStatus(l.agent_name).id;}).length;
   var html='<div class="page"><div class="ph"><h2>'+gi("radar")+' Listing Radar</h2><span class="muted" style="margin-left:auto;font-size:12px">Refreshed each morning · '+agents.length+' agents tracked</span></div>';
-  html+='<div class="stats" style="margin-bottom:14px">'+stat(fresh.length,"Just listed (3 days)","var(--pink)")+stat(alerts.length,"Partner nudges","var(--cyan)")+stat(agents.length,"Agents in market")+'</div>';
-  var tabs=[["listed","Just Listed"],["nudges","Partner Nudges"+(alerts.length?" ("+alerts.length+")":"")],["agents","Now Listing"]];
+  html+='<div class="stats" style="margin-bottom:14px">'+stat(freshN,"Just listed (3 days)","var(--pink)")+stat(partnerN,"Your agents listing","var(--cyan)")+stat(agents.length,"Agents in market")+'</div>';
+  var tabs=[["listed","Just Listed"],["agents","Now Listing"]];
   html+='<div class="csub" style="margin-bottom:12px;border-bottom:none;gap:8px">'+tabs.map(function(t){return '<div class="'+(radarTab===t[0]?"active":"")+'" data-rtab="'+t[0]+'">'+t[1]+'</div>';}).join("")+'</div>';
   if(radarTab==="agents"){
     html+='<div class="cfilters" style="margin-bottom:12px"><input id="radarSearch" placeholder="Search agents…" value="'+esc(radarQuery)+'" style="flex:1;min-width:160px"></div>'+agentLeaderboardHtml();
-  } else if(radarTab==="nudges"){
-    if(!alerts.length){ html+='<div class="noact">No partner nudges right now. When one of your partners posts a new listing, a ready-to-send draft lands here.</div>'; }
-    else { html+='<div class="lrlist">'+alerts.map(function(a){
-      var clean=String(a.draft_message||"").replace(/\s[—–]\s/g,", ");
-      var tpls=ngTextTemplates({name:a.agent_name}, a.address);
-      var tplOpts='<option value="">Swap template…</option>'+tpls.map(function(t,i){return '<option value="'+i+'">'+esc(t.name)+'</option>';}).join("");
-      return '<div class="lrcard"><div class="lrtop"><span class="lraddr">'+esc(a.agent_name)+'</span><span class="rbst partner">PARTNER</span></div>'
-        +'<div class="lrmeta">New listing: '+esc(a.address||'')+(a.price?(' · '+money(a.price)):'')+'</div>'
-        +'<select class="esel ndtpl" data-ndtpl="'+a.id+'" style="margin-top:8px;width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:12.5px">'+tplOpts+'</select>'
-        +'<textarea class="ndtext" data-ndtext="'+a.id+'" style="width:100%;box-sizing:border-box;margin-top:8px;min-height:92px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--text);padding:10px;font-family:inherit;font-size:13px;line-height:1.45">'+esc(clean)+'</textarea>'
-        +'<div class="lract"><button class="btn grad" data-rsend="'+a.id+'">'+gi(a.channel==="email"?"email":"chat")+' Review & send</button><button class="btn" data-rdis="'+a.id+'">Dismiss</button></div></div>';
-    }).join("")+'</div>'; }
   } else {
     var terrSel='<select id="rfTerr">'+[["all","All counties"],["Skagit","Skagit"],["Whatcom","Whatcom"],["Snohomish","Snohomish"]].map(function(o){return '<option value="'+o[0]+'"'+(radarTerr===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
-    var sortSel='<select id="rfSort">'+[["newest","Newest listed"],["oldest","Longest on market"],["pricehi","Price: high → low"],["pricelo","Price: low → high"]].map(function(o){return '<option value="'+o[0]+'"'+(radarSort===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
-    var statSel='<select id="rfStat">'+[["all","All agents"],["partner","Partners"],["crm","In CRM"],["new","New agents"]].map(function(o){return '<option value="'+o[0]+'"'+(radarStat===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
+    var sortSel='<select id="rfSort">'+[["newest","Newest listed"],["oldest","Longest on market"],["pricehi","Price: high to low"],["pricelo","Price: low to high"]].map(function(o){return '<option value="'+o[0]+'"'+(radarSort===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
+    var statSel='<select id="rfStat">'+[["all","All agents"],["partner","My partners"],["new","New to me"]].map(function(o){return '<option value="'+o[0]+'"'+(radarStat===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
     var priceSel='<select id="rfPrice">'+[[0,"Any price"],[400000,"$400k+"],[600000,"$600k+"],[900000,"$900k+"],[1500000,"$1.5M+"]].map(function(o){return '<option value="'+o[0]+'"'+(radarMinPrice===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
-    html+='<div class="cfilters" style="margin-bottom:12px;flex-wrap:wrap">'+terrSel+sortSel+statSel+priceSel+'<input id="rfSearch" placeholder="Search address or agent…" value="'+esc(radarFeedQuery)+'" style="flex:1;min-width:150px"></div>';
+    html+='<div class="cfilters" style="margin-bottom:14px;flex-wrap:wrap">'+terrSel+sortSel+statSel+priceSel+'<input id="rfSearch" placeholder="Search address or agent…" value="'+esc(radarFeedQuery)+'" style="flex:1;min-width:150px"></div>';
     var feed=listings.slice().filter(function(l){return l.address;});
     if(radarTerr!=="all") feed=feed.filter(function(l){return cityCounty(l.city)===radarTerr;});
-    if(radarStat!=="all") feed=feed.filter(function(l){var s=radarStatus(l.agent_name).s; return (radarStat==="partner"&&s==="PARTNER")||(radarStat==="crm"&&s==="IN CRM")||(radarStat==="new"&&s==="NEW");});
+    if(radarStat==="partner") feed=feed.filter(function(l){return !!radarStatus(l.agent_name).id;});
+    else if(radarStat==="new") feed=feed.filter(function(l){return !radarStatus(l.agent_name).id;});
     if(radarMinPrice>0) feed=feed.filter(function(l){return (+l.price||0)>=radarMinPrice;});
     var fq=radarFeedQuery.toLowerCase().trim(); if(fq) feed=feed.filter(function(l){return (((l.address||'')+' '+(l.agent_name||'')).toLowerCase().indexOf(fq)>=0);});
     feed.sort(function(a,b){
@@ -2161,17 +2163,12 @@ function drawRadar(){
       if(radarSort==="pricelo") return (+a.price||0)-(+b.price||0);
       return String(b.listed_date||"").localeCompare(String(a.listed_date||""));
     });
-    html+='<div class="muted" style="font-size:12px;margin-bottom:10px">'+feed.length+' listing'+(feed.length===1?'':'s')+(feed.length>60?' (showing 60)':'')+'</div>';
-    feed=feed.slice(0,60);
-    if(!feed.length){ html+='<div class="noact">No listings match those filters.</div>'; }
-    else { html+='<div class="lrgrid">'+feed.map(function(l){ var st=radarStatus(l.agent_name); var idx=listings.indexOf(l);
-      var act=st.id?('<button class="btn grad" data-ragent="'+st.id+'">'+gi("chat")+' Message</button>'):('<button class="btn grad" data-rmsgt="'+idx+'">'+gi("chat")+' Text</button><button class="btn" data-rmsge="'+idx+'">'+gi("email")+' Email</button><button class="btn" data-radd="'+idx+'">+ Add</button>');
-      return '<div class="lrcard"><div class="lrtop"><span class="lraddr">'+esc(l.address||'')+'</span><span class="lrprice">'+(l.price?money(l.price):'')+'</span></div>'
-        +'<div class="lrmeta">'+esc(l.city||'')+' · '+esc(cityCounty(l.city))+' County</div>'
-        +'<div style="margin-top:7px">'+domBadge(l.listed_date)+(l.listed_date?'<span class="muted" style="font-size:11px"> · listed '+esc(l.listed_date)+'</span>':'')+'</div>'
-        +'<div class="lragent"><b>'+esc(l.agent_name||'Unknown agent')+'</b> <span class="rbst '+st.cls+'">'+st.s+'</span></div>'
-        +'<div class="lract">'+act+'<a class="btn" href="'+zillowUrl(l.address)+'" target="_blank" rel="noopener">'+gi("search")+' View</a></div></div>';
-    }).join("")+'</div>'; }
+    var partnerFeed=feed.filter(function(l){return !!radarStatus(l.agent_name).id;});
+    var marketFeed=feed.filter(function(l){return !radarStatus(l.agent_name).id;});
+    if(partnerFeed.length){ html+='<div class="lrsec">'+gi("trophy")+' Your partners & agents just listed — send a quick note</div><div class="lrgrid" style="margin-bottom:20px">'+partnerFeed.slice(0,40).map(radarCard).join("")+'</div>'; }
+    var shown=marketFeed.slice(0,60);
+    if(partnerFeed.length||shown.length) html+='<div class="lrsec">'+gi("radar")+' New in the market'+(marketFeed.length>60?' (top 60 of '+marketFeed.length+')':'')+'</div>';
+    html+= shown.length ? '<div class="lrgrid">'+shown.map(radarCard).join("")+'</div>' : (partnerFeed.length?'':'<div class="noact">No listings match those filters.</div>');
   }
   html+='</div>';
   document.getElementById("view").innerHTML=html;
@@ -2187,11 +2184,6 @@ function drawRadar(){
   [].forEach.call(document.querySelectorAll("[data-radd]"),function(b){b.onclick=function(){addAgentFromListing(+b.getAttribute("data-radd"));};});
   [].forEach.call(document.querySelectorAll("[data-rmsgt]"),function(b){b.onclick=function(){var l=(DATA.radarListings||[])[+b.getAttribute("data-rmsgt")];if(l)messageAgent(l.agent_name,l.agent_phone,l.agent_email,"",l.city,"text",l.address,l.city);};});
   [].forEach.call(document.querySelectorAll("[data-rmsge]"),function(b){b.onclick=function(){var l=(DATA.radarListings||[])[+b.getAttribute("data-rmsge")];if(l)messageAgent(l.agent_name,l.agent_phone,l.agent_email,"",l.city,"email",l.address,l.city);};});
-  [].forEach.call(document.querySelectorAll("[data-mmsgt]"),function(b){b.onclick=function(){var a=(DATA.marketAgents||[]).filter(function(x){return x.name===b.getAttribute("data-mmsgt");})[0];if(a)messageAgent(a.name,a.phone,a.email,a.office,a.areas,"text");};});
-  [].forEach.call(document.querySelectorAll("[data-mmsge]"),function(b){b.onclick=function(){var a=(DATA.marketAgents||[]).filter(function(x){return x.name===b.getAttribute("data-mmsge");})[0];if(a)messageAgent(a.name,a.phone,a.email,a.office,a.areas,"email");};});
-  [].forEach.call(document.querySelectorAll(".ndtpl"),function(s){s.onchange=function(){var id=s.getAttribute("data-ndtpl");if(s.value==="")return;var a=(DATA.agentAlerts||[]).filter(function(x){return String(x.id)===String(id);})[0];var t=ngTextTemplates({name:a?a.agent_name:""}, a?a.address:"")[+s.value];var ta=document.querySelector('.ndtext[data-ndtext="'+id+'"]');if(t&&ta)ta.value=t.body;};});
-  [].forEach.call(document.querySelectorAll("[data-rsend]"),function(b){b.onclick=function(){var id=+b.getAttribute("data-rsend");var ta=document.querySelector('.ndtext[data-ndtext="'+id+'"]');sendNudge(id, ta?ta.value:null);};});
-  [].forEach.call(document.querySelectorAll("[data-rdis]"),function(b){b.onclick=function(){dismissNudge(+b.getAttribute("data-rdis"));};});
 }
 async function sendNudge(id, editedText){
   var a=(DATA.agentAlerts||[]).filter(function(x){return x.id===id;})[0]; if(!a||a.contact_id==null)return;
