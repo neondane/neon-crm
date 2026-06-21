@@ -2052,6 +2052,8 @@ function drawRecruit(){
     var sil=document.getElementById("rbSearch"); if(sil){sil.oninput=function(){rbQuery=sil.value;var p=sil.selectionStart;drawRecruit();var ni=document.getElementById("rbSearch");if(ni){ni.focus();try{ni.setSelectionRange(p,p);}catch(e){}}};}
     [].forEach.call(document.querySelectorAll("[data-ragent]"),function(b){b.onclick=function(){openContact(+b.getAttribute("data-ragent"));};});
     [].forEach.call(document.querySelectorAll("[data-raddmkt]"),function(b){b.onclick=function(){addMarketAgent(b.getAttribute("data-raddmkt"));};});
+    [].forEach.call(document.querySelectorAll("[data-mmsgt]"),function(b){b.onclick=function(){var a=(DATA.marketAgents||[]).filter(function(x){return x.name===b.getAttribute("data-mmsgt");})[0];if(a)messageAgent(a.name,a.phone,a.email,a.office,a.areas,"text");};});
+    [].forEach.call(document.querySelectorAll("[data-mmsge]"),function(b){b.onclick=function(){var a=(DATA.marketAgents||[]).filter(function(x){return x.name===b.getAttribute("data-mmsge");})[0];if(a)messageAgent(a.name,a.phone,a.email,a.office,a.areas,"email");};});
     return;
   }
   var regSel='<select id="rbRegSel">'+[["all","All regions"],["Skagit","Skagit County"],["Whatcom","Whatcom County"]].map(function(o){return '<option value="'+o[0]+'"'+(rbRegion===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
@@ -2089,7 +2091,7 @@ function renderRadar(){ spinPage("Listing Radar"); ensureData(function(){
   var need=[];
   if(DATA.marketAgents==null){ DATA.marketAgents=[]; need.push(sb("market_agents?select=name,phone,email,office,areas,listing_count,last_listed&order=listing_count.desc&limit=600").then(function(m){DATA.marketAgents=m||[];}).catch(function(){})); }
   if(DATA.agentAlerts==null){ DATA.agentAlerts=[]; need.push(sb("agent_alerts?select=id,contact_id,agent_name,address,city,price,draft_message,channel,status&status=eq.pending&order=id.desc&limit=120").then(function(a){DATA.agentAlerts=a||[];}).catch(function(){})); }
-  if(DATA.radarListings==null){ DATA.radarListings=[]; need.push(sb("listing_seen?select=address,city,price,agent_name,agent_phone,agent_email,listed_date,first_seen&order=first_seen.desc&limit=80").then(function(l){DATA.radarListings=l||[];}).catch(function(){})); }
+  if(DATA.radarListings==null){ DATA.radarListings=[]; need.push(sb("listing_seen?select=address,city,price,agent_name,agent_phone,agent_email,listed_date,first_seen&order=listed_date.desc.nullslast&limit=600").then(function(l){DATA.radarListings=l||[];}).catch(function(){})); }
   if(need.length){ Promise.all(need).then(function(){ if(view==="radar")drawRadar(); }); }
   if(view==="radar")drawRadar();
 }); }
@@ -2101,7 +2103,7 @@ function agentLeaderboardHtml(q){
   var h='<div class="rbwrap"><table class="rbtable"><thead><tr><th>#</th><th>Agent</th><th>Contact</th><th>Areas</th><th>Listings</th><th>Status</th><th></th></tr></thead><tbody>';
   h+=rows.map(function(a,i){ var st=radarStatus(a.name);
     var contact=(a.phone?esc(a.phone):'')+(a.phone&&a.email?' · ':'')+(a.email?esc(a.email):'')||'<span class="muted">—</span>';
-    var act=st.id?('<button class="btn" data-ragent="'+st.id+'">Open</button>'):('<button class="btn grad" data-raddmkt="'+esc(a.name)+'">+ Add</button>');
+    var act=st.id?('<button class="btn" data-ragent="'+st.id+'">Open</button>'):('<button class="btn grad" data-mmsgt="'+esc(a.name)+'">Text</button> <button class="btn" data-mmsge="'+esc(a.name)+'">Email</button> <button class="btn" data-raddmkt="'+esc(a.name)+'">Add</button>');
     return '<tr><td class="rbrank">#'+(i+1)+'</td><td class="rbname">'+esc(a.name)+'<div class="muted" style="font-size:11px">'+esc(a.office||'')+'</div></td><td style="font-size:12px">'+contact+'</td><td style="font-size:12px">'+esc(a.areas||'—')+'</td><td class="rbtxn"><b>'+(+a.listing_count||0)+'</b></td><td><span class="rbst '+st.cls+'">'+st.s+'</span></td><td>'+act+'</td></tr>';
   }).join("");
   return h+'</tbody></table></div>';
@@ -2120,9 +2122,13 @@ function drawRadar(){
   } else if(radarTab==="nudges"){
     if(!alerts.length){ html+='<div class="noact">No partner nudges right now. When one of your partners posts a new listing, a ready-to-send draft lands here.</div>'; }
     else { html+='<div class="lrlist">'+alerts.map(function(a){
+      var clean=String(a.draft_message||"").replace(/\s[—–]\s/g,", ");
+      var tpls=ngTextTemplates({name:a.agent_name});
+      var tplOpts='<option value="">Swap template…</option>'+tpls.map(function(t,i){return '<option value="'+i+'">'+esc(t.name)+'</option>';}).join("");
       return '<div class="lrcard"><div class="lrtop"><span class="lraddr">'+esc(a.agent_name)+'</span><span class="rbst partner">PARTNER</span></div>'
         +'<div class="lrmeta">New listing: '+esc(a.address||'')+(a.price?(' · '+money(a.price)):'')+'</div>'
-        +'<div class="lrdraft">'+esc(a.draft_message||'')+'</div>'
+        +'<select class="esel ndtpl" data-ndtpl="'+a.id+'" style="margin-top:8px;width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:12.5px">'+tplOpts+'</select>'
+        +'<textarea class="ndtext" data-ndtext="'+a.id+'" style="width:100%;box-sizing:border-box;margin-top:8px;min-height:92px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--text);padding:10px;font-family:inherit;font-size:13px;line-height:1.45">'+esc(clean)+'</textarea>'
         +'<div class="lract"><button class="btn grad" data-rsend="'+a.id+'">'+gi(a.channel==="email"?"email":"chat")+' Review & send</button><button class="btn" data-rdis="'+a.id+'">Dismiss</button></div></div>';
     }).join("")+'</div>'; }
   } else {
@@ -2146,7 +2152,7 @@ function drawRadar(){
     feed=feed.slice(0,60);
     if(!feed.length){ html+='<div class="noact">No listings match those filters.</div>'; }
     else { html+='<div class="lrgrid">'+feed.map(function(l){ var st=radarStatus(l.agent_name); var idx=listings.indexOf(l);
-      var act=st.id?('<button class="btn" data-ragent="'+st.id+'">'+gi("chat")+' Message</button>'):('<button class="btn grad" data-radd="'+idx+'">+ Add agent</button>');
+      var act=st.id?('<button class="btn grad" data-ragent="'+st.id+'">'+gi("chat")+' Message</button>'):('<button class="btn grad" data-rmsgt="'+idx+'">'+gi("chat")+' Text</button><button class="btn" data-rmsge="'+idx+'">'+gi("email")+' Email</button><button class="btn" data-radd="'+idx+'">+ Add</button>');
       return '<div class="lrcard"><div class="lrtop"><span class="lraddr">'+esc(l.address||'')+'</span><span class="lrprice">'+(l.price?money(l.price):'')+'</span></div>'
         +'<div class="lrmeta">'+esc(l.city||'')+' · '+esc(cityCounty(l.city))+' County</div>'
         +'<div style="margin-top:7px">'+domBadge(l.listed_date)+(l.listed_date?'<span class="muted" style="font-size:11px"> · listed '+esc(l.listed_date)+'</span>':'')+'</div>'
@@ -2166,15 +2172,38 @@ function drawRadar(){
   [].forEach.call(document.querySelectorAll("[data-ragent]"),function(b){b.onclick=function(){openContact(+b.getAttribute("data-ragent"));};});
   [].forEach.call(document.querySelectorAll("[data-raddmkt]"),function(b){b.onclick=function(){addMarketAgent(b.getAttribute("data-raddmkt"));};});
   [].forEach.call(document.querySelectorAll("[data-radd]"),function(b){b.onclick=function(){addAgentFromListing(+b.getAttribute("data-radd"));};});
-  [].forEach.call(document.querySelectorAll("[data-rsend]"),function(b){b.onclick=function(){sendNudge(+b.getAttribute("data-rsend"));};});
+  [].forEach.call(document.querySelectorAll("[data-rmsgt]"),function(b){b.onclick=function(){var l=(DATA.radarListings||[])[+b.getAttribute("data-rmsgt")];if(l)messageAgent(l.agent_name,l.agent_phone,l.agent_email,"",l.city,"text");};});
+  [].forEach.call(document.querySelectorAll("[data-rmsge]"),function(b){b.onclick=function(){var l=(DATA.radarListings||[])[+b.getAttribute("data-rmsge")];if(l)messageAgent(l.agent_name,l.agent_phone,l.agent_email,"",l.city,"email");};});
+  [].forEach.call(document.querySelectorAll("[data-mmsgt]"),function(b){b.onclick=function(){var a=(DATA.marketAgents||[]).filter(function(x){return x.name===b.getAttribute("data-mmsgt");})[0];if(a)messageAgent(a.name,a.phone,a.email,a.office,a.areas,"text");};});
+  [].forEach.call(document.querySelectorAll("[data-mmsge]"),function(b){b.onclick=function(){var a=(DATA.marketAgents||[]).filter(function(x){return x.name===b.getAttribute("data-mmsge");})[0];if(a)messageAgent(a.name,a.phone,a.email,a.office,a.areas,"email");};});
+  [].forEach.call(document.querySelectorAll(".ndtpl"),function(s){s.onchange=function(){var id=s.getAttribute("data-ndtpl");if(s.value==="")return;var a=(DATA.agentAlerts||[]).filter(function(x){return String(x.id)===String(id);})[0];var t=ngTextTemplates({name:a?a.agent_name:""})[+s.value];var ta=document.querySelector('.ndtext[data-ndtext="'+id+'"]');if(t&&ta)ta.value=t.body;};});
+  [].forEach.call(document.querySelectorAll("[data-rsend]"),function(b){b.onclick=function(){var id=+b.getAttribute("data-rsend");var ta=document.querySelector('.ndtext[data-ndtext="'+id+'"]');sendNudge(id, ta?ta.value:null);};});
   [].forEach.call(document.querySelectorAll("[data-rdis]"),function(b){b.onclick=function(){dismissNudge(+b.getAttribute("data-rdis"));};});
 }
-async function sendNudge(id){
+async function sendNudge(id, editedText){
   var a=(DATA.agentAlerts||[]).filter(function(x){return x.id===id;})[0]; if(!a||a.contact_id==null)return;
-  window.pendingDraft={cid:+a.contact_id,text:a.draft_message||"",channel:(a.channel==="email"?"email":"text")};
+  var text=(editedText!=null&&String(editedText).trim())?String(editedText):String(a.draft_message||"").replace(/\s[—–]\s/g,", ");
+  window.pendingDraft={cid:+a.contact_id,text:text,channel:(a.channel==="email"?"email":"text")};
   try{ await sbWrite("PATCH","agent_alerts?id=eq."+id,{status:"sent"}); }catch(e){}
   DATA.agentAlerts=(DATA.agentAlerts||[]).filter(function(x){return x.id!==id;});
   openContact(+a.contact_id);
+}
+async function messageAgent(name, phone, email, office, areas, channel){
+  if(!name)return;
+  var k=String(name).toLowerCase().replace(/[^a-z0-9]/g,"");
+  var ex=(ALL||[]).filter(function(c){return String(c.name||"").toLowerCase().replace(/[^a-z0-9]/g,"")===k;})[0];
+  var cid;
+  if(ex){ cid=ex.id; }
+  else {
+    var ids=ALL.map(function(c){return +c.id;}).filter(function(n){return !isNaN(n);});
+    cid=(ids.length?Math.max.apply(null,ids):0)+1;
+    var rec={id:cid,name:name,business:office||"",phone:phone||"",email:email||"",type:"Realtor",role:"Realtor",territory:areas||"",notes:"Added from Listing Radar."};
+    ALL.push(rec);
+    try{ await sbWrite("POST","contacts",rec); banner(name+" added to your CRM."); }catch(e){}
+  }
+  var tpl=(channel==="email")?ngEmailTemplates({name:name})[0]:ngTextTemplates({name:name})[0];
+  window.pendingDraft={cid:+cid,text:(tpl?tpl.body:""),channel:(channel==="email"?"email":"text")};
+  openContact(+cid);
 }
 async function dismissNudge(id){
   try{ await sbWrite("PATCH","agent_alerts?id=eq."+id,{status:"dismissed"}); }catch(e){}
