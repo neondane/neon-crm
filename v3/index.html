@@ -858,19 +858,30 @@ function emailTemplates(c){
     body:"Hi "+f+",\n\nJust a friendly note that your Neon Giant Preferred Partner perks are still active — any client you send gets $50 off, free materials, and a move-day experience that reflects well on you.\n\nGot someone moving soon? Send them here: "+ref+"\n\nAlways happy to make you look good.\n\nBig moves, bright attitude,\nNeon Giant Moving & Junk Removal\n360.588.4700"}
   ];
 }
-function ngTextTemplates(c){ var f=firstName((c&&c.name)||"there"); return [
- {name:"Just listed — congrats", body:"Hey "+f+", congrats on the new listing! Whenever your seller starts thinking about movers, we'd love to take great care of them and make you look good. Want me to send over your VIP link so it's easy to pass along?"},
- {name:"Quick intro", body:"Hi "+f+", this is Dane with Neon Giant Moving. We work with a bunch of agents around here and take really good care of their clients on move day. Would love to be your go-to movers. Mind if I send a little info over?"},
- {name:"Referral program", body:"Hey "+f+", quick one for you. We run a referral program for agents where your clients get hooked up and you get a thank you from us on every move. Want me to set you up with your own link?"},
- {name:"Checking in", body:"Hi "+f+", just checking in. You got anybody coming up that's going to need movers? Happy to hold a spot on the calendar for your people."},
- {name:"Went pending", body:"Hey "+f+", saw one of yours is going pending, nice work. If your seller needs a hand getting everything moved, we're ready when they are. Want me to reach out, or would you rather pass along my info?"}
-]; }
-function ngEmailTemplates(c){ var f=firstName((c&&c.name)||"there"); return [
- {name:"Just listed", subject:"Congrats on the new listing", body:"Hey "+f+",\n\nCongrats on the new listing! Figured I would reach out while it is fresh. When your seller gets to the point of lining up movers, we would love to take great care of them for you. We are local, we are fast, and we make the agent look good every time.\n\nWant me to send over your VIP link so it is easy to pass along? Just say the word.\n\nThanks,\nDane\nNeon Giant Moving"},
- {name:"Intro / let's work together", subject:"Movers your clients will actually thank you for", body:"Hi "+f+",\n\nThis is Dane over at Neon Giant Moving. We work with a lot of agents around Skagit and Whatcom, and our whole thing is making your clients' move day easy so it reflects well on you.\n\nIf you have buyers or sellers coming up, I would love to be your go-to movers. Happy to send over some info or grab a coffee sometime.\n\nTalk soon,\nDane\nNeon Giant Moving"},
- {name:"Referral program", subject:"A thank you on every move", body:"Hey "+f+",\n\nWanted to make sure you knew about our agent referral program. Short version: your clients get taken care of, and you get a thank you from us on every move they book. No catch, just our way of saying we appreciate you sending folks our way.\n\nWant me to set you up with your own link? Takes about two minutes.\n\nThanks,\nDane\nNeon Giant Moving"}
-]; }
-function emailTemplatesAll(c){ return ngEmailTemplates(c).concat(emailTemplates(c)); }
+function ngListingAddr(c, addr){ if(addr)return addr; if(window._listingCtx && +window._listingCtx.cid===+((c&&c.id)||0)) return window._listingCtx.address||""; return ""; }
+function ngTextTemplates(c, addr){ var f=firstName((c&&c.name)||"there"); var a=ngListingAddr(c,addr);
+ var L=a?[
+  {name:"Just listed — congrats", body:"Hey "+f+", congrats on the new listing over at "+a+"! Whenever your seller starts thinking about movers, we'd love to take great care of them and make you look good. Want me to send over your VIP link so it's easy to pass along?"},
+  {name:"Saw your listing — intro", body:"Hi "+f+", this is Dane with Neon Giant Moving. Saw you just listed "+a+", looks like a great one. We take really good care of agents' clients on move day and would love to be your go-to movers. Mind if I send a little info over?"},
+  {name:"New listing — offer help", body:"Hey "+f+", noticed your new listing at "+a+". When your seller gets to the moving stage we've got them covered, and we'll make the whole thing easy on you. Want me to reach out, or would you rather pass along my info?"}
+ ]:[];
+ return L.concat([
+  {name:"Quick intro", body:"Hi "+f+", this is Dane with Neon Giant Moving. We work with a bunch of agents around here and take really good care of their clients on move day. Would love to be your go-to movers. Mind if I send a little info over?"},
+  {name:"Referral program", body:"Hey "+f+", quick one for you. We run a referral program for agents where your clients get hooked up and you get a thank you from us on every move. Want me to set you up with your own link?"},
+  {name:"Checking in", body:"Hi "+f+", just checking in. You got anybody coming up that's going to need movers? Happy to hold a spot on the calendar for your people."},
+  {name:"Went pending", body:"Hey "+f+", saw one of yours is going pending, nice work. If your seller needs a hand getting everything moved, we're ready when they are. Want me to reach out, or would you rather pass along my info?"}
+ ]);
+}
+function ngEmailTemplates(c, addr){ var f=firstName((c&&c.name)||"there"); var a=ngListingAddr(c,addr);
+ var L=a?[
+  {name:"Just listed", subject:"Congrats on the new listing", body:"Hey "+f+",\n\nCongrats on the new listing at "+a+"! Figured I would reach out while it is fresh. When your seller gets to the point of lining up movers, we would love to take great care of them for you. We are local, we are fast, and we make the agent look good every time.\n\nWant me to send over your VIP link so it is easy to pass along? Just say the word.\n\nThanks,\nDane\nNeon Giant Moving"}
+ ]:[];
+ return L.concat([
+  {name:"Intro / let's work together", subject:"Movers your clients will actually thank you for", body:"Hi "+f+",\n\nThis is Dane over at Neon Giant Moving. We work with a lot of agents around Skagit and Whatcom, and our whole thing is making your clients' move day easy so it reflects well on you.\n\nIf you have buyers or sellers coming up, I would love to be your go-to movers. Happy to send over some info or grab a coffee sometime.\n\nTalk soon,\nDane\nNeon Giant Moving"},
+  {name:"Referral program", subject:"A thank you on every move", body:"Hey "+f+",\n\nWanted to make sure you knew about our agent referral program. Short version: your clients get taken care of, and you get a thank you from us on every move they book. No catch, just our way of saying we appreciate you sending folks our way.\n\nWant me to set you up with your own link? Takes about two minutes.\n\nThanks,\nDane\nNeon Giant Moving"}
+ ]);
+}
+function emailTemplatesAll(c, addr){ return ngEmailTemplates(c, addr).concat(emailTemplates(c)); }
 function composerHtml(c){
   var subs=[["note","note","Note"],["email","email","Email"],["call","phone","Call"],["text","chat","Text"]];
   var to=cSub==="email"?("To: "+esc(c.email||"no email on file")):("To: "+esc(c.name)+" <"+esc(c.phone||"no phone")+">");
@@ -2123,7 +2134,7 @@ function drawRadar(){
     if(!alerts.length){ html+='<div class="noact">No partner nudges right now. When one of your partners posts a new listing, a ready-to-send draft lands here.</div>'; }
     else { html+='<div class="lrlist">'+alerts.map(function(a){
       var clean=String(a.draft_message||"").replace(/\s[—–]\s/g,", ");
-      var tpls=ngTextTemplates({name:a.agent_name});
+      var tpls=ngTextTemplates({name:a.agent_name}, a.address);
       var tplOpts='<option value="">Swap template…</option>'+tpls.map(function(t,i){return '<option value="'+i+'">'+esc(t.name)+'</option>';}).join("");
       return '<div class="lrcard"><div class="lrtop"><span class="lraddr">'+esc(a.agent_name)+'</span><span class="rbst partner">PARTNER</span></div>'
         +'<div class="lrmeta">New listing: '+esc(a.address||'')+(a.price?(' · '+money(a.price)):'')+'</div>'
@@ -2172,23 +2183,24 @@ function drawRadar(){
   [].forEach.call(document.querySelectorAll("[data-ragent]"),function(b){b.onclick=function(){openContact(+b.getAttribute("data-ragent"));};});
   [].forEach.call(document.querySelectorAll("[data-raddmkt]"),function(b){b.onclick=function(){addMarketAgent(b.getAttribute("data-raddmkt"));};});
   [].forEach.call(document.querySelectorAll("[data-radd]"),function(b){b.onclick=function(){addAgentFromListing(+b.getAttribute("data-radd"));};});
-  [].forEach.call(document.querySelectorAll("[data-rmsgt]"),function(b){b.onclick=function(){var l=(DATA.radarListings||[])[+b.getAttribute("data-rmsgt")];if(l)messageAgent(l.agent_name,l.agent_phone,l.agent_email,"",l.city,"text");};});
-  [].forEach.call(document.querySelectorAll("[data-rmsge]"),function(b){b.onclick=function(){var l=(DATA.radarListings||[])[+b.getAttribute("data-rmsge")];if(l)messageAgent(l.agent_name,l.agent_phone,l.agent_email,"",l.city,"email");};});
+  [].forEach.call(document.querySelectorAll("[data-rmsgt]"),function(b){b.onclick=function(){var l=(DATA.radarListings||[])[+b.getAttribute("data-rmsgt")];if(l)messageAgent(l.agent_name,l.agent_phone,l.agent_email,"",l.city,"text",l.address,l.city);};});
+  [].forEach.call(document.querySelectorAll("[data-rmsge]"),function(b){b.onclick=function(){var l=(DATA.radarListings||[])[+b.getAttribute("data-rmsge")];if(l)messageAgent(l.agent_name,l.agent_phone,l.agent_email,"",l.city,"email",l.address,l.city);};});
   [].forEach.call(document.querySelectorAll("[data-mmsgt]"),function(b){b.onclick=function(){var a=(DATA.marketAgents||[]).filter(function(x){return x.name===b.getAttribute("data-mmsgt");})[0];if(a)messageAgent(a.name,a.phone,a.email,a.office,a.areas,"text");};});
   [].forEach.call(document.querySelectorAll("[data-mmsge]"),function(b){b.onclick=function(){var a=(DATA.marketAgents||[]).filter(function(x){return x.name===b.getAttribute("data-mmsge");})[0];if(a)messageAgent(a.name,a.phone,a.email,a.office,a.areas,"email");};});
-  [].forEach.call(document.querySelectorAll(".ndtpl"),function(s){s.onchange=function(){var id=s.getAttribute("data-ndtpl");if(s.value==="")return;var a=(DATA.agentAlerts||[]).filter(function(x){return String(x.id)===String(id);})[0];var t=ngTextTemplates({name:a?a.agent_name:""})[+s.value];var ta=document.querySelector('.ndtext[data-ndtext="'+id+'"]');if(t&&ta)ta.value=t.body;};});
+  [].forEach.call(document.querySelectorAll(".ndtpl"),function(s){s.onchange=function(){var id=s.getAttribute("data-ndtpl");if(s.value==="")return;var a=(DATA.agentAlerts||[]).filter(function(x){return String(x.id)===String(id);})[0];var t=ngTextTemplates({name:a?a.agent_name:""}, a?a.address:"")[+s.value];var ta=document.querySelector('.ndtext[data-ndtext="'+id+'"]');if(t&&ta)ta.value=t.body;};});
   [].forEach.call(document.querySelectorAll("[data-rsend]"),function(b){b.onclick=function(){var id=+b.getAttribute("data-rsend");var ta=document.querySelector('.ndtext[data-ndtext="'+id+'"]');sendNudge(id, ta?ta.value:null);};});
   [].forEach.call(document.querySelectorAll("[data-rdis]"),function(b){b.onclick=function(){dismissNudge(+b.getAttribute("data-rdis"));};});
 }
 async function sendNudge(id, editedText){
   var a=(DATA.agentAlerts||[]).filter(function(x){return x.id===id;})[0]; if(!a||a.contact_id==null)return;
   var text=(editedText!=null&&String(editedText).trim())?String(editedText):String(a.draft_message||"").replace(/\s[—–]\s/g,", ");
+  window._listingCtx = a.address ? {address:a.address, city:a.city||"", cid:+a.contact_id} : null;
   window.pendingDraft={cid:+a.contact_id,text:text,channel:(a.channel==="email"?"email":"text")};
   try{ await sbWrite("PATCH","agent_alerts?id=eq."+id,{status:"sent"}); }catch(e){}
   DATA.agentAlerts=(DATA.agentAlerts||[]).filter(function(x){return x.id!==id;});
   openContact(+a.contact_id);
 }
-async function messageAgent(name, phone, email, office, areas, channel){
+async function messageAgent(name, phone, email, office, areas, channel, address, city){
   if(!name)return;
   var k=String(name).toLowerCase().replace(/[^a-z0-9]/g,"");
   var ex=(ALL||[]).filter(function(c){return String(c.name||"").toLowerCase().replace(/[^a-z0-9]/g,"")===k;})[0];
@@ -2197,11 +2209,12 @@ async function messageAgent(name, phone, email, office, areas, channel){
   else {
     var ids=ALL.map(function(c){return +c.id;}).filter(function(n){return !isNaN(n);});
     cid=(ids.length?Math.max.apply(null,ids):0)+1;
-    var rec={id:cid,name:name,business:office||"",phone:phone||"",email:email||"",type:"Realtor",role:"Realtor",territory:areas||"",notes:"Added from Listing Radar."};
+    var rec={id:cid,name:name,business:office||"",phone:phone||"",email:email||"",type:"Realtor",role:"Realtor",territory:areas||"",notes:"Added from Listing Radar"+(address?(" — new listing "+address):"")+"."};
     ALL.push(rec);
     try{ await sbWrite("POST","contacts",rec); banner(name+" added to your CRM."); }catch(e){}
   }
-  var tpl=(channel==="email")?ngEmailTemplates({name:name})[0]:ngTextTemplates({name:name})[0];
+  window._listingCtx = address ? {address:address, city:city||"", cid:+cid} : null;
+  var tpl=(channel==="email")?ngEmailTemplates({name:name,id:cid}, address)[0]:ngTextTemplates({name:name,id:cid}, address)[0];
   window.pendingDraft={cid:+cid,text:(tpl?tpl.body:""),channel:(channel==="email"?"email":"text")};
   openContact(+cid);
 }
