@@ -914,23 +914,23 @@ function activityHtml(){
   var shown=ACT.filter(function(it){return actFilter==="all"||(it.kind+"s")===actFilter;});
   var cid=current?current.id:0;
   var pins=actPins(cid), flags=actFlags(cid);
-  // Auto-unread: an inbound message newer than the last "read" stamp (and newer than this
-  // device's first-load baseline so old history doesn't all light up) shows red on its own,
-  // exactly like a new SmartMoving notification — no manual marking needed. Clears when read.
-  // Thread stays clean (SmartMoving-style): the unread signal lives at the TOP inbox badge, not as a
-  // red dot on every message. Only a message you MANUALLY flag via the 3-dots is marked here.
-  function _un(it){return flags.indexOf(actKey(it))>=0;}
+  // A message is NEW (unread) only if it's inbound AND arrived after the last time you read this
+  // thread, AND after this device's first-load baseline (so old history doesn't light up). It then
+  // gets a small "NEW" tag by the 3-dots and floats to the top. Marking the thread read clears it.
+  var readStamp=(crmRead()[String(cid)]||""), _base=msgBaseline(), _floor=(readStamp>_base?readStamp:_base);
+  function _un(it){ if(flags.indexOf(actKey(it))>=0) return true; var isIn=(it.dir==="in")||/^\s*←/.test(it.text||""); return !!(isIn && it.at && String(it.at)>_floor); }
   // pinned + unread (manual OR new inbound) float to the top (SmartMoving style); rest stay in time order
   var sorted=shown.slice().sort(function(a,b){var pa=(pins.indexOf(actKey(a))>=0||_un(a))?0:1,pb=(pins.indexOf(actKey(b))>=0||_un(b))?0:1;return pa-pb;});
   var body=shown.length?sorted.map(function(it){
     var key=actKey(it), pinned=pins.indexOf(key)>=0, flagged=_un(it);
     var ph=it.media?'<a href="'+esc(it.media)+'" target="_blank" rel="noopener"><img src="'+esc(it.media)+'" alt="photo" style="margin-top:6px;max-width:200px;max-height:200px;border-radius:10px;border:1px solid var(--border);display:block"></a>':'';
     var camIc=it.media?'<span class="ti" style="vertical-align:-3px;margin-right:4px">'+gi("camera")+'</span>':'';
-    var marks=(flagged?'<span title="Unread" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#e0245e;margin-right:6px;vertical-align:1px"></span>':'')+(pinned?'<span title="Pinned" class="pinmark" style="margin-right:5px;color:var(--brand-pink, #e0245e)">'+gi("pin")+'</span>':'');
+    var marks=pinned?'<span title="Pinned" class="pinmark" style="margin-right:5px;color:var(--brand-pink, #e0245e)">'+gi("pin")+'</span>':'';
+    var newTag=flagged?'<span title="New / unread" style="position:absolute;top:7px;right:34px;background:var(--pink,#FF1493);color:#fff;font-size:10px;font-weight:800;letter-spacing:.4px;padding:2px 7px;border-radius:10px;line-height:1.5">NEW</span>':'';
     var dots='<button class="actdots" data-adots="'+esc(key)+'" data-akind="'+esc(it.kind)+'" title="More" style="position:absolute;top:6px;right:6px;border:none;background:transparent;cursor:pointer;line-height:1;color:var(--text-muted);padding:2px 6px;border-radius:6px">'+gi("more")+'</button>';
-    var ring=flagged?';box-shadow:inset 3px 0 0 #e0245e':'';
+    var ring=flagged?';box-shadow:inset 3px 0 0 var(--pink,#FF1493)':'';
     var inbound=/^\s*←/.test(it.text||"")?1:0;
-    return '<div class="actitem'+(pinned?' pinned':'')+(flagged?' unread':'')+'" data-akey="'+esc(key)+'" data-in="'+inbound+'" style="position:relative'+ring+'">'+dots+'<span class="k">'+esc(it.kind)+'</span> · '+esc(it.when)+' '+marks+'<div style="margin-top:3px;padding-right:28px;white-space:pre-wrap;word-break:break-word">'+camIc+esc(it.text)+'</div>'+ph+'</div>';
+    return '<div class="actitem'+(pinned?' pinned':'')+'" data-akey="'+esc(key)+'" data-in="'+inbound+'" style="position:relative'+ring+'">'+dots+newTag+'<span class="k">'+esc(it.kind)+'</span> · '+esc(it.when)+' '+marks+'<div style="margin-top:3px;padding-right:28px;white-space:pre-wrap;word-break:break-word">'+camIc+esc(it.text)+'</div>'+ph+'</div>';
   }).join(""):'<div class="noact">No activity yet</div>';
   return hd+body+'</div>';
 }
@@ -2421,14 +2421,16 @@ function crmReadServerUpsert(id){ try{ fetch(SB_URL+"/rest/v1/read_state",{metho
 function crmReadServerDelete(id){ try{ fetch(SB_URL+"/rest/v1/read_state?contact_id=eq."+(+id),{method:"DELETE",headers:H}); }catch(e){} }
 async function loadReadState(){ try{ var rows=await sb("read_state?select=contact_id,read_at"); var r=crmRead(); (rows||[]).forEach(function(x){ var cid=String(x.contact_id); if(!r[cid]||String(x.read_at)>r[cid]) r[cid]=x.read_at; }); try{localStorage.setItem("crmRead",JSON.stringify(r));}catch(e){} try{updateTopBadges();}catch(e){} if(view==="inbox"&&DATA.msgs){try{drawInbox();}catch(e){}} }catch(e){} }
 function markRead(id){if(id==null)return;var r=crmRead();r[String(id)]=new Date().toISOString();try{localStorage.setItem("crmRead",JSON.stringify(r));}catch(e){}crmReadServerUpsert(id);try{updateTopBadges();}catch(e){}if(view==="inbox"&&DATA.msgs){try{drawInbox();}catch(e){}}}
-function unreadThreads(){var last=DATA.lastIn||{},rd=crmRead(),out=[];Object.keys(last).forEach(function(cid){var t=last[cid];if(t&&(!rd[cid]||t>rd[cid]))out.push(+cid);});return out;}
-async function loadUnreadSrc(){try{var si=await sb("sms_messages?direction=eq.in&select=contact_id,created_at&order=created_at.desc&limit=600");var ei=[];try{ei=await sb("email_messages?direction=eq.in&select=contact_id,created_at&order=created_at.desc&limit=600");}catch(e){}DATA.lastIn={};si.concat(ei).forEach(function(m){if(m.contact_id==null)return;var k=String(m.contact_id);if(!DATA.lastIn[k]||m.created_at>DATA.lastIn[k])DATA.lastIn[k]=m.created_at;});}catch(e){DATA.lastIn=DATA.lastIn||{};}}
+function unreadThreads(){var last=DATA.lastIn||{},rd=crmRead(),base=msgBaseline(),out=[];Object.keys(last).forEach(function(cid){var t=last[cid];var fl=(rd[cid]&&rd[cid]>base)?rd[cid]:base;if(t&&t>fl)out.push(+cid);});return out;}
+// Count of NEW (unread) inbound MESSAGES — newer than this thread's read stamp and the first-load baseline.
+function unreadMsgCount(){var rd=crmRead(),base=msgBaseline(),list=DATA.inboundList||[],n=0;list.forEach(function(m){var fl=(rd[m.cid]&&rd[m.cid]>base)?rd[m.cid]:base;if(m.at&&String(m.at)>fl)n++;});return n;}
+async function loadUnreadSrc(){try{var si=await sb("sms_messages?direction=eq.in&select=contact_id,created_at&order=created_at.desc&limit=600");var ei=[];try{ei=await sb("email_messages?direction=eq.in&select=contact_id,created_at&order=created_at.desc&limit=600");}catch(e){}DATA.lastIn={};DATA.inboundList=[];si.concat(ei).forEach(function(m){if(m.contact_id==null)return;var k=String(m.contact_id);DATA.inboundList.push({cid:k,at:m.created_at});if(!DATA.lastIn[k]||m.created_at>DATA.lastIn[k])DATA.lastIn[k]=m.created_at;});}catch(e){DATA.lastIn=DATA.lastIn||{};}}
 function crmSeen(){try{return JSON.parse(localStorage.getItem("crmSeen")||"{}");}catch(e){return {};}}
 function crmSeenSet(k){var s=crmSeen();s[k]=new Date().toISOString();try{localStorage.setItem("crmSeen",JSON.stringify(s));}catch(e){} try{updateTopBadges();}catch(e){}}
 function crmSeenInit(){var s=crmSeen(),ch=false;["inbox","leads"].forEach(function(k){if(!s[k]){s[k]=new Date().toISOString();ch=true;}});if(ch){try{localStorage.setItem("crmSeen",JSON.stringify(s));}catch(e){}}}
 function updateTopBadges(){
   if(!ALL||!ALL.length)return;
-  setBadge("bInbox",unreadThreads().length);
+  setBadge("bInbox",unreadMsgCount());
   setBadge("bBell",notifActive().length);
   var tf=document.getElementById("tFollow"); if(tf)tf.style.display="none"; // 2-badge model: To-do + Inbox
 }
@@ -2523,7 +2525,7 @@ async function liveMsgCheck(seedOnly){
     try{var em=await sb("email_messages?direction=eq.in&select=contact_id,subject,created_at&order=created_at.desc&limit=12");em.forEach(function(m){rows.push({cid:m.contact_id,kind:"email",text:m.subject||"(email)",at:m.created_at});});}catch(e){}
     rows=rows.filter(function(r){return r.at;}).sort(function(a,b){return a.at<b.at?1:(a.at>b.at?-1:0);});
     // keep the bell + Inbox badge fresh from the newest inbound we just saw
-    DATA.lastIn=DATA.lastIn||{}; rows.forEach(function(r){if(r.cid==null)return;var k=String(r.cid);if(!DATA.lastIn[k]||r.at>DATA.lastIn[k])DATA.lastIn[k]=r.at;});
+    DATA.lastIn=DATA.lastIn||{}; DATA.inboundList=[]; rows.forEach(function(r){if(r.cid==null)return;var k=String(r.cid);DATA.inboundList.push({cid:k,at:r.at});if(!DATA.lastIn[k]||r.at>DATA.lastIn[k])DATA.lastIn[k]=r.at;});
     try{updateTopBadges();}catch(e){}
     if(!rows.length)return;
     var newestAt=rows[0].at, lastSeen=""; try{lastSeen=localStorage.getItem("ngLastInAt")||"";}catch(e){}
