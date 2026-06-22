@@ -914,10 +914,15 @@ function activityHtml(){
   var shown=ACT.filter(function(it){return actFilter==="all"||(it.kind+"s")===actFilter;});
   var cid=current?current.id:0;
   var pins=actPins(cid), flags=actFlags(cid);
-  // pinned + manually-unread float to the top (SmartMoving style); rest stay in time order
-  var sorted=shown.slice().sort(function(a,b){var pa=(pins.indexOf(actKey(a))>=0||flags.indexOf(actKey(a))>=0)?0:1,pb=(pins.indexOf(actKey(b))>=0||flags.indexOf(actKey(b))>=0)?0:1;return pa-pb;});
+  // Auto-unread: an inbound message newer than the last "read" stamp (and newer than this
+  // device's first-load baseline so old history doesn't all light up) shows red on its own,
+  // exactly like a new SmartMoving notification — no manual marking needed. Clears when read.
+  var readStamp=(crmRead()[String(cid)]||""), base=msgBaseline(), floor=(readStamp>base?readStamp:base);
+  function _un(it){var ky=actKey(it);if(flags.indexOf(ky)>=0)return true;var isIn=(it.dir==="in")||/^\s*←/.test(it.text||"");return !!(isIn && it.at && String(it.at)>floor);}
+  // pinned + unread (manual OR new inbound) float to the top (SmartMoving style); rest stay in time order
+  var sorted=shown.slice().sort(function(a,b){var pa=(pins.indexOf(actKey(a))>=0||_un(a))?0:1,pb=(pins.indexOf(actKey(b))>=0||_un(b))?0:1;return pa-pb;});
   var body=shown.length?sorted.map(function(it){
-    var key=actKey(it), pinned=pins.indexOf(key)>=0, flagged=flags.indexOf(key)>=0;
+    var key=actKey(it), pinned=pins.indexOf(key)>=0, flagged=_un(it);
     var ph=it.media?'<a href="'+esc(it.media)+'" target="_blank" rel="noopener"><img src="'+esc(it.media)+'" alt="photo" style="margin-top:6px;max-width:200px;max-height:200px;border-radius:10px;border:1px solid var(--border);display:block"></a>':'';
     var camIc=it.media?'<span class="ti" style="vertical-align:-3px;margin-right:4px">'+gi("camera")+'</span>':'';
     var marks=(flagged?'<span title="Unread" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#e0245e;margin-right:6px;vertical-align:1px"></span>':'')+(pinned?'<span title="Pinned" class="pinmark" style="margin-right:5px;color:var(--brand-pink, #e0245e)">'+gi("pin")+'</span>':'');
@@ -1204,8 +1209,8 @@ async function addToPortal(c,r,btn){
 function cleanSms(body){var s=String(body||""),media=null,i=s.indexOf("::NGMMS::");if(i>=0){var marker=s.slice(i).replace("::NGMMS::","");s=s.slice(0,i).trim();try{var arr=JSON.parse(marker);if(arr&&arr[0]&&arr[0].u)media=arr[0].u;}catch(e){}}return {text:s,media:media};}
 async function loadActivity(c){
   var acc=[];
-  try{var sms;try{sms=await sb("sms_messages?contact_id=eq."+c.id+"&select=direction,body,created_at,media_url&order=created_at.desc&limit=40");}catch(e1){sms=await sb("sms_messages?contact_id=eq."+c.id+"&select=direction,body,created_at&order=created_at.desc&limit=40");}sms.forEach(function(m){var cm=cleanSms(m.body);acc.push({kind:"text",when:String(m.created_at||"").slice(0,16).replace("T"," "),text:(m.direction==="out"?"→ ":"← ")+(cm.text||((cm.media||m.media_url)?"(photo)":"")),media:m.media_url||cm.media||null});});}catch(e){}
-  try{var em=await sb("email_messages?contact_id=eq."+c.id+"&select=direction,subject,body,created_at&order=created_at.desc&limit=40");em.forEach(function(m){var arrow=(m.direction==="in"?"← ":"→ ");var subj=m.subject||"(email)";var bd=String(m.body||"").trim();acc.push({kind:"email",when:String(m.created_at||"").slice(0,16).replace("T"," "),text:arrow+subj+(bd?("\n"+bd.slice(0,800)):"")});});}catch(e){}
+  try{var sms;try{sms=await sb("sms_messages?contact_id=eq."+c.id+"&select=direction,body,created_at,media_url&order=created_at.desc&limit=40");}catch(e1){sms=await sb("sms_messages?contact_id=eq."+c.id+"&select=direction,body,created_at&order=created_at.desc&limit=40");}sms.forEach(function(m){var cm=cleanSms(m.body);acc.push({kind:"text",when:String(m.created_at||"").slice(0,16).replace("T"," "),at:m.created_at,dir:m.direction,text:(m.direction==="out"?"→ ":"← ")+(cm.text||((cm.media||m.media_url)?"(photo)":"")),media:m.media_url||cm.media||null});});}catch(e){}
+  try{var em=await sb("email_messages?contact_id=eq."+c.id+"&select=direction,subject,body,created_at&order=created_at.desc&limit=40");em.forEach(function(m){var arrow=(m.direction==="in"?"← ":"→ ");var subj=m.subject||"(email)";var bd=String(m.body||"").trim();acc.push({kind:"email",when:String(m.created_at||"").slice(0,16).replace("T"," "),at:m.created_at,dir:m.direction,text:arrow+subj+(bd?("\n"+bd.slice(0,800)):"")});});}catch(e){}
   acc.sort(function(a,b){return a.when<b.when?1:-1;});
   ACT=acc;
   if(pTab==="conversation") redrawTab(c);
@@ -2408,6 +2413,8 @@ function notifSave(d){try{localStorage.setItem("crmNotifDismiss",JSON.stringify(
 function notifActive(){var dis=notifDis();return notifItems().filter(function(it){return !dis[it.k];});}
 /* Inbox unread: a thread is unread until you OPEN that person. Per-contact read stamps. */
 function crmRead(){try{return JSON.parse(localStorage.getItem("crmRead")||"{}");}catch(e){return {};}}
+// First-load baseline so existing history isn't all flagged unread; only messages after this count as "new".
+function msgBaseline(){try{var b=localStorage.getItem("crmMsgBaseline");if(!b){b=new Date().toISOString();localStorage.setItem("crmMsgBaseline",b);}return b;}catch(e){return "";}}
 /* ---- Cross-device read-state (Supabase read_state table mirrors localStorage crmRead) ---- */
 function crmReadServerUpsert(id){ try{ fetch(SB_URL+"/rest/v1/read_state",{method:"POST",headers:Object.assign({},H,{"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"}),body:JSON.stringify({contact_id:+id,read_at:new Date().toISOString()})}); }catch(e){} }
 function crmReadServerDelete(id){ try{ fetch(SB_URL+"/rest/v1/read_state?contact_id=eq."+(+id),{method:"DELETE",headers:H}); }catch(e){} }
@@ -2509,6 +2516,7 @@ function liveAlertCheck(seedOnly){
 /* ---- Live inbound alerts: new texts/email replies arrive live with a loud chime ---- */
 async function liveMsgCheck(seedOnly){
   try{
+    msgBaseline(); // make sure the "new since" baseline is set at load
     var rows=[];
     try{var s=await sb("sms_messages?direction=eq.in&select=contact_id,body,created_at&order=created_at.desc&limit=12");s.forEach(function(m){rows.push({cid:m.contact_id,kind:"text",text:String(m.body||"").replace(/::NGMMS::[\s\S]*$/,"").trim()||"(photo)",at:m.created_at});});}catch(e){}
     try{var em=await sb("email_messages?direction=eq.in&select=contact_id,subject,created_at&order=created_at.desc&limit=12");em.forEach(function(m){rows.push({cid:m.contact_id,kind:"email",text:m.subject||"(email)",at:m.created_at});});}catch(e){}
@@ -2526,7 +2534,12 @@ async function liveMsgCheck(seedOnly){
       try{navigator.vibrate&&navigator.vibrate([200,90,200,90,260]);}catch(e){}
       ngToast(gi("inbox"), fresh.length>1?(fresh.length+" new replies"):("New reply from "+nm), String(top.text||"").slice(0,80), "var(--pink,#FF1493)", "inbox");
       try{localStorage.setItem("ngLastInAt",newestAt);}catch(e){}
-      try{ if(view==="inbox"){drawInbox();} }catch(e){}
+      // Live-refresh whatever is on screen so the new message appears without a page reload.
+      try{
+        DATA.msgs=null;
+        if(view==="inbox"){ loadMsgs(function(){drawInbox();}); }
+        if(view==="contacts" && current){ ACT=null; loadActivity(current); }
+      }catch(e){}
     }
   }catch(e){}
 }
