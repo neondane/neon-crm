@@ -917,8 +917,9 @@ function activityHtml(){
   // Auto-unread: an inbound message newer than the last "read" stamp (and newer than this
   // device's first-load baseline so old history doesn't all light up) shows red on its own,
   // exactly like a new SmartMoving notification — no manual marking needed. Clears when read.
-  var readStamp=(crmRead()[String(cid)]||"");
-  function _un(it){var ky=actKey(it);if(flags.indexOf(ky)>=0)return true;var isIn=(it.dir==="in")||/^\s*←/.test(it.text||"");return !!(isIn && it.at && String(it.at)>readStamp);}
+  // Thread stays clean (SmartMoving-style): the unread signal lives at the TOP inbox badge, not as a
+  // red dot on every message. Only a message you MANUALLY flag via the 3-dots is marked here.
+  function _un(it){return flags.indexOf(actKey(it))>=0;}
   // pinned + unread (manual OR new inbound) float to the top (SmartMoving style); rest stay in time order
   var sorted=shown.slice().sort(function(a,b){var pa=(pins.indexOf(actKey(a))>=0||_un(a))?0:1,pb=(pins.indexOf(actKey(b))>=0||_un(b))?0:1;return pa-pb;});
   var body=shown.length?sorted.map(function(it){
