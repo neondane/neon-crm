@@ -926,12 +926,13 @@ function activityHtml(){
     var key=actKey(it), pinned=pins.indexOf(key)>=0, flagged=_un(it);
     var ph=it.media?'<a href="'+esc(it.media)+'" target="_blank" rel="noopener"><img src="'+esc(it.media)+'" alt="photo" style="margin-top:6px;max-width:200px;max-height:200px;border-radius:10px;border:1px solid var(--border);display:block"></a>':'';
     var camIc=it.media?'<span class="ti" style="vertical-align:-3px;margin-right:4px">'+gi("camera")+'</span>':'';
-    var marks=pinned?'<span title="Pinned" class="pinmark" style="margin-right:5px;color:var(--brand-pink, #e0245e)">'+gi("pin")+'</span>':'';
+    var marks='';
     var newTag=flagged?'<span title="New / unread" style="position:absolute;top:7px;right:34px;background:var(--pink,#FF1493);color:#fff;font-size:10px;font-weight:800;letter-spacing:.4px;padding:2px 7px;border-radius:10px;line-height:1.5">NEW</span>':'';
+    var pinTag=pinned?'<span title="Pinned" style="position:absolute;top:7px;right:'+(flagged?84:34)+'px;background:var(--cyan,#22BFE7);color:#fff;font-size:10px;font-weight:800;letter-spacing:.4px;padding:2px 7px;border-radius:10px;line-height:1.5">PINNED</span>':'';
     var dots='<button class="actdots" data-adots="'+esc(key)+'" data-akind="'+esc(it.kind)+'" data-at="'+esc(it.at||"")+'" title="More" style="position:absolute;top:6px;right:6px;border:none;background:transparent;cursor:pointer;line-height:1;color:var(--text-muted);padding:2px 6px;border-radius:6px">'+gi("more")+'</button>';
     var ring=flagged?';box-shadow:inset 3px 0 0 var(--pink,#FF1493)':'';
     var inbound=/^\s*←/.test(it.text||"")?1:0;
-    return '<div class="actitem'+(pinned?' pinned':'')+'" data-akey="'+esc(key)+'" data-in="'+inbound+'" style="position:relative'+ring+'">'+dots+newTag+'<span class="k">'+esc(it.kind)+'</span> · '+esc(it.when)+' '+marks+'<div style="margin-top:3px;padding-right:28px;white-space:pre-wrap;word-break:break-word">'+camIc+esc(it.text)+'</div>'+ph+'</div>';
+    return '<div class="actitem'+(pinned?' pinned':'')+'" data-akey="'+esc(key)+'" data-in="'+inbound+'" style="position:relative'+ring+'">'+dots+newTag+pinTag+'<span class="k">'+esc(it.kind)+'</span> · '+esc(it.when)+' '+marks+'<div style="margin-top:3px;padding-right:28px;white-space:pre-wrap;word-break:break-word">'+camIc+esc(it.text)+'</div>'+ph+'</div>';
   }).join(""):'<div class="noact">No activity yet</div>';
   return hd+body+'</div>';
 }
