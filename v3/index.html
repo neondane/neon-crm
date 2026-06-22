@@ -916,8 +916,12 @@ function activityHtml(){
   var pins=actPins(cid);
   // A message shows "NEW" purely from the single unread store, keyed by contact + timestamp.
   function _un(it){ return isMsgUnread(cid, it.at); }
-  // Strictly chronological, newest first. Texts and emails interleave purely by time — nothing floats.
-  var sorted=shown.slice().sort(function(a,b){var aa=String(a.at||a.when||""),bb=String(b.at||b.when||"");return aa<bb?1:(aa>bb?-1:0);});
+  // Pinned items float to the top; everything else is strictly chronological (newest first).
+  var sorted=shown.slice().sort(function(a,b){
+    var pa=pins.indexOf(actKey(a))>=0?0:1, pb=pins.indexOf(actKey(b))>=0?0:1;
+    if(pa!==pb) return pa-pb;
+    var aa=String(a.at||a.when||""),bb=String(b.at||b.when||"");return aa<bb?1:(aa>bb?-1:0);
+  });
   var body=shown.length?sorted.map(function(it){
     var key=actKey(it), pinned=pins.indexOf(key)>=0, flagged=_un(it);
     var ph=it.media?'<a href="'+esc(it.media)+'" target="_blank" rel="noopener"><img src="'+esc(it.media)+'" alt="photo" style="margin-top:6px;max-width:200px;max-height:200px;border-radius:10px;border:1px solid var(--border);display:block"></a>':'';
@@ -946,7 +950,7 @@ function actMenu(btn,key,kind,c,at){
   document.body.appendChild(m);
   var r=btn.getBoundingClientRect();m.style.left=Math.max(8,Math.min(r.right-180,window.innerWidth-200))+"px";m.style.top=(r.bottom+4)+"px";
   [].forEach.call(m.querySelectorAll("[data-act]"),function(b){b.onclick=function(){var a=b.getAttribute("data-act");closeActMenu();
-    if(a==="unread"){ var on=!flagged; setMsgUnread(c.id,at,on); if(on){ try{ngBeep([{f:988,t:0,d:.18,v:.8,type:"triangle"},{f:1319,t:.16,d:.3,v:.85,type:"triangle"}]);}catch(e){} } try{updateTopBadges();}catch(e){} redrawTab(c); try{banner(on?"Marked unread — added to your top count.":"Cleared unread.");}catch(e){} }
+    if(a==="unread"){ var on=!flagged; var meta={name:c.name}; if(on){ try{var uit=(ACT||[]).filter(function(x){return String(x.at)===String(at);})[0]; if(uit){meta={kind:uit.kind,text:String(uit.text||"").replace(/^[→←]\s*/,""),name:c.name};}}catch(e){} } setMsgUnread(c.id,at,on,meta); if(on){ try{ngBeep([{f:988,t:0,d:.18,v:.8,type:"triangle"},{f:1319,t:.16,d:.3,v:.85,type:"triangle"}]);}catch(e){} } try{updateTopBadges();}catch(e){} redrawTab(c); try{banner(on?"Marked unread — added to your top count.":"Cleared unread.");}catch(e){} }
     else if(a==="read"){ setMsgUnread(c.id,at,false); try{updateTopBadges();}catch(e){} redrawTab(c); try{banner("Marked read — cleared from notifications.");}catch(e){} }
     else if(a==="reply"){cSub=(kind==="email"?"email":"text");redrawTab(c);setTimeout(function(){var t=document.getElementById("cmsg");if(t){t.scrollIntoView({behavior:"smooth",block:"center"});t.focus();}},80);}
     else if(a==="pin"){actTogglePin(c.id,key);}
@@ -2418,8 +2422,10 @@ function msgBaseline(){try{var b=localStorage.getItem("crmMsgBaseline");if(!b){b
 function crmUnread(){try{return JSON.parse(localStorage.getItem("crmUnread")||"{}");}catch(e){return {};}}
 function msgKey(cid,at){return String(cid)+"|"+String(at||"");}
 function isMsgUnread(cid,at){return !!crmUnread()[msgKey(cid,at)];}
-function setMsgUnread(cid,at,on){var u=crmUnread(),k=msgKey(cid,at);if(on)u[k]=1;else delete u[k];try{localStorage.setItem("crmUnread",JSON.stringify(u));}catch(e){}}
+function setMsgUnread(cid,at,on,meta){var u=crmUnread(),k=msgKey(cid,at);if(on){var v=meta||{};v.cid=String(cid);v.at=at;u[k]=v;}else delete u[k];try{localStorage.setItem("crmUnread",JSON.stringify(u));}catch(e){}}
 function unreadCountAll(){try{return Object.keys(crmUnread()).length;}catch(e){return 0;}}
+// Build the unread list for the envelope dropdown (newest first), filling in names from contacts.
+function unreadList(){var u=crmUnread();return Object.keys(u).map(function(k){var v=u[k];if(typeof v!=="object"||!v)v={};var cid=v.cid||k.split("|")[0];var nm=v.name;if(!nm){try{var cc=(ALL||[]).filter(function(x){return String(x.id)===String(cid);})[0];if(cc)nm=cc.name;}catch(e){}}return {key:k,cid:cid,at:v.at||k.split("|")[1],kind:v.kind||"text",name:nm||"a contact",text:v.text||""};}).sort(function(a,b){return a.at<b.at?1:(a.at>b.at?-1:0);});}
 function clearAllUnread(){try{localStorage.setItem("crmUnread","{}");}catch(e){}}
 /* ---- Cross-device read-state (Supabase read_state table mirrors localStorage crmRead) ---- */
 function crmReadServerUpsert(id){ try{ fetch(SB_URL+"/rest/v1/read_state",{method:"POST",headers:Object.assign({},H,{"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"}),body:JSON.stringify({contact_id:+id,read_at:new Date().toISOString()})}); }catch(e){} }
@@ -2457,10 +2463,28 @@ function toggleBell(){
   setTimeout(function(){document.addEventListener("mousedown",_bellOff);},0);
 }
 function _bellOff(e){var d=document.getElementById("bellDrop");if(d&&!d.contains(e.target)&&e.target.id!=="tBell"){d.remove();document.removeEventListener("mousedown",_bellOff);}}
+/* ---- Envelope dropdown: unread messages with previews, click to jump in (mirrors the bell) ---- */
+function toggleMsgDrop(){
+  var ex=document.getElementById("msgDrop");if(ex){ex.remove();document.removeEventListener("mousedown",_msgOff);return;}
+  var items=unreadList();
+  var d=document.createElement("div");d.className="tdrop";d.id="msgDrop";
+  var head='<div class="tdhrow"><span class="tdh">Messages</span>'+(items.length?'<button class="tdclear" id="msgClear">Mark all read</button>':'')+'</div>';
+  var body=items.length?items.map(function(it){var lbl=(it.kind==="email"?"Email":"Text")+" from "+it.name;var prev=String(it.text||"").slice(0,80);return '<div class="tdrow2"><button class="tdrow" data-cid="'+esc(it.cid)+'"><span class="ti">'+gi(it.kind==="email"?"email":"chat")+'</span><span style="min-width:0"><b style="display:block;font-size:13px">'+esc(lbl)+'</b><span style="color:var(--text-muted);font-size:12px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px">'+esc(prev)+'</span></span></button><button class="tddis" data-read="'+esc(it.key)+'" title="Mark read">✕</button></div>';}).join(""):'<div class="tdrow" style="cursor:default"><span class="ti">'+gi("check")+'</span><span>You\'re all caught up</span></div>';
+  body+='<button class="tdrow" data-go="inbox" style="border-top:1px solid var(--border);color:var(--cyan);font-weight:700"><span class="ti">'+gi("inbox")+'</span><span>Open Inbox</span></button>';
+  d.innerHTML=head+body;
+  var env=document.getElementById("tInbox");document.body.appendChild(d);
+  var r=env.getBoundingClientRect();d.style.top=(r.bottom+8)+"px";d.style.right=Math.max(10,(window.innerWidth-r.right))+"px";
+  [].forEach.call(d.querySelectorAll("[data-cid]"),function(b){b.onclick=function(){var cid=b.getAttribute("data-cid");d.remove();document.removeEventListener("mousedown",_msgOff);if(cid){go("contacts");openContact(+cid,true);}};});
+  [].forEach.call(d.querySelectorAll("[data-go]"),function(b){b.onclick=function(){var v=b.getAttribute("data-go");d.remove();document.removeEventListener("mousedown",_msgOff);if(v)go(v);};});
+  [].forEach.call(d.querySelectorAll("[data-read]"),function(b){b.onclick=function(e){e.stopPropagation();var u=crmUnread();delete u[b.getAttribute("data-read")];try{localStorage.setItem("crmUnread",JSON.stringify(u));}catch(e){}updateTopBadges();d.remove();document.removeEventListener("mousedown",_msgOff);toggleMsgDrop();};});
+  var clr=document.getElementById("msgClear");if(clr)clr.onclick=function(){clearAllUnread();updateTopBadges();d.remove();document.removeEventListener("mousedown",_msgOff);};
+  setTimeout(function(){document.addEventListener("mousedown",_msgOff);},0);
+}
+function _msgOff(e){var d=document.getElementById("msgDrop");if(d&&!d.contains(e.target)&&!document.getElementById("tInbox").contains(e.target)){d.remove();document.removeEventListener("mousedown",_msgOff);}}
 document.getElementById("tFollow").onclick=function(){go("portal");};
-document.getElementById("tInbox").onclick=function(){go("inbox");};
+document.getElementById("tInbox").onclick=toggleMsgDrop;
 document.getElementById("tBell").onclick=toggleBell;
-document.addEventListener("keydown",function(e){if(e.key!=="Escape")return;var m=document.getElementById("avModal");if(m){avCloseModal();return;}var b=document.getElementById("bellDrop");if(b){b.remove();document.removeEventListener("mousedown",_bellOff);return;}closeAvMenu();});
+document.addEventListener("keydown",function(e){if(e.key!=="Escape")return;var m=document.getElementById("avModal");if(m){avCloseModal();return;}var b=document.getElementById("bellDrop");if(b){b.remove();document.removeEventListener("mousedown",_bellOff);return;}var mm=document.getElementById("msgDrop");if(mm){mm.remove();document.removeEventListener("mousedown",_msgOff);return;}closeAvMenu();});
 document.getElementById("q").addEventListener("input",function(){
   if(view==="contacts") renderContacts(this.value);
   else if(view==="portal"){ portalFilter=this.value; if(PORTAL) drawPortal(); }
@@ -2536,8 +2560,8 @@ async function liveMsgCheck(seedOnly){
     var newestAt=rows[0].at, lastSeen=""; try{lastSeen=localStorage.getItem("ngLastInAt")||"";}catch(e){}
     if(!lastSeen){ try{localStorage.setItem("ngLastInAt",newestAt);}catch(e){} try{updateTopBadges();}catch(e){} return; } // very first load: baseline only, nothing flagged
     var fresh=rows.filter(function(r){return r.cid!=null && String(r.at)>lastSeen;});
-    // Mark each genuinely-new inbound message unread in the ONE store — the top count climbs by exactly this many.
-    fresh.forEach(function(r){ setMsgUnread(r.cid, r.at, true); });
+    // Mark each genuinely-new inbound message unread in the ONE store (with a preview for the dropdown).
+    fresh.forEach(function(r){ var nm2=""; try{var cc=(ALL||[]).filter(function(x){return x.id===r.cid;})[0]; if(cc)nm2=cc.name;}catch(e){} setMsgUnread(r.cid, r.at, true, {kind:r.kind, text:r.text, name:nm2}); });
     try{localStorage.setItem("ngLastInAt",newestAt);}catch(e){}
     try{updateTopBadges();}catch(e){}
     if(fresh.length && !seedOnly){
