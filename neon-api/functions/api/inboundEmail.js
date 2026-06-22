@@ -65,10 +65,14 @@ export const onRequestPost = async ({ request, env }) => {
   const reply = (obj, status) => json(obj, { status: status || 200, origin });
   const raw = await request.text();
 
-  // Verify signature when a secret is configured (otherwise accept, so setup/testing works first).
+  // Verify the Svix signature when a secret is configured, but FAIL-OPEN: a mismatch is recorded,
+  // not rejected. This endpoint only writes a message row, so a misconfigured secret must never
+  // silently drop a real reply. (Flip `enforce` to true once the secret is confirmed correct.)
+  const enforce = false;
+  let verified = true;
   if (env.RESEND_WEBHOOK_SECRET) {
-    const ok = await verifySvix(env.RESEND_WEBHOOK_SECRET, request.headers, raw);
-    if (!ok) return reply({ ok: false, error: 'bad_signature' }, 401);
+    try { verified = await verifySvix(env.RESEND_WEBHOOK_SECRET, request.headers, raw); } catch (e) { verified = false; }
+    if (!verified && enforce) return reply({ ok: false, error: 'bad_signature' }, 401);
   }
 
   let evt; try { evt = JSON.parse(raw); } catch (e) { return reply({ ok: false, error: 'bad_json' }, 400); }
