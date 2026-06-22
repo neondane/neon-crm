@@ -924,7 +924,7 @@ function activityHtml(){
     var dots='<button class="actdots" data-adots="'+esc(key)+'" data-akind="'+esc(it.kind)+'" title="More" style="position:absolute;top:6px;right:6px;border:none;background:transparent;cursor:pointer;line-height:1;color:var(--text-muted);padding:2px 6px;border-radius:6px">'+gi("more")+'</button>';
     var ring=flagged?';box-shadow:inset 3px 0 0 #e0245e':'';
     var inbound=/^\s*←/.test(it.text||"")?1:0;
-    return '<div class="actitem'+(pinned?' pinned':'')+(flagged?' unread':'')+'" data-akey="'+esc(key)+'" data-in="'+inbound+'" style="position:relative'+ring+'">'+dots+'<span class="k">'+esc(it.kind)+'</span> · '+esc(it.when)+' '+marks+'<div style="margin-top:3px;padding-right:28px">'+camIc+esc(it.text)+'</div>'+ph+'</div>';
+    return '<div class="actitem'+(pinned?' pinned':'')+(flagged?' unread':'')+'" data-akey="'+esc(key)+'" data-in="'+inbound+'" style="position:relative'+ring+'">'+dots+'<span class="k">'+esc(it.kind)+'</span> · '+esc(it.when)+' '+marks+'<div style="margin-top:3px;padding-right:28px;white-space:pre-wrap;word-break:break-word">'+camIc+esc(it.text)+'</div>'+ph+'</div>';
   }).join(""):'<div class="noact">No activity yet</div>';
   return hd+body+'</div>';
 }
@@ -1200,10 +1200,12 @@ async function addToPortal(c,r,btn){
     PORTAL=null;  // force the portal to re-pull the queue next time it opens
   }catch(e){ if(btn){btn.disabled=false;btn.innerHTML=gi("portal")+" Add to Portal";} alert("Couldn't add to the portal — try again."); }
 }
+// Strip the internal ::NGMMS::[...] media marker out of an SMS body and recover its image URL.
+function cleanSms(body){var s=String(body||""),media=null,i=s.indexOf("::NGMMS::");if(i>=0){var marker=s.slice(i).replace("::NGMMS::","");s=s.slice(0,i).trim();try{var arr=JSON.parse(marker);if(arr&&arr[0]&&arr[0].u)media=arr[0].u;}catch(e){}}return {text:s,media:media};}
 async function loadActivity(c){
   var acc=[];
-  try{var sms;try{sms=await sb("sms_messages?contact_id=eq."+c.id+"&select=direction,body,created_at,media_url&order=created_at.desc&limit=40");}catch(e1){sms=await sb("sms_messages?contact_id=eq."+c.id+"&select=direction,body,created_at&order=created_at.desc&limit=40");}sms.forEach(function(m){acc.push({kind:"text",when:String(m.created_at||"").slice(0,16).replace("T"," "),text:(m.direction==="out"?"→ ":"← ")+(m.body||""),media:m.media_url||null});});}catch(e){}
-  try{var em=await sb("email_messages?contact_id=eq."+c.id+"&select=direction,subject,created_at&order=created_at.desc&limit=40");em.forEach(function(m){acc.push({kind:"email",when:String(m.created_at||"").slice(0,16).replace("T"," "),text:(m.subject||"(email)")});});}catch(e){}
+  try{var sms;try{sms=await sb("sms_messages?contact_id=eq."+c.id+"&select=direction,body,created_at,media_url&order=created_at.desc&limit=40");}catch(e1){sms=await sb("sms_messages?contact_id=eq."+c.id+"&select=direction,body,created_at&order=created_at.desc&limit=40");}sms.forEach(function(m){var cm=cleanSms(m.body);acc.push({kind:"text",when:String(m.created_at||"").slice(0,16).replace("T"," "),text:(m.direction==="out"?"→ ":"← ")+(cm.text||((cm.media||m.media_url)?"(photo)":"")),media:m.media_url||cm.media||null});});}catch(e){}
+  try{var em=await sb("email_messages?contact_id=eq."+c.id+"&select=direction,subject,body,created_at&order=created_at.desc&limit=40");em.forEach(function(m){var arrow=(m.direction==="in"?"← ":"→ ");var subj=m.subject||"(email)";var bd=String(m.body||"").trim();acc.push({kind:"email",when:String(m.created_at||"").slice(0,16).replace("T"," "),text:arrow+subj+(bd?("\n"+bd.slice(0,800)):"")});});}catch(e){}
   acc.sort(function(a,b){return a.when<b.when?1:-1;});
   ACT=acc;
   if(pTab==="conversation") redrawTab(c);
@@ -1620,7 +1622,7 @@ function renderInbox(){ spinPage("Inbox"); loadMsgs(function(){ if(view==="inbox
 async function loadMsgs(cb){
   if(DATA.msgs){ cb&&cb(); return; }
   var m=[];
-  try{var s=await sb("sms_messages?select=contact_id,direction,body,created_at&order=created_at.desc&limit=400");s.forEach(function(x){m.push({cid:x.contact_id,kind:"text",dir:x.direction,text:x.body||"",when:String(x.created_at||"").slice(0,16).replace("T"," ")});});}catch(e){}
+  try{var s=await sb("sms_messages?select=contact_id,direction,body,created_at&order=created_at.desc&limit=400");s.forEach(function(x){var cm=cleanSms(x.body);m.push({cid:x.contact_id,kind:"text",dir:x.direction,text:cm.text||(cm.media?"(photo)":""),when:String(x.created_at||"").slice(0,16).replace("T"," ")});});}catch(e){}
   try{var e2=await sb("email_messages?select=contact_id,direction,subject,created_at&order=created_at.desc&limit=400");e2.forEach(function(x){m.push({cid:x.contact_id,kind:"email",dir:x.direction,text:x.subject||"(email)",when:String(x.created_at||"").slice(0,16).replace("T"," ")});});}catch(e){}
   m.sort(function(a,b){return a.when<b.when?1:-1;});
   DATA.msgs=m; cb&&cb();
@@ -2456,7 +2458,7 @@ loadContacts().then(function(){
   if(last.indexOf("c:")===0){ var id=+last.slice(2); if(id&&ALL.some(function(x){return x.id===id;})){ go("contacts"); openContact(id); } else go("contacts"); }
   else if(last){ go(last); } else go("contacts");
   crmSeenInit();
-  setTimeout(function(){ ensureData(function(){ updateTopBadges(); liveAlertCheck(true); }); },400);
+  setTimeout(function(){ ensureData(function(){ updateTopBadges(); liveAlertCheck(true); liveMsgCheck(true); }); },400);
 });
 /* ---- Loud, distinct live alerts for new leads vs new affiliate jobs ---- */
 function ngBeep(seq){
@@ -2470,12 +2472,12 @@ function ngBeep(seq){
     });
   }catch(e){}
 }
-function ngToast(emoji,title,sub,color){
+function ngToast(emoji,title,sub,color,navTarget){
   var t=document.createElement("div");
   t.style.cssText="position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:99999;background:var(--surface,#fff);border:2px solid "+color+";border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.28);padding:14px 20px;max-width:92vw;font-family:inherit;display:flex;align-items:center;gap:12px;cursor:pointer";
   t.innerHTML='<div style="font-size:26px">'+emoji+'</div><div style="min-width:0"><div style="font-weight:800;font-size:15px;color:'+color+'">'+esc(title)+'</div><div class="muted" style="font-size:13px">'+esc(sub)+'</div></div><div style="margin-left:8px;font-weight:700;opacity:.5">✕</div>';
   document.body.appendChild(t);
-  t.onclick=function(){ t.remove(); try{go("portal");}catch(e){} };
+  t.onclick=function(){ t.remove(); try{go(navTarget||"portal");}catch(e){} };
   setTimeout(function(){ try{t.style.transition="opacity .4s";t.style.opacity="0";setTimeout(function(){t.remove();},420);}catch(e){} }, 10000);
 }
 function liveAlertCheck(seedOnly){
@@ -2504,6 +2506,30 @@ function liveAlertCheck(seedOnly){
     }
   }catch(e){}
 }
+/* ---- Live inbound alerts: new texts/email replies arrive live with a loud chime ---- */
+async function liveMsgCheck(seedOnly){
+  try{
+    var rows=[];
+    try{var s=await sb("sms_messages?direction=eq.in&select=contact_id,body,created_at&order=created_at.desc&limit=12");s.forEach(function(m){rows.push({cid:m.contact_id,kind:"text",text:String(m.body||"").replace(/::NGMMS::[\s\S]*$/,"").trim()||"(photo)",at:m.created_at});});}catch(e){}
+    try{var em=await sb("email_messages?direction=eq.in&select=contact_id,subject,created_at&order=created_at.desc&limit=12");em.forEach(function(m){rows.push({cid:m.contact_id,kind:"email",text:m.subject||"(email)",at:m.created_at});});}catch(e){}
+    rows=rows.filter(function(r){return r.at;}).sort(function(a,b){return a.at<b.at?1:(a.at>b.at?-1:0);});
+    // keep the bell + Inbox badge fresh from the newest inbound we just saw
+    DATA.lastIn=DATA.lastIn||{}; rows.forEach(function(r){if(r.cid==null)return;var k=String(r.cid);if(!DATA.lastIn[k]||r.at>DATA.lastIn[k])DATA.lastIn[k]=r.at;});
+    try{updateTopBadges();}catch(e){}
+    if(!rows.length)return;
+    var newestAt=rows[0].at, lastSeen=""; try{lastSeen=localStorage.getItem("ngLastInAt")||"";}catch(e){}
+    if(seedOnly||!lastSeen){ try{localStorage.setItem("ngLastInAt",newestAt);}catch(e){} return; }
+    if(newestAt>lastSeen){
+      var fresh=rows.filter(function(r){return r.at>lastSeen;}), top=fresh[0]||rows[0];
+      var nm="a contact"; try{var c=(ALL||[]).filter(function(x){return x.id===top.cid;})[0]; if(c)nm=c.name;}catch(e){}
+      ngBeep([{f:988,t:0,d:.2,v:.85,type:"triangle"},{f:1319,t:.18,d:.3,v:.85,type:"triangle"},{f:988,t:.52,d:.2,v:.85,type:"triangle"},{f:1319,t:.7,d:.36,v:.9,type:"triangle"}]);
+      try{navigator.vibrate&&navigator.vibrate([200,90,200,90,260]);}catch(e){}
+      ngToast(gi("inbox"), fresh.length>1?(fresh.length+" new replies"):("New reply from "+nm), String(top.text||"").slice(0,80), "var(--pink,#FF1493)", "inbox");
+      try{localStorage.setItem("ngLastInAt",newestAt);}catch(e){}
+      try{ if(view==="inbox"){drawInbox();} }catch(e){}
+    }
+  }catch(e){}
+}
 /* ---- Live refresh: keep notifications + dashboard current without a reload ---- */
 async function refreshLive(){
   try{ DATA.refs=await sb("referrals?select=id,contactId,contactName,jobName,status,date,amount&order=date.desc"); }catch(e){}
@@ -2520,6 +2546,7 @@ async function refreshLive(){
   if(view==="dashboard" && !document.getElementById("bellDrop") && !document.getElementById("avModal")){ try{ drawDashboard(); }catch(e){} }
 }
 setInterval(refreshLive, 180000); // every 3 minutes
+setInterval(function(){ liveMsgCheck(); }, 15000); // fast poll: inbound replies arrive live + chime
 
 /* ================= SIMPLE MOBILE APP — gated by /?m=1 or phone width (additive; does not touch desktop) ================= */
 var mScreen="today", mSel=null;
