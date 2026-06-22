@@ -29,13 +29,16 @@ const handler = endpoint(async ({ env, body, reply }) => {
   const from = sender && env.EMAIL_FROM.includes('<')
     ? env.EMAIL_FROM.replace(/^[^<]*</, `Neon Giant Moving (${sender}) <`)
     : env.EMAIL_FROM;
+  // By default, let replies go to the From address (crew@mail.neongiantmoving.com), which Resend
+  // now receives and pipes into the CRM via /api/inboundEmail. Override with EMAIL_REPLY_TO if ever needed.
+  const replyTo = body.replyTo || env.EMAIL_REPLY_TO || '';
 
   let res, j;
   try {
     res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to, subject, text: text || undefined, html, attachments: (attachments && attachments.length) ? attachments : undefined }),
+      body: JSON.stringify({ from, to, reply_to: replyTo, subject, text: text || undefined, html, attachments: (attachments && attachments.length) ? attachments : undefined }),
     });
     j = await res.json();
   } catch (e) {
