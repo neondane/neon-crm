@@ -919,8 +919,8 @@ function activityHtml(){
   // gets a small "NEW" tag by the 3-dots and floats to the top. Marking the thread read clears it.
   var readStamp=(crmRead()[String(cid)]||""), _base=msgBaseline(), _floor=(readStamp>_base?readStamp:_base);
   function _un(it){ if(flags.indexOf(actKey(it))>=0) return true; var isIn=(it.dir==="in")||/^\s*←/.test(it.text||""); return !!(isIn && it.at && String(it.at)>_floor); }
-  // pinned + unread (manual OR new inbound) float to the top (SmartMoving style); rest stay in time order
-  var sorted=shown.slice().sort(function(a,b){var pa=(pins.indexOf(actKey(a))>=0||_un(a))?0:1,pb=(pins.indexOf(actKey(b))>=0||_un(b))?0:1;return pa-pb;});
+  // Strictly chronological, newest first. Texts and emails interleave purely by time — nothing floats.
+  var sorted=shown.slice().sort(function(a,b){var aa=String(a.at||a.when||""),bb=String(b.at||b.when||"");return aa<bb?1:(aa>bb?-1:0);});
   var body=shown.length?sorted.map(function(it){
     var key=actKey(it), pinned=pins.indexOf(key)>=0, flagged=_un(it);
     var ph=it.media?'<a href="'+esc(it.media)+'" target="_blank" rel="noopener"><img src="'+esc(it.media)+'" alt="photo" style="margin-top:6px;max-width:200px;max-height:200px;border-radius:10px;border:1px solid var(--border);display:block"></a>':'';
@@ -949,7 +949,7 @@ function actMenu(btn,key,kind,c){
   document.body.appendChild(m);
   var r=btn.getBoundingClientRect();m.style.left=Math.max(8,Math.min(r.right-180,window.innerWidth-200))+"px";m.style.top=(r.bottom+4)+"px";
   [].forEach.call(m.querySelectorAll("[data-act]"),function(b){b.onclick=function(){var a=b.getAttribute("data-act");closeActMenu();
-    if(a==="unread"){ var on=!flagged; actSetFlag(c.id,key,on); if(on){ try{var rr=crmRead();delete rr[String(c.id)];localStorage.setItem("crmRead",JSON.stringify(rr));}catch(e){} crmReadServerDelete(c.id); } try{updateTopBadges();}catch(e){} redrawTab(c); try{banner(on?"Marked unread — pinned to top & shown as a notification.":"Cleared unread flag.");}catch(e){} }
+    if(a==="unread"){ var on=!flagged; actSetFlag(c.id,key,on); if(on){ try{ngBeep([{f:988,t:0,d:.18,v:.8,type:"triangle"},{f:1319,t:.16,d:.3,v:.85,type:"triangle"}]);}catch(e){} } try{updateTopBadges();}catch(e){} redrawTab(c); try{banner(on?"Marked unread — added to your top count.":"Cleared unread.");}catch(e){} }
     else if(a==="read"){ actSetFlag(c.id,key,false); markRead(c.id); redrawTab(c); try{banner("Marked read — cleared from notifications.");}catch(e){} }
     else if(a==="reply"){cSub=(kind==="email"?"email":"text");redrawTab(c);setTimeout(function(){var t=document.getElementById("cmsg");if(t){t.scrollIntoView({behavior:"smooth",block:"center"});t.focus();}},80);}
     else if(a==="pin"){actTogglePin(c.id,key);}
@@ -2424,13 +2424,15 @@ function markRead(id){if(id==null)return;var r=crmRead();r[String(id)]=new Date(
 function unreadThreads(){var last=DATA.lastIn||{},rd=crmRead(),base=msgBaseline(),out=[];Object.keys(last).forEach(function(cid){var t=last[cid];var fl=(rd[cid]&&rd[cid]>base)?rd[cid]:base;if(t&&t>fl)out.push(+cid);});return out;}
 // Count of NEW (unread) inbound MESSAGES — newer than this thread's read stamp and the first-load baseline.
 function unreadMsgCount(){var rd=crmRead(),base=msgBaseline(),list=DATA.inboundList||[],n=0;list.forEach(function(m){var fl=(rd[m.cid]&&rd[m.cid]>base)?rd[m.cid]:base;if(m.at&&String(m.at)>fl)n++;});return n;}
+// Messages you manually marked unread (3-dots). Counted at the top too — "if it's unread, it's new".
+function flaggedMsgCount(){try{var p=JSON.parse(localStorage.getItem("crmMsgFlags")||"{}"),n=0;Object.keys(p).forEach(function(cid){n+=(p[cid]||[]).length;});return n;}catch(e){return 0;}}
 async function loadUnreadSrc(){try{var si=await sb("sms_messages?direction=eq.in&select=contact_id,created_at&order=created_at.desc&limit=600");var ei=[];try{ei=await sb("email_messages?direction=eq.in&select=contact_id,created_at&order=created_at.desc&limit=600");}catch(e){}DATA.lastIn={};DATA.inboundList=[];si.concat(ei).forEach(function(m){if(m.contact_id==null)return;var k=String(m.contact_id);DATA.inboundList.push({cid:k,at:m.created_at});if(!DATA.lastIn[k]||m.created_at>DATA.lastIn[k])DATA.lastIn[k]=m.created_at;});}catch(e){DATA.lastIn=DATA.lastIn||{};}}
 function crmSeen(){try{return JSON.parse(localStorage.getItem("crmSeen")||"{}");}catch(e){return {};}}
 function crmSeenSet(k){var s=crmSeen();s[k]=new Date().toISOString();try{localStorage.setItem("crmSeen",JSON.stringify(s));}catch(e){} try{updateTopBadges();}catch(e){}}
 function crmSeenInit(){var s=crmSeen(),ch=false;["inbox","leads"].forEach(function(k){if(!s[k]){s[k]=new Date().toISOString();ch=true;}});if(ch){try{localStorage.setItem("crmSeen",JSON.stringify(s));}catch(e){}}}
 function updateTopBadges(){
   if(!ALL||!ALL.length)return;
-  setBadge("bInbox",unreadMsgCount());
+  setBadge("bInbox",unreadMsgCount()+flaggedMsgCount());
   setBadge("bBell",notifActive().length);
   var tf=document.getElementById("tFollow"); if(tf)tf.style.display="none"; // 2-badge model: To-do + Inbox
 }
