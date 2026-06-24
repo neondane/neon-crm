@@ -94,6 +94,68 @@
   .sbtn-fb:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(24,119,242,0.6)}
   @media (prefers-reduced-motion:reduce){.social-section,.social-title{animation:none}.sbtn:hover{transform:none}}
 
+  /* ============ MOVE TRACKER ============ */
+  .mt-card{background:rgba(13,0,20,0.55);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(34,191,231,0.12);border-radius:14px;margin-bottom:10px;overflow:hidden;transition:border-color .25s,box-shadow .25s}
+  .mt-card:hover{border-color:rgba(34,191,231,0.30)}
+  .mt-card.open{border-color:rgba(34,191,231,0.5);box-shadow:0 14px 40px rgba(0,0,0,0.45)}
+  .mt-card.just-submitted{border-color:rgba(34,191,231,0.55);animation:just-flash 1s ease-in-out 3}
+  .mt-row{display:flex;align-items:center;gap:13px;padding:13px 14px;cursor:pointer}
+  .mt-av{width:42px;height:42px;flex:none;border-radius:50%;background:linear-gradient(135deg,var(--neon-pink),var(--neon-cyan));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-family:'Audiowide',cursive;font-size:14px}
+  .mt-main{flex:1;min-width:0}
+  .mt-main .name{font-weight:600;font-size:14px;color:#fff}
+  .mt-main .meta{font-size:11px;color:var(--muted);margin-top:2px}
+  .mt-right{text-align:right;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+  .mt-chev{color:var(--muted);font-size:9px;letter-spacing:.5px;text-transform:uppercase}
+  .mt-card.open .mt-chev{color:var(--neon-cyan)}
+  .mt-badge{display:inline-block;font-family:'Audiowide',cursive;font-size:9px;letter-spacing:1.2px;padding:4px 10px;border-radius:30px;white-space:nowrap}
+  .mt-badge.live{background:rgba(255,20,147,0.14);color:var(--neon-pink-2);border:1px solid rgba(255,20,147,0.4)}
+  .mt-badge.done{background:rgba(34,191,231,0.14);color:var(--neon-cyan-2);border:1px solid rgba(34,191,231,0.4)}
+  .mt-badge.book{background:rgba(60,255,162,0.12);color:var(--neon-green);border:1px solid rgba(60,255,162,0.4)}
+  .mt-badge.early{background:rgba(255,255,255,0.05);color:var(--muted);border:1px solid rgba(255,255,255,0.14)}
+  .mt-road{position:relative;height:46px;margin:0 18px 14px}
+  .mt-line{position:absolute;left:8px;right:8px;top:22px;height:4px;border-radius:3px;background:repeating-linear-gradient(90deg,#2a2336 0 10px,transparent 10px 20px)}
+  .mt-fill{position:absolute;left:8px;top:22px;height:4px;border-radius:3px;background:linear-gradient(90deg,var(--neon-cyan),var(--neon-pink));width:8px;transition:width 1.3s cubic-bezier(.34,.7,.3,1)}
+  .mt-home{position:absolute;right:-3px;top:15px;color:var(--muted);font-size:17px}
+  .mt-home.lit{color:var(--neon-cyan);text-shadow:0 0 8px rgba(34,191,231,0.6)}
+  .mt-truck{position:absolute;top:-2px;left:8px;width:38px;transform:translateX(-50%);transition:left 1.3s cubic-bezier(.34,.7,.3,1);z-index:3;filter:drop-shadow(0 4px 7px rgba(0,0,0,0.5))}
+  .mt-stagelabel{position:absolute;bottom:-3px;left:0;right:0;text-align:center;font-family:'Audiowide',cursive;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+  .mt-detail{display:none;border-top:1px solid rgba(34,191,231,0.12);padding:8px 18px 18px}
+  .mt-card.open .mt-detail{display:block}
+  .mt-tl{position:relative;margin-top:14px;padding-left:30px}
+  .mt-tl::before{content:'';position:absolute;left:12px;top:6px;bottom:6px;width:2px;background:rgba(255,255,255,0.1)}
+  .mt-step{position:relative;padding:0 0 16px}.mt-step:last-child{padding-bottom:0}
+  .mt-tdot{position:absolute;left:-30px;top:0;width:26px;height:26px;border-radius:50%;background:var(--bg-1);border:2px solid rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;z-index:2}
+  .mt-step.done .mt-tdot{background:linear-gradient(135deg,var(--neon-cyan),var(--neon-pink));border-color:transparent;color:#fff}
+  .mt-step.cur .mt-tdot{background:var(--bg-1);border-color:var(--neon-pink);color:var(--neon-pink);box-shadow:0 0 0 4px rgba(255,20,147,0.18)}
+  .mt-stitle{color:#fff;font-weight:600;font-size:14px}
+  .mt-step.future .mt-stitle{color:var(--muted);font-weight:500}
+  .mt-step.cur .mt-stitle::after{content:'IN PROGRESS';font-family:'Audiowide',cursive;font-size:8px;letter-spacing:1px;color:var(--neon-pink);background:rgba(255,20,147,0.12);border:1px solid rgba(255,20,147,0.4);padding:2px 7px;border-radius:20px;margin-left:8px;vertical-align:1px;white-space:nowrap}
+  .mt-sdesc{font-size:12.5px;color:var(--muted);margin-top:2px;line-height:1.5}
+  .mt-stime{font-size:10.5px;color:var(--neon-cyan);font-family:'Audiowide',cursive;margin-top:3px;letter-spacing:.3px}
+  .mt-review{margin-top:14px;border:1px solid rgba(34,191,231,0.14);border-radius:12px;overflow:hidden}
+  .mt-rh{display:flex;align-items:center;gap:7px;padding:10px 13px;background:rgba(255,255,255,0.03);font-family:'Audiowide',cursive;font-size:11px;letter-spacing:1px;color:#fff}
+  .mt-star{color:var(--neon-yellow)}
+  .mt-rh-side{color:var(--muted);margin-left:auto;font-size:9px;letter-spacing:.5px}
+  .mt-shot{position:relative;padding:12px;background:rgba(0,0,0,0.25)}
+  .mt-shot img{display:block;width:100%;border-radius:8px}
+  .mt-rev-rm{position:absolute;top:18px;right:18px;background:rgba(0,0,0,0.65);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:6px;font-size:11px;padding:5px 9px;cursor:pointer}
+  .mt-rev-empty{padding:18px 14px;text-align:center;color:var(--muted);font-size:12px;background:repeating-linear-gradient(45deg,rgba(255,255,255,0.025) 0 10px,transparent 10px 20px)}
+  .mt-rev-empty b{display:block;color:var(--text);font-weight:600;margin-bottom:3px;font-size:13px}
+  .mt-rev-actions{margin-top:10px;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
+  .mt-rev-add{background:linear-gradient(135deg,var(--neon-pink),#ff5da7);color:#fff;border:0;border-radius:8px;padding:8px 14px;font-family:'Audiowide',cursive;font-size:10px;letter-spacing:1px;cursor:pointer}
+  .mt-rev-or{font-size:11px;color:var(--muted)}
+  .mt-optin{margin-top:14px;display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid rgba(255,20,147,0.25);border-radius:12px;background:linear-gradient(135deg,rgba(255,20,147,0.06),rgba(34,191,231,0.05));cursor:pointer}
+  .mt-optin-txt{flex:1;min-width:0}
+  .mt-optin-txt b{display:block;color:#fff;font-size:13px;font-weight:600}
+  .mt-optin-txt span{display:block;color:var(--muted);font-size:11px;margin-top:2px;line-height:1.4}
+  .mt-switch{position:relative;width:46px;height:26px;flex:none}
+  .mt-switch input{opacity:0;width:0;height:0;position:absolute}
+  .mt-slider{position:absolute;inset:0;border-radius:30px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);transition:.25s;cursor:pointer}
+  .mt-slider::before{content:'';position:absolute;width:18px;height:18px;border-radius:50%;left:3px;top:3px;background:#fff;transition:.25s}
+  .mt-switch input:checked + .mt-slider{background:linear-gradient(135deg,var(--neon-pink),var(--neon-cyan));border-color:transparent}
+  .mt-switch input:checked + .mt-slider::before{transform:translateX(20px)}
+  .mt-hint{font-size:11px;color:var(--muted);margin:-4px 0 12px;text-align:center}
+
 </style>
 </head>
 <body>
@@ -180,7 +242,7 @@ function showToast(msg) {
   setTimeout(function(){ t.classList.remove('show'); }, 1900);
 }
 var STATUS = {
-  'new':       { color:'var(--neon-cyan)',   label:'NEW' },
+  'new':       { color:'var(--neon-cyan)',   label:'UNBOOKED' },
   'contacted': { color:'var(--neon-pink)',   label:'CONTACTED' },
   'booked':    { color:'var(--neon-green)',  label:'BOOKED' },
   'completed': { color:'var(--neon-yellow)', label:'COMPLETED' }
@@ -264,19 +326,24 @@ function render(view) {
   if (!leads.length) {
     h += '<div class="empty"><div class="icon">.</div>No referrals yet. Share your link below to send your first one.</div>';
   } else {
+    h += '<div class="mt-hint">Tap any client to follow their move, every step of the way.</div>';
     leads.forEach(function(l){
-      var status = String(l.status || 'new').toLowerCase();
-      var isJust = justLeadId && String(l.id) === justLeadId;
-      h += '<div class="ref' + (isJust ? ' just-submitted' : '') + '" data-lead-id="' + escapeHtml(String(l.id||'')) + '">';
-      h += '<div style="flex:1;min-width:0">';
-      h += '<div class="name">' + escapeHtml(l.customerName || 'Unknown') + '</div>';
-      var meta = [];
-      if (l.moveSize) meta.push(escapeHtml(l.moveSize));
-      if (l.moveDate) meta.push('Target: ' + escapeHtml(fmtDate(l.moveDate) || l.moveDate));
-      if (meta.length) h += '<div class="meta">' + meta.join(' &middot; ') + '</div>';
-      h += '</div>';
-      h += '<div class="right">' + statusBadge(status) + '<span class="when">' + escapeHtml(timeAgo(l.submittedAt)) + '</span></div>';
-      h += '</div>';
+      try {
+        h += mtCard(l, justLeadId);
+      } catch (e) {
+        var status = String(l.status || 'new').toLowerCase();
+        var isJust = justLeadId && String(l.id) === justLeadId;
+        h += '<div class="ref' + (isJust ? ' just-submitted' : '') + '" data-lead-id="' + escapeHtml(String(l.id||'')) + '">';
+        h += '<div style="flex:1;min-width:0">';
+        h += '<div class="name">' + escapeHtml(l.customerName || 'Unknown') + '</div>';
+        var meta = [];
+        if (l.moveSize) meta.push(escapeHtml(l.moveSize));
+        if (l.moveDate) meta.push('Target: ' + escapeHtml(fmtDate(l.moveDate) || l.moveDate));
+        if (meta.length) h += '<div class="meta">' + meta.join(' &middot; ') + '</div>';
+        h += '</div>';
+        h += '<div class="right">' + statusBadge(status) + '<span class="when">' + escapeHtml(timeAgo(l.submittedAt)) + '</span></div>';
+        h += '</div>';
+      }
     });
   }
   h += '<div class="linkcard">';
@@ -302,9 +369,10 @@ function render(view) {
     var p = el.getAttribute('data-prefix') || '';
     countUp(el, t, p);
   });
+  try { mtInit(); } catch (e) { console.warn('move tracker init failed', e); }
   if (justLeadId) {
     setTimeout(function(){
-      var row = document.querySelector('.ref.just-submitted');
+      var row = document.querySelector('.mt-card.just-submitted, .ref.just-submitted');
       if (row && row.scrollIntoView) row.scrollIntoView({ behavior:'smooth', block:'center' });
       if (history.replaceState) {
         var clean = location.pathname + (getSlug() ? '?r=' + encodeURIComponent(getSlug()) : '');
@@ -313,6 +381,175 @@ function render(view) {
     }, 350);
   }
 }
+/* ===== Move Tracker (additive, self-contained, guarded) ===== */
+var MT_TRUCK = '<svg viewBox="0 0 62 34" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="7" width="34" height="19" rx="2.5" fill="#f4f4ff" stroke="#FF1493" stroke-width="2"/><rect x="6" y="12" width="26" height="4" rx="1" fill="#FF1493"/><rect x="6" y="18" width="20" height="3" rx="1" fill="#22BFE7"/><path d="M36 13 h9 l7 8 v5 h-16 z" fill="#22BFE7" stroke="#0aa5d6" stroke-width="1.5"/><rect x="40" y="15.5" width="7" height="5" rx="1" fill="#bdeaff"/><circle cx="14" cy="28" r="4.4" fill="#0b0e12" stroke="#7a828c" stroke-width="1.6"/><circle cx="45" cy="28" r="4.4" fill="#0b0e12" stroke="#7a828c" stroke-width="1.6"/></svg>';
+var MT_STAGES = ['Referral received','Contacted','Booked','Getting ready','Move day','Moved in'];
+var MT_DESCS = [
+  'We\'ve got your client — our team reaches out right away.',
+  'We\'re in touch and putting their estimate together.',
+  'Move date locked in. We\'ll keep you posted as it gets closer.',
+  'Crew assigned, confirmation call, materials ready to go.',
+  'On the truck and moving — your client is in great hands today.',
+  'All settled in. Smooth, on time, taken care of.'
+];
+function mtInitials(name){
+  var p = String(name||'').trim().split(/\s+/).filter(Boolean);
+  if(!p.length) return '?';
+  return ((p[0][0]||'') + (p.length>1 ? p[p.length-1][0] : '')).toUpperCase();
+}
+function mtStageData(l, status){
+  var total=6, stage=1, label, badge='early';
+  if(status==='completed'){ stage=6; label='All moved in' + (l.moveDate ? ' · ' + (fmtDate(l.moveDate)||'') : ''); badge='done'; }
+  else if(status==='booked'){
+    stage=3; label='Booked' + (l.moveDate ? ' · move ' + (fmtDate(l.moveDate)||'') : ' — date locked'); badge='book';
+    var md = l.moveDate ? new Date(l.moveDate) : null;
+    if(md && !isNaN(md.getTime())){
+      var today=new Date(); today.setHours(0,0,0,0);
+      var d0=new Date(md.getFullYear(),md.getMonth(),md.getDate());
+      var diff=Math.round((d0 - today)/86400000);
+      if(diff<=0 && diff>-2){ stage=5; label='Move day — on the truck now'; badge='live'; }
+      else if(diff>0 && diff<=3){ stage=4; label='Getting ready · move ' + (fmtDate(l.moveDate)||''); badge='live'; }
+    }
+  }
+  else if(status==='contacted'){ stage=2; label='In touch — quoting their move'; badge='live'; }
+  else { stage=1; label='Referral received — we\'re on it'; badge='early'; }
+  var btxt = { early:'Referred', live:'In progress', book:'Booked', done:'★ Moved in' }[badge];
+  return { stage:stage, total:total, label:label, badgeClass:badge, badgeHtml:'<span class="mt-badge '+badge+'">'+btxt+'</span>' };
+}
+function mtTimes(l, completed){
+  var t=['','','','','',''];
+  if(l.submittedAt) t[0]=fmtDate(l.submittedAt)||'';
+  if(l.moveDate){ var d=fmtDate(l.moveDate)||''; t[4]=d; if(completed) t[5]=d; }
+  return t;
+}
+function mtTimeline(sd, l){
+  var cur=sd.stage, times=mtTimes(l, sd.badgeClass==='done');
+  var html='<div class="mt-tl">';
+  MT_STAGES.forEach(function(name,i){
+    var n=i+1, st = n<cur ? 'done' : (n===cur ? 'cur' : 'future');
+    html+='<div class="mt-step '+st+'"><div class="mt-tdot">'+(st==='done'?'✓':(st==='cur'?'●':'·'))+'</div>';
+    html+='<div class="mt-stitle">'+escapeHtml(name)+'</div>';
+    html+='<div class="mt-sdesc">'+MT_DESCS[i]+'</div>';
+    if(times[i]) html+='<div class="mt-stime">'+escapeHtml(times[i])+'</div>';
+    html+='</div>';
+  });
+  return html+'</div>';
+}
+function mtReviewSlotHtml(id){
+  return '<div class="mt-review"><div class="mt-rh"><span class="mt-star">★</span> Customer review <span class="mt-rh-side">added by Neon Giant</span></div>'
+    + '<div class="mt-rev-body" data-rev-body="'+escapeHtml(id)+'"></div></div>';
+}
+function mtOptInHtml(id){
+  return '<label class="mt-optin"><span class="mt-optin-txt"><b>📲 Text my client live move updates</b>'
+    + '<span>They\'ll get a friendly text as their move progresses. They can opt out anytime.</span></span>'
+    + '<span class="mt-switch"><input type="checkbox" data-optin-cb="'+escapeHtml(id)+'"><span class="mt-slider"></span></span></label>';
+}
+function mtCard(l, justLeadId){
+  var status = String(l.status||'new').toLowerCase();
+  var sd = mtStageData(l, status);
+  var id = String(l.id||'');
+  var idA = escapeHtml(id);
+  var isJust = justLeadId && id === String(justLeadId);
+  var openCls = (status==='completed') ? ' open' : '';
+  var meta=[];
+  if(l.moveSize) meta.push(escapeHtml(l.moveSize));
+  if(l.moveDate) meta.push('Move ' + escapeHtml(fmtDate(l.moveDate)||l.moveDate));
+  var metaHtml = meta.length ? '<div class="meta">'+meta.join(' · ')+'</div>' : '';
+  var h = '<div class="mt-card'+(isJust?' just-submitted':'')+openCls+'" data-lead-id="'+idA+'">';
+  h += '<div class="mt-row" data-mt-toggle><div class="mt-av">'+escapeHtml(mtInitials(l.customerName))+'</div>';
+  h += '<div class="mt-main"><div class="name">'+escapeHtml(l.customerName||'Unknown')+'</div>'+metaHtml+'</div>';
+  h += '<div class="mt-right">'+sd.badgeHtml+'<div class="mt-chev">'+(openCls?'tap to close':'tap to follow')+'</div></div></div>';
+  h += '<div class="mt-road" data-stage="'+sd.stage+'" data-total="'+sd.total+'"><div class="mt-line"></div><div class="mt-fill"></div>'
+     + '<div class="mt-home'+(sd.stage>=sd.total?' lit':'')+'">⌂</div><div class="mt-truck"></div>'
+     + '<div class="mt-stagelabel">'+escapeHtml(sd.label)+'</div></div>';
+  h += '<div class="mt-detail">'+mtTimeline(sd,l)+mtReviewSlotHtml(id)+mtOptInHtml(id)+'</div>';
+  h += '</div>';
+  return h;
+}
+function mtGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function mtSet(k,v){ try{ localStorage.setItem(k,v); return true; }catch(e){ return false; } }
+function mtDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
+function mtEsc(id){ return (window.CSS && CSS.escape) ? CSS.escape(id) : String(id).replace(/"/g,''); }
+function mtRenderReview(id){
+  var body = document.querySelector('[data-rev-body="'+mtEsc(id)+'"]'); if(!body) return;
+  var data = mtGet('ngmt_rev_'+id);
+  if(data){
+    body.innerHTML = '<div class="mt-shot"><img src="'+data+'" alt="Customer review"><button class="mt-rev-rm" data-rev-rm="'+escapeHtml(id)+'">Remove</button></div>';
+  } else {
+    body.innerHTML = '<div class="mt-rev-empty"><b>No review yet</b><span>When your client reviews us, drop the screenshot here — only you see it.</span>'
+      + '<div class="mt-rev-actions"><button class="mt-rev-add" data-rev-add="'+escapeHtml(id)+'">+ Add screenshot</button>'
+      + '<span class="mt-rev-or">or click here &amp; paste (Ctrl/Cmd+V)</span></div>'
+      + '<input type="file" accept="image/*" data-rev-file="'+escapeHtml(id)+'" style="display:none"></div>';
+  }
+}
+function mtSaveImage(dataUrl, id){
+  if(!mtSet('ngmt_rev_'+id, dataUrl)){ showToast('Image too large to store'); return; }
+  mtRenderReview(id); showToast('Review added');
+}
+function mtReadFile(file, id){
+  if(!file || String(file.type).indexOf('image')!==0){ showToast('Please choose an image'); return; }
+  var fr=new FileReader();
+  fr.onload=function(){
+    var img=new Image();
+    img.onload=function(){
+      try{
+        var maxW=900, scale=Math.min(1, maxW/img.width);
+        var w=Math.round(img.width*scale), hgt=Math.round(img.height*scale);
+        var c=document.createElement('canvas'); c.width=w; c.height=hgt;
+        c.getContext('2d').drawImage(img,0,0,w,hgt);
+        mtSaveImage(c.toDataURL('image/jpeg',0.85), id);
+      }catch(e){ mtSaveImage(fr.result, id); }
+    };
+    img.onerror=function(){ mtSaveImage(fr.result, id); };
+    img.src=fr.result;
+  };
+  fr.readAsDataURL(file);
+}
+function mtBind(){
+  if(window.__mtBound) return; window.__mtBound=true;
+  var body=document.getElementById('body'); if(!body) return;
+  body.addEventListener('click', function(e){
+    var add=e.target.closest('[data-rev-add]');
+    if(add){ var fa=body.querySelector('[data-rev-file="'+mtEsc(add.getAttribute('data-rev-add'))+'"]'); if(fa) fa.click(); return; }
+    var rm=e.target.closest('[data-rev-rm]');
+    if(rm){ mtDel('ngmt_rev_'+rm.getAttribute('data-rev-rm')); mtRenderReview(rm.getAttribute('data-rev-rm')); return; }
+    var rev=e.target.closest('.mt-review');
+    if(rev){ var b=rev.querySelector('[data-rev-body]'); if(b) window.__mtActiveRev=b.getAttribute('data-rev-body'); return; }
+    if(e.target.closest('.mt-optin')) return;
+    var row=e.target.closest('[data-mt-toggle]');
+    if(row){ var card=row.closest('.mt-card'); if(card) card.classList.toggle('open'); }
+  });
+  body.addEventListener('change', function(e){
+    var f=e.target.closest('[data-rev-file]');
+    if(f && f.files && f.files[0]){ mtReadFile(f.files[0], f.getAttribute('data-rev-file')); return; }
+    var cb=e.target.closest('[data-optin-cb]');
+    if(cb){ mtSet('ngmt_sms_'+cb.getAttribute('data-optin-cb'), cb.checked?'1':'0'); showToast(cb.checked?'Client opted in to text updates':'Text updates off'); }
+  });
+  document.addEventListener('paste', function(e){
+    var id=window.__mtActiveRev; if(!id || mtGet('ngmt_rev_'+id)) return;
+    var items=(e.clipboardData && e.clipboardData.items) || [];
+    for(var i=0;i<items.length;i++){ if(items[i].type && items[i].type.indexOf('image')===0){ var blob=items[i].getAsFile(); if(blob){ mtReadFile(blob, id); e.preventDefault(); break; } } }
+  });
+}
+function mtRestore(){
+  document.querySelectorAll('[data-optin-cb]').forEach(function(cb){ if(mtGet('ngmt_sms_'+cb.getAttribute('data-optin-cb'))==='1') cb.checked=true; });
+  document.querySelectorAll('[data-rev-body]').forEach(function(b){ mtRenderReview(b.getAttribute('data-rev-body')); });
+}
+function mtPlace(){
+  document.querySelectorAll('.mt-truck').forEach(function(t){ t.innerHTML=MT_TRUCK; });
+  document.querySelectorAll('.mt-road').forEach(function(r){ var tk=r.querySelector('.mt-truck'), fl=r.querySelector('.mt-fill'); if(tk) tk.style.left='8px'; if(fl) fl.style.width='8px'; });
+  setTimeout(function(){
+    document.querySelectorAll('.mt-road').forEach(function(r){
+      var s=+r.getAttribute('data-stage'), tot=+r.getAttribute('data-total')||6;
+      var pct=Math.max(0,Math.min(1, s/tot));
+      var tk=r.querySelector('.mt-truck'), fl=r.querySelector('.mt-fill');
+      if(tk) tk.style.left='calc(8px + '+(pct*100)+'% - '+(pct*16)+'px)';
+      if(fl) fl.style.width='calc('+(pct*100)+'% - '+(pct*16)+'px)';
+    });
+  }, 260);
+}
+function mtInit(){ mtBind(); mtRestore(); mtPlace(); }
+
 async function load() {
   var slug = getSlug();
   if (!slug) {
