@@ -216,10 +216,26 @@ async function handleSupabaseAction(action, payload, baseUrl, key, origin) {
       activatedAt: c.portalActivatedAt || null,
     });
 
+    // Real money: sum actual Tremendous payouts from the payouts ledger (source of truth).
+    let paidCents = 0;
+    try {
+      const pays = await sbGet(baseUrl, key,
+        'payouts?partner_id=eq.' + id + '&status=in.(sent,delivered,opened,redeemed)&select=amount_cents');
+      (pays || []).forEach(function (p) { paidCents += (parseInt(p.amount_cents, 10) || 0); });
+    } catch (e) { paidCents = 0; }
+    const ledgerPaid = Math.round(paidCents / 100);
+    let completedCount = 0;
+    allLeads.forEach(function (l) { if (String(l.status || '').toLowerCase() === 'completed') completedCount++; });
+
     return jsonResponse({
       ok: true,
       realtor: realtor,
-      totals: { total: allLeads.length, earnedPending: earnedPending, earnedPaid: earnedPaid },
+      totals: {
+        total: allLeads.length,
+        completed: completedCount,
+        earnedPending: earnedPending,
+        earnedPaid: (ledgerPaid > 0 ? ledgerPaid : earnedPaid),
+      },
       leads: allLeads,
     }, 200, origin);
   }
