@@ -115,7 +115,21 @@ const handler = endpoint(async ({ request, env, body, reply }) => {
   let match = null;
   try { match = matchContact(partner, (await db.select('contacts?type=eq.Realtor&select=id,name,business')) || []); } catch (e) {}
   if (!match) { try { match = matchContact(partner, (await db.select('contacts?select=id,name,business')) || []); } catch (e) {} }
-  if (!match) return reply({ ok: true, oppId, affiliate: partner, matched: false, note: 'affiliate not in CRM yet' });
+  if (!match) {
+    // Don't silently drop an affiliate-tagged job. Record it (deduped by the SM tag) with no
+    // contactId so the CRM still surfaces + chimes it, and Dane can add/link "<affiliate>".
+    try {
+      const dup = (await db.select('referrals?notes=ilike.*' + encodeURIComponent('[SM:' + oppId + ']') + '*&select=id&limit=1')) || [];
+      if (!dup.length) {
+        await db.insert('referrals', {
+          contactId: '', contactName: partner, jobName: cust, status: stage,
+          date: date, amount: String(amount), enteredBy: 'SmartMoving Webhook',
+          notes: '[SM:' + oppId + '] UNMATCHED affiliate "' + partner + '" — add them to contacts to credit · ' + lead,
+        });
+      }
+    } catch (e) { return reply({ ok: false, error: 'unmatched_record_failed', message: e.message }, 500); }
+    return reply({ ok: true, oppId, affiliate: partner, matched: false, recorded: true });
+  }
 
   let referrals = [];
   try { referrals = (await db.select(`referrals?contactId=eq.${encodeURIComponent(match.id)}&select=id,status,notes,jobName`)) || []; } catch (e) {}
