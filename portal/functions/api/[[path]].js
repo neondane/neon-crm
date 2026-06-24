@@ -191,7 +191,21 @@ async function handleSupabaseAction(action, payload, baseUrl, key, origin) {
       });
     } catch (e) { refLeads = []; }
 
-    const allLeads = leads.concat(refLeads).sort(function (a, b) {
+    // De-duplicate by customer name (portal_leads + backfilled referral history can
+    // double up the same person). Keep the richest record: a real portal_lead over a
+    // historical referral, then the more-advanced status.
+    const __rank = { completed: 4, booked: 3, contacted: 2, lost: 1, 'new': 0 };
+    const __seen = {}; const __merged = [];
+    leads.concat(refLeads).forEach(function (l) {
+      const k = String(l.customerName || '').trim().toLowerCase();
+      if (!k) { __merged.push(l); return; }
+      if (!(k in __seen)) { __seen[k] = __merged.length; __merged.push(l); return; }
+      const ex = __merged[__seen[k]];
+      const better = (!l.historical && ex.historical) ||
+        ((__rank[String(l.status || '').toLowerCase()] || 0) > (__rank[String(ex.status || '').toLowerCase()] || 0));
+      if (better) __merged[__seen[k]] = l;
+    });
+    const allLeads = __merged.sort(function (a, b) {
       return new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0);
     });
 

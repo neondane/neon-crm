@@ -105,14 +105,15 @@
   .mt-main .name{font-weight:600;font-size:14px;color:#fff}
   .mt-main .meta{font-size:11px;color:var(--muted);margin-top:2px}
   .mt-right{text-align:right;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:5px}
-  .mt-chev{color:var(--muted);font-size:9px;letter-spacing:.5px;text-transform:uppercase}
-  .mt-card.open .mt-chev{color:var(--neon-cyan)}
+  .mt-chev{color:var(--muted);font-size:15px;line-height:1;transition:transform .2s}
+  .mt-card.open .mt-chev{color:var(--neon-cyan);transform:rotate(180deg)}
   .mt-badge{display:inline-block;font-family:'Audiowide',cursive;font-size:9px;letter-spacing:1.2px;padding:4px 10px;border-radius:30px;white-space:nowrap}
   .mt-badge.live{background:rgba(255,20,147,0.14);color:var(--neon-pink-2);border:1px solid rgba(255,20,147,0.4)}
   .mt-badge.done{background:rgba(34,191,231,0.14);color:var(--neon-cyan-2);border:1px solid rgba(34,191,231,0.4)}
   .mt-badge.book{background:rgba(60,255,162,0.12);color:var(--neon-green);border:1px solid rgba(60,255,162,0.4)}
   .mt-badge.early{background:rgba(255,255,255,0.05);color:var(--muted);border:1px solid rgba(255,255,255,0.14)}
-  .mt-road{position:relative;height:46px;margin:0 18px 14px}
+  .mt-road{position:relative;height:46px;margin:6px 18px 14px;display:none}
+  .mt-card.open .mt-road{display:block}
   .mt-line{position:absolute;left:8px;right:8px;top:22px;height:4px;border-radius:3px;background:repeating-linear-gradient(90deg,#2a2336 0 10px,transparent 10px 20px)}
   .mt-fill{position:absolute;left:8px;top:22px;height:4px;border-radius:3px;background:linear-gradient(90deg,var(--neon-cyan),var(--neon-pink));width:8px;transition:width 1.3s cubic-bezier(.34,.7,.3,1)}
   .mt-home{position:absolute;right:-3px;top:15px;color:var(--muted);font-size:17px}
@@ -467,7 +468,7 @@ function mtCard(l, justLeadId){
   var id = String(l.id||'');
   var idA = escapeHtml(id);
   var isJust = justLeadId && id === String(justLeadId);
-  var openCls = (status==='completed') ? ' open' : '';
+  var openCls = '';
   var lostCls = sd.lost ? ' lost' : '';
   var meta=[];
   if(l.moveSize) meta.push(escapeHtml(l.moveSize));
@@ -476,7 +477,7 @@ function mtCard(l, justLeadId){
   var h = '<div class="mt-card'+(isJust?' just-submitted':'')+openCls+lostCls+'" data-lead-id="'+idA+'">';
   h += '<div class="mt-row" data-mt-toggle><div class="mt-av">'+escapeHtml(mtInitials(l.customerName))+'</div>';
   h += '<div class="mt-main"><div class="name">'+escapeHtml(l.customerName||'Unknown')+'</div>'+metaHtml+'</div>';
-  h += '<div class="mt-right">'+sd.badgeHtml+'<div class="mt-chev">'+(openCls?'tap to close':'tap to follow')+'</div></div></div>';
+  h += '<div class="mt-right">'+sd.badgeHtml+'<div class="mt-chev">▾</div></div></div>';
   h += '<div class="mt-road" data-stage="'+sd.stage+'" data-total="'+sd.total+'"><div class="mt-line"></div><div class="mt-fill"></div>'
      + '<div class="mt-home'+(sd.stage>=sd.total?' lit':'')+'">⌂</div><div class="mt-truck"></div>'
      + '<div class="mt-stagelabel">'+escapeHtml(sd.label)+'</div></div>';
@@ -540,7 +541,7 @@ function mtBind(){
     if(rev){ var b=rev.querySelector('[data-rev-body]'); if(b) window.__mtActiveRev=b.getAttribute('data-rev-body'); return; }
     if(e.target.closest('.mt-optin')) return;
     var row=e.target.closest('[data-mt-toggle]');
-    if(row){ var card=row.closest('.mt-card'); if(card) card.classList.toggle('open'); }
+    if(row){ var card=row.closest('.mt-card'); if(card){ var op=card.classList.toggle('open'); if(op){ mtDrive(card.querySelector('.mt-road')); } } }
   });
   body.addEventListener('change', function(e){
     var f=e.target.closest('[data-rev-file]');
@@ -570,6 +571,18 @@ function mtPlace(){
       if(fl) fl.style.width='calc('+(pct*100)+'% - '+(pct*16)+'px)';
     });
   }, 260);
+}
+function mtDrive(road){
+  if(!road) return;
+  var s=+road.getAttribute('data-stage'), tot=+road.getAttribute('data-total')||6;
+  var pct=Math.max(0,Math.min(1, s/tot));
+  var tk=road.querySelector('.mt-truck'), fl=road.querySelector('.mt-fill');
+  if(tk){ tk.innerHTML=MT_TRUCK; tk.style.left='8px'; }
+  if(fl) fl.style.width='8px';
+  setTimeout(function(){
+    if(tk) tk.style.left='calc(8px + '+(pct*100)+'% - '+(pct*16)+'px)';
+    if(fl) fl.style.width='calc('+(pct*100)+'% - '+(pct*16)+'px)';
+  }, 60);
 }
 function mtInit(){ mtBind(); mtRestore(); mtPlace(); }
 
