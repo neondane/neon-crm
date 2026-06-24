@@ -175,7 +175,10 @@ async function handleSupabaseAction(action, payload, baseUrl, key, origin) {
       refLeads = refs.map(function (r) {
         const st = String(r.status || '').toLowerCase();
         const display = (st === 'completed') ? 'completed'
-                      : (st === 'booked') ? 'booked' : 'new';
+                      : (st === 'booked') ? 'booked'
+                      : (/^(lost|dead|cancel|declin|unqualif|not.?book|junk|no.?go)/.test(st)) ? 'lost'
+                      : (/^(contact|attempt|quot|estimat)/.test(st)) ? 'contacted'
+                      : 'new';
         return {
           id: 'ref-' + r.id,
           customerName: r.jobName || r.contactName || 'Referral',

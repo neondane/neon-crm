@@ -155,6 +155,12 @@
   .mt-switch input:checked + .mt-slider{background:linear-gradient(135deg,var(--neon-pink),var(--neon-cyan));border-color:transparent}
   .mt-switch input:checked + .mt-slider::before{transform:translateX(20px)}
   .mt-hint{font-size:11px;color:var(--muted);margin:-4px 0 12px;text-align:center}
+  .mt-badge.lost{background:rgba(255,255,255,0.05);color:#c9a35b;border:1px solid rgba(201,163,91,0.5)}
+  .mt-card.lost .mt-fill{background:#4a4a55!important}
+  .mt-card.lost .mt-truck{filter:grayscale(1) opacity(0.55)}
+  .mt-card.lost .mt-home{color:var(--muted)}
+  .mt-step.lost .mt-tdot{background:var(--bg-1);border-color:rgba(201,163,91,0.6);color:#c9a35b}
+  .mt-step.lost .mt-stitle{color:#c9a35b}
 
 </style>
 </head>
@@ -392,6 +398,7 @@ var MT_DESCS = [
   'On the truck and moving — your client is in great hands today.',
   'All settled in. Smooth, on time, taken care of.'
 ];
+var MT_OFFICE = /[?&]office=1/i.test(location.search);
 function mtInitials(name){
   var p = String(name||'').trim().split(/\s+/).filter(Boolean);
   if(!p.length) return '?';
@@ -399,6 +406,9 @@ function mtInitials(name){
 }
 function mtStageData(l, status){
   var total=6, stage=1, label, badge='early';
+  if(/^(lost|dead|cancel|declin|unqualif|not.?book|junk|no.?go)/.test(status)){
+    return { stage:0, total:total, label:'Didn’t book this time — thanks for the intro!', badgeClass:'lost', badgeHtml:'<span class="mt-badge lost">Didn’t book</span>', lost:true };
+  }
   if(status==='completed'){ stage=6; label='All moved in' + (l.moveDate ? ' · ' + (fmtDate(l.moveDate)||'') : ''); badge='done'; }
   else if(status==='booked'){
     stage=3; label='Booked' + (l.moveDate ? ' · move ' + (fmtDate(l.moveDate)||'') : ' — date locked'); badge='book';
@@ -423,10 +433,17 @@ function mtTimes(l, completed){
   return t;
 }
 function mtTimeline(sd, l){
-  var cur=sd.stage, times=mtTimes(l, sd.badgeClass==='done');
+  if(sd.lost){
+    var t0=(l.submittedAt?(fmtDate(l.submittedAt)||''):'');
+    return '<div class="mt-tl">'
+      + '<div class="mt-step done"><div class="mt-tdot">✓</div><div class="mt-stitle">Referral received</div><div class="mt-sdesc">Thanks for sending them our way — we reached out.</div>'+(t0?'<div class="mt-stime">'+escapeHtml(t0)+'</div>':'')+'</div>'
+      + '<div class="mt-step lost"><div class="mt-tdot">—</div><div class="mt-stitle">Didn’t book this time</div><div class="mt-sdesc">This one didn’t end up moving with us — it happens. We appreciate the introduction and we’re ready for the next one.</div></div>'
+      + '</div>';
+  }
+  var cur=sd.stage, done=(sd.badgeClass==='done'), times=mtTimes(l, done);
   var html='<div class="mt-tl">';
   MT_STAGES.forEach(function(name,i){
-    var n=i+1, st = n<cur ? 'done' : (n===cur ? 'cur' : 'future');
+    var n=i+1, st = done ? 'done' : (n<cur ? 'done' : (n===cur ? 'cur' : 'future'));
     html+='<div class="mt-step '+st+'"><div class="mt-tdot">'+(st==='done'?'✓':(st==='cur'?'●':'·'))+'</div>';
     html+='<div class="mt-stitle">'+escapeHtml(name)+'</div>';
     html+='<div class="mt-sdesc">'+MT_DESCS[i]+'</div>';
@@ -440,8 +457,8 @@ function mtReviewSlotHtml(id){
     + '<div class="mt-rev-body" data-rev-body="'+escapeHtml(id)+'"></div></div>';
 }
 function mtOptInHtml(id){
-  return '<label class="mt-optin"><span class="mt-optin-txt"><b>📲 Text my client live move updates</b>'
-    + '<span>They\'ll get a friendly text as their move progresses. They can opt out anytime.</span></span>'
+  return '<label class="mt-optin"><span class="mt-optin-txt"><b>📲 Keep me posted on this move</b>'
+    + '<span>Get a quick text as your client moves through each step — so you can check in and look like a hero. (Your client isn’t texted.)</span></span>'
     + '<span class="mt-switch"><input type="checkbox" data-optin-cb="'+escapeHtml(id)+'"><span class="mt-slider"></span></span></label>';
 }
 function mtCard(l, justLeadId){
@@ -451,18 +468,22 @@ function mtCard(l, justLeadId){
   var idA = escapeHtml(id);
   var isJust = justLeadId && id === String(justLeadId);
   var openCls = (status==='completed') ? ' open' : '';
+  var lostCls = sd.lost ? ' lost' : '';
   var meta=[];
   if(l.moveSize) meta.push(escapeHtml(l.moveSize));
   if(l.moveDate) meta.push('Move ' + escapeHtml(fmtDate(l.moveDate)||l.moveDate));
   var metaHtml = meta.length ? '<div class="meta">'+meta.join(' · ')+'</div>' : '';
-  var h = '<div class="mt-card'+(isJust?' just-submitted':'')+openCls+'" data-lead-id="'+idA+'">';
+  var h = '<div class="mt-card'+(isJust?' just-submitted':'')+openCls+lostCls+'" data-lead-id="'+idA+'">';
   h += '<div class="mt-row" data-mt-toggle><div class="mt-av">'+escapeHtml(mtInitials(l.customerName))+'</div>';
   h += '<div class="mt-main"><div class="name">'+escapeHtml(l.customerName||'Unknown')+'</div>'+metaHtml+'</div>';
   h += '<div class="mt-right">'+sd.badgeHtml+'<div class="mt-chev">'+(openCls?'tap to close':'tap to follow')+'</div></div></div>';
   h += '<div class="mt-road" data-stage="'+sd.stage+'" data-total="'+sd.total+'"><div class="mt-line"></div><div class="mt-fill"></div>'
      + '<div class="mt-home'+(sd.stage>=sd.total?' lit':'')+'">⌂</div><div class="mt-truck"></div>'
      + '<div class="mt-stagelabel">'+escapeHtml(sd.label)+'</div></div>';
-  h += '<div class="mt-detail">'+mtTimeline(sd,l)+mtReviewSlotHtml(id)+mtOptInHtml(id)+'</div>';
+  var detail = mtTimeline(sd,l);
+  if(status==='completed') detail += mtReviewSlotHtml(id);
+  if(!sd.lost && status!=='completed') detail += mtOptInHtml(id);
+  h += '<div class="mt-detail">'+detail+'</div>';
   h += '</div>';
   return h;
 }
@@ -474,12 +495,14 @@ function mtRenderReview(id){
   var body = document.querySelector('[data-rev-body="'+mtEsc(id)+'"]'); if(!body) return;
   var data = mtGet('ngmt_rev_'+id);
   if(data){
-    body.innerHTML = '<div class="mt-shot"><img src="'+data+'" alt="Customer review"><button class="mt-rev-rm" data-rev-rm="'+escapeHtml(id)+'">Remove</button></div>';
-  } else {
-    body.innerHTML = '<div class="mt-rev-empty"><b>No review yet</b><span>When your client reviews us, drop the screenshot here — only you see it.</span>'
+    body.innerHTML = '<div class="mt-shot"><img src="'+data+'" alt="Customer review">'+(MT_OFFICE?'<button class="mt-rev-rm" data-rev-rm="'+escapeHtml(id)+'">Remove</button>':'')+'</div>';
+  } else if(MT_OFFICE){
+    body.innerHTML = '<div class="mt-rev-empty"><b>No review yet</b><span>Office only — drop your client’s review screenshot here.</span>'
       + '<div class="mt-rev-actions"><button class="mt-rev-add" data-rev-add="'+escapeHtml(id)+'">+ Add screenshot</button>'
       + '<span class="mt-rev-or">or click here &amp; paste (Ctrl/Cmd+V)</span></div>'
       + '<input type="file" accept="image/*" data-rev-file="'+escapeHtml(id)+'" style="display:none"></div>';
+  } else {
+    body.innerHTML = '<div class="mt-rev-empty"><b>Review coming soon</b><span>Once your client leaves a review, it’ll show up right here.</span></div>';
   }
 }
 function mtSaveImage(dataUrl, id){
@@ -523,7 +546,7 @@ function mtBind(){
     var f=e.target.closest('[data-rev-file]');
     if(f && f.files && f.files[0]){ mtReadFile(f.files[0], f.getAttribute('data-rev-file')); return; }
     var cb=e.target.closest('[data-optin-cb]');
-    if(cb){ mtSet('ngmt_sms_'+cb.getAttribute('data-optin-cb'), cb.checked?'1':'0'); showToast(cb.checked?'Client opted in to text updates':'Text updates off'); }
+    if(cb){ mtSet('ngmt_sms_'+cb.getAttribute('data-optin-cb'), cb.checked?'1':'0'); showToast(cb.checked?'You’ll get text updates on this move':'Text updates off'); }
   });
   document.addEventListener('paste', function(e){
     var id=window.__mtActiveRev; if(!id || mtGet('ngmt_rev_'+id)) return;
