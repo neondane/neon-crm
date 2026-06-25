@@ -2983,6 +2983,7 @@ function mRenderProfile(c,sheet){
   inner+='<div class="m-card"><div class="m-h" style="font-size:15px">Notes &amp; history</div><div id="mSheetHist"></div></div>';
   inner+='<div class="m-card"><div class="m-h" style="font-size:15px">Referrals</div><div id="mRefBox"><div class="m-meta">Loading…</div></div></div>';
   if(isR){ inner+='<div class="m-card"><div class="m-h" style="font-size:15px">Recent listings</div><div class="m-meta" style="font-size:12px;margin-bottom:8px">Public listings where '+esc(firstName(c.name||""))+' is the agent (AI web search — best-effort).</div><button class="m-btn full" id="mListBtn">'+gi("search")+' Find recent listings</button><div id="mListBox" style="margin-top:8px"></div></div>'; }
+  if(isR){ inner+='<div class="m-card"><div class="m-h" style="font-size:15px">'+gi("search")+' Landing Page</div><div id="mLpBox"><div class="m-meta" style="font-size:12px">Checking page status…</div></div></div>'; }
   var link="https://refer.neongiantmoving.com/?r="+((typeof slugOf==="function")?slugOf(c):c.id); var on=!!c.portalActivatedAt;
   inner+='<div class="m-card"><div class="m-h" style="font-size:15px">'+gi("portal")+' Referral Portal</div><div class="m-meta" style="font-size:11px;word-break:break-all;margin-bottom:8px">'+esc(link)+'</div>'
     +'<button class="m-btn '+(on?'':'grad')+' full" id="mPortalBtn">'+(on?'✓ Activated — tap to deactivate':'Activate portal ($50 referrals)')+'</button>'
@@ -3000,7 +3001,33 @@ function mRenderProfile(c,sheet){
   var rbt=document.getElementById("mRouteBtn"); if(rbt)rbt.onclick=function(){ mRouteToggle(c.id); sheet.remove(); };
   var lb=document.getElementById("mLinkBtn"); if(lb&&c.phone)lb.onclick=function(){ mTextLink(c); };
   var lst=document.getElementById("mListBtn"); if(lst)lst.onclick=function(){ mFindListings(c,"mListBox",lst); };
-  mLoadHist(c.id); mLoadProfileRefs(c,"mRefBox");
+  mLoadHist(c.id); mLoadProfileRefs(c,"mRefBox"); if(isR){ try{ mLoadLanding(c); }catch(e){} }
+}
+/* ---- Mobile landing-page activate/deactivate (reuses the desktop publisher + live-status check) ---- */
+async function mLpSlug(c){ return (typeof lpSlug==="function")?lpSlug(c):((typeof slugOf==="function")?slugOf(c):String(c.id)); }
+async function mLoadLanding(c){
+  var box=document.getElementById("mLpBox"); if(!box)return;
+  var slug=await mLpSlug(c), live=false, url="";
+  try{ var r=await fetch(NEON_API+"/api/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"status",opts:{slug:slug}})}).then(function(x){return x.json();}); live=!!(r&&r.live); url=(r&&r.url)||""; }
+  catch(e){ box.innerHTML='<div class="m-meta" style="font-size:12px;color:#c0392b">Couldn’t check page status.</div>'; return; }
+  var h='<div class="m-meta" style="font-size:12px;margin-bottom:8px">'+(live?'<b style="color:#00C2A8">● Live</b> — public on neongiantmoving.com':'<b style="color:var(--text-dim)">○ Not live</b> — paused or not built yet')+'</div>';
+  if(live){ h+='<a class="m-btn full" target="_blank" rel="noopener" href="'+esc(url)+'" style="margin-bottom:6px">'+gi("search")+' View live page</a><button class="m-btn full" id="mLpDown" style="color:#c0392b">Take page down (pause)</button>'; }
+  else { h+='<button class="m-btn grad full" id="mLpUp">Put page live</button>'; }
+  box.innerHTML=h;
+  var dn=document.getElementById("mLpDown"); if(dn)dn.onclick=function(){ if(confirm("Take "+(c.name||"this")+"’s page down?\n\nIt reverts to a private draft — nothing is deleted, and you can put it back up anytime.")) mToggleLanding(c,"unpublish",null); };
+  var up=document.getElementById("mLpUp"); if(up)up.onclick=function(){ if(confirm("Put "+(c.name||"this")+"’s landing page LIVE on neongiantmoving.com?\n\nIt becomes public and indexable by Google.")) mToggleLanding(c,"publish","publish"); };
+}
+async function mToggleLanding(c,action,status){
+  var box=document.getElementById("mLpBox"); if(box)box.innerHTML='<div class="m-meta" style="font-size:12px">'+(action==="unpublish"?"Taking it down…":"Publishing live…")+'</div>';
+  try{
+    var slug=await mLpSlug(c);
+    var body=(action==="publish")?{opts:buildLpOpts(c),status:status}:{action:action,opts:{slug:slug}};
+    var r=await fetch(NEON_API+"/api/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(x){return x.json();});
+    if(!r||r.ok===false){ if(box)box.innerHTML='<div class="m-meta" style="font-size:12px;color:#c0392b">Failed: '+esc(String((r&&(r.error||r.message))||"try again"))+'</div>'; return; }
+    try{ if(typeof lpSet==="function") lpSet(c.id,{url:(r.url||((typeof lpGet==="function"&&lpGet(c.id)||{}).url)),status:(action==="unpublish"?"draft":(status==="publish"?"live":"draft"))}); }catch(e){}
+    try{ banner(action==="unpublish"?"Page taken down (saved as a private draft).":"Page is LIVE."); }catch(e){}
+  }catch(e){ if(box)box.innerHTML='<div class="m-meta" style="font-size:12px;color:#c0392b">Couldn’t reach the publisher.</div>'; return; }
+  setTimeout(function(){ mLoadLanding(c); }, 1200);
 }
 async function mLoadProfileRefs(c,boxId){
   var box=document.getElementById(boxId); if(!box)return;
