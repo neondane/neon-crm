@@ -1419,9 +1419,11 @@ function drawPagesPortal(){
 async function prefetchPagesStatus(){
   var rs=PP.realtors||[]; if(!rs.length) return;
   var slugs=rs.map(ppSlug);
-  try{ var r=await fetch(NEON_API+"/api/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"statusBulk",slugs:slugs})}).then(function(x){return x.json();}); var res=(r&&r.results)||{}; slugs.forEach(function(sg){ PP.pageStatus[sg]=(res[sg]&&res[sg].live)?"live":"off"; }); }
-  catch(e){ return; }
-  if(view==="pages") drawPagesPortal();
+  for(var i=0;i<slugs.length;i+=50){
+    var batch=slugs.slice(i,i+50);
+    try{ var r=await fetch(NEON_API+"/api/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"statusBulk",slugs:batch})}).then(function(x){return x.json();}); var res=(r&&r.results)||{}; batch.forEach(function(sg){ PP.pageStatus[sg]=(res[sg]&&res[sg].live)?"live":"off"; }); }catch(e){}
+    if(view==="pages") drawPagesPortal();
+  }
 }
 async function ppTogglePage(c,live){
   if(live){ if(!confirm("Take "+(c.name||"this")+"’s landing page down?\n\nReverts to a private draft — nothing deleted, reversible anytime.")) return; }
