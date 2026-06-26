@@ -1477,8 +1477,13 @@ function drawPortal(){
     if(!pool.length) html+='<div class="muted" style="padding:14px">'+(portalRealtorView==="active"?"No activated partners yet — activate a realtor from their profile.":"No realtors.")+'</div>';
     pool.forEach(function(c){
       var on=!!c.portalActivatedAt;
+      var prsg=(typeof lpSlug==="function")?lpSlug(c):((typeof slugOf==="function")?slugOf(c):String(c.id));
+      var prR=/realtor/i.test(c.type||"");
       html+='<div class="crow2" data-id="'+c.id+'" style="cursor:pointer">'+pAvatar(c)+'<div class="meta"><div class="nm">'+esc(c.name||"—")+'</div><div class="sub">'+esc(c.business||"")+'</div></div>'
-        +'<div class="right"><span class="sbadge" style="color:'+(on?"#1d9e75":"#888")+';background:'+(on?"#1d9e75":"#888")+'22;border:1px solid '+(on?"#1d9e75":"#888")+'55">'+(on?"ACTIVE":"NOT ACTIVE")+'</span></div></div>';
+        +'<div class="right" style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">'
+        +'<span class="sbadge" style="color:'+(on?"#1d9e75":"#888")+';background:'+(on?"#1d9e75":"#888")+'22;border:1px solid '+(on?"#1d9e75":"#888")+'55">PORTAL '+(on?"ON":"OFF")+'</span>'
+        +(prR?'<span class="sbadge" data-pagechip="'+esc(prsg)+'" style="color:#888;background:#8882;border:1px solid #8885">PAGE …</span>':'')
+        +'</div></div>';
     });
   }
   html+='</div></div>';
@@ -1487,9 +1492,18 @@ function drawPortal(){
   [].forEach.call(document.querySelectorAll("[data-go]"),function(el){el.onclick=function(){portalTab=el.getAttribute("data-go");drawPortal();};});
   var pv=document.getElementById("prView"); if(pv)pv.onchange=function(){portalRealtorView=pv.value;drawPortal();};
   [].forEach.call(document.querySelectorAll("#ptab .crow2[data-id]"),function(el){el.onclick=function(){openContact(+el.getAttribute("data-id"));};});
+  try{ prHydratePages(); }catch(e){}
   [].forEach.call(document.querySelectorAll("[data-pay]"),function(el){el.onclick=function(){markPaid(el.getAttribute("data-pay"),el.getAttribute("data-partner"));};});
   [].forEach.call(document.querySelectorAll("[data-send]"),function(el){el.onclick=function(){var k=el.getAttribute("data-send");var it=due.filter(function(x){return x.key===k;})[0];if(it)sendPayoutGo(it,el);};});
   [].forEach.call(document.querySelectorAll("[data-skip]"),function(el){el.onclick=function(){skipPayout(el.getAttribute("data-skip"),el.getAttribute("data-qid"),el.getAttribute("data-partner"),el.getAttribute("data-customer"));};});
+}
+async function prHydratePages(){
+  var chips=[].slice.call(document.querySelectorAll("#ptab [data-pagechip]"));
+  if(!chips.length) return;
+  var slugs=chips.map(function(el){return el.getAttribute("data-pagechip");});
+  var res={};
+  try{ var r=await fetch(NEON_API+"/api/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"statusBulk",slugs:slugs})}).then(function(x){return x.json();}); res=(r&&r.results)||{}; }catch(e){ return; }
+  chips.forEach(function(el){ var sg=el.getAttribute("data-pagechip"); var live=!!(res[sg]&&res[sg].live); el.textContent="PAGE "+(live?"LIVE":"OFF"); var col=live?"#1d9e75":"#888"; el.style.color=col; el.style.background=col+"22"; el.style.border="1px solid "+col+"55"; });
 }
 async function skipPayout(key,qid,partner,customer){
   if(!key) return;
@@ -2394,6 +2408,10 @@ function topAlerts(){
 function setBadge(id,n){var el=document.getElementById(id);if(!el)return;if(n>0){el.textContent=n>99?"99+":n;el.style.display="";}else el.style.display="none";}
 /* To-do = individual action items that PERSIST until you act on them or dismiss them.
    Opening the bell does NOT clear them — they go away when the underlying thing is done. */
+/* Persistent "new referral" alerts for the bell — recorded when a referral first arrives,
+   and they stay in the bell (with a count) until cleared. Survives reloads/being away. */
+function crmRefNotif(){try{return JSON.parse(localStorage.getItem("crmRefNotif")||"{}");}catch(e){return {};}}
+function addRefNotif(r){ if(!r||r.id==null)return; try{ var m=crmRefNotif(); m[String(r.id)]={job:(r.jobName||r.customerName||"New job"),by:(r.contactName||""),cid:((r.contactId!=null&&r.contactId!=="")?r.contactId:""),at:new Date().toISOString()}; var keys=Object.keys(m); if(keys.length>60){ keys.map(Number).sort(function(a,b){return a-b;}).slice(0,keys.length-60).forEach(function(k){delete m[String(k)];}); } localStorage.setItem("crmRefNotif",JSON.stringify(m)); }catch(e){} }
 function notifItems(){
   var items=[];
   var paidMap={};(DATA.paid||[]).forEach(function(p){paidMap[p.key]=1;});
@@ -2409,6 +2427,8 @@ function notifItems(){
   // Follow-ups due (until marked done)
   var today=new Date().toISOString().slice(0,10);
   (DATA.followups||[]).forEach(function(f){if(f.done)return;if(String(f.due_date||"").slice(0,10)>today)return;var nm=(ALL.filter(function(x){return +x.id===+f.contact_id;})[0]||{}).name||("Contact "+f.contact_id);items.push({k:"fu:"+f.id,ic:"note",txt:"Follow up with <b>"+esc(nm)+"</b>"+(f.note?(" — "+esc(f.note)):""),go:"contacts",cid:f.contact_id,fu:f.id});});
+  // New affiliate referrals (SmartMoving / non-portal) — stay in the bell until cleared; click opens the partner.
+  try{ var _rn=crmRefNotif(); Object.keys(_rn).forEach(function(id){ var v=_rn[id]||{}; items.push({k:"ref:"+id, ic:"bolt", txt:"New referral: <b>"+esc(v.job||"job")+"</b>"+(v.by?(" from "+esc(v.by)):""), go:(v.cid?"contacts":"portal"), cid:(v.cid||"")}); }); }catch(e){}
   return items;
 }
 function notifDis(){try{return JSON.parse(localStorage.getItem("crmNotifDismiss")||"{}");}catch(e){return {};}}
@@ -2543,6 +2563,7 @@ function liveAlertCheck(seedOnly){
       ngBeep([{f:523,t:0,d:.16,v:.6,type:"triangle"},{f:659,t:.15,d:.16,v:.6,type:"triangle"},{f:784,t:.3,d:.36,v:.7,type:"triangle"}]);
       try{navigator.vibrate&&navigator.vibrate([200,80,200,80,260]);}catch(e){}
       var r=newRefs[0];
+      try{ newRefs.forEach(function(nr){ addRefNotif(nr); }); }catch(e){}
       ngToast(gi("bolt"), newRefs.length>1?(newRefs.length+" new affiliate jobs"):("New affiliate job: "+(r.jobName||"—")), (r.contactName?("Referred by "+r.contactName):"New job in")+" — tap to open", "var(--pink,#FF1493)");
       try{localStorage.setItem("ngLastRefId",maxRef);}catch(e){}
     }
@@ -2594,7 +2615,7 @@ setInterval(function(){ liveMsgCheck(); }, 15000); // fast poll: inbound replies
 /* ---- Fast referral alert: new affiliate referrals (incl. unmatched) + portal leads chime within ~20s ---- */
 async function ngRefPoll(){
   try{
-    var refs=[]; try{refs=await sb("referrals?select=id,contactName,jobName&order=id.desc&limit=25");}catch(e){}
+    var refs=[]; try{refs=await sb("referrals?select=id,contactId,contactName,jobName&order=id.desc&limit=25");}catch(e){}
     var leads=[]; try{leads=await sb("portal_leads?select=id,customerName,realtorName&order=id.desc&limit=25");}catch(e){}
     var maxRef=refs.reduce(function(m,r){return Math.max(m,+r.id||0);},0);
     var maxLead=leads.reduce(function(m,l){return Math.max(m,+l.id||0);},0);
@@ -2607,6 +2628,7 @@ async function ngRefPoll(){
       ngBeep([{f:523,t:0,d:.16,v:.6,type:"triangle"},{f:659,t:.15,d:.16,v:.6,type:"triangle"},{f:784,t:.3,d:.36,v:.7,type:"triangle"}]);
       try{navigator.vibrate&&navigator.vibrate([200,80,200,80,260]);}catch(e){}
       var r=newRefs[0];
+      try{ newRefs.forEach(function(nr){ addRefNotif(nr); }); }catch(e){}
       ngToast(gi("bolt"), newRefs.length>1?(newRefs.length+" new affiliate referrals"):("New referral: "+(r.jobName||"—")), (r.contactName?("From "+r.contactName):"New affiliate job")+" — tap to open", "var(--pink,#FF1493)", "portal");
       try{localStorage.setItem("ngLastRefId",maxRef);}catch(e){}
     }
