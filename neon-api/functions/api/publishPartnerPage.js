@@ -179,9 +179,24 @@ const handler = endpoint(async function (ctx) {
     return reply({ ok: false, error: 'wordpress_not_configured', note: 'Set WP_BASE and NEON_WP_KEY in neon-api, and install the Code Snippet.' }, 503);
   }
   var o = (body && body.opts) || {};
+  var action = body.action || 'publish';
+
+  if (action === 'statusBulk') {
+    // One call to check many partner pages at once (for the CRM roster). Returns { slug: {live,url} }.
+    var slugs = (body.slugs || o.slugs || []).map(slugify).filter(Boolean);
+    slugs = Array.from(new Set(slugs)).slice(0, 80);
+    var base0 = env.WP_BASE.replace(/\/$/, '');
+    var results = {};
+    await Promise.all(slugs.map(async function (sg) {
+      var live = false;
+      try { var sr = await fetch(base0 + '/partners/' + sg, { method: 'GET', redirect: 'manual' }); live = (sr.status >= 200 && sr.status < 300); } catch (e) {}
+      results[sg] = { live: live, url: base0 + '/partners/' + sg };
+    }));
+    return reply({ ok: true, action: 'statusBulk', results: results });
+  }
+
   var slug = slugify(o.slug || o.name);
   if (!slug) return reply({ ok: false, error: 'missing_slug' }, 400);
-  var action = body.action || 'publish';
 
   if (action === 'status') {
     // Authoritative live-state check: fetch the public partner URL server-side (no CORS).
