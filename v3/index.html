@@ -463,9 +463,11 @@ var ICONS={
 function gi(name){return '<span class="gi">'+(ICONS[name]||"")+'</span>';}
 var NAV=[
   ["dashboard","Dashboard"],["contacts","Contacts"],["portal","Referral Portal"],
+  ["pages","Pages & Portal"],
   ["inbox","Inbox"],["calendar","Calendar"],["dayplan","Day Plan"],
   ["topleads","Top Leads"],["map","Map"],["recruit","Recruit Board"],["radar","Listing Radar"]
 ];
+try{ if(typeof ICONS!=="undefined" && ICONS.portal) ICONS.pages=ICONS.portal; }catch(e){}
 var view="contacts", profileFrom="contacts";
 function viewLabel(v){ var m={}; NAV.forEach(function(n){m[n[0]]=n[1];}); return m[v]||"Back"; }
 function renderNav(){
@@ -491,6 +493,7 @@ function go(v){
     else if(v==="map") renderMap();
     else if(v==="recruit") renderRecruit();
     else if(v==="radar") renderRadar();
+    else if(v==="pages") renderPagesPortal();
     else stub(v);
   }catch(e){ viewError(e); }
 }
@@ -1365,6 +1368,77 @@ async function doSave(){
   if(saveCls==="ok") setTimeout(function(){var s=document.getElementById("savestate");if(s&&s.textContent.indexOf("Saved")===0)s.textContent="";},2500);
 }
 
+/* ---------------- Pages & Portal command center (dedicated tab) ---------------- */
+var PP={realtors:[],pageStatus:{},filter:"all",q:""};
+function ppSlug(c){return (typeof lpSlug==="function")?lpSlug(c):((typeof slugOf==="function")?slugOf(c):String(c.id));}
+function ppStat(n,l){return '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;min-width:96px"><div style="font-size:24px;font-weight:800">'+n+'</div><div class="muted" style="font-size:10px;letter-spacing:1px;text-transform:uppercase">'+esc(l)+'</div></div>';}
+async function renderPagesPortal(){
+  document.getElementById("view").innerHTML='<div class="page"><div class="ph"><h2>'+gi("portal")+' Pages &amp; Portal</h2></div><div class="stub" style="height:auto;padding:30px"><div class="spin"></div></div></div>';
+  try{ PP.realtors=await sb("contacts?or=(type.eq.Realtor,portalActivatedAt.not.is.null)&select=id,name,business,type,phone,email,portalActivatedAt,profilePic,cardImage&order=name.asc"); }
+  catch(e){ PP.realtors=(ALL||[]).filter(function(c){return /realtor/i.test(c.type||"")||c.portalActivatedAt;}); }
+  drawPagesPortal();
+  prefetchPagesStatus();
+}
+function drawPagesPortal(){
+  if(view!=="pages") return;
+  var rs=PP.realtors||[]; var q=(PP.q||"").toLowerCase();
+  var nActive=rs.filter(function(c){return c.portalActivatedAt;}).length;
+  var nLive=0; rs.forEach(function(c){ if(PP.pageStatus[ppSlug(c)]==="live") nLive++; });
+  var pool=rs.filter(function(c){ if(q && ((c.name||"")+" "+(c.business||"")).toLowerCase().indexOf(q)<0) return false; var f=PP.filter; if(f==="active") return !!c.portalActivatedAt; if(f==="live") return PP.pageStatus[ppSlug(c)]==="live"; if(f==="nopage") return PP.pageStatus[ppSlug(c)]!=="live"; return true; });
+  pool.sort(function(a,b){return (b.portalActivatedAt?1:0)-(a.portalActivatedAt?1:0)||String(a.name||"").localeCompare(String(b.name||""));});
+  var html='<div class="page"><div class="ph"><h2>'+gi("portal")+' Pages &amp; Portal</h2></div>';
+  html+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'+ppStat(rs.length,"Realtors")+ppStat(nActive,"Portals on")+ppStat(nLive,"Pages live")+'</div>';
+  html+='<div class="cfilters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><input id="ppQ" placeholder="Search realtors…" value="'+esc(PP.q||"")+'" style="flex:1;min-width:160px">'
+    +'<select id="ppFilter"><option value="all"'+(PP.filter==="all"?" selected":"")+'>All</option><option value="active"'+(PP.filter==="active"?" selected":"")+'>Portal active</option><option value="live"'+(PP.filter==="live"?" selected":"")+'>Page live</option><option value="nopage"'+(PP.filter==="nopage"?" selected":"")+'>No live page</option></select></div>';
+  if(!pool.length){ html+='<div class="muted" style="padding:14px">No realtors match.</div>'; }
+  pool.forEach(function(c){
+    var sg=ppSlug(c), on=!!c.portalActivatedAt, pst=PP.pageStatus[sg], live=(pst==="live"), known=(pst!=null);
+    var av=(typeof pAvatar==="function")?pAvatar(c):'';
+    var portalLink="https://refer.neongiantmoving.com/?r="+((typeof slugOf==="function")?slugOf(c):c.id);
+    var pageUrl="https://neongiantmoving.com/partners/"+sg;
+    var pc=on?"#1d9e75":"#888", gc=(known&&live)?"#1d9e75":"#888";
+    html+='<div class="crow2" style="align-items:flex-start">'+av+'<div class="meta" style="flex:1;min-width:0"><div class="nm">'+esc(c.name||"—")+'</div><div class="sub">'+esc(c.business||"")+'</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px;align-items:center">'
+      +'<span class="sbadge" style="color:'+pc+';background:'+pc+'22;border:1px solid '+pc+'55">PORTAL '+(on?"ON":"OFF")+'</span>'
+      +'<button class="btn" data-ppportal="'+c.id+'" style="font-size:11px;padding:3px 10px">'+(on?"Deactivate":"Activate")+'</button>'
+      +'<button class="btn" data-ppcopy="'+esc(portalLink)+'" style="font-size:11px;padding:3px 10px">Copy link</button>'
+      +'<span style="width:10px;display:inline-block"></span>'
+      +'<span class="sbadge" data-ppchip="'+esc(sg)+'" style="color:'+gc+';background:'+gc+'22;border:1px solid '+gc+'55">PAGE '+(known?(live?"LIVE":"OFF"):"…")+'</span>'
+      +'<button class="btn" data-pppage="'+c.id+'" data-pplive="'+(live?"1":"0")+'" style="font-size:11px;padding:3px 10px"'+(known?"":" disabled")+'>'+(live?"Take down":"Put live")+'</button>'
+      +(live?'<a class="btn" href="'+esc(pageUrl)+'" target="_blank" rel="noopener" style="font-size:11px;padding:3px 10px">Open</a>':'')
+      +'</div></div></div>';
+  });
+  html+='</div>';
+  document.getElementById("view").innerHTML=html;
+  var qel=document.getElementById("ppQ"); if(qel)qel.oninput=function(){PP.q=qel.value;drawPagesPortal();var e=document.getElementById("ppQ");if(e){e.focus();try{e.setSelectionRange(e.value.length,e.value.length);}catch(_){}}};
+  var fel=document.getElementById("ppFilter"); if(fel)fel.onchange=function(){PP.filter=fel.value;drawPagesPortal();};
+  [].forEach.call(document.querySelectorAll("[data-ppportal]"),function(el){el.onclick=function(){var c=(PP.realtors||[]).filter(function(x){return String(x.id)===el.getAttribute("data-ppportal");})[0];if(!c)return;Promise.resolve(c.portalActivatedAt?deactivatePortal(c):activatePortal(c)).then(function(){drawPagesPortal();});};});
+  [].forEach.call(document.querySelectorAll("[data-ppcopy]"),function(el){el.onclick=function(){try{navigator.clipboard.writeText(el.getAttribute("data-ppcopy"));banner("Link copied.");}catch(e){}};});
+  [].forEach.call(document.querySelectorAll("[data-pppage]"),function(el){el.onclick=function(){var c=(PP.realtors||[]).filter(function(x){return String(x.id)===el.getAttribute("data-pppage");})[0];if(!c)return;ppTogglePage(c,el.getAttribute("data-pplive")==="1");};});
+}
+async function prefetchPagesStatus(){
+  var rs=PP.realtors||[]; if(!rs.length) return;
+  var slugs=rs.map(ppSlug);
+  try{ var r=await fetch(NEON_API+"/api/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"statusBulk",slugs:slugs})}).then(function(x){return x.json();}); var res=(r&&r.results)||{}; slugs.forEach(function(sg){ PP.pageStatus[sg]=(res[sg]&&res[sg].live)?"live":"off"; }); }
+  catch(e){ return; }
+  if(view==="pages") drawPagesPortal();
+}
+async function ppTogglePage(c,live){
+  if(live){ if(!confirm("Take "+(c.name||"this")+"’s landing page down?\n\nReverts to a private draft — nothing deleted, reversible anytime.")) return; }
+  else { if(!confirm("Put "+(c.name||"this")+"’s landing page LIVE on neongiantmoving.com?\n\nIt becomes public and indexable.")) return; }
+  banner(live?"Taking page down…":"Publishing page…");
+  try{
+    var slug=ppSlug(c), body;
+    if(live){ body={action:"unpublish",opts:{slug:slug}}; }
+    else { var full=c; try{ var fr=await sb("contacts?id=eq."+c.id+"&select=*"); if(fr&&fr[0]) full=fr[0]; }catch(e){} body={opts:buildLpOpts(full),status:"publish"}; }
+    var r=await fetch(NEON_API+"/api/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(x){return x.json();});
+    if(!r||r.ok===false){ banner("Page action failed: "+((r&&(r.error||r.message))||"try again")); return; }
+    try{ if(typeof lpSet==="function") lpSet(c.id,{url:(r.url||((typeof lpGet==="function"&&lpGet(c.id)||{}).url)),status:(live?"draft":"live")}); }catch(e){}
+    PP.pageStatus[slug]=live?"off":"live"; drawPagesPortal();
+    banner(live?"Page taken down (private draft).":"Page is LIVE.");
+    setTimeout(function(){ prefetchPagesStatus(); }, 1600);
+  }catch(e){ banner("Couldn’t reach the publisher."); }
+}
 /* ---------------- Referral Portal + Payouts ---------------- */
 var PORTAL=null, portalTab="payouts", portalFilter="", portalRealtorView="active";
 var SBADGE={ "new":"#22aee4","contacted":"#ff9933","booked":"#33cc66","completed":"#e08600","lost":"#888" };
