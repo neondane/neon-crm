@@ -133,7 +133,62 @@ function isRealtor(c) {
   return c && String(c.type || '').toLowerCase() === 'realtor';
 }
 
-async function handleSupabaseAction(action, payload, baseUrl, key, origin) {
+/* --------- Realtor referral -> SmartMoving (same proven push the website uses) -------- */
+// Mirrors websiteLead.js: POSTs to SmartMoving's from-provider Lead API with the
+// "Your Website" provider key (env override, else the built-in key that the live
+// website form already uses successfully). This is how portal referrals land in
+// SmartMoving for the office to work — like they did before the Supabase migration.
+// BEST-EFFORT: this never throws; if SmartMoving is unreachable the caller still
+// saves the lead to Supabase, so a referral is never lost.
+const SM_PROVIDER_KEY_FALLBACK = 'd18a311b-7df6-4483-90a7-b3d201630cea';
+
+function splitName(full) {
+  const parts = String(full || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return { firstName: parts[0] || '', lastName: '' };
+  return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+}
+
+async function pushReferralToSmartMoving(env, cust, realtor) {
+  const providerKey = (env && env.SMARTMOVING_PROVIDER_KEY) || SM_PROVIDER_KEY_FALLBACK;
+  let url = 'https://api.smartmoving.com/api/leads/from-provider/v2?providerKey=' + encodeURIComponent(providerKey);
+  if (env && env.SM_LEAD_BRANCH_ID) url += '&branchId=' + encodeURIComponent(env.SM_LEAD_BRANCH_ID);
+
+  const nm = splitName(cust.name);
+  const noteLines = ['REALTOR REFERRAL — submitted via the Neon Giant referral portal.'];
+  noteLines.push('Referred by (Realtor Affiliate): ' + (realtor.name || 'Unknown'));
+  if (realtor.business) noteLines.push('Brokerage: ' + realtor.business);
+  if (realtor.email) noteLines.push('Realtor email: ' + realtor.email);
+  if (cust.notes) noteLines.push('Customer notes: ' + cust.notes);
+
+  const payload = {
+    firstName: nm.firstName || String(cust.name || '').trim(),
+    lastName: nm.lastName,
+    phoneNumber: String(cust.phone || '').trim(),
+    email: String(cust.email || '').trim(),
+    serviceType: /junk/i.test(cust.moveSize || '') ? 'Junk Removal' : 'Moving',
+    moveSize: String(cust.moveSize || '').trim(),
+    moveDate: String(cust.moveDate || '').replace(/-/g, ''), // YYYY-MM-DD -> YYYYMMDD
+    notes: noteLines.join('\n'),
+  };
+  const oFull = String(cust.fromAddress || '').trim();
+  const dFull = String(cust.toAddress || '').trim();
+  if (oFull) payload.originAddressFull = oFull;
+  if (dFull) payload.destinationAddressFull = dFull;
+
+  try {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const txt = await r.text();
+    if (r.ok) { let j = {}; try { j = JSON.parse(txt); } catch (_) {} return { ok: true, smJobId: (j && (j.leadId || j.id)) || '' }; }
+    if (r.status === 400 && /already/i.test(txt || '')) return { ok: true, duplicate: true, smJobId: '' };
+    return { ok: false, error: 'smartmoving_' + r.status, body: (txt || '').slice(0, 200) };
+  } catch (e) { return { ok: false, error: 'smartmoving_network_error', message: e && e.message }; }
+}
+
+async function handleSupabaseAction(action, payload, baseUrl, key, origin, env) {
   /* ----- realtor dashboard: realtor + their leads + totals ----- */
   if (action === 'getRealtorPortalView') {
     const id = slugToId(payload.slug);
@@ -250,7 +305,7 @@ async function handleSupabaseAction(action, payload, baseUrl, key, origin) {
     return jsonResponse({ ok: true, realtor: realtorPublic(c) }, 200, origin);
   }
 
-  /* ----- client submits a referral -> insert into portal_leads ----- */
+  /* ----- client submits a referral -> push to SmartMoving + insert into portal_leads ----- */
   if (action === 'submitReferralLead') {
     const realtorId = payload.realtorId;
     const cust = payload.customer || {};
@@ -259,12 +314,20 @@ async function handleSupabaseAction(action, payload, baseUrl, key, origin) {
       return jsonResponse({ ok: false, error: 'Name and phone are required.' }, 200, origin);
     }
 
-    // Look up the realtor so the lead carries their name/email (best-effort).
-    let realtorName = '', realtorEmail = '';
+    // Look up the realtor so the lead carries their name/email/brokerage (best-effort).
+    let realtorName = '', realtorEmail = '', realtorBusiness = '';
     try {
-      const rows = await sbGet(baseUrl, key, 'contacts?id=eq.' + realtorId + '&select=name,email');
-      if (rows[0]) { realtorName = rows[0].name || ''; realtorEmail = rows[0].email || ''; }
+      const rows = await sbGet(baseUrl, key, 'contacts?id=eq.' + realtorId + '&select=name,email,business');
+      if (rows[0]) { realtorName = rows[0].name || ''; realtorEmail = rows[0].email || ''; realtorBusiness = rows[0].business || ''; }
     } catch (e) { /* non-fatal */ }
+
+    // Push into SmartMoving FIRST so the office works it like any other lead (this is
+    // the step that was missing). Best-effort and wrapped — it can never block or lose
+    // the lead; whatever happens, we still save to portal_leads below.
+    let sm = { ok: false, error: 'not_attempted' };
+    try {
+      sm = await pushReferralToSmartMoving(env, cust, { name: realtorName, email: realtorEmail, business: realtorBusiness });
+    } catch (e) { sm = { ok: false, error: 'sm_exception', message: e && e.message }; }
 
     const row = {
       submittedAt: new Date().toISOString(),
@@ -281,11 +344,19 @@ async function handleSupabaseAction(action, payload, baseUrl, key, origin) {
       notes: (cust.notes || '').trim(),
       status: 'New',
       sourceTag: 'portal',
+      smJobId: (sm && sm.smJobId) || '',
     };
 
-    const inserted = await sbInsert(baseUrl, key, 'portal_leads', row);
-    const newId = (inserted && inserted[0] && inserted[0].id) || null;
-    return jsonResponse({ ok: true, id: newId }, 200, origin);
+    let newId = null;
+    try {
+      const inserted = await sbInsert(baseUrl, key, 'portal_leads', row);
+      newId = (inserted && inserted[0] && inserted[0].id) || null;
+    } catch (e) {
+      // Saving to the DB failed, but the lead may already be in SmartMoving — surface both.
+      return jsonResponse({ ok: false, error: 'db_insert_failed', message: e.message, smartmoving: sm }, 200, origin);
+    }
+
+    return jsonResponse({ ok: true, id: newId, smartmoving: sm }, 200, origin);
   }
 
   return null; // not a Supabase action
@@ -365,7 +436,7 @@ export async function onRequest({ request, params, env }) {
   // ---- Supabase path (when enabled) ----
   if (supabaseOn && SUPABASE_ACTIONS.has(action)) {
     try {
-      const res = await handleSupabaseAction(action, payload, SUPABASE_URL, SUPABASE_KEY, origin);
+      const res = await handleSupabaseAction(action, payload, SUPABASE_URL, SUPABASE_KEY, origin, env);
       if (res) return res;
     } catch (err) {
       return jsonResponse({ ok: false, error: 'Supabase error: ' + err.message }, 200, origin);
