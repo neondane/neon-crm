@@ -463,7 +463,6 @@ var ICONS={
 function gi(name){return '<span class="gi">'+(ICONS[name]||"")+'</span>';}
 var NAV=[
   ["dashboard","Dashboard"],["contacts","Contacts"],["portal","Referral Portal"],
-  ["pages","Pages & Portal"],
   ["inbox","Inbox"],["calendar","Calendar"],["dayplan","Day Plan"],
   ["topleads","Top Leads"],["map","Map"],["recruit","Recruit Board"],["radar","Listing Radar"]
 ];
@@ -493,7 +492,6 @@ function go(v){
     else if(v==="map") renderMap();
     else if(v==="recruit") renderRecruit();
     else if(v==="radar") renderRadar();
-    else if(v==="pages") renderPagesPortal();
     else stub(v);
   }catch(e){ viewError(e); }
 }
@@ -1373,20 +1371,20 @@ var PP={realtors:[],pageStatus:{},filter:"all",q:""};
 function ppSlug(c){return (typeof lpSlug==="function")?lpSlug(c):((typeof slugOf==="function")?slugOf(c):String(c.id));}
 function ppStat(n,l){return '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;min-width:96px"><div style="font-size:24px;font-weight:800">'+n+'</div><div class="muted" style="font-size:10px;letter-spacing:1px;text-transform:uppercase">'+esc(l)+'</div></div>';}
 async function renderPagesPortal(){
-  document.getElementById("view").innerHTML='<div class="page"><div class="ph"><h2>'+gi("portal")+' Pages &amp; Portal</h2></div><div class="stub" style="height:auto;padding:30px"><div class="spin"></div></div></div>';
+  var _pc=document.getElementById("ptab"); if(_pc)_pc.innerHTML='<div class="stub" style="height:auto;padding:30px"><div class="spin"></div></div>';
   try{ PP.realtors=await sb("contacts?or=(type.eq.Realtor,portalActivatedAt.not.is.null)&select=id,name,business,type,phone,email,portalActivatedAt,profilePic,cardImage&order=name.asc"); }
   catch(e){ PP.realtors=(ALL||[]).filter(function(c){return /realtor/i.test(c.type||"")||c.portalActivatedAt;}); }
   drawPagesPortal();
   prefetchPagesStatus();
 }
 function drawPagesPortal(){
-  if(view!=="pages") return;
+  if(view!=="portal"||portalTab!=="realtors") return;
   var rs=PP.realtors||[]; var q=(PP.q||"").toLowerCase();
   var nActive=rs.filter(function(c){return c.portalActivatedAt;}).length;
   var nLive=0; rs.forEach(function(c){ if(PP.pageStatus[ppSlug(c)]==="live") nLive++; });
   var pool=rs.filter(function(c){ if(q && ((c.name||"")+" "+(c.business||"")).toLowerCase().indexOf(q)<0) return false; var f=PP.filter; if(f==="active") return !!c.portalActivatedAt; if(f==="live") return PP.pageStatus[ppSlug(c)]==="live"; if(f==="nopage") return PP.pageStatus[ppSlug(c)]!=="live"; return true; });
   pool.sort(function(a,b){return (b.portalActivatedAt?1:0)-(a.portalActivatedAt?1:0)||String(a.name||"").localeCompare(String(b.name||""));});
-  var html='<div class="page"><div class="ph"><h2>'+gi("portal")+' Pages &amp; Portal</h2></div>';
+  var html='';
   html+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'+ppStat(rs.length,"Realtors")+ppStat(nActive,"Portals on")+ppStat(nLive,"Pages live")+'</div>';
   html+='<div class="cfilters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><input id="ppQ" placeholder="Search realtors…" value="'+esc(PP.q||"")+'" style="flex:1;min-width:160px">'
     +'<select id="ppFilter"><option value="all"'+(PP.filter==="all"?" selected":"")+'>All</option><option value="active"'+(PP.filter==="active"?" selected":"")+'>Portal active</option><option value="live"'+(PP.filter==="live"?" selected":"")+'>Page live</option><option value="nopage"'+(PP.filter==="nopage"?" selected":"")+'>No live page</option></select></div>';
@@ -1408,8 +1406,7 @@ function drawPagesPortal(){
       +(live?'<a class="btn" href="'+esc(pageUrl)+'" target="_blank" rel="noopener" style="font-size:11px;padding:3px 10px">Open</a>':'')
       +'</div></div></div>';
   });
-  html+='</div>';
-  document.getElementById("view").innerHTML=html;
+  var _pc2=document.getElementById("ptab"); if(!_pc2)return; _pc2.innerHTML=html;
   var qel=document.getElementById("ppQ"); if(qel)qel.oninput=function(){PP.q=qel.value;drawPagesPortal();var e=document.getElementById("ppQ");if(e){e.focus();try{e.setSelectionRange(e.value.length,e.value.length);}catch(_){}}};
   var fel=document.getElementById("ppFilter"); if(fel)fel.onchange=function(){PP.filter=fel.value;drawPagesPortal();};
   [].forEach.call(document.querySelectorAll("[data-ppportal]"),function(el){el.onclick=function(){var c=(PP.realtors||[]).filter(function(x){return String(x.id)===el.getAttribute("data-ppportal");})[0];if(!c)return;Promise.resolve(c.portalActivatedAt?deactivatePortal(c):activatePortal(c)).then(function(){drawPagesPortal();});};});
@@ -1422,7 +1419,7 @@ async function prefetchPagesStatus(){
   for(var i=0;i<slugs.length;i+=50){
     var batch=slugs.slice(i,i+50);
     try{ var r=await fetch(NEON_API+"/api/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"statusBulk",slugs:batch})}).then(function(x){return x.json();}); var res=(r&&r.results)||{}; batch.forEach(function(sg){ PP.pageStatus[sg]=(res[sg]&&res[sg].live)?"live":"off"; }); }catch(e){}
-    if(view==="pages") drawPagesPortal();
+    if(view==="portal"&&portalTab==="realtors") drawPagesPortal();
   }
 }
 async function ppTogglePage(c,live){
@@ -1519,7 +1516,7 @@ function drawPortal(){
     +'<div class="tab'+(portalTab==="payouts"?" active":"")+'" data-t="payouts">Payouts Due ('+due.length+')</div>'
     +'<div class="tab'+(portalTab==="paid"?" active":"")+'" data-t="paid">Paid ('+paidList.length+')</div>'
     +'<div class="tab'+(portalTab==="leads"?" active":"")+'" data-t="leads">Leads ('+PORTAL.leads.length+')</div>'
-    +'<div class="tab'+(portalTab==="realtors"?" active":"")+'" data-t="realtors">Partners ('+activeRealtors.length+')</div></div>';
+    +'<div class="tab'+(portalTab==="realtors"?" active":"")+'" data-t="realtors">Pages &amp; Portal ('+activeRealtors.length+')</div></div>';
   html+='<div id="ptab">';
   if(portalTab==="payouts"){
     if(!due.length) html+='<div class="muted" style="padding:14px">Nothing due. When a completed job matches an active partner, it shows here.</div>';
@@ -1545,22 +1542,9 @@ function drawPortal(){
         +'<div class="meta">From '+esc(l.realtorName||"—")+(l.moveDate?' · move '+esc(String(l.moveDate).slice(0,10)):"")+(l.customerPhone?' · '+esc(l.customerPhone):"")+'</div></div>'+sbadge(l.status)+'</div></div>';
     });
   }else{
-    // Partners — activated first (the ones that matter), with a toggle to see everyone.
-    html+='<div class="cfilters" style="margin:0 0 12px"><select id="prView"><option value="active"'+(portalRealtorView==="active"?" selected":"")+'>Activated partners ('+activeRealtors.length+')</option><option value="all"'+(portalRealtorView==="all"?" selected":"")+'>All realtors ('+PORTAL.realtors.length+')</option></select></div>';
-    var pool=portalRealtorView==="active"?activeRealtors:PORTAL.realtors.slice();
-    pool=pool.filter(function(c){ if(!f) return true; return ((c.name||"")+" "+(c.business||"")).toLowerCase().indexOf(f)>=0; });
-    pool.sort(function(a,b){return (b.portalActivatedAt?1:0)-(a.portalActivatedAt?1:0)||String(a.name||"").localeCompare(String(b.name||""));});
-    if(!pool.length) html+='<div class="muted" style="padding:14px">'+(portalRealtorView==="active"?"No activated partners yet — activate a realtor from their profile.":"No realtors.")+'</div>';
-    pool.forEach(function(c){
-      var on=!!c.portalActivatedAt;
-      var prsg=(typeof lpSlug==="function")?lpSlug(c):((typeof slugOf==="function")?slugOf(c):String(c.id));
-      var prR=/realtor/i.test(c.type||"");
-      html+='<div class="crow2" data-id="'+c.id+'" style="cursor:pointer">'+pAvatar(c)+'<div class="meta"><div class="nm">'+esc(c.name||"—")+'</div><div class="sub">'+esc(c.business||"")+'</div></div>'
-        +'<div class="right" style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">'
-        +'<span class="sbadge" style="color:'+(on?"#1d9e75":"#888")+';background:'+(on?"#1d9e75":"#888")+'22;border:1px solid '+(on?"#1d9e75":"#888")+'55">PORTAL '+(on?"ON":"OFF")+'</span>'
-        +(prR?'<span class="sbadge" data-pagechip="'+esc(prsg)+'" style="color:#888;background:#8882;border:1px solid #8885">PAGE …</span>':'')
-        +'</div></div>';
-    });
+    // Pages & Portal management (who's activated + activate/deactivate + page publish);
+    // drawPagesPortal() fills #ptab after the frame below is wired.
+    html+='<div class="stub" style="height:auto;padding:30px"><div class="spin"></div></div>';
   }
   html+='</div></div>';
   document.getElementById("view").innerHTML=html;
@@ -1572,6 +1556,7 @@ function drawPortal(){
   [].forEach.call(document.querySelectorAll("[data-pay]"),function(el){el.onclick=function(){markPaid(el.getAttribute("data-pay"),el.getAttribute("data-partner"));};});
   [].forEach.call(document.querySelectorAll("[data-send]"),function(el){el.onclick=function(){var k=el.getAttribute("data-send");var it=due.filter(function(x){return x.key===k;})[0];if(it)sendPayoutGo(it,el);};});
   [].forEach.call(document.querySelectorAll("[data-skip]"),function(el){el.onclick=function(){skipPayout(el.getAttribute("data-skip"),el.getAttribute("data-qid"),el.getAttribute("data-partner"),el.getAttribute("data-customer"));};});
+  if(portalTab==="realtors"){ if(PP.realtors&&PP.realtors.length){ drawPagesPortal(); } else { renderPagesPortal(); } }
 }
 async function prHydratePages(){
   var chips=[].slice.call(document.querySelectorAll("#ptab [data-pagechip]"));
@@ -1836,7 +1821,7 @@ function renderDayPlan(){
   document.getElementById("dpFindBtn").onclick=dpFindNew;
   document.getElementById("dpGenBtn").onclick=dpGenerate;
   dpRenderKnown(); dpRenderPicks();
-  if(dpPlan&&dpPlan.html){ var rr=document.getElementById("dpResult"); if(rr)rr.innerHTML=dpPlan.html; }
+  if(dpPlan&&dpPlan.html){ var rr=document.getElementById("dpResult"); if(rr){ rr.innerHTML=dpPlan.html; try{dpApplyDone();}catch(e){} } }
 }
 function dpRenderKnown(){
   var terrs=dpChecked("dpT"),types=dpChecked("dpY");
@@ -1924,7 +1909,7 @@ async function dpGenerate(){
     }catch(e){}
     var html=dpRenderPlan(ordered,baseGeo,mapsUrl,opt.miles,missing.length,brief,person,date);
     dpPlan={html:html};
-    res.innerHTML=html;
+    res.innerHTML=html; try{dpApplyDone();}catch(e){}
     // Save the generated plan to Supabase so it syncs to the mobile Route tab (Tyler's phone).
     try{
       var savedStops=ordered.map(function(s){ var bb=brief[(s.name||"").toLowerCase()]||{}; return {id:(s.id!=null?s.id:null),name:s.name||"",address:s.address||"",lat:(s.lat!=null?s.lat:null),lon:(s.lon!=null?s.lon:null),territory:s.territory||"",briefing:bb.briefing||"",talkingPoints:(Array.isArray(bb.talkingPoints)?bb.talkingPoints.join("; "):(bb.talkingPoints||"")),leaveBehind:bb.leaveBehind||""}; });
@@ -1949,6 +1934,35 @@ function dpRenderPlan(ordered,base,mapsUrl,miles,missingCount,brief,person,date)
   html+='</div>';
   return html;
 }
+/* Mark stops visited-today as done: grey, ✓ Visited, float to the bottom. Driven by contact.lastVisit so it persists across re-renders and works in any order. */
+function dpApplyDone(){
+  try{
+    var today=new Date().toISOString().slice(0,10);
+    [].forEach.call(document.querySelectorAll('.lead[data-checkin]'),function(row){
+      var id=+row.getAttribute('data-checkin');
+      var c=(typeof ALL!=="undefined"?ALL:[]).filter(function(x){return x.id===id;})[0];
+      var lv=(c&&c.lastVisit)?String(c.lastVisit).slice(0,10):"";
+      if(lv!==today) return;
+      row.style.opacity='.55';
+      var who=row.querySelector('.who'); if(who) who.style.textDecoration='line-through';
+      var chk=row.querySelector('.dpchk[data-chkfor]'); if(chk && chk.innerHTML.indexOf('Visited')<0) chk.innerHTML=' <span class="pill" style="color:#1d9e75;border-color:#1d9e7555;background:#1d9e7515">✓ Visited</span>';
+      var cb=row.querySelector('button[data-checkin]'); if(cb) cb.innerHTML='✓ Visited';
+      if(row.parentNode) row.parentNode.appendChild(row);
+    });
+  }catch(e){}
+}
+/* Re-improve a just-saved note/visit entry: clean the raw text and swap that entry in the contact's notes. */
+async function reImproveEntry(id,prefix,rawText){
+  var j=await fetch(NEON_API+"/api/improveNotes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:rawText})}).then(function(x){return x.json();});
+  if(!(j&&j.ok&&j.improved)) throw new Error((j&&j.error)||"no improvement");
+  var c=(typeof ALL!=="undefined"?ALL:[]).filter(function(x){return x.id===id;})[0];
+  var cur=(c&&c.notes)||"";
+  var oldStamp=prefix+rawText, newStamp=prefix+j.improved;
+  var newNotes=(cur.slice(-oldStamp.length)===oldStamp)?(cur.slice(0,cur.length-oldStamp.length)+newStamp):(cur+"\n"+newStamp);
+  await sbWrite("PATCH","contacts?id=eq."+id,{notes:newNotes});
+  if(c)c.notes=newNotes;
+  return newNotes;
+}
 /* Day Plan check-in: click a planned stop → log the visit by voice + AI (reuses aiDictate/aiImprove). */
 function dpCheckIn(id, name){
   if(document.getElementById("dpCheckModal")) return;
@@ -1972,14 +1986,22 @@ function dpCheckIn(id, name){
     var t=(document.getElementById("dpVisitMsg")||{}).value||""; if(!t.trim())return;
     if(_dictRec){try{_dictRec.stop();}catch(_){}}
     var btn=this; btn.disabled=true; btn.textContent="Saving…";
-    var iso=new Date().toISOString(), stamp="[Visit "+iso.slice(0,10)+"] "+t;
+    var iso=new Date().toISOString(), pfx="[Visit "+iso.slice(0,10)+"] ", stamp=pfx+t;
     var c2=(typeof ALL!=="undefined"?ALL:[]).filter(function(x){return x.id===id;})[0];
     var nn=((c2&&c2.notes)?c2.notes+"\n":"")+stamp;
     if(c2){c2.notes=nn;c2.lastVisit=iso;}
     try{ await sbWrite("PATCH","contacts?id=eq."+id,{notes:nn,lastVisit:iso}); }catch(e){}
-    ov.remove();
-    [].forEach.call(document.querySelectorAll('.dpchk[data-chkfor="'+id+'"]'),function(s){ s.innerHTML=' <span class="pill" style="color:#1d9e75;border-color:#1d9e7555;background:#1d9e7515">✓ Checked in</span>'; });
     try{ banner("Visit logged for "+(name||(c2&&c2.name)||"stop")+"."); }catch(e){}
+    try{ dpApplyDone(); }catch(e){}
+    var st=document.getElementById("dpVisitStatus"); if(st)st.innerHTML='<span style="color:#1d9e75;font-weight:700">✓ Logged & marked off.</span> Tap below if you want it cleaned up.';
+    var cancel=document.getElementById("dpVisitCancel"); if(cancel)cancel.textContent="Done";
+    btn.disabled=false; btn.textContent="Clean up this note";
+    btn.onclick=async function(){
+      btn.disabled=true; btn.textContent="Cleaning…";
+      try{ await reImproveEntry(id,pfx,t); if(st)st.innerHTML='<span style="color:#1d9e75;font-weight:700">✓ Cleaned up.</span>'; }
+      catch(e){ if(st)st.textContent="Saved as-is — couldn't clean it up right now."; }
+      btn.disabled=false; btn.textContent="Done"; btn.onclick=function(){ ov.remove(); };
+    };
   };
 }
 document.addEventListener("click",function(e){
@@ -3204,12 +3226,21 @@ function mCompose(c,kind){
     if(_dictRec){try{_dictRec.stop();}catch(_){}}
     var btn=this; btn.disabled=true; btn.textContent="Working…";
     if(kind==="note"||kind==="visit"){
-      var stamp=(kind==="visit"?"[Visit ":"[")+new Date().toISOString().slice(0,10)+"] "+t;
+      var pfx=(kind==="visit"?"[Visit ":"[")+new Date().toISOString().slice(0,10)+"] ", stamp=pfx+t;
       var nn=(c.notes?c.notes+"\n":"")+stamp; c.notes=nn;
       var patch={notes:nn}; if(kind==="visit"){ var iso=new Date().toISOString(); c.lastVisit=iso; patch.lastVisit=iso; }
       var c2=(ALL||[]).filter(function(x){return x.id===c.id;})[0]; if(c2){c2.notes=nn; if(kind==="visit")c2.lastVisit=c.lastVisit;}
       try{await sbWrite("PATCH","contacts?id=eq."+c.id,patch);}catch(e){}
-      ov.remove(); var s1=document.getElementById("mSheetMsg"); if(s1)s1.innerHTML='<span style="color:var(--pink);font-weight:700">✓ '+(kind==="visit"?"Visit logged.":"Note saved.")+'</span>'; return;
+      var s1=document.getElementById("mSheetMsg"); if(s1)s1.innerHTML='<span style="color:var(--pink);font-weight:700">✓ '+(kind==="visit"?"Visit logged.":"Note saved.")+'</span>';
+      if(m)m.textContent="Saved as you said it.";
+      btn.disabled=false; btn.innerHTML="Clean up this note";
+      btn.onclick=async function(){
+        btn.disabled=true; btn.textContent="Cleaning…";
+        try{ await reImproveEntry(c.id,pfx,t); if(m)m.innerHTML='<span style="color:var(--pink);font-weight:700">✓ Cleaned up.</span>'; }
+        catch(e){ if(m)m.textContent="Saved as-is — couldn't clean it up right now."; }
+        btn.disabled=false; btn.textContent="Done"; btn.onclick=function(){ ov.remove(); };
+      };
+      return;
     }
     var hadImg=!!cImg;
     var sent = hadImg ? await sendPhoto({to:c.phone,body:t,contactId:c.id,kind:"manual",imageBase64:cImg}) : await sendText({to:c.phone,body:t,contactId:c.id,kind:"manual"});
