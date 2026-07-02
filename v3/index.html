@@ -462,7 +462,7 @@ var ICONS={
 };
 function gi(name){return '<span class="gi">'+(ICONS[name]||"")+'</span>';}
 var NAV=[
-  ["dashboard","Dashboard"],["contacts","Contacts"],["portal","Referral Portal"],
+  ["dashboard","Dashboard"],["contacts","Contacts"],["portal","Pages & Portal"],
   ["inbox","Inbox"],["calendar","Calendar"],["dayplan","Day Plan"],
   ["topleads","Top Leads"],["map","Map"],["recruit","Recruit Board"],["radar","Listing Radar"]
 ];
@@ -1378,7 +1378,7 @@ async function renderPagesPortal(){
   prefetchPagesStatus();
 }
 function drawPagesPortal(){
-  if(view!=="portal"||portalTab!=="realtors") return;
+  if(view!=="portal"||portalMode!=="pages") return;
   var rs=PP.realtors||[]; var q=(PP.q||"").toLowerCase();
   var nActive=rs.filter(function(c){return c.portalActivatedAt;}).length;
   var nLive=0; rs.forEach(function(c){ if(PP.pageStatus[ppSlug(c)]==="live") nLive++; });
@@ -1397,20 +1397,18 @@ function drawPagesPortal(){
     var pc=on?"#1d9e75":"#888", gc=(known&&live)?"#1d9e75":"#888";
     html+='<div class="crow2" style="align-items:flex-start">'+av+'<div class="meta" style="flex:1;min-width:0"><div class="nm">'+esc(c.name||"—")+'</div><div class="sub">'+esc(c.business||"")+'</div>'
       +'<div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px;align-items:center">'
-      +'<span class="sbadge" style="color:'+pc+';background:'+pc+'22;border:1px solid '+pc+'55">PORTAL '+(on?"ON":"OFF")+'</span>'
-      +'<button class="btn" data-ppportal="'+c.id+'" style="font-size:11px;padding:3px 10px">'+(on?"Deactivate":"Activate")+'</button>'
-      +'<button class="btn" data-ppcopy="'+esc(portalLink)+'" style="font-size:11px;padding:3px 10px">Copy link</button>'
-      +'<span style="width:10px;display:inline-block"></span>'
       +'<span class="sbadge" data-ppchip="'+esc(sg)+'" style="color:'+gc+';background:'+gc+'22;border:1px solid '+gc+'55">PAGE '+(known?(live?"LIVE":"OFF"):"…")+'</span>'
-      +'<button class="btn" data-pppage="'+c.id+'" data-pplive="'+(live?"1":"0")+'" style="font-size:11px;padding:3px 10px"'+(known?"":" disabled")+'>'+(live?"Take down":"Put live")+'</button>'
+      +'<button class="btn" data-pppage="'+c.id+'" data-pplive="'+(live?"1":"0")+'" style="font-size:11px;padding:3px 10px"'+(known?"":" disabled")+'>'+(live?"Pause":"Put live")+'</button>'
+      +'<button class="btn" data-ppedit="'+c.id+'" style="font-size:11px;padding:3px 10px">Edit / Customize</button>'
+      +'<button class="btn" data-ppcopy="'+esc(pageUrl)+'" style="font-size:11px;padding:3px 10px">Copy link</button>'
       +(live?'<a class="btn" href="'+esc(pageUrl)+'" target="_blank" rel="noopener" style="font-size:11px;padding:3px 10px">Open</a>':'')
       +'</div></div></div>';
   });
   var _pc2=document.getElementById("ptab"); if(!_pc2)return; _pc2.innerHTML=html;
   var qel=document.getElementById("ppQ"); if(qel)qel.oninput=function(){PP.q=qel.value;drawPagesPortal();var e=document.getElementById("ppQ");if(e){e.focus();try{e.setSelectionRange(e.value.length,e.value.length);}catch(_){}}};
   var fel=document.getElementById("ppFilter"); if(fel)fel.onchange=function(){PP.filter=fel.value;drawPagesPortal();};
-  [].forEach.call(document.querySelectorAll("[data-ppportal]"),function(el){el.onclick=function(){var c=(PP.realtors||[]).filter(function(x){return String(x.id)===el.getAttribute("data-ppportal");})[0];if(!c)return;Promise.resolve(c.portalActivatedAt?deactivatePortal(c):activatePortal(c)).then(function(){drawPagesPortal();});};});
-  [].forEach.call(document.querySelectorAll("[data-ppcopy]"),function(el){el.onclick=function(){try{navigator.clipboard.writeText(el.getAttribute("data-ppcopy"));banner("Link copied.");}catch(e){}};});
+  [].forEach.call(document.querySelectorAll("[data-ppcopy]"),function(el){el.onclick=function(){try{navigator.clipboard.writeText(el.getAttribute("data-ppcopy"));banner("Page link copied.");}catch(e){}};});
+  [].forEach.call(document.querySelectorAll("[data-ppedit]"),function(el){el.onclick=function(){openContact(+el.getAttribute("data-ppedit"));};});
   [].forEach.call(document.querySelectorAll("[data-pppage]"),function(el){el.onclick=function(){var c=(PP.realtors||[]).filter(function(x){return String(x.id)===el.getAttribute("data-pppage");})[0];if(!c)return;ppTogglePage(c,el.getAttribute("data-pplive")==="1");};});
 }
 async function prefetchPagesStatus(){
@@ -1419,7 +1417,7 @@ async function prefetchPagesStatus(){
   for(var i=0;i<slugs.length;i+=50){
     var batch=slugs.slice(i,i+50);
     try{ var r=await fetch(NEON_API+"/api/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"statusBulk",slugs:batch})}).then(function(x){return x.json();}); var res=(r&&r.results)||{}; batch.forEach(function(sg){ PP.pageStatus[sg]=(res[sg]&&res[sg].live)?"live":"off"; }); }catch(e){}
-    if(view==="portal"&&portalTab==="realtors") drawPagesPortal();
+    if(view==="portal"&&portalMode==="pages") drawPagesPortal();
   }
 }
 async function ppTogglePage(c,live){
@@ -1439,7 +1437,7 @@ async function ppTogglePage(c,live){
   }catch(e){ banner("Couldn’t reach the publisher."); }
 }
 /* ---------------- Referral Portal + Payouts ---------------- */
-var PORTAL=null, portalTab="payouts", portalFilter="", portalRealtorView="active";
+var PORTAL=null, portalTab="payouts", portalFilter="", portalRealtorView="active", portalMode="referral";
 var SBADGE={ "new":"#22aee4","contacted":"#ff9933","booked":"#33cc66","completed":"#e08600","lost":"#888" };
 function sbadge(s){var k=String(s||"new").toLowerCase();var c=SBADGE[k]||"#22aee4";return '<span class="sbadge" style="color:'+c+';background:'+c+'22;border:1px solid '+c+'55">'+esc((s||"new").toUpperCase())+'</span>';}
 var PAV_WRAP='width:40px;height:40px;flex:none;border-radius:50%;overflow:hidden;background:var(--surface2);display:grid;place-items:center;font-weight:800;font-size:13px;color:var(--text)';
@@ -1447,7 +1445,7 @@ var PAV_IMG='width:100%;height:100%;object-fit:cover;display:block';
 function pAvatar(c){var src=c&&(c.profilePic||c.cardImage||(typeof PHOTOS!=="undefined"&&PHOTOS[c.id]));return '<div style="'+PAV_WRAP+'">'+(src?'<img src="'+esc(src)+'" alt="" style="'+PAV_IMG+'">':esc(initials(c&&c.name||"").toUpperCase()))+'</div>';}
 function pAvatarFrom(photo,name){return '<div style="'+PAV_WRAP+'">'+(photo?'<img src="'+esc(photo)+'" alt="" style="'+PAV_IMG+'">':esc(initials(name||"").toUpperCase()))+'</div>';}
 async function renderPortal(){
-  document.getElementById("view").innerHTML='<div class="page"><div class="ph"><h2>'+gi("portal")+' Referral Portal</h2></div><div class="stub" style="height:auto;padding:30px"><div class="spin"></div></div></div>';
+  document.getElementById("view").innerHTML='<div class="page"><div class="ph"><h2>'+gi("portal")+' Pages &amp; Portal</h2></div><div class="stub" style="height:auto;padding:30px"><div class="spin"></div></div></div>';
   if(!PORTAL){
     try{
       var res=await Promise.all([
@@ -1504,7 +1502,16 @@ function drawPortal(){
   var paidList=items.filter(function(x){return x.paid;});
   var activeRealtors=PORTAL.realtors.filter(function(c){return c.portalActivatedAt;});
   var f=portalFilter.toLowerCase().trim();
-  var html='<div class="page"><div class="ph"><h2>'+gi("portal")+' Referral Portal</h2></div>';
+  var html='<div class="page"><div class="ph"><h2>'+gi("portal")+' Pages &amp; Portal</h2></div>';
+  html+='<div class="tabs" style="margin-bottom:14px">'
+    +'<div class="tab'+(portalMode==="pages"?" active":"")+'" data-pm="pages">'+gi("search")+' Landing Pages</div>'
+    +'<div class="tab'+(portalMode!=="pages"?" active":"")+'" data-pm="referral">'+gi("portal")+' Referral Portal</div></div>';
+  if(portalMode==="pages"){
+    document.getElementById("view").innerHTML=html+'<div id="ptab"><div class="stub" style="height:auto;padding:30px"><div class="spin"></div></div></div></div></div>';
+    [].forEach.call(document.querySelectorAll("[data-pm]"),function(el){el.onclick=function(){portalMode=el.getAttribute("data-pm");drawPortal();};});
+    if(PP.realtors&&PP.realtors.length){ drawPagesPortal(); } else { renderPagesPortal(); }
+    return;
+  }
   // Clickable stat tiles — each jumps to its list
   var tile=function(t,big,lbl,color){return '<div class="stat" data-go="'+t+'" style="cursor:pointer'+(portalTab===t?";outline:2px solid var(--pink);outline-offset:-2px":"")+'" title="Click to view"><div class="big"'+(color?' style="color:'+color+'"':'')+'>'+big+'</div><div class="lbl">'+lbl+'</div></div>';};
   html+='<div class="stats">'
@@ -1516,7 +1523,7 @@ function drawPortal(){
     +'<div class="tab'+(portalTab==="payouts"?" active":"")+'" data-t="payouts">Payouts Due ('+due.length+')</div>'
     +'<div class="tab'+(portalTab==="paid"?" active":"")+'" data-t="paid">Paid ('+paidList.length+')</div>'
     +'<div class="tab'+(portalTab==="leads"?" active":"")+'" data-t="leads">Leads ('+PORTAL.leads.length+')</div>'
-    +'<div class="tab'+(portalTab==="realtors"?" active":"")+'" data-t="realtors">Pages &amp; Portal ('+activeRealtors.length+')</div></div>';
+    +'<div class="tab'+(portalTab==="realtors"?" active":"")+'" data-t="realtors">Partners ('+activeRealtors.length+')</div></div>';
   html+='<div id="ptab">';
   if(portalTab==="payouts"){
     if(!due.length) html+='<div class="muted" style="padding:14px">Nothing due. When a completed job matches an active partner, it shows here.</div>';
@@ -1542,21 +1549,35 @@ function drawPortal(){
         +'<div class="meta">From '+esc(l.realtorName||"—")+(l.moveDate?' · move '+esc(String(l.moveDate).slice(0,10)):"")+(l.customerPhone?' · '+esc(l.customerPhone):"")+'</div></div>'+sbadge(l.status)+'</div></div>';
     });
   }else{
-    // Pages & Portal management (who's activated + activate/deactivate + page publish);
-    // drawPagesPortal() fills #ptab after the frame below is wired.
-    html+='<div class="stub" style="height:auto;padding:30px"><div class="spin"></div></div>';
+    // Partners — active referral partners; activate/deactivate their referral portal.
+    html+='<div class="cfilters" style="margin:0 0 12px"><select id="prView"><option value="active"'+(portalRealtorView==="active"?" selected":"")+'>Activated partners ('+activeRealtors.length+')</option><option value="all"'+(portalRealtorView==="all"?" selected":"")+'>All realtors ('+PORTAL.realtors.length+')</option></select></div>';
+    var pool=portalRealtorView==="active"?activeRealtors:PORTAL.realtors.slice();
+    pool=pool.filter(function(c){ if(!f) return true; return ((c.name||"")+" "+(c.business||"")).toLowerCase().indexOf(f)>=0; });
+    pool.sort(function(a,b){return (b.portalActivatedAt?1:0)-(a.portalActivatedAt?1:0)||String(a.name||"").localeCompare(String(b.name||""));});
+    if(!pool.length) html+='<div class="muted" style="padding:14px">'+(portalRealtorView==="active"?"No activated partners yet — activate one from their profile or the Landing Pages tab.":"No realtors.")+'</div>';
+    pool.forEach(function(c){
+      var on=!!c.portalActivatedAt, plink="https://refer.neongiantmoving.com/?r="+((typeof slugOf==="function")?slugOf(c):c.id);
+      html+='<div class="crow2" style="align-items:flex-start">'+pAvatar(c)+'<div class="meta" style="flex:1;min-width:0"><div class="nm">'+esc(c.name||"—")+'</div><div class="sub">'+esc(c.business||"")+'</div>'
+        +'<div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px;align-items:center">'
+        +'<span class="sbadge" style="color:'+(on?"#1d9e75":"#888")+';background:'+(on?"#1d9e75":"#888")+'22;border:1px solid '+(on?"#1d9e75":"#888")+'55">PORTAL '+(on?"ON":"OFF")+'</span>'
+        +'<button class="btn" data-prtoggle="'+c.id+'" style="font-size:11px;padding:3px 10px">'+(on?"Deactivate":"Activate")+'</button>'
+        +'<button class="btn" data-prcopy="'+esc(plink)+'" style="font-size:11px;padding:3px 10px">Copy referral link</button>'
+        +'<button class="btn" data-propen="'+c.id+'" style="font-size:11px;padding:3px 10px">Open profile</button>'
+        +'</div></div></div>';
+    });
   }
   html+='</div></div>';
   document.getElementById("view").innerHTML=html;
-  [].forEach.call(document.querySelectorAll(".tab"),function(el){el.onclick=function(){portalTab=el.getAttribute("data-t");drawPortal();};});
+  [].forEach.call(document.querySelectorAll("[data-pm]"),function(el){el.onclick=function(){portalMode=el.getAttribute("data-pm");drawPortal();};});
+  [].forEach.call(document.querySelectorAll(".tab[data-t]"),function(el){el.onclick=function(){portalTab=el.getAttribute("data-t");drawPortal();};});
   [].forEach.call(document.querySelectorAll("[data-go]"),function(el){el.onclick=function(){portalTab=el.getAttribute("data-go");drawPortal();};});
   var pv=document.getElementById("prView"); if(pv)pv.onchange=function(){portalRealtorView=pv.value;drawPortal();};
-  [].forEach.call(document.querySelectorAll("#ptab .crow2[data-id]"),function(el){el.onclick=function(){openContact(+el.getAttribute("data-id"));};});
-  try{ prHydratePages(); }catch(e){}
+  [].forEach.call(document.querySelectorAll("[data-prtoggle]"),function(el){el.onclick=function(){var c=(PORTAL.realtors||[]).filter(function(x){return String(x.id)===el.getAttribute("data-prtoggle");})[0];if(!c)return;Promise.resolve(c.portalActivatedAt?deactivatePortal(c):activatePortal(c)).then(function(){PORTAL=null;renderPortal();});};});
+  [].forEach.call(document.querySelectorAll("[data-prcopy]"),function(el){el.onclick=function(){try{navigator.clipboard.writeText(el.getAttribute("data-prcopy"));banner("Referral link copied.");}catch(e){}};});
+  [].forEach.call(document.querySelectorAll("[data-propen]"),function(el){el.onclick=function(){openContact(+el.getAttribute("data-propen"));};});
   [].forEach.call(document.querySelectorAll("[data-pay]"),function(el){el.onclick=function(){markPaid(el.getAttribute("data-pay"),el.getAttribute("data-partner"));};});
   [].forEach.call(document.querySelectorAll("[data-send]"),function(el){el.onclick=function(){var k=el.getAttribute("data-send");var it=due.filter(function(x){return x.key===k;})[0];if(it)sendPayoutGo(it,el);};});
   [].forEach.call(document.querySelectorAll("[data-skip]"),function(el){el.onclick=function(){skipPayout(el.getAttribute("data-skip"),el.getAttribute("data-qid"),el.getAttribute("data-partner"),el.getAttribute("data-customer"));};});
-  if(portalTab==="realtors"){ if(PP.realtors&&PP.realtors.length){ drawPagesPortal(); } else { renderPagesPortal(); } }
 }
 async function prHydratePages(){
   var chips=[].slice.call(document.querySelectorAll("#ptab [data-pagechip]"));
