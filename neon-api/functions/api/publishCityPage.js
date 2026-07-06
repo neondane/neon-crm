@@ -325,6 +325,254 @@ export const CITY_DATA = {
       { name: 'Custer', slug: 'custer-wa' },
       { name: 'Everson', slug: 'everson-wa' }
     ]
+  },
+
+  'lynden-wa': {
+    slug: 'lynden-wa',
+    city: 'Lynden',
+    county: 'Whatcom County',
+    mapQuery: 'Lynden, WA',
+    lat: 48.9465, lng: -122.4522,
+    lead: 'Local, family-run moving and junk removal, from the historic Front Street windmill to the new builds out along the Guide. Big moves, bright attitude, zero stress.',
+    introHeading: 'We know every corner of Lynden',
+    intro: [
+      'Lynden sits about 15 minutes northeast of Bellingham up the <b style="color:#f4f6f9">Guide Meridian (SR 539)</b>, close enough that our crews treat it as a short, efficient run rather than a long haul you end up paying for. Downtown is built on the old grid around <b style="color:#f4f6f9">Front Street and Grover</b>, where the Dutch storefronts and the windmill sit on tight blocks with limited parking, so local know-how matters on move day.',
+      'We move every part of town: the older homes on the downtown grid near <b style="color:#f4f6f9">City Park and the Jim Kaemingk Trail</b>, the newer subdivisions filling in on the east and north sides past <b style="color:#f4f6f9">Bender and Depot Road</b>, and the dairy and berry acreage that rings the city out toward <b style="color:#f4f6f9">Berthusen Park, Northwood, and the Everson line</b>. On those farm parcels you get long gravel driveways, barns, and outbuildings, and we plan access and floor protection before the truck ever rolls.',
+      'A lot of our Lynden moves are families upsizing into new construction, farm and ag families relocating around the season, and cross-border commuters, since the <b style="color:#f4f6f9">Lynden-Aldergrove border crossing</b> is only about five miles up the Guide. Fair week in August packs Front Street and the fairgrounds for the <b style="color:#f4f6f9">Northwest Washington Fair</b>, so we schedule around the crowds and closures to keep your move on time.'
+    ],
+    areas: ['Downtown & Front Street', 'Grover Street', 'City Park', 'Jim Kaemingk Trail', 'Bender Road', 'Depot Road', 'Berthusen', 'Northwood', 'Fairway', 'Guide Meridian corridor'],
+    costFactors: [
+      { t: 'How far we travel.', d: 'Lynden is a short run up the Guide from our Bellingham-Burlington base, so you are not paying for long drive time.' },
+      { t: 'Home size.', d: 'Studio to five-bedroom farmhouse, how much there is to load is the biggest factor.' },
+      { t: 'Access.', d: 'A long gravel driveway on the dairy acreage, or tight parking on the downtown grid near Front Street, can add shuttle or carry time.' },
+      { t: 'Stairs & parking.', d: 'Older two-story homes downtown and limited street parking add handling time.' },
+      { t: 'Packing.', d: 'Full-service packing vs. you-pack, plus materials.' },
+      { t: 'Timing.', d: 'Fair week in August and month-end weekends book up first, flexible dates save money.' }
+    ],
+    faqs: [
+      { q: 'Do you move the older homes on the downtown grid near Front Street?', a: 'Yes. Those blocks have tight parking and plenty of stairs, so we plan the truck size and carry path ahead of time. Tell us the address when you book.' },
+      { q: 'Can you handle a farm or acreage move out toward Berthusen or the Everson line?', a: 'Absolutely. Long gravel driveways, barns, and outbuildings are routine for us, and we bring the right trucks and dollies for the ground.' },
+      { q: 'We are only moving from Lynden to Bellingham, is that worth booking a crew?', a: 'Definitely. It is about a 15-minute run down the Guide, which keeps it one of the more affordable moves we do.' },
+      { q: 'Do you work around the border and cross-border schedules?', a: 'We do. The Lynden-Aldergrove crossing is close, and we build the crew around your window, early starts and odd days included.' },
+      { q: 'Can you also haul away junk when we move?', a: 'Yes. We will clear the garage, old furniture, or barn junk the same day as your move, moving and junk removal in one stop.' },
+      { q: 'Can you schedule around Northwest Washington Fair week?', a: 'Yes, and we recommend it. Front Street and the fairgrounds get packed in August, so we plan routes and timing around the crowds.' }
+    ],
+    junkLine: 'From garage cleanouts near City Park to barn and remodel debris out on the acreage, our crews remove and dispose of whatever you are not taking, same visit, same bright crew. Moving and junk removal in one stop.',
+    // TODO: drop in a REAL Lynden-area Google review + a REAL crew photo from a Lynden job.
+    localReview: null,
+    localPhoto: null,
+    neighbors: [
+      { name: 'Bellingham', slug: 'bellingham-wa' },
+      { name: 'Ferndale', slug: 'ferndale-wa' },
+      { name: 'Everson', slug: 'everson-wa' },
+      { name: 'Nooksack', slug: 'nooksack-wa' },
+      { name: 'Sumas', slug: 'sumas-wa' },
+      { name: 'Blaine', slug: 'blaine-wa' }
+    ]
+  },
+
+  'blaine-wa': {
+    slug: 'blaine-wa',
+    city: 'Blaine',
+    county: 'Whatcom County',
+    mapQuery: 'Blaine, WA',
+    lat: 48.9937, lng: -122.7466,
+    lead: 'Local, family-run moving and junk removal, from the Semiahmoo waterfront to the neighborhoods above Peace Portal. Big moves, bright attitude, zero stress.',
+    introHeading: 'We know every corner of Blaine',
+    intro: [
+      'Blaine sits at the very top of I-5 where the freeway meets the Canadian border, wrapped around <b style="color:#f4f6f9">Drayton Harbor</b>. Our crews run straight up I-5 from the Bellingham-Burlington corridor, so a Blaine job is a short, efficient haul rather than the all-day trip the distance on a map might suggest. Being a true border town shapes move day here, from crossing traffic to the seasonal rhythm of the waterfront.',
+      'We move every part of town: the older Victorian and cottage homes downtown near <b style="color:#f4f6f9">Peace Portal Drive and the Salishan neighborhood</b>, the marina-side condos and townhomes along <b style="color:#f4f6f9">Marine Drive and Blaine Harbor</b>, and the luxury waterfront homes out on <b style="color:#f4f6f9">Semiahmoo Spit</b>, where the gated resort roads and narrow spit lanes often mean we plan the carry and sometimes shuttle with a smaller truck. Inland along <b style="color:#f4f6f9">H Street and Boblett</b> you are into newer subdivisions and some acreage.',
+      'A lot of our Blaine moves are cross-border relocations, seasonal and second-home owners on the water at Semiahmoo and nearby <b style="color:#f4f6f9">Birch Bay</b>, and retirees right-sizing into the condos near the harbor. Winter brings wind and salt air off the bay, so we pad, wrap, and protect against the weather, and we plan around <b style="color:#f4f6f9">Peace Arch crossing</b> traffic so your move stays on schedule.'
+    ],
+    areas: ['Downtown & Peace Portal', 'Marine Drive', 'Blaine Harbor', 'Semiahmoo Spit', 'Salishan', 'Drayton Harbor', 'H Street Road', 'Boblett', 'Birch Bay line', 'Peace Arch'],
+    costFactors: [
+      { t: 'How far we travel.', d: 'Blaine is a straight shot up I-5 from our base, so you are not paying for guesswork on drive time.' },
+      { t: 'Home size.', d: 'Studio condo to waterfront estate, how much there is to load is the biggest factor.' },
+      { t: 'Access.', d: 'Semiahmoo spit lanes, gated resort roads, or a marina-side condo with elevators and loading zones can add shuttle or carry time.' },
+      { t: 'Stairs & parking.', d: 'Older downtown homes near Peace Portal and multi-level condos add handling time.' },
+      { t: 'Packing.', d: 'Full-service packing vs. you-pack, plus materials.' },
+      { t: 'Timing.', d: 'Summer and month-end weekends book up first, and cross-border moves need extra planning, so flexible dates save money.' }
+    ],
+    faqs: [
+      { q: 'Do you move the waterfront homes out on Semiahmoo Spit?', a: 'Yes. The spit lanes and gated resort roads are tight, so we plan the carry and often bring a smaller shuttle truck. Give us the address when you book and we will scope access first.' },
+      { q: 'Can you handle a condo move near Blaine Harbor or Marine Drive with elevators and loading zones?', a: 'Absolutely. Marina-side condos are routine for us, and we coordinate elevators, loading zones, and HOA move windows ahead of time.' },
+      { q: 'We are doing a cross-border move through the Peace Arch, can you help?', a: 'We handle the Washington side of the move and plan around crossing traffic. For anything crossing into Canada we coordinate timing with you so nothing sits waiting at the border.' },
+      { q: 'Do you move out to Birch Bay too?', a: 'Yes. Birch Bay is right next door, and we move the resort homes, mobile parks, and year-round houses there all the time.' },
+      { q: 'Can you also haul away junk when we move?', a: 'Yes. We will clear the garage, old furniture, or yard and dock debris the same day as your move, moving and junk removal in one stop.' },
+      { q: 'Do you move in winter when the wind and salt air come off the bay?', a: 'Year-round. We pad, wrap, and protect against the weather and keep move day on schedule.' }
+    ],
+    junkLine: 'From condo cleanouts near Blaine Harbor to yard and dock debris out toward Semiahmoo, our crews remove and dispose of whatever you are not taking, same visit, same bright crew. Moving and junk removal in one stop.',
+    // TODO: drop in a REAL Blaine-area Google review + a REAL crew photo from a Blaine job.
+    localReview: null,
+    localPhoto: null,
+    neighbors: [
+      { name: 'Birch Bay', slug: 'birch-bay-wa' },
+      { name: 'Custer', slug: 'custer-wa' },
+      { name: 'Ferndale', slug: 'ferndale-wa' },
+      { name: 'Lynden', slug: 'lynden-wa' },
+      { name: 'Bellingham', slug: 'bellingham-wa' }
+    ]
+  },
+
+  'anacortes-wa': {
+    slug: 'anacortes-wa',
+    city: 'Anacortes',
+    county: 'Skagit County',
+    mapQuery: 'Anacortes, WA',
+    lat: 48.5126, lng: -122.6127,
+    lead: 'Local, family-run moving and junk removal on Fidalgo Island, from the Cap Sante waterfront to Skyline and Old Town. Big moves, bright attitude, zero stress.',
+    introHeading: 'We know every corner of Anacortes',
+    intro: [
+      'Anacortes sits out on the north end of <b style="color:#f4f6f9">Fidalgo Island</b>, reached by the <b style="color:#f4f6f9">SR 20 bridge over the Swinomish Channel</b>, so every move here has an island rhythm to it even though you never wait for a ferry to reach town. Neon Giant runs Anacortes constantly from our Skagit base, and knowing the bridge, the tight downtown blocks, and the waterfront access is what keeps an Anacortes move on schedule.',
+      'We move every part of the island: the luxury waterfront homes and marina condos out on <b style="color:#f4f6f9">Cap Sante</b> and around Old Town, the view homes on <b style="color:#f4f6f9">Skyline and Rock Ridge</b> on the west side near Washington Park and the marinas, the historic places downtown off <b style="color:#f4f6f9">Commercial Avenue</b>, and the newer builds out toward <b style="color:#f4f6f9">March Point</b>. Waterfront and marina moves mean docks, ramps, tides, and sometimes a long carry, and we scope all of that before the truck rolls.',
+      'A lot of our Anacortes moves are folks retiring or right-sizing to the water, boaters and second-home owners, and <b style="color:#f4f6f9">Marathon and HF Sinclair refinery</b> families relocating on shift schedules. Salt air and wind off Guemes Channel and Rosario Strait are part of the deal out here, so we pad, wrap, and protect against the weather year-round.'
+    ],
+    areas: ['Cap Sante', 'Old Town', 'Commercial Avenue', 'Skyline', 'Rock Ridge', 'Washington Park', 'March Point', 'Ship Harbor', 'Guemes Channel waterfront', 'Fidalgo Island'],
+    costFactors: [
+      { t: 'How far we travel.', d: 'Anacortes is a routine run from our Skagit base over the SR 20 bridge, so you are not paying for a long haul.' },
+      { t: 'Home size.', d: 'Studio condo to waterfront estate, how much there is to load is the biggest factor.' },
+      { t: 'Access.', d: 'Cap Sante and Skyline waterfront homes, marina docks, and tight Old Town streets can add ramp, dock, or carry time.' },
+      { t: 'Stairs & parking.', d: 'Multi-level view homes and narrow downtown blocks off Commercial add handling time.' },
+      { t: 'Packing.', d: 'Full-service packing vs. you-pack, plus materials.' },
+      { t: 'Timing.', d: 'Summer and month-end weekends book up first, flexible dates save money.' }
+    ],
+    faqs: [
+      { q: 'Do you move the waterfront and marina homes around Cap Sante?', a: 'Yes. Waterfront and dock access, ramps, and tides are routine for us, and we plan the carry and truck placement ahead of time. Give us the address when you book.' },
+      { q: 'Can you handle a Skyline or Washington Park move on the west end of Fidalgo?', a: 'Absolutely. We move that side of the island all the time, including view homes with long driveways and multiple levels.' },
+      { q: 'Do you work around Marathon and HF Sinclair refinery shift schedules at March Point?', a: 'We do. Early starts, weekends, and odd days are no problem, just tell us your window and we build the crew around it.' },
+      { q: 'We are moving within Anacortes or over to Mount Vernon or Burlington, is that worth a crew?', a: 'Definitely. Short island-to-mainland hops over the bridge are some of the more affordable moves we do, same care, short drive.' },
+      { q: 'Can you also haul away junk when we move?', a: 'Yes. We will clear the garage, old furniture, or dock and yard debris the same day as your move, moving and junk removal in one stop.' },
+      { q: 'Do you move in winter with the wind and salt air off the channel?', a: 'Year-round. We pad, wrap, and protect against the weather and keep move day on schedule.' }
+    ],
+    junkLine: 'From garage cleanouts in Old Town to dock and yard debris out on Skyline, our crews remove and dispose of whatever you are not taking, same visit, same bright crew. Moving and junk removal in one stop.',
+    localReview: null,
+    localPhoto: null,
+    neighbors: [
+      { name: 'La Conner', slug: 'la-conner-wa' },
+      { name: 'Mount Vernon', slug: 'mount-vernon-wa' },
+      { name: 'Burlington', slug: 'burlington-wa' },
+      { name: 'Sedro-Woolley', slug: 'sedro-woolley-wa' }
+    ]
+  },
+
+  'orcas-island-wa': {
+    slug: 'orcas-island-wa',
+    city: 'Orcas Island',
+    county: 'San Juan County',
+    mapQuery: 'Orcas Island, WA',
+    lat: 48.6968, lng: -122.9126,
+    lead: 'Ferry-served moving and junk removal across Orcas Island, from the ferry landing to Eastsound, Deer Harbor, and Doe Bay. Big moves, bright attitude, zero stress.',
+    introHeading: 'We know every corner of Orcas Island',
+    intro: [
+      'An Orcas Island move starts at the <b style="color:#f4f6f9">Anacortes ferry terminal</b>, and that is exactly where island know-how earns its keep. We book our truck onto a Washington State Ferries sailing ahead of time, since vehicle reservations for the San Juans go fast and release in waves two months, two weeks, and two days out, and we check the rig in at least 30 minutes early so nothing gets bumped. Getting the crew, the truck, and your belongings across on the same schedule is the whole game on Orcas, and we plan it down to the sailing.',
+      'Once we roll off at <b style="color:#f4f6f9">Orcas Village</b>, the island opens up: the shops and homes around <b style="color:#f4f6f9">Eastsound</b> about eight miles north, the west-side waterfront out at <b style="color:#f4f6f9">Deer Harbor and West Sound</b>, the quiet south end near <b style="color:#f4f6f9">Olga and Rosario</b>, and the far east end at <b style="color:#f4f6f9">Doe Bay</b> below Moran State Park and Mount Constitution. The roads here wind, climb, and narrow, so we bring the right truck for the driveway and plan the carry before we ever leave the dock.',
+      'A lot of our Orcas moves are folks settling into second homes and waterfront retirements, seasonal owners timing a move around the summer rush, and island families right-sizing. Because every trip on and off is a ferry, we pack tight, protect for the crossing, and often knock out the whole move in one well-planned run rather than nickel-and-diming you on repeat sailings.'
+    ],
+    areas: ['Orcas Village (ferry landing)', 'Eastsound', 'Deer Harbor', 'West Sound', 'Olga', 'Rosario', 'Doe Bay', 'Moran State Park area', 'Crow Valley', 'Obstruction Pass'],
+    costFactors: [
+      { t: 'The ferry.', d: 'A moving truck rides as an oversized vehicle on a reserved sailing, so ferry fare and timing are part of an island quote. We book it into the plan.' },
+      { t: 'How far we travel.', d: 'We stage from our Skagit base and the Anacortes terminal, so we time the crew to the sailing, not just the clock.' },
+      { t: 'Home size.', d: 'Studio to waterfront estate, how much there is to load drives the number.' },
+      { t: 'Access.', d: 'Winding island roads, long private drives near Deer Harbor or Doe Bay, and waterfront carries add handling time.' },
+      { t: 'Packing.', d: 'We often recommend full-service packing on island moves so everything travels safely in one trip.' },
+      { t: 'Timing.', d: 'Summer sailings and reservations fill fast, so booking early saves money and stress.' }
+    ],
+    faqs: [
+      { q: 'Do you really bring a truck over on the ferry to Orcas?', a: 'Yes. We reserve a Washington State Ferries sailing for the truck out of Anacortes, check in early, and bring the crew across with it. Island moves are a core part of what we do.' },
+      { q: 'How do the ferry reservations work for a move?', a: 'We handle them. San Juan vehicle reservations release two months, two weeks, and two days before sailing, and we book the truck into a slot as soon as your date is set.' },
+      { q: 'Can you reach the far ends like Deer Harbor, Doe Bay, or Olga?', a: 'Absolutely. We move the whole island, west side to east end, and we bring the right truck for the winding roads and long drives.' },
+      { q: 'Is an island move a lot more expensive?', a: 'It costs more than a mainland move because of the ferry and the time, but we plan it as one efficient trip so you are not paying for repeat sailings.' },
+      { q: 'Can you also haul away junk on Orcas?', a: 'Yes. We will clear out what you are not taking and handle disposal, so it never has to ride the ferry with you.' },
+      { q: 'How far ahead should we book an Orcas move?', a: 'The earlier the better, especially in summer. Ferry slots and crews both fill up, so once you have a date, let us lock it in.' }
+    ],
+    junkLine: 'From an Eastsound garage cleanout to debris after a remodel out toward Doe Bay, our crews clear and dispose of whatever you are not taking, so it never has to ride the ferry with you. Moving and junk removal in one stop.',
+    localReview: null,
+    localPhoto: null,
+    neighbors: [
+      { name: 'San Juan Island', slug: 'san-juan-island-wa' },
+      { name: 'Lopez Island', slug: 'lopez-island-wa' },
+      { name: 'Anacortes', slug: 'anacortes-wa' }
+    ]
+  },
+
+  'san-juan-island-wa': {
+    slug: 'san-juan-island-wa',
+    city: 'San Juan Island',
+    county: 'San Juan County',
+    mapQuery: 'Friday Harbor, WA',
+    lat: 48.5343, lng: -123.0170,
+    lead: 'Ferry-served moving and junk removal across San Juan Island, from Friday Harbor to Roche Harbor and Cattle Point. Big moves, bright attitude, zero stress.',
+    introHeading: 'We know every corner of San Juan Island',
+    intro: [
+      'A San Juan Island move runs through the <b style="color:#f4f6f9">Anacortes ferry terminal</b> and lands at <b style="color:#f4f6f9">Friday Harbor</b>, the farthest of the main stops, so timing is everything. We reserve our truck onto a Washington State Ferries sailing ahead of time, since San Juan vehicle reservations release in waves and fill fast, and we check in at least 30 minutes early so the rig makes the boat. Coordinating the crew, the truck, and your belongings onto the same sailing is exactly the part island moves live or die on, and it is what we do.',
+      'Friday Harbor is the island hub, walkable and busy right off the dock, and from there we reach the whole island: the resort and marina homes up at <b style="color:#f4f6f9">Roche Harbor</b> on the north end, the waterfront and farmland out toward <b style="color:#f4f6f9">Cattle Point and American Camp</b> on the south, the west-side homes near <b style="color:#f4f6f9">Lime Kiln and False Bay</b>, and everything on the lanes in between. Narrow roads and long private drives are the norm, so we scope access and bring the right truck before we leave the dock.',
+      'Many of our San Juan moves are second-home and retirement moves on the water, seasonal owners working around the summer crush, and island families changing homes. Since every load crosses by ferry, we pack tight, protect for the crossing, and plan the move as one clean run instead of stringing you along over multiple sailings.'
+    ],
+    areas: ['Friday Harbor (ferry landing)', 'Roche Harbor', 'Cattle Point', 'American Camp', 'English Camp', 'Lime Kiln', 'False Bay', 'Turn Point', 'Sportsman Lake', 'Westside Road'],
+    costFactors: [
+      { t: 'The ferry.', d: 'A moving truck crosses as an oversized vehicle on a reserved Anacortes sailing to Friday Harbor, so ferry fare and timing are built into an island quote.' },
+      { t: 'How far we travel.', d: 'We stage from our Skagit base and the Anacortes terminal and time the crew to the sailing.' },
+      { t: 'Home size.', d: 'Studio to waterfront estate, how much there is to load drives the number.' },
+      { t: 'Access.', d: 'Long private drives near Roche Harbor or Cattle Point and waterfront carries add handling time.' },
+      { t: 'Packing.', d: 'We often recommend full-service packing so everything travels safely in one crossing.' },
+      { t: 'Timing.', d: 'Summer sailings and reservations fill fast, so booking early saves money and stress.' }
+    ],
+    faqs: [
+      { q: 'Do you bring a truck across to Friday Harbor?', a: 'Yes. We reserve a Washington State Ferries sailing for the truck out of Anacortes to Friday Harbor and bring the crew with it. San Juan Island moves are a core part of what we do.' },
+      { q: 'Who handles the ferry reservations?', a: 'We do. Reservations release two months, two weeks, and two days before sailing, and we book the truck into a slot as soon as your date is set.' },
+      { q: 'Can you reach Roche Harbor and the south end near Cattle Point?', a: 'Absolutely. We move the whole island, north end to south, and bring the right truck for the narrow roads and long drives.' },
+      { q: 'Why does an island move cost more?', a: 'The ferry crossing and the extra time add cost versus a mainland move, but we plan one efficient trip so you are not paying for repeat sailings.' },
+      { q: 'Can you haul junk away on San Juan Island?', a: 'Yes. We clear what you are not taking and handle disposal so it never has to ride the ferry back with you.' },
+      { q: 'How early should we book?', a: 'As early as you can, especially in summer, when ferry slots and crews both fill up. Once you have a date, we lock it in.' }
+    ],
+    junkLine: 'From a Friday Harbor garage cleanout to remodel debris out toward Roche Harbor, our crews clear and dispose of whatever you are not taking, so it never rides the ferry with you. Moving and junk removal in one stop.',
+    localReview: null,
+    localPhoto: null,
+    neighbors: [
+      { name: 'Orcas Island', slug: 'orcas-island-wa' },
+      { name: 'Lopez Island', slug: 'lopez-island-wa' },
+      { name: 'Anacortes', slug: 'anacortes-wa' }
+    ]
+  },
+
+  'lopez-island-wa': {
+    slug: 'lopez-island-wa',
+    city: 'Lopez Island',
+    county: 'San Juan County',
+    mapQuery: 'Lopez Island, WA',
+    lat: 48.4815, lng: -122.8987,
+    lead: 'Ferry-served moving and junk removal across Lopez Island, from the north-end ferry landing to Lopez Village and Fisherman Bay. Big moves, bright attitude, zero stress.',
+    introHeading: 'We know every corner of Lopez Island',
+    intro: [
+      'A Lopez Island move begins at the <b style="color:#f4f6f9">Anacortes ferry terminal</b>, and Lopez is the first San Juan stop, about a 45-minute crossing. We reserve our truck onto a Washington State Ferries sailing ahead of time, because San Juan vehicle reservations release in waves and go quickly, and we check in at least 30 minutes early so the rig makes the boat. One thing to know: eastbound sailings off Lopez load first-come with no reservations, so the return leg takes planning too, and we build that into the schedule.',
+      'The ferry lands at the far north end near <b style="color:#f4f6f9">Upright Head and Odlin Park</b>, and the island rolls out flat and open from there, which Lopez is loved for. Most of the activity is around <b style="color:#f4f6f9">Lopez Village</b> and <b style="color:#f4f6f9">Fisherman Bay</b> about four miles down, with farmland, shoreline homes, and long country lanes spreading south toward <b style="color:#f4f6f9">Mud Bay and Mackaye Harbor</b>. The flat roads make Lopez one of the more straightforward islands to move, once the truck is across.',
+      'A lot of our Lopez moves are folks settling onto farmland and waterfront, retirees and second-home owners, and island families relocating within the island. Because every load rides the ferry, we pack tight, protect for the crossing, and plan the whole move as one efficient run.'
+    ],
+    areas: ['Ferry Landing & Upright Head', 'Odlin Park', 'Lopez Village', 'Fisherman Bay', 'Mud Bay', 'Mackaye Harbor', 'Richardson', 'Center Road', 'Port Stanley', 'Shark Reef'],
+    costFactors: [
+      { t: 'The ferry.', d: 'A moving truck crosses as an oversized vehicle on a reserved Anacortes sailing, and the eastbound return off Lopez is first-come, so ferry timing is part of an island quote.' },
+      { t: 'How far we travel.', d: 'We stage from our Skagit base and the Anacortes terminal and time the crew to the sailing.' },
+      { t: 'Home size.', d: 'Studio to waterfront estate, how much there is to load drives the number.' },
+      { t: 'Access.', d: 'Long country lanes and farm or shoreline driveways can add carry time, though the flat roads on Lopez help.' },
+      { t: 'Packing.', d: 'We often recommend full-service packing so everything travels safely in one crossing.' },
+      { t: 'Timing.', d: 'Summer sailings and reservations fill fast, so booking early saves money and stress.' }
+    ],
+    faqs: [
+      { q: 'Do you bring a truck over to Lopez on the ferry?', a: 'Yes. We reserve a Washington State Ferries sailing for the truck out of Anacortes to Lopez and bring the crew with it. Island moves are a core part of what we do.' },
+      { q: 'How do ferry reservations work for a Lopez move?', a: 'We handle them. Westbound to Lopez we reserve a slot as soon as your date is set, and because eastbound off Lopez is first-come, we plan the return leg around the sailings too.' },
+      { q: 'Can you reach the south end near Mackaye Harbor and Richardson?', a: 'Absolutely. We move the whole island, from the village down to the south end, and the flat roads make it one of the smoother islands once the truck is across.' },
+      { q: 'Why does an island move cost more?', a: 'The ferry crossing and extra time add cost versus a mainland move, but Lopez is efficient once we are across, and we plan one clean trip.' },
+      { q: 'Can you haul junk away on Lopez?', a: 'Yes. We clear what you are not taking and handle disposal so it never has to ride the ferry back with you.' },
+      { q: 'How early should we book a Lopez move?', a: 'As early as possible, especially in summer, when ferry slots and crews fill up fast. Once you have a date, we lock it in.' }
+    ],
+    junkLine: 'From a Lopez Village garage cleanout to debris out toward Mud Bay, our crews clear and dispose of whatever you are not taking, so it never rides the ferry with you. Moving and junk removal in one stop.',
+    localReview: null,
+    localPhoto: null,
+    neighbors: [
+      { name: 'Orcas Island', slug: 'orcas-island-wa' },
+      { name: 'San Juan Island', slug: 'san-juan-island-wa' },
+      { name: 'Anacortes', slug: 'anacortes-wa' }
+    ]
   }
 };
 
