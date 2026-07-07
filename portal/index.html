@@ -162,6 +162,49 @@
     <div class="fine">On every completed move over $1,000</div>
   </div>
 
+  <!-- ===== Realtor signup form (emails the team via WordPress endpoint) ===== -->
+  <style>
+  .signup-card{padding:24px 20px;border-radius:18px;background:linear-gradient(135deg,rgba(34,191,231,0.10),rgba(255,20,147,0.10)),rgba(13,0,20,0.65);border:1px solid rgba(34,191,231,0.35);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 0 32px rgba(34,191,231,0.12)}
+  .signup-intro{font-size:14px;color:#cfcfe0;line-height:1.6;margin:0 0 16px;text-align:center}
+  .signup-hp{position:absolute!important;left:-9999px!important;width:1px;height:1px;opacity:0}
+  .signup-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+  @media(max-width:480px){.signup-row{grid-template-columns:1fr}}
+  .signup-card input,.signup-card textarea{width:100%;background:rgba(0,0,0,0.42);border:1px solid rgba(34,191,231,0.25);border-radius:11px;color:#fff;padding:13px 14px;font-family:'Space Grotesk',sans-serif;font-size:15px;box-sizing:border-box;transition:border-color .25s,box-shadow .25s}
+  .signup-card input::placeholder,.signup-card textarea::placeholder{color:#6d6d85}
+  .signup-card input:focus,.signup-card textarea:focus{outline:none;border-color:var(--neon-cyan);box-shadow:0 0 14px rgba(34,191,231,0.3)}
+  .signup-card textarea{margin-bottom:14px;resize:vertical;min-height:54px}
+  .signup-card button{width:100%;border:none;cursor:pointer;margin-top:2px}
+  </style>
+  <div class="section" id="signup">
+    <div class="eyebrow reveal">Two Minutes</div>
+    <h2 class="reveal">Become a Partner</h2>
+    <form class="signup-card reveal" onsubmit="return ngRealtorSubmit(event)">
+      <p class="signup-intro">Drop your info and we'll set you up with your own referral link and dashboard, so you can send moves, track every one live, and see when you get paid.</p>
+      <input type="text" name="company_website" tabindex="-1" autocomplete="off" aria-hidden="true" class="signup-hp">
+      <div class="signup-row">
+        <input name="name" required placeholder="Your name" autocomplete="name">
+        <input name="brokerage" placeholder="Brokerage / company" autocomplete="organization">
+      </div>
+      <div class="signup-row">
+        <input name="email" type="email" required placeholder="Email" autocomplete="email">
+        <input name="phone" type="tel" placeholder="Phone" autocomplete="tel">
+      </div>
+      <textarea name="message" rows="2" placeholder="Areas you work, or anything else? (optional)"></textarea>
+      <button type="submit" class="cta primary">Sign Me Up &rarr;</button>
+    </form>
+  </div>
+  <script>
+  function ngRealtorSubmit(e){
+    e.preventDefault();
+    var f=e.target, data=new URLSearchParams();
+    ['name','brokerage','email','phone','message','company_website'].forEach(function(k){var el=f.elements[k]; if(el) data.append(k, el.value);});
+    var btn=f.querySelector('button'); btn.textContent='Sending…'; btn.disabled=true;
+    var done=function(){ f.innerHTML='<div style="text-align:center;padding:14px 4px"><div style="font-family:\'Audiowide\',cursive;font-size:20px;color:var(--neon-cyan);text-shadow:0 0 12px rgba(34,191,231,0.5)">You\'re in!</div><p style="color:#cfcfe0;font-size:14px;margin:12px 0 0;line-height:1.6">We\'ll reach out shortly to set up your personal referral link and dashboard so you can track everything. Thanks!</p></div>'; };
+    fetch('https://neongiantmoving.com/wp-json/neon/v1/realtor-signup',{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:data.toString()}).then(done).catch(done);
+    return false;
+  }
+  </script>
+
   <div class="section">
     <div class="eyebrow reveal">Dead Simple</div>
     <h2 class="reveal">How It Works</h2>
