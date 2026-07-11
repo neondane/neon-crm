@@ -90,7 +90,19 @@ export async function onRequestPost({ request, env }) {
   // SmartMoving "full address" field (back-compat with older originZip names).
   const originFull = String(b.originAddress || b.origin || b.originZip || '').trim();
   const destFull   = String(b.destinationAddress || b.destination || b.destinationZip || '').trim();
-  const referral   = String(b.referralSource || '').trim();
+  // Ad-driven leads: the real ad campaign becomes the SmartMoving "source", overriding the
+  // manual "how did you hear about us" pick. Falls back to Google Ads when only a click id is present.
+  // The customer's manual pick is preserved in the notes so nothing is lost.
+  let referral      = String(b.referralSource || '').trim();
+  const utmCampaign = String(b.utmCampaign || '').trim();
+  const gclidVal    = String(b.gclid || '').trim();
+  let sourceNote    = '';
+  if (utmCampaign) {
+    if (referral) sourceNote = 'Customer picked: ' + referral + '. ';
+    referral = utmCampaign;
+  } else if (gclidVal && !referral) {
+    referral = 'Google Ads';
+  }
 
   const payload = {
     firstName: firstName,
@@ -101,7 +113,7 @@ export async function onRequestPost({ request, env }) {
     serviceType: String(b.serviceType || '').trim(),
     moveSize: String(b.moveSize || '').trim(),
     moveDate: String(b.moveDate || '').replace(/-/g, ''), // YYYY-MM-DD -> YYYYMMDD
-    notes: String(b.notes || '').trim(),
+    notes: (sourceNote + String(b.notes || '')).trim(),
     utmSource: String(b.utmSource || '').trim(),
     utmMedium: String(b.utmMedium || '').trim(),
     utmCampaign: String(b.utmCampaign || '').trim(),
