@@ -61,6 +61,42 @@ function json(body, status, origin) {
   });
 }
 
+// Turn a raw ad campaign (e.g. "S9 - NG Main FB Campaign") into a clean
+// SmartMoving "source" label like "Facebook: NG Main FB". Tags the platform
+// from utm_source, strips a leading internal code, tidies dashes/underscores,
+// and drops the redundant word "Campaign".
+function prettifyPlatform(src) {
+  var s = String(src || '').toLowerCase();
+  if (/facebook|instagram|\bfb\b|\big\b|meta/.test(s)) return 'Facebook';
+  if (/google|adwords|gclid|youtube/.test(s)) return 'Google';
+  if (/chatgpt|openai|\boai\b/.test(s)) return 'ChatGPT';
+  if (/bing|microsoft/.test(s)) return 'Bing';
+  if (/tiktok/.test(s)) return 'TikTok';
+  if (/linkedin/.test(s)) return 'LinkedIn';
+  if (/yelp/.test(s)) return 'Yelp';
+  if (!s) return '';
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function prettifyCampaign(name) {
+  var c = String(name || '').trim();
+  if (!c) return '';
+  c = c.replace(/^[A-Za-z]{0,3}\d+[A-Za-z]{0,2}\s*[-–—:_]+\s*/, ''); // drop leading code "S9 - "
+  c = c.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();          // separators -> spaces
+  var words = c.split(' ').filter(function (w) { return w && !/^campaign$/i.test(w); });
+  if (!words.length) words = c.split(' ');                            // never blank it out
+  return words.map(function (w) {
+    return /[A-Z]/.test(w) ? w : (w.charAt(0).toUpperCase() + w.slice(1));
+  }).join(' ');
+}
+
+function prettySource(src, campaign) {
+  var plat = prettifyPlatform(src);
+  var camp = prettifyCampaign(campaign);
+  if (plat && camp) return plat + ': ' + camp;
+  return camp || plat;
+}
+
 export async function onRequestOptions({ request }) {
   return new Response(null, { status: 204, headers: corsHeaders(request.headers.get('Origin')) });
 }
@@ -104,13 +140,14 @@ export async function onRequestPost(context) {
   // Ad-driven leads: the real ad campaign becomes the SmartMoving "source", overriding the
   // manual "how did you hear about us" pick. Falls back to Google Ads when only a click id is present.
   // The customer's manual pick is preserved in the notes so nothing is lost.
+  const utmSource   = String(b.utmSource || '').trim();
   let referral      = String(b.referralSource || '').trim();
   const utmCampaign = String(b.utmCampaign || '').trim();
   const gclidVal    = String(b.gclid || '').trim();
   let sourceNote    = '';
   if (utmCampaign) {
     if (referral) sourceNote = 'Customer picked: ' + referral + '. ';
-    referral = utmCampaign;
+    referral = prettySource(utmSource, utmCampaign); // clean "Platform: Campaign" label
   } else if (gclidVal && !referral) {
     referral = 'Google Ads';
   }
