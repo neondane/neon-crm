@@ -16,6 +16,11 @@
  *       View Instructions. (The LEAD provider key, NOT the Open API key.)
  *   SM_LEAD_BRANCH_ID         (optional) — only set to force a specific branch;
  *       otherwise the "Your Website" provider routes to your primary branch.
+ *   OPENAI_ADS_PIXEL_ID       (optional) — ChatGPT/OpenAI Ads Pixel ID. Set this
+ *       AND OPENAI_ADS_CAPI_KEY to send a server-side "lead_created" conversion to
+ *       OpenAI Ads (Conversions API) on each quote. Provision both from Ads Manager
+ *       -> Conversions -> Conversion keys. If either is unset, the send is skipped.
+ *   OPENAI_ADS_CAPI_KEY       (optional) — OpenAI Ads Conversions API bearer key.
  *
  * Address fields accept a full street address OR a postal code; we send them as
  * SmartMoving's "AddressFull" fields, which it geocodes/parses.
@@ -60,7 +65,8 @@ export async function onRequestOptions({ request }) {
   return new Response(null, { status: 204, headers: corsHeaders(request.headers.get('Origin')) });
 }
 
-export async function onRequestPost({ request, env }) {
+export async function onRequestPost(context) {
+  const { request, env } = context;
   const origin = request.headers.get('Origin') || '';
 
   const providerKey = env.SMARTMOVING_PROVIDER_KEY || 'd18a311b-7df6-4483-90a7-b3d201630cea';
@@ -79,6 +85,11 @@ export async function onRequestPost({ request, env }) {
   if (!firstName || !lastName || (!phone && !email)) {
     return json({ ok: false, error: 'First name, last name, and a phone or email are required.' }, 400, origin);
   }
+
+  // ChatGPT (OpenAI) Ads — send a server-side "lead_created" conversion in the
+  // background. Consent-safe (no browser pixel), best-effort, gated on env vars;
+  // never blocks the lead. See sendOpenAiConversion() below.
+  try { context.waitUntil(sendOpenAiConversion(env, request, b, email)); } catch (e) { /* ignore */ }
 
   let url = 'https://api.smartmoving.com/api/leads/from-provider/v2'
           + '?providerKey=' + encodeURIComponent(providerKey);
@@ -145,4 +156,53 @@ export async function onRequestPost({ request, env }) {
   }
 
   return json({ ok: false, status: smRes.status, error: (smText || '').slice(0, 300) }, 502, origin);
+}
+
+// ---------------------------------------------------------------------------
+// ChatGPT (OpenAI) Ads Conversions API — server-side "lead_created".
+// Fires from the server (not the browser), so a cookie-consent block never
+// stops it and there's no browser-pixel interception. Matches the conversion to
+// the ad click via hashed email + IP + user-agent (all already on this request).
+// Runs only when OPENAI_ADS_PIXEL_ID and OPENAI_ADS_CAPI_KEY are set; any error
+// is swallowed so a tracking hiccup can never affect the lead.
+// Docs: https://developers.openai.com/ads/conversions-api
+// ---------------------------------------------------------------------------
+async function sha256Hex(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(function (x) { return x.toString(16).padStart(2, '0'); }).join('');
+}
+
+async function sendOpenAiConversion(env, request, b, email) {
+  try {
+    const pid = env.OPENAI_ADS_PIXEL_ID;
+    const key = env.OPENAI_ADS_CAPI_KEY;
+    if (!pid || !key) return; // not configured — skip silently
+
+    const user = {};
+    if (email) user.email_sha256 = await sha256Hex(email.trim().toLowerCase());
+    const ip = request.headers.get('CF-Connecting-IP');
+    if (ip) user.ip_address = ip;
+    const ua = request.headers.get('User-Agent');
+    if (ua) user.user_agent = ua;
+
+    const event = {
+      id: 'lead_' + ((crypto.randomUUID && crypto.randomUUID()) || (Date.now() + '_' + Math.random().toString(36).slice(2))),
+      type: 'lead_created',
+      timestamp_ms: Date.now(),
+      source_url: request.headers.get('Referer') || request.headers.get('Origin') || 'https://neongiantmoving.com/',
+      action_source: 'web',
+      user: user,
+      data: { type: 'customer_action' },
+    };
+    const oppref = String((b && b.oppref) || '').trim();
+    if (oppref) event.oppref = oppref;
+
+    await fetch('https://bzr.openai.com/v1/events?pid=' + encodeURIComponent(pid), {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ validate_only: false, events: [event] }),
+    });
+  } catch (e) {
+    // Never let a tracking hiccup affect the lead.
+  }
 }
