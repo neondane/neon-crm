@@ -510,9 +510,10 @@ var FALLBACK=[
  {id:255,name:"Jay Kiesser",business:"Team Kelli Lang - RE/MAX Gateway",type:"Realtor",phone:"(360) 540-0676",email:"jay@teamkellilang.com",territory:"Skagit"}
 ];
 async function loadContacts(){
-  try{ ALL=await sb("contacts?select=id,name,business,type,phone,email,role,territory,score,tier,lastVisit,address,lat,lon,unitCount,bedCount,googleRating,reviewCount,dateAdded,portalActivatedAt,enrichmentNotes,profilePic&order=name.asc"); }
+  try{ ALL=await sb("contacts?select=id,name,business,type,phone,email,role,territory,score,tier,lastVisit,address,lat,lon,unitCount,bedCount,googleRating,reviewCount,dateAdded,portalActivatedAt,enrichmentNotes,profilePic,birthday&order=name.asc"); }
   catch(e){ ALL=FALLBACK; banner("Showing sample data — couldn't reach the live database from a local file (it connects live once deployed)."); }
   loadPhotos(); loadInteractions();
+  try{ checkBirthdays(); }catch(e){}
 }
 var LASTSEEN={}, ICOUNT={}, REFCOUNT={}, REFREV={}, REFBOOKED={};
 async function loadInteractions(){
@@ -763,6 +764,7 @@ function renderProfile(){
     +'<div class="savestate '+saveCls+'" id="savestate" style="text-align:right">'+esc(saveState)+'</div></div></div>';
   if(editing){
     var rws=EDITABLE.map(function(f){return '<div class="efield"><label>'+f[1]+'</label><input data-k="'+f[0]+'" value="'+esc(c[f[0]]||"")+'"></div>';}).join("");
+    rws+='<div class="efield"><label>Birthday</label><input type="date" data-k="birthday" value="'+esc(String(c.birthday||"").slice(0,10))+'"></div>';
     var tierOpts=["","Tier 1","Tier 2","Tier 3","Tier 4","Tier 5"].map(function(o){return '<option value="'+o+'"'+(String(c.tier||"")===o?" selected":"")+'>'+(o||"No tier")+'</option>';}).join("");
     rws+='<div class="efield"><label>Tier</label><select data-k="tier" class="esel">'+tierOpts+'</select></div>';
     rws+='<div class="efield"><label>Notes</label><textarea data-k="notes" rows="5">'+esc(c.notes||"")+'</textarea></div>';
@@ -780,8 +782,10 @@ function renderProfile(){
     var ve=document.getElementById("avEdit"); if(ve)ve.onclick=avMenu;
     return;
   }
-  D.innerHTML='<div class="pscroll">'+back+head+profileStatsStrip(c)+'<div class="pbody">'+leftCol(c)+'<div class="pmain">'+tabBar(c)+'<div id="ptcontent">'+tabContent(c)+'</div></div></div></div>';
+  var bdayBanner=isBdayToday(c)?'<div class="pcard" style="border:2px solid #FF2FA0;background:linear-gradient(90deg,rgba(255,47,160,.09),rgba(43,198,255,.09));margin:0 0 10px"><h3 style="color:#FF2FA0;margin:0 0 8px">🎂 It’s '+esc(firstName(c.name||"their"))+'’s birthday today!</h3>'+(c.phone?'<button class="btn grad" id="bdayTextBtn">Text happy birthday</button>':'<span class="muted" style="font-size:12px">No phone on file to text.</span>')+'</div>':'';
+  D.innerHTML='<div class="pscroll">'+back+head+bdayBanner+profileStatsStrip(c)+'<div class="pbody">'+leftCol(c)+'<div class="pmain">'+tabBar(c)+'<div id="ptcontent">'+tabContent(c)+'</div></div></div></div>';
   wireProfile(c);
+  var _bdb=document.getElementById("bdayTextBtn"); if(_bdb)_bdb.onclick=function(){ bdayText(c); };
 }
 function leftCol(c){
   var contact='<div class="pcard"><h3>Contact</h3>'
@@ -789,7 +793,7 @@ function leftCol(c){
     +(c.email?'<div class="ln">'+gi("email")+' <a href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a></div>':'')
     +(c.address?'<div class="ln">'+gi("map")+' '+esc(c.address)+'</div>':'')
     +(!c.phone&&!c.email&&!c.address?'<div class="muted" style="font-size:13px">No contact info</div>':'')+'</div>';
-  var df=[["Owner",c.owner],["Type",c.type],["Tier",c.tier],["Territory",c.territory],["Score",c.score],["Last visit",c.lastVisit?fmtDate(c.lastVisit):""]];
+  var df=[["Owner",c.owner],["Type",c.type],["Tier",c.tier],["Territory",c.territory],["Birthday",bdayFmt(c.birthday)],["Score",c.score],["Last visit",c.lastVisit?fmtDate(c.lastVisit):""]];
   var dh=''; df.forEach(function(f){if(f[1]==null||f[1]==="")return;dh+='<div class="field"><span class="k">'+f[0]+'</span><span class="v">'+esc(f[1])+'</span></div>';});
   var details='<div class="pcard"><h3>Details</h3>'+(dh||'<div class="muted" style="font-size:13px">—</div>')+'</div>';
   var portal='';
@@ -834,6 +838,17 @@ async function reminderDone(id){
   (DATA.followups||[]).forEach(function(f){if(String(f.id)===String(id))f.done=true;});
   try{updateTopBadges();}catch(e){} renderProfile();
 }
+
+/* ---------------- Realtor birthdays ---------------- */
+function bdayMMDD(s){ s=String(s||""); var m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return m[2]+"-"+m[3]; m=s.match(/(\d{2})-(\d{2})\s*$/); if(m) return m[1]+"-"+m[2]; m=s.match(/^(\d{1,2})[\/](\d{1,2})/); if(m) return ("0"+m[1]).slice(-2)+"-"+("0"+m[2]).slice(-2); return ""; }
+function todayMMDD(){ var d=new Date(); return ("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2); }
+function isBdayToday(c){ return !!(c&&c.birthday&&bdayMMDD(c.birthday)===todayMMDD()); }
+var _BMON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function bdayFmt(s){ var mm=bdayMMDD(s); if(!mm) return ""; return (_BMON[(+mm.slice(0,2))-1]||"")+" "+(+mm.slice(3,5)); }
+function bdayMsg(c){ var fn=(typeof firstName==="function")?firstName(c.name||""):String(c.name||"").split(" ")[0]; return "Happy birthday, "+(fn||"there")+"! 🎂 Hope you have a wonderful day. Cheers from all of us at Neon Giant!"; }
+function bdayText(c){ c=c||current; if(!c) return; if(!c.phone){ banner("No phone on file for "+(c.name||"them")+"."); return; } pTab="conversation"; cSub="text"; renderProfile(); setTimeout(function(){ var t=document.getElementById("cmsg"); if(t){ t.value=bdayMsg(c); t.focus(); try{t.setSelectionRange(t.value.length,t.value.length);}catch(_){}} },60); }
+function bdayToast(c){ try{ ngBeep([{f:659,t:0,d:.16,v:.5,type:"triangle"},{f:784,t:.15,d:.16,v:.55,type:"triangle"},{f:988,t:.3,d:.34,v:.6,type:"triangle"}]); }catch(e){} try{ var t=document.createElement("div"); t.style.cssText="position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:99999;background:var(--surface,#fff);border:2px solid #FF2FA0;border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.28);padding:14px 20px;max-width:92vw;font-family:inherit;display:flex;align-items:center;gap:12px;cursor:pointer"; t.innerHTML='<div style="font-size:26px">🎂</div><div style="min-width:0"><div style="font-weight:800;font-size:15px;color:#FF2FA0">It’s '+esc(c.name||"a realtor")+'’s birthday!</div><div class="muted" style="font-size:13px">Tap to open and send a happy birthday text</div></div><div style="margin-left:8px;font-weight:700;opacity:.5">✕</div>'; document.body.appendChild(t); t.onclick=function(){ t.remove(); try{ go("contacts"); openContact(c.id); }catch(e){} }; setTimeout(function(){ try{t.style.transition="opacity .4s";t.style.opacity="0";setTimeout(function(){t.remove();},420);}catch(e){} }, 12000); }catch(e){} }
+function checkBirthdays(){ try{ var today=todayMMDD(); var bs=(ALL||[]).filter(function(c){ return /realtor/i.test(c.type||"") && c.birthday && bdayMMDD(c.birthday)===today; }); if(!bs.length) return; var seenKey="ngBdaySeen:"+new Date().toISOString().slice(0,10); var seen=""; try{seen=localStorage.getItem(seenKey)||"";}catch(e){} var seenIds=seen?seen.split(","):[]; var fresh=bs.filter(function(c){return seenIds.indexOf(String(c.id))<0;}); fresh.forEach(function(c,i){ setTimeout(function(){ bdayToast(c); }, i*900); }); try{ localStorage.setItem(seenKey, bs.map(function(c){return c.id;}).join(",")); }catch(e){} }catch(e){} }
 function tabBar(c){
   var tabs=[["conversation","chat","Conversation"],["visits","map","Visits"],["referrals","topleads","Referrals"]];
   if(/realtor/i.test((c&&c.type)||"")) tabs.push(["listings","search","Listings"]);
@@ -1356,6 +1371,7 @@ async function createFollowup(c,days,note){
 async function doSave(){
   var changes={};
   [].forEach.call(document.querySelectorAll("#view [data-k]"),function(el){var k=el.getAttribute("data-k"),v=el.value;if(v!==(current[k]==null?"":String(current[k])))changes[k]=v;});
+  if(changes.birthday==="")changes.birthday=null;
   if(!Object.keys(changes).length){editing=false;renderProfile();return;}
   Object.assign(current,changes);
   var c2=ALL.filter(function(x){return x.id===current.id;})[0]; if(c2)Object.assign(c2,changes);
@@ -1367,7 +1383,7 @@ async function doSave(){
 }
 
 /* ---------------- Pages & Portal command center (dedicated tab) ---------------- */
-var PP={realtors:[],pageStatus:{},filter:"all",q:""};
+var PP={realtors:[],pageStatus:{},filter:"live",q:""};
 function ppSlug(c){return (typeof lpSlug==="function")?lpSlug(c):((typeof slugOf==="function")?slugOf(c):String(c.id));}
 function ppStat(n,l){return '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;min-width:96px"><div style="font-size:24px;font-weight:800">'+n+'</div><div class="muted" style="font-size:10px;letter-spacing:1px;text-transform:uppercase">'+esc(l)+'</div></div>';}
 async function renderPagesPortal(){
@@ -1388,7 +1404,11 @@ function drawPagesPortal(){
   html+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'+ppStat(rs.length,"Realtors")+ppStat(nActive,"Portals on")+ppStat(nLive,"Pages live")+'</div>';
   html+='<div class="cfilters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><input id="ppQ" placeholder="Search realtors…" value="'+esc(PP.q||"")+'" style="flex:1;min-width:160px">'
     +'<select id="ppFilter"><option value="all"'+(PP.filter==="all"?" selected":"")+'>All</option><option value="active"'+(PP.filter==="active"?" selected":"")+'>Portal active</option><option value="live"'+(PP.filter==="live"?" selected":"")+'>Page live</option><option value="nopage"'+(PP.filter==="nopage"?" selected":"")+'>No live page</option></select></div>';
-  if(!pool.length){ html+='<div class="muted" style="padding:14px">No realtors match.</div>'; }
+  if(!pool.length){
+    if(PP.filter==="live" && Object.keys(PP.pageStatus).length < rs.length){ html+='<div class="muted" style="padding:14px">Checking which pages are live…</div>'; }
+    else if(PP.filter==="live"){ html+='<div class="muted" style="padding:14px">No landing pages are live yet. Publish one from a realtor’s profile (open their contact → Activate · go live).</div>'; }
+    else { html+='<div class="muted" style="padding:14px">No realtors match.</div>'; }
+  }
   pool.forEach(function(c){
     var sg=ppSlug(c), on=!!c.portalActivatedAt, pst=PP.pageStatus[sg], live=(pst==="live"), known=(pst!=null);
     var av=(typeof pAvatar==="function")?pAvatar(c):'';
@@ -1398,7 +1418,7 @@ function drawPagesPortal(){
     html+='<div class="crow2" style="align-items:flex-start">'+av+'<div class="meta" style="flex:1;min-width:0"><div class="nm">'+esc(c.name||"—")+'</div><div class="sub">'+esc(c.business||"")+'</div>'
       +'<div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px;align-items:center">'
       +'<span class="sbadge" data-ppchip="'+esc(sg)+'" style="color:'+gc+';background:'+gc+'22;border:1px solid '+gc+'55">PAGE '+(known?(live?"LIVE":"OFF"):"…")+'</span>'
-      +'<button class="btn" data-pppage="'+c.id+'" data-pplive="'+(live?"1":"0")+'" style="font-size:11px;padding:3px 10px"'+(known?"":" disabled")+'>'+(live?"Pause":"Put live")+'</button>'
+      +'<button class="btn" data-pppage="'+c.id+'" data-pplive="'+(live?"1":"0")+'" style="font-size:11px;padding:3px 10px"'+(known?"":" disabled")+'>'+(live?"Deactivate":"Put live")+'</button>'
       +'<button class="btn" data-ppedit="'+c.id+'" style="font-size:11px;padding:3px 10px">Edit / Customize</button>'
       +'<button class="btn" data-ppcopy="'+esc(pageUrl)+'" style="font-size:11px;padding:3px 10px">Copy link</button>'
       +(live?'<a class="btn" href="'+esc(pageUrl)+'" target="_blank" rel="noopener" style="font-size:11px;padding:3px 10px">Open</a>':'')
