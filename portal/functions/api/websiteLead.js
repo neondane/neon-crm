@@ -21,6 +21,12 @@
  *       OpenAI Ads (Conversions API) on each quote. Provision both from Ads Manager
  *       -> Conversions -> Conversion keys. If either is unset, the send is skipped.
  *   OPENAI_ADS_CAPI_KEY       (optional) — OpenAI Ads Conversions API bearer key.
+ *   META_CAPI_TOKEN           (optional) — Meta Conversions API access token. Set this to
+ *       send a server-side "Lead" to Meta on every quote. Generate it in Events Manager ->
+ *       your pixel -> Settings -> Conversions API -> Generate access token. Without it the
+ *       send is skipped. This exists because the browser-side Lead pixel is consent-gated
+ *       and almost never fires; the server-side send always does.
+ *   META_PIXEL_ID             (optional) — overrides the built-in pixel ID (1347307724167846).
  *
  * Address fields accept a full street address OR a postal code; we send them as
  * SmartMoving's "AddressFull" fields, which it geocodes/parses.
@@ -127,6 +133,10 @@ export async function onRequestPost(context) {
   // never blocks the lead. See sendOpenAiConversion() below.
   try { context.waitUntil(sendOpenAiConversion(env, request, b, email)); } catch (e) { /* ignore */ }
 
+  // Meta (Facebook) Ads — server-side "Lead" conversion. Fires from the server so a
+  // cookie-consent block, an ad blocker, or iOS can never stop it. See sendMetaConversion().
+  try { context.waitUntil(sendMetaConversion(env, request, b, email, phone, firstName, lastName)); } catch (e) { /* ignore */ }
+
   let url = 'https://api.smartmoving.com/api/leads/from-provider/v2'
           + '?providerKey=' + encodeURIComponent(providerKey);
   if (env.SM_LEAD_BRANCH_ID) {
@@ -207,6 +217,69 @@ export async function onRequestPost(context) {
 async function sha256Hex(str) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(function (x) { return x.toString(16).padStart(2, '0'); }).join('');
+}
+
+// ---------------------------------------------------------------------------
+// Meta (Facebook/Instagram) Conversions API — server-side "Lead".
+//
+// WHY THIS EXISTS: the browser-side pixel Lead event is wrapped in a consent
+// gate (WPConsent holds the script as type="text/plain" until a visitor accepts
+// marketing cookies). The quote form itself is NOT gated, so most leads submit
+// with no Lead event ever firing — 2 events in a month while PageViews landed
+// normally. Firing from the server fixes that permanently: consent banners, ad
+// blockers, and iOS can't intercept it.
+//
+// Match quality comes from hashed email/phone/name plus IP and user-agent.
+// If the form ever starts posting the _fbp/_fbc cookies, we use those too and
+// attribution gets sharper. event_id is sent so that if the browser pixel also
+// fires, Meta can dedupe (browser must send the same eventID).
+//
+// Runs only when META_CAPI_TOKEN is set. Any error is swallowed.
+// Docs: https://developers.facebook.com/docs/marketing-api/conversions-api
+// ---------------------------------------------------------------------------
+async function sendMetaConversion(env, request, b, email, phone, firstName, lastName) {
+  try {
+    const pid = env.META_PIXEL_ID || '1347307724167846';
+    const token = env.META_CAPI_TOKEN;
+    if (!pid || !token) return; // not configured — skip silently
+
+    const user_data = {};
+    if (email) user_data.em = [await sha256Hex(email.trim().toLowerCase())];
+    if (phone) {
+      let digits = String(phone).replace(/\D/g, '');
+      if (digits.length === 10) digits = '1' + digits; // US numbers need the country code
+      if (digits) user_data.ph = [await sha256Hex(digits)];
+    }
+    if (firstName) user_data.fn = [await sha256Hex(firstName.trim().toLowerCase())];
+    if (lastName) user_data.ln = [await sha256Hex(lastName.trim().toLowerCase())];
+
+    const ip = request.headers.get('CF-Connecting-IP');
+    if (ip) user_data.client_ip_address = ip;
+    const ua = request.headers.get('User-Agent');
+    if (ua) user_data.client_user_agent = ua;
+
+    const fbp = String((b && b.fbp) || '').trim();
+    if (fbp) user_data.fbp = fbp;
+    const fbc = String((b && b.fbc) || '').trim();
+    if (fbc) user_data.fbc = fbc;
+
+    const event = {
+      event_name: 'Lead',
+      event_time: Math.floor(Date.now() / 1000),
+      action_source: 'website',
+      event_source_url: request.headers.get('Referer') || request.headers.get('Origin') || 'https://neongiantmoving.com/',
+      event_id: 'lead_' + ((crypto.randomUUID && crypto.randomUUID()) || (Date.now() + '_' + Math.random().toString(36).slice(2))),
+      user_data: user_data,
+    };
+
+    await fetch('https://graph.facebook.com/v21.0/' + encodeURIComponent(pid) + '/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: [event], access_token: token }),
+    });
+  } catch (e) {
+    // Never let a tracking hiccup affect the lead.
+  }
 }
 
 async function sendOpenAiConversion(env, request, b, email) {
