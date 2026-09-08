@@ -10,6 +10,7 @@
  *
  *  Env: SUPABASE_URL, SUPABASE_KEY, SMARTMOVING_API_KEY, SMARTMOVING_WEBHOOK_SECRET? */
 import { endpoint, preflight, sb } from '../_shared.js';
+import { dispatch, notifyOwner } from '../_webhooks.js';
 
 const SM_BASE = 'https://api-public.smartmoving.com/v1';
 const GENERIC = /google|yelp|\bweb\b|website|online|bing|drive.?by|signage|sign\b|past customer|return(ing)? customer|repeat customer|former customer|facebook|instagram|social|yard sign|billboard|angi|thumbtack|home.?advisor|walk.?in|truck|wrap|\bnone\b|^n\/?a$|^other$|unknown|search engine/i;
@@ -64,7 +65,22 @@ async function smGet(key, path) {
   } catch (e) { return { ok: false, err: String((e && e.message) || e) }; }
 }
 
-const handler = endpoint(async ({ request, env, body, reply }) => {
+// Fire outbound webhooks + owner SMS when a job actually advances. Best-effort and
+// non-blocking: it can never delay or fail the SmartMoving webhook response.
+async function emitJob(env, waitUntil, stage, data) {
+  if (stage !== 'booked' && stage !== 'completed') return;
+  const fire = async () => {
+    try {
+      await dispatch(env, 'job.' + stage, data);
+      if (stage === 'completed') await dispatch(env, 'payout.due', data);
+      await notifyOwner(env, (stage === 'booked' ? 'Job BOOKED: ' : 'Job COMPLETED: ')
+        + (data.customer || 'job') + (data.partner ? ' (via ' + data.partner + ')' : ''));
+    } catch (_) {}
+  };
+  if (typeof waitUntil === 'function') waitUntil(fire()); else await fire();
+}
+
+const handler = endpoint(async ({ request, env, body, reply, waitUntil }) => {
   if (env.SMARTMOVING_WEBHOOK_SECRET) {
     const url = new URL(request.url);
     const got = url.searchParams.get('secret') || request.headers.get('x-webhook-secret') || request.headers.get('x-ng-secret') || '';
@@ -107,6 +123,7 @@ const handler = endpoint(async ({ request, env, body, reply }) => {
       if (nw <= cur) return reply({ ok: true, oppId, portal: 'unchanged', status: L.status });
       const patch = { status: stage }; if (stage === 'completed') patch.completedAt = new Date().toISOString();
       await db.update('portal_leads', `id=eq.${L.id}`, patch);
+      await emitJob(env, waitUntil, stage, { source: 'portal_lead', oppId, leadId: L.id, customer: cust, partner: L.realtorName || null, stage, amount, date });
       return reply({ ok: true, oppId, portal: 'advanced', leadId: L.id, to: stage, realtor: L.realtorName });
     } catch (e) { return reply({ ok: false, error: 'portal_sync_failed', message: e.message }, 500); }
   }
@@ -141,6 +158,7 @@ const handler = endpoint(async ({ request, env, body, reply }) => {
     if (nw > cur) {
       try { await db.update('referrals', `id=eq.${existing.id}`, { status: stage, notes: (existing.notes || '') + ' | live->' + stage }); }
       catch (e) { return reply({ ok: false, error: 'update_failed', message: e.message }, 500); }
+      await emitJob(env, waitUntil, stage, { source: 'referral', oppId, refId: existing.id, customer: cust, partner: match.name, stage, amount, date });
       return reply({ ok: true, oppId, partner: match.name, action: 'advance', from: existing.status, to: stage, refId: existing.id });
     }
     return reply({ ok: true, oppId, partner: match.name, action: 'unchanged', status: existing.status });
@@ -151,6 +169,7 @@ const handler = endpoint(async ({ request, env, body, reply }) => {
       date: date, amount: String(amount), enteredBy: 'SmartMoving Webhook', notes: '[SM:' + oppId + '] live · ' + lead,
     });
   } catch (e) { return reply({ ok: false, error: 'insert_failed', message: e.message }, 500); }
+  await emitJob(env, waitUntil, stage, { source: 'referral', oppId, customer: cust, partner: match.name, stage, amount, date });
   return reply({ ok: true, oppId, partner: match.name, action: 'create', stage, cust, amount });
 });
 
