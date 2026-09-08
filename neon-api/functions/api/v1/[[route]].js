@@ -1,13 +1,20 @@
 /** /api/v1/[[route]].js — public REST API for Neon Giant, consumed by Dane's
  *  bots/agents with an API key (Authorization: Bearer <key>  or  x-api-key: <key>).
- *  Scopes: read (GET data), write (create/update + manage webhooks). 'admin' = all.
+ *  Scopes: read (GET data), write (create/update + manage webhooks), admin (manage API keys).
  *  Read:   GET /api/v1/{leads|contacts|referrals|payouts}[?limit=]  ·  GET /api/v1/leads/:id
  *  Write:  POST /api/v1/leads {realtorId?,customer:{...}}   (delegates to submitReferralLead)
  *          PATCH /api/v1/leads/:id {status?,notes?}
  *  Hooks:  POST /api/v1/webhooks {url,events?,label?}  ·  GET /api/v1/webhooks  ·  DELETE /api/v1/webhooks/:id
+ *  Keys:   POST /api/v1/keys {label,scopes[]}  ·  GET /api/v1/keys  ·  DELETE /api/v1/keys/:id   (admin only)
  */
 import { sb, json, preflight } from '../../_shared.js';
 import { authKey, sha256hex } from '../../_apikeys.js';
+
+function newApiKey() {
+  const b = new Uint8Array(24);
+  crypto.getRandomValues(b);
+  return 'ngk_' + [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
+}
 
 export const onRequestOptions = ({ request }) => preflight(request);
 
@@ -29,7 +36,7 @@ export async function onRequest(ctx) {
     if (method === 'POST' || method === 'PATCH' || method === 'PUT') { try { body = await request.json(); } catch (_) { body = {}; } }
 
     if (method === 'GET') {
-      const need = resource === 'webhooks' ? 'write' : 'read';
+      const need = resource === 'keys' ? 'admin' : (resource === 'webhooks' ? 'write' : 'read');
       const auth = await authKey(env, request, need);
       if (!auth.ok) return reply({ ok: false, error: auth.error }, auth.status);
       const db = sb(env);
@@ -56,13 +63,28 @@ export async function onRequest(ctx) {
         const r = await db.select(`webhook_endpoints?select=id,label,url,events,active,last_delivery_at,last_status&order=id.desc`);
         return reply({ ok: true, webhooks: r });
       }
+      if (resource === 'keys') {
+        const r = await db.select(`api_keys?select=id,label,scopes,active,created_at,last_used_at&order=id.desc`);
+        return reply({ ok: true, keys: r });
+      }
       return reply({ ok: false, error: 'unknown_resource' }, 404);
     }
 
     if (method === 'POST' || method === 'PATCH') {
-      const auth = await authKey(env, request, 'write');
+      const need = resource === 'keys' ? 'admin' : 'write';
+      const auth = await authKey(env, request, need);
       if (!auth.ok) return reply({ ok: false, error: auth.error }, auth.status);
       const db = sb(env);
+
+      if (resource === 'keys' && method === 'POST') {
+        const label = String(body.label || 'unnamed').slice(0, 80);
+        const scopes = Array.isArray(body.scopes) && body.scopes.length ? body.scopes : ['read'];
+        const key = newApiKey();
+        const key_hash = await sha256hex(key);
+        const ins = await db.insert('api_keys', { label, key_hash, scopes, active: true });
+        const row = ins && ins[0] ? ins[0] : {};
+        return reply({ ok: true, id: row.id, label, scopes, key, note: 'Copy this key now - only its hash is stored and it cannot be shown again.' });
+      }
 
       if (resource === 'leads' && method === 'POST') {
         const r = await fetch('https://neon-api.pages.dev/api/submitReferralLead', {
@@ -92,10 +114,12 @@ export async function onRequest(ctx) {
       return reply({ ok: false, error: 'unknown_write' }, 404);
     }
 
-    if (method === 'DELETE' && resource === 'webhooks' && id) {
-      const auth = await authKey(env, request, 'write');
+    if (method === 'DELETE' && (resource === 'webhooks' || resource === 'keys') && id) {
+      const need = resource === 'keys' ? 'admin' : 'write';
+      const auth = await authKey(env, request, need);
       if (!auth.ok) return reply({ ok: false, error: auth.error }, auth.status);
-      await sb(env).update('webhook_endpoints', `id=eq.${encodeURIComponent(id)}`, { active: false });
+      const table = resource === 'keys' ? 'api_keys' : 'webhook_endpoints';
+      await sb(env).update(table, `id=eq.${encodeURIComponent(id)}`, { active: false });
       return reply({ ok: true, id, disabled: true });
     }
 
