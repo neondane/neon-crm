@@ -5,6 +5,7 @@
  *  Env: SUPABASE_URL, SUPABASE_KEY, SMARTMOVING_API_KEY, SMARTMOVING_CLIENT_ID, SMARTMOVING_BRANCH_ID?,
  *       RESEND_API_KEY?, EMAIL_FROM?, TEAM_EMAIL? */
 import { endpoint, preflight, sb } from '../_shared.js';
+import { dispatch, notifyOwner } from '../_webhooks.js';
 
 function zip(a) { const m = String(a || '').match(/\b(\d{5})\b/); return m ? m[1] : ''; }
 
@@ -73,7 +74,7 @@ async function emailTeam(env, lead, realtor, sourceTag) {
   } catch (_) {}
 }
 
-const handler = endpoint(async ({ env, body, reply }) => {
+const handler = endpoint(async ({ env, body, reply, waitUntil }) => {
   const c = body.customer || {};
   if (!c.name || !c.phone) return reply({ ok: false, error: 'name_and_phone_required' }, 400);
 
@@ -104,7 +105,19 @@ const handler = endpoint(async ({ env, body, reply }) => {
   }
 
   await emailTeam(env, lead, realtor, sourceTag);
-  return reply({ ok: true, leadId: inserted && inserted[0] ? inserted[0].id : null, smartmoving: sm });
+
+  const leadId = inserted && inserted[0] ? inserted[0].id : null;
+  // Fire lead.created to subscribed bots + notify the owner. Best-effort, non-blocking.
+  const ev = { leadId, customer: c.name, phone: c.phone, realtor: realtor.name, realtorId: realtor.id, smJobId: (sm && sm.smJobId) || null, reachedSmartMoving: !!(sm && sm.ok) };
+  const fire = async () => {
+    try {
+      await dispatch(env, 'lead.created', ev);
+      await notifyOwner(env, 'New referral: ' + c.name + ' (via ' + realtor.name + ')' + ((sm && sm.ok) ? '' : ' - NOT in SmartMoving yet'));
+    } catch (_) {}
+  };
+  if (typeof waitUntil === 'function') waitUntil(fire()); else await fire();
+
+  return reply({ ok: true, leadId, smartmoving: sm });
 });
 
 export const onRequestPost = handler;
