@@ -7,7 +7,7 @@ export async function onRequest({ request }) {
   const jwt = request.headers.get('Cf-Access-Jwt-Assertion') || '';
   return new Response(JSON.stringify({
     ok: true,
-    functionsResolveFrom: 'v3/functions',
+    functionsResolveFrom: 'root functions/',
     accessProtected: !!(email || jwt),
     email: email || null,
     hasJwt: !!jwt,
