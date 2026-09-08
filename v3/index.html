@@ -511,46 +511,43 @@ function stub(v){
   document.getElementById("view").innerHTML='<div class="stub"><div><div class="big">'+esc(names[v]||v)+'</div><div>This view is being rebuilt next. Contacts and the Referral Portal are live now.</div></div></div>';
 }
 
-/* ---------- Settings ---------- */
-function ngAdminKeyGet(){ try{ return localStorage.getItem("ngAdminKey")||""; }catch(e){ return ""; } }
-function ngAdminKeySet(k){ try{ if(k) localStorage.setItem("ngAdminKey",k); else localStorage.removeItem("ngAdminKey"); }catch(e){} }
+/* ---------------- Settings ---------------- */
 async function ngApi(path,opts){
-  var o=opts||{}; var k=ngAdminKeyGet();
-  o.headers=Object.assign({"Content-Type":"application/json","Authorization":"Bearer "+k},o.headers||{});
-  var r=await fetch(NEON_API+"/api/v1"+path,o);
+  var o=opts||{};
+  o.headers=Object.assign({"Content-Type":"application/json"},o.headers||{});
+  o.credentials="same-origin";
+  var r=await fetch("/api/keys"+(path||""),o);
   var j={}; try{ j=await r.json(); }catch(e){}
   return {status:r.status,body:j};
 }
+function setKeyErr(r){
+  var e=(r.body&&r.body.error)||r.status;
+  if(e==="server_not_configured") return "Setup unfinished: add NEON_ADMIN_KEY to the crm3 Pages project.";
+  if(e==="sign_in_required"||e==="expired") return "Session expired — reload the page to sign in again.";
+  if(e==="not_authorized") return "That account is not a Neon Giant email.";
+  return "Error: "+esc(String(e));
+}
 function renderSettings(){ drawSettings(); }
 function drawSettings(){
-  var k=ngAdminKeyGet();
   var h='<div class="page"><div class="ph"><h2><span class="hash">#</span> Settings</h2></div>';
   h+='<div class="noact" style="text-align:left;max-width:780px">';
   h+='<div style="font-weight:800;font-size:15px;margin-bottom:6px">API keys</div>';
-  h+='<div class="muted" style="font-size:12.5px;margin-bottom:12px">Keys let your bots and agents use the Neon Giant API. Only a hash is stored &mdash; a key is shown once, when you create it.</div>';
-  if(!k){
-    h+='<div class="muted" style="font-size:12.5px;margin-bottom:6px">Paste your admin key to manage keys (kept only in this browser):</div>';
-    h+='<div style="display:flex;gap:8px;flex-wrap:wrap"><input id="setAdminKey" type="password" placeholder="ngk_..." style="flex:1;min-width:260px;padding:9px 11px;border-radius:9px;border:1px solid var(--line,#ddd);background:var(--surface,#fff);color:inherit"><button class="btn" onclick="setSaveAdmin()">Save</button></div>';
-  }else{
-    h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">';
-    h+='<input id="setKeyLabel" placeholder="Label (e.g. Zapier bot)" style="flex:1;min-width:200px;padding:9px 11px;border-radius:9px;border:1px solid var(--line,#ddd);background:var(--surface,#fff);color:inherit">';
-    h+='<label class="chip"><input type="checkbox" id="scRead" checked> read</label>';
-    h+='<label class="chip"><input type="checkbox" id="scWrite"> write</label>';
-    h+='<button class="btn" onclick="setGenKey()">Generate key</button>';
-    h+='<button class="btn" style="opacity:.7" onclick="setForgetAdmin()">Forget admin key</button>';
-    h+='</div><div id="setNewKey"></div><div id="setKeyList" class="muted" style="font-size:12.5px">Loading keys&hellip;</div>';
-  }
+  h+='<div class="muted" style="font-size:12.5px;margin-bottom:12px">Keys let your bots and agents use the Neon Giant API. Anyone signed in with a Neon Giant email can create one. Only a hash is stored &mdash; a key is shown once, when you create it.</div>';
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">';
+  h+='<input id="setKeyLabel" placeholder="Label (e.g. Zapier bot)" style="flex:1;min-width:200px;padding:9px 11px;border-radius:9px;border:1px solid var(--line,#ddd);background:var(--surface,#fff);color:inherit">';
+  h+='<label class="chip"><input type="checkbox" id="scRead" checked> read</label>';
+  h+='<label class="chip"><input type="checkbox" id="scWrite"> write</label>';
+  h+='<button class="btn" onclick="setGenKey()">Generate key</button>';
+  h+='</div><div id="setNewKey"></div><div id="setKeyList" class="muted" style="font-size:12.5px">Loading keys&hellip;</div>';
   h+='</div></div>';
   document.getElementById("view").innerHTML=h;
-  if(k) setLoadKeys();
+  setLoadKeys();
 }
-function setSaveAdmin(){ var el=document.getElementById("setAdminKey"); var v=el?el.value:""; if(!v||!v.trim())return; ngAdminKeySet(v.trim()); drawSettings(); }
-function setForgetAdmin(){ ngAdminKeySet(""); drawSettings(); }
 async function setLoadKeys(){
   var el=document.getElementById("setKeyList"); if(!el)return;
-  var r=await ngApi("/keys",{method:"GET"});
-  if(r.status!==200){ el.innerHTML='<span style="color:var(--pink,#E33B93)">Could not load keys ('+esc(r.body.error||r.status)+'). Check your admin key.</span>'; return; }
-  var keys=r.body.keys||[];
+  var r=await ngApi("",{method:"GET"});
+  if(r.status!==200){ el.innerHTML='<span style="color:var(--pink,#E33B93)">'+setKeyErr(r)+'</span>'; return; }
+  var keys=(r.body&&r.body.keys)||[];
   if(!keys.length){ el.innerHTML='No keys yet.'; return; }
   el.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:12.5px">'+
     '<tr style="text-align:left" class="muted"><th style="padding:6px 4px">Label</th><th>Scopes</th><th>Last used</th><th></th></tr>'+
@@ -568,14 +565,15 @@ async function setGenKey(){
   if(a&&a.checked)scopes.push("read"); if(b&&b.checked)scopes.push("write");
   if(!scopes.length)scopes=["read"];
   var box=document.getElementById("setNewKey"); if(box)box.innerHTML='<span class="spin"></span>';
-  var r=await ngApi("/keys",{method:"POST",body:JSON.stringify({label:label,scopes:scopes})});
-  if(r.status!==200||!r.body.key){ if(box)box.innerHTML='<div style="color:var(--pink,#E33B93);margin-bottom:10px">Could not create key: '+esc(r.body.error||r.status)+'</div>'; return; }
+  var r=await ngApi("",{method:"POST",body:JSON.stringify({label:label,scopes:scopes})});
+  if(r.status!==200||!r.body||!r.body.key){ if(box)box.innerHTML='<div style="color:var(--pink,#E33B93);margin-bottom:10px">'+setKeyErr(r)+'</div>'; return; }
   if(box)box.innerHTML='<div style="border:2px solid var(--cyan,#22AEE4);border-radius:10px;padding:12px;margin-bottom:14px">'+
     '<div style="font-weight:800;margin-bottom:6px">New key &mdash; copy it now, it will not be shown again</div>'+
     '<code style="display:block;word-break:break-all;background:var(--surface,#fff);padding:8px;border-radius:7px">'+esc(r.body.key)+'</code></div>';
+  if(le)le.value="";
   setLoadKeys();
 }
-async function setRevokeKey(id){ await ngApi("/keys/"+id,{method:"DELETE"}); setLoadKeys(); }
+async function setRevokeKey(id){ await ngApi("/"+id,{method:"DELETE"}); setLoadKeys(); }
 
 
 /* ---------------- Contacts ---------------- */
