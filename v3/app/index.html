@@ -20,9 +20,13 @@ body{min-height:100vh;overscroll-behavior-y:contain}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 a{color:var(--cyan)}
-.top{position:sticky;top:0;z-index:20;background:rgba(13,10,31,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:calc(10px + var(--safe-t)) 16px 10px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}
-.top h1{font-size:20px;margin:0;font-weight:800;letter-spacing:.2px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.top .sub{font-size:12px;color:var(--muted);font-weight:500}
+.top{position:sticky;top:0;z-index:20;background:rgba(13,10,31,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:calc(10px + var(--safe-t)) 12px 10px;display:grid;grid-template-columns:96px 1fr 96px;align-items:center;gap:6px;border-bottom:1px solid var(--line)}
+.top .tl{display:flex;gap:6px}.top .tr{display:flex;gap:6px;justify-content:flex-end}
+.top h1{font-size:19px;margin:0;font-weight:800;letter-spacing:.2px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.top .sub{font-size:12px;color:var(--muted);font-weight:500;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#main{max-width:560px;margin:0 auto}
+.tabs{justify-content:center}.tabs a{max-width:110px}
+.bell{position:relative}.bell .bdot{position:absolute;top:8px;right:9px;width:9px;height:9px;border-radius:50%;background:var(--pink);border:2px solid var(--card)}
 .iconbtn{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;flex:none;text-decoration:none;color:var(--text)}
 .iconbtn svg{width:22px;height:22px}
 main{padding:14px 14px calc(96px + var(--safe-b))}
@@ -82,6 +86,26 @@ textarea.input{min-height:90px;resize:vertical}
 .act{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 4px;border-radius:14px;background:var(--card);border:1px solid var(--line);font-size:12.5px;font-weight:700;text-decoration:none;color:var(--text);min-height:72px;justify-content:center}
 .act svg{width:24px;height:24px;color:var(--cyan)}
 /* expanding tiles */
+.hgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.htile{background:var(--card);border:1px solid var(--line);border-radius:20px;overflow:hidden;transition:border-color .2s}
+.htile.open{grid-column:1/-1;border-color:rgba(255,20,147,.35)}
+.htile-head{width:100%;background:none;border:0;padding:16px 8px 14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;min-height:124px}
+.htile-head .ic{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,rgba(255,20,147,.2),rgba(34,191,231,.2))}
+.htile-head .ic svg{width:21px;height:21px;color:var(--cyan)}
+.htile-head .num{font-size:26px;font-weight:800;line-height:1}
+.htile-head .lbl{font-size:13px;color:var(--muted);font-weight:600;line-height:1.25}
+.htile.hot .num{color:var(--pink)}
+.htile-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .3s ease}
+.htile.open .htile-body{grid-template-rows:1fr}
+.htile-body>div{overflow:hidden}
+.htile-inner{padding:0 12px 14px}
+.htile-inner .row{background:var(--card2)}
+.greet{text-align:center;margin:6px 0 16px}.greet h2{margin:0;font-size:24px;font-weight:800}.greet div{color:var(--muted);font-size:14px;margin-top:2px}
+.switch{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--line)}.switch:last-child{border-bottom:0}
+.switch .t{flex:1}.switch .t b{display:block}.switch .t span{font-size:13px;color:var(--muted)}
+.tog{appearance:none;-webkit-appearance:none;width:50px;height:30px;border-radius:15px;background:var(--card2);border:1px solid var(--line);position:relative;flex:none;transition:background .2s}
+.tog::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .2s}
+.tog:checked{background:var(--pink)}.tog:checked::after{left:23px}
 .tile{background:var(--card);border:1px solid var(--line);border-radius:18px;margin-bottom:10px;overflow:hidden}
 .tile-head{width:100%;display:flex;align-items:center;gap:14px;padding:14px 16px;background:none;border:0;text-align:left;min-height:72px}
 .tile-ic{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,rgba(255,20,147,.18),rgba(34,191,231,.18));flex:none}
@@ -174,7 +198,6 @@ textarea.input{min-height:90px;resize:vertical}
   <a href="#inbox" data-tab="inbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>Inbox<span class="badge hidden" id="inboxBadge">0</span></a>
   <a href="#add" data-tab="add" class="add"><span class="plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>Add</a>
   <a href="#partners" data-tab="partners"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>Partners</a>
-  <a href="#stats" data-tab="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Stats</a>
   <a href="#more" data-tab="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>More</a>
 </nav>
 <script>
@@ -184,7 +207,7 @@ textarea.input{min-height:90px;resize:vertical}
    (Phase 2 moves these behind the login gateway). Every text, email and payout goes
    through /api/secure on this site, which checks the Cloudflare Access login and marks
    the request X-Neon-App: crm-app so the backend's TEST MODE applies (allowlist only). */
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const SB_URL = 'https://aoyfieswynhgqyrveqnp.supabase.co';
 const SB_KEY = 'sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ';
 const NEON_API = 'https://neon-api.pages.dev';
@@ -244,6 +267,8 @@ const ICON = {
   user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
   refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 4v5h-5"/></svg>',
   download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-5-5 5 5 5-5M4 21h16"/></svg>',
+  bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>',
+  chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
   desktop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
 };
 
@@ -382,8 +407,8 @@ async function flushPhotos() {
 function setTop(title, opts) {
   opts = opts || {};
   const top = $('#top');
-  top.innerHTML = (opts.back ? '<button class="iconbtn" id="backBtn" aria-label="Back">' + ICON.back + '</button>' : '') +
-    '<h1>' + esc(title) + (opts.sub ? '<div class="sub">' + esc(opts.sub) + '</div>' : '') + '</h1>' + (opts.right || '');
+  top.innerHTML = '<div class="tl">' + (opts.back ? '<button class="iconbtn" id="backBtn" aria-label="Back">' + ICON.back + '</button>' : '') + (opts.left || '') + '</div>' +
+    '<div style="min-width:0"><h1>' + esc(title) + '</h1>' + (opts.sub ? '<div class="sub">' + esc(opts.sub) + '</div>' : '') + '</div><div class="tr">' + (opts.right || '') + '</div>';
   const b = $('#backBtn'); if (b) b.onclick = () => { if (history.length > 1) history.back(); else location.hash = opts.back; };
 }
 function setTab(name) { $$('#tabs a').forEach((a) => a.classList.toggle('on', a.getAttribute('data-tab') === name)); }
@@ -396,7 +421,7 @@ async function render() {
   const fn = ROUTES[name] || ROUTES.home;
   document.body.classList.toggle('chatting', name === 'chat');
   $('#tabs').classList.toggle('hidden', name === 'chat');
-  setTab({ chat: 'inbox', p: 'partners', payouts: 'more', referrals: 'more', radar: 'more', install: 'more' }[name] || name);
+  setTab({ chat: 'inbox', p: 'partners', payouts: 'more', referrals: 'more', radar: 'more', install: 'more', alerts: 'home', stats: 'home' }[name] || name);
   window.scrollTo(0, 0);
   try { await fn(arg, seq); } catch (e) { if (seq === renderSeq) main.innerHTML = '<div class="err">Something went wrong loading this screen. ' + esc(e.message || e) + '</div><button class="btn full" onclick="location.reload()">Reload</button>'; }
   watchPhotos();
@@ -422,7 +447,7 @@ function confirmSheet(title, body, okLabel, danger) {
 ROUTES.home = async (arg, seq) => {
   const me = await loadMe();
   const hr = new Date().getHours();
-  setTop((hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening') + (me.name ? ', ' + first(me.name) : ''), { sub: new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }), right: '<button class="iconbtn" id="homeRefresh" aria-label="Refresh">' + ICON.refresh + '</button>' });
+  setTop('Neon CRM', { left: '<button class="iconbtn" id="homeRefresh" aria-label="Refresh">' + ICON.refresh + '</button>', right: '<a class="iconbtn bell" href="#alerts" aria-label="Alerts">' + ICON.bell + '<span class="bdot hidden" id="bellDot"></span></a>' });
   if (!S.contacts || !S.sms) loading();
   await Promise.all([loadContacts(), loadMessages()]);
   if (stale(seq)) return;
@@ -431,33 +456,58 @@ ROUTES.home = async (arg, seq) => {
   const partners = realtors.filter((c) => c.portalActivatedAt);
   const visit = partners.slice().sort((a, b) => (daysSince(b.lastVisit) ?? 9999) - (daysSince(a.lastVisit) ?? 9999)).slice(0, 6);
   const bdays = upcomingBirthdays(7);
-  let h = '';
-  if (!isStandalone() && !localStorage.getItem('ncrm:hideInstall')) h += '<div class="card" style="border-color:rgba(255,20,147,.35)"><b>Install Neon CRM on your phone</b><div class="muted small" style="margin:4px 0 10px">It opens like a real app, right from your home screen.</div><div class="grid2"><a class="btn grad" href="#install">How to install</a><button class="btn ghost" id="hideInstall">Not now</button></div></div>';
-  h += tile('msgs', ICON.inbox, unread.length, unread.length === 1 ? 'unread conversation' : 'unread conversations',
-    (unread.length ? unread : threads).slice(0, 5).map(threadRow).join('') + '<a class="btn full" href="#inbox">Open Inbox</a>', unread.length > 0);
-  h += tile('pay', ICON.money, '<span id="payNum">…</span>', 'payouts due', '<div id="payList"><div class="spin"></div></div><a class="btn full" href="#payouts">Open Payouts</a>');
-  h += tile('refs', ICON.star, '<span id="refNum">…</span>', 'new referrals this week', '<div id="refList"><div class="spin"></div></div><a class="btn full" href="#referrals">All referrals</a>');
-  h += tile('visit', ICON.pin, partners.length, 'active partners. Visit next:', visit.map(contactRow).join('') + '<a class="btn full" href="#partners">All partners</a>');
-  if (bdays.length) h += tile('bday', ICON.cake, bdays.length, bdays.length === 1 ? 'birthday this week' : 'birthdays this week', bdays.map((b) => contactRow(b.c, b.label)).join(''), true);
-  h += '<div class="h2">Quick actions</div><div class="grid2"><a class="btn grad" href="#add">' + ICON.user + ' Add a realtor</a><a class="btn" href="#radar">' + ICON.radar + ' Listing Radar</a></div>';
-  h += '<div class="muted small" style="text-align:center;margin-top:18px">' + realtors.length + ' realtors in the CRM</div>';
-  main.innerHTML = h; bindTiles();
+  let h = '<div class="greet"><h2>' + (hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening') + (me.name ? ', ' + esc(first(me.name)) : '') + '</h2><div>' + esc(new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })) + '</div></div>';
+  if (!isStandalone() && !localStorage.getItem('ncrm:hideInstall')) h += '<div class="card" style="border-color:rgba(255,20,147,.35);text-align:center"><b>Put Neon CRM on your home screen</b><div class="muted small" style="margin:4px 0 10px">It opens like a real app, and you get alerts.</div><div class="grid2"><a class="btn grad" href="#install">How to install</a><button class="btn ghost" id="hideInstall">Not now</button></div></div>';
+  h += alertsNudge('home');
+  h += '<div class="hgrid">';
+  h += htile('msgs', ICON.inbox, unread.length, unread.length === 1 ? 'Unread conversation' : 'Unread conversations', (unread.length ? unread : threads).slice(0, 5).map(threadRow).join('') + '<a class="btn full" href="#inbox">Open Inbox</a>', unread.length > 0);
+  h += htile('pay', ICON.money, '<span id="payNum">…</span>', 'Payouts due', '<div id="payList"><div class="spin"></div></div><a class="btn full" href="#payouts">Open Payouts</a>');
+  h += htile('refs', ICON.star, '<span id="refNum">…</span>', 'Referrals this week', '<div id="refList"><div class="spin"></div></div><a class="btn full" href="#referrals">All referrals</a>');
+  h += htile('visit', ICON.pin, partners.length, 'Active partners', '<div class="muted small" style="text-align:center;margin:-4px 0 8px">Longest since a visit</div>' + visit.map((c) => contactRow(c)).join('') + '<a class="btn full" href="#partners">All partners</a>');
+  h += htile('stats', ICON.chart, '<span id="revNum">…</span>', 'Revenue this month', '<div id="statsBody"><div class="spin"></div></div>');
+  h += htile('radar', ICON.radar, '<span style="font-size:20px">Radar</span>', 'Just listed and pending', '<div class="muted small" style="text-align:center;margin-bottom:10px">Text agents the day a home lists or goes pending.</div><a class="btn grad full" href="#radar">Open Listing Radar</a>');
+  if (bdays.length) h += htile('bday', ICON.cake, bdays.length, bdays.length === 1 ? 'Birthday this week' : 'Birthdays this week', bdays.map((b) => contactRow(b.c, b.label)).join(''), false);
+  h += '</div>';
+  h += '<a class="btn grad full" href="#add" style="margin-top:4px">' + ICON.user + ' Add a realtor</a>';
+  main.innerHTML = h;
+  // one tile open at a time; Stats loads only when opened
+  $$('.htile-head').forEach((hd) => { hd.onclick = () => {
+    const t = hd.parentElement; const opening = !t.classList.contains('open');
+    $$('.htile.open').forEach((o) => { if (o !== t) o.classList.remove('open'); });
+    t.classList.toggle('open', opening);
+    if (opening) { setTimeout(() => t.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 120); if (t.getAttribute('data-tile') === 'stats') loadStatsTile(); }
+  }; });
   const hi = $('#hideInstall'); if (hi) hi.onclick = () => { localStorage.setItem('ncrm:hideInstall', '1'); render(); };
-  $('#homeRefresh').onclick = async () => { S.portal = null; await Promise.all([loadContacts(true), loadMessages(true)]); render(); };
-  updateBadge();
+  $('#homeRefresh').onclick = async () => { S.portal = null; S.statsHtml = null; await Promise.all([loadContacts(true), loadMessages(true)]); render(); };
+  wireAlertsNudge();
+  updateBadge(); refreshBellDot();
   loadPortal().then(() => {
     if (stale(seq)) return;
     const due = payoutItems().filter((x) => !x.paid);
-    const pn = $('#payNum'); if (pn) pn.textContent = due.length ? due.length + ' (' + money(due.reduce((s, x) => s + x.amount, 0)) + ')' : '0';
+    const pn = $('#payNum'); if (pn) pn.textContent = money(due.reduce((t, x) => t + x.amount, 0));
     const pl = $('#payList'); if (pl) pl.innerHTML = due.length ? due.slice(0, 5).map((x) => '<a class="row" href="#payouts">' + avatar(S.byId.get(String(x.rtId)) || { name: x.partner }) + '<div class="main"><div class="nm"><span class="t">' + esc(x.partner) + '</span></div><div class="meta">' + esc(x.customer || '') + '</div></div><div class="side" style="color:var(--amber);font-weight:800">' + money(x.amount) + '</div></a>').join('') : '<div class="empty">Nobody is waiting on a payout.</div>';
     const wk = Date.now() - 7 * 864e5;
-    const recent = (S.portal.leads || []).filter((l) => ts(l.submittedAt) >= wk);
+    const recent = (S.portal.leads || []).filter((l) => ts(l.submittedAt) >= wk && !/^ZZ /i.test(l.customerName || ''));
     const attn = (S.portal.leads || []).filter((l) => l.sm_status === 'retrying' || l.sm_status === 'failed');
-    const rn = $('#refNum'); if (rn) rn.textContent = recent.length + (attn.length ? ' (' + attn.length + ' need attention)' : '');
-    const rl = $('#refList'); if (rl) rl.innerHTML = (attn.concat(recent.filter((l) => attn.indexOf(l) < 0))).slice(0, 5).map(leadRow).join('') || '<div class="empty">No portal referrals in the last 7 days.</div>';
+    const rn = $('#refNum'); if (rn) rn.textContent = String(recent.length);
+    if (attn.length) { const t = $('[data-tile="refs"]'); if (t) t.classList.add('hot'); }
+    const rl = $('#refList'); if (rl) rl.innerHTML = (attn.length ? '<div class="warn" style="text-align:center">' + attn.length + ' need attention</div>' : '') + (attn.concat(recent.filter((l) => attn.indexOf(l) < 0))).slice(0, 5).map(leadRow).join('') || '<div class="empty">No portal referrals in the last 7 days.</div>';
     watchPhotos();
   }).catch(() => { const pl = $('#payList'); if (pl) pl.innerHTML = '<div class="err">Could not load payouts.</div>'; });
+  sb('referrals?select=amount,date&date=gte.' + new Date().toISOString().slice(0, 7) + '-01').then((rows) => {
+    const v = rows.reduce((t, r) => t + (+r.amount || 0), 0); const el = $('#revNum'); if (el) el.textContent = kfmt(v);
+  }).catch(() => { const el = $('#revNum'); if (el) el.textContent = '–'; });
 };
+async function loadStatsTile() {
+  const box = $('#statsBody'); if (!box) return;
+  if (!S.statsHtml) { try { S.statsHtml = await statsHtml(); } catch (e) { box.innerHTML = '<div class="err">Could not load stats.</div>'; return; } }
+  const b2 = $('#statsBody'); if (!b2) return;
+  b2.innerHTML = S.statsHtml + '<div class="muted small" style="text-align:center;margin-top:8px">Same numbers as the desktop dashboard</div>';
+  $$('#statsBody .tile-head').forEach((hd) => { hd.onclick = () => hd.parentElement.classList.toggle('open'); });
+}
+function htile(id, icon, num, label, body, hot) {
+  return '<div class="htile' + (hot ? ' hot' : '') + '" data-tile="' + id + '"><button class="htile-head"><span class="ic">' + icon + '</span><span class="num">' + num + '</span><span class="lbl">' + esc(label) + '</span></button><div class="htile-body"><div><div class="htile-inner">' + body + '</div></div></div></div>';
+}
 function tile(id, icon, num, label, body, open) {
   return '<div class="tile' + (open ? ' open' : '') + '" data-tile="' + id + '"><button class="tile-head"><div class="tile-ic">' + icon + '</div><div><div class="tile-num">' + num + '</div><div class="tile-lbl">' + esc(label) + '</div></div><span class="tile-chev">' + ICON.chev + '</span></button><div class="tile-body"><div><div class="tile-inner">' + body + '</div></div></div></div>';
 }
@@ -491,10 +541,11 @@ ROUTES.inbox = async (arg, seq) => {
   const f = S.inboxFilter;
   const rows = all.filter((t) => f === 'unread' ? t.unread : f === 'reply' ? t.latest.dir === 'in' : f === 'unknown' ? (t.key[0] !== 'c' && !(t.key[0] === 'n' && contactByPhone(t.key.slice(1)))) : true);
   const unreadN = all.filter((t) => t.unread).length;
-  main.innerHTML = '<div class="chips">' + [['all', 'All'], ['unread', 'Unread' + (unreadN ? ' (' + unreadN + ')' : '')], ['reply', 'Needs reply'], ['unknown', 'Not in CRM']].map((x) => '<button class="chip' + (f === x[0] ? ' on' : '') + '" data-f="' + x[0] + '">' + x[1] + '</button>').join('') + '</div>' +
+  main.innerHTML = alertsNudge('inbox') + '<div class="chips">' + [['all', 'All'], ['unread', 'Unread' + (unreadN ? ' (' + unreadN + ')' : '')], ['reply', 'Needs reply'], ['unknown', 'Not in CRM']].map((x) => '<button class="chip' + (f === x[0] ? ' on' : '') + '" data-f="' + x[0] + '">' + x[1] + '</button>').join('') + '</div>' +
     (unreadN ? '<button class="linkbtn" id="allRead">Mark all read</button>' : '') +
     (rows.length ? rows.slice(0, 150).map(threadRow).join('') : '<div class="empty">' + (f === 'unread' ? "You're all caught up." : 'No conversations here.') + '</div>');
   $$('[data-f]').forEach((b) => { b.onclick = () => { S.inboxFilter = b.getAttribute('data-f'); render(); }; });
+  wireAlertsNudge();
   const ar = $('#allRead'); if (ar) ar.onclick = () => { all.filter((t) => t.unread).forEach((t) => markRead(t.key)); render(); };
   $('#ibRefresh').onclick = async () => { await loadMessages(true); render(); };
   updateBadge();
@@ -595,7 +646,7 @@ ROUTES.chat = async (key, seq) => {
       r = await secure('sendEmail', { to: emailAddr, subject: subj.value.trim() || 'A note from Neon Giant Moving', body: text, contactId: contact ? contact.id : null, sender: (S.me && S.me.email) || '' });
     }
     btn.disabled = false;
-    if (r.ok) { msg.value = ''; grow(); toast(mode === 'text' ? 'Text sent' : 'Email sent'); S.msgLoadedAt = 0; await draw(true); }
+    if (r.ok) { try { localStorage.setItem('ncrm:sent', String(+(localStorage.getItem('ncrm:sent') || 0) + 1)); } catch (_) {} msg.value = ''; grow(); toast(mode === 'text' ? 'Text sent' : 'Email sent'); S.msgLoadedAt = 0; await draw(true); }
     else toast(r.message || ('Not sent: ' + (r.error || 'error')), true);
   };
 };
@@ -805,16 +856,13 @@ function barsSvg(items, fmt, gid) {
       '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="11" fill="#a9a3c9">' + esc(m.label) + '</text>'; }).join('');
   return '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" style="display:block"><defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF1493"/><stop offset="1" stop-color="#22BFE7"/></linearGradient></defs>' + bars + '</svg>';
 }
-ROUTES.stats = async (arg, seq) => {
-  setTop('Stats', { sub: 'Same numbers as the desktop dashboard', right: '<button class="iconbtn" id="stRefresh" aria-label="Refresh">' + ICON.refresh + '</button>' });
-  loading();
+async function statsHtml() {
   const [refs, , msgDates] = await Promise.all([
     sb('referrals?select=id,contactId,contactName,jobName,status,date,amount&order=date.desc'),
     loadPortal(true),
     Promise.all([sb('sms_messages?select=created_at'), sb('email_messages?select=created_at')]).then(([a, b]) => a.concat(b).map((m) => m.created_at).filter(Boolean)).catch(() => []),
     loadContacts(),
   ]);
-  if (stale(seq)) return;
   const all = S.contacts;
   const realtors = all.filter(isRealtor);
   const activeP = realtors.filter((c) => c.portalActivatedAt).length;
@@ -851,20 +899,99 @@ ROUTES.stats = async (arg, seq) => {
   h += statTile('tier', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 4v8l6 4"/></svg>', 'Contacts by tier', order.filter((k) => k).map((k) => 'Tier ' + k + ': ' + tiers[k]).slice(0, 3).join(' · '),
     '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">' + donut + '<div class="legend" style="flex-direction:column;gap:8px">' + order.map((k) => '<span><i style="background:' + (k === 0 ? '#6f6a8a' : TIER_COLORS[k]) + '"></i>' + (k === 0 ? 'No tier' : 'Tier ' + k) + ' ' + tiers[k] + '</span>').join('') + '</div></div>');
   h += statTile('out', ICON.chat, 'Outreach activity', weeks[7].v + ' texts and emails this week', barsSvg(weeks, (v) => String(v), 'gout'));
+  return h;
+}
+ROUTES.stats = async (arg, seq) => {
+  setTop('Stats', { back: '#home', sub: 'Same numbers as the desktop dashboard' }); loading();
+  const h = await statsHtml(); if (stale(seq)) return;
   main.innerHTML = h; bindTiles();
-  $('#stRefresh').onclick = () => render();
+};
+
+/* ================= ALERTS (push) =================
+   Web Push through this site's login gateway (/api/secure/push). Every push also lands in
+   the in-app list below. Asked only after a good moment (2nd app open or first message
+   sent), never on first open. iPhone: only from the installed app, iOS 16.4 or newer. */
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+function b64uToU8(s) { const p = '='.repeat((4 - (s.length % 4)) % 4); const b = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, (c) => c.charCodeAt(0)); }
+async function currentSub() { try { const reg = await navigator.serviceWorker.ready; return await reg.pushManager.getSubscription(); } catch (_) { return null; } }
+async function enableAlerts() {
+  if (!pushSupported()) { toast(isIOS() && !isStandalone() ? 'On iPhone, install the app first, then turn alerts on from it.' : "This browser can't do alerts.", true); return false; }
+  let perm = Notification.permission;
+  if (perm === 'default') perm = await Notification.requestPermission();
+  if (perm !== 'granted') { toast('Alerts are blocked. You can allow them in your phone settings.', true); return false; }
+  const cfg = await secure('push', { op: 'config' });
+  if (!cfg.ok || !cfg.publicKey) { toast(cfg.message || 'Could not reach the alert server.', true); return false; }
+  const reg = await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  try { if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uToU8(cfg.publicKey) }); }
+  catch (e) { try { if (sub) await sub.unsubscribe(); sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uToU8(cfg.publicKey) }); } catch (e2) { toast('Could not turn on alerts: ' + (e2.message || e2), true); return false; } }
+  const r = await secure('push', { op: 'subscribe', subscription: sub.toJSON(), userAgent: navigator.userAgent });
+  if (!r.ok) { toast(r.message || 'Could not save this phone for alerts.', true); return false; }
+  try { localStorage.setItem('ncrm:alertsOn', '1'); } catch (_) {}
+  toast('Alerts are on'); return true;
+}
+function alertsNudge(where) {
+  if (!pushSupported() || Notification.permission !== 'default') return '';
+  const dis = +(localStorage.getItem('ncrm:nudgeDismissed') || 0); if (Date.now() - dis < 7 * 864e5) return '';
+  const opens = +(localStorage.getItem('ncrm:opens') || 0), sent = +(localStorage.getItem('ncrm:sent') || 0);
+  if (opens < 2 && sent < 1) return '';
+  return '<div class="card" id="nudge" style="text-align:center;border-color:rgba(34,191,231,.4)"><div style="font-size:30px;line-height:1">' + ICON.bell.replace('<svg', '<svg width="30" height="30" style="color:var(--cyan)"') + '</div><b style="display:block;margin-top:6px">Get a buzz when a realtor texts back</b><div class="muted small" style="margin:4px 0 12px">Quiet from 9 PM to 7 AM. Change it anytime.</div><div class="grid2"><button class="btn grad" id="nudgeOn">Turn on alerts</button><button class="btn ghost" id="nudgeLater">Later</button></div></div>';
+}
+function wireAlertsNudge() {
+  const on = $('#nudgeOn'); if (on) on.onclick = async () => { if (await enableAlerts()) { const n = $('#nudge'); if (n) n.remove(); } };
+  const later = $('#nudgeLater'); if (later) later.onclick = () => { localStorage.setItem('ncrm:nudgeDismissed', String(Date.now())); const n = $('#nudge'); if (n) n.remove(); };
+}
+async function refreshBellDot() {
+  const r = await secure('push', { op: 'list', limit: 5 }); if (!r.ok) return;
+  const seen = localStorage.getItem('ncrm:alertsSeen') || ''; const newest = r.items && r.items[0] ? r.items[0].created_at : '';
+  const d = $('#bellDot'); if (d) d.classList.toggle('hidden', !(newest && newest > seen));
+}
+const CAT_INFO = [['messages', 'Realtor texts', 'When a realtor or anyone texts the business line'], ['referrals', 'New referrals', 'When a realtor sends a client through the portal'], ['alerts', 'Problems', 'Like a referral that did not reach SmartMoving. These come through even in quiet hours.'], ['birthdays', 'Birthdays', 'A partner birthday, at 8 AM']];
+const hourOpts = (sel) => Array.from({ length: 24 }, (_, h) => '<option value="' + h + '"' + (h === sel ? ' selected' : '') + '>' + ((h % 12) || 12) + ' ' + (h < 12 ? 'AM' : 'PM') + '</option>').join('');
+ROUTES.alerts = async (arg, seq) => {
+  setTop('Alerts', { back: '#home' }); loading();
+  const [cfg, list, sub] = await Promise.all([secure('push', { op: 'config' }), secure('push', { op: 'list', limit: 40 }), pushSupported() ? currentSub() : Promise.resolve(null)]);
+  if (stale(seq)) return;
+  if (!cfg.ok) { main.innerHTML = '<div class="err">' + esc(cfg.message || 'Could not load your alert settings.') + '</div>'; return; }
+  const prefs = cfg.prefs || {}; const cats = prefs.categories || {};
+  const known = sub && (cfg.myDevices || []).some((dv) => dv.endpoint === sub.endpoint);
+  let state;
+  if (!pushSupported()) state = isIOS() && !isStandalone() ? '<div class="warn" style="text-align:center"><b>Install the app first.</b><br>On iPhone, alerts only work from the home screen app (iOS 16.4 or newer).<br><a class="btn grad" style="margin-top:10px" href="#install">How to install</a></div>' : '<div class="warn">This browser cannot show alerts.</div>';
+  else if (Notification.permission === 'denied') state = '<div class="warn" style="text-align:center"><b>Alerts are blocked on this phone.</b><br>' + (isIOS() ? 'Settings, Notifications, Neon CRM, Allow Notifications.' : 'Tap the lock icon by the address, Permissions, Notifications, Allow.') + '</div>';
+  else if (Notification.permission === 'granted' && known) state = '<div class="ok" style="text-align:center"><b>Alerts are on for this phone.</b></div><div class="grid2"><button class="btn grad" id="aTest">Send me a test</button><button class="btn ghost" id="aOff">Turn off here</button></div>';
+  else state = '<button class="btn grad full" id="aOn">' + ICON.bell + ' Turn on alerts</button>';
+  let h = '<div class="card" style="text-align:center">' + ICON.bell.replace('<svg', '<svg width="34" height="34" style="color:var(--cyan)"') + '<div style="font-weight:800;font-size:18px;margin:6px 0 12px">Alerts on this phone</div>' + state +
+    (!cfg.pushLive && !cfg.onAllowlist ? '<div class="muted small" style="margin-top:10px">Alerts are in testing with Dane, Jeff and Valentina. You will start getting them when Dane turns them on for the team.</div>' : '') + '</div>';
+  h += '<div class="card"><div style="font-weight:800;margin-bottom:4px">What buzzes</div>' + CAT_INFO.map((c) => '<label class="switch"><span class="t"><b>' + c[1] + '</b><span>' + c[2] + '</span></span><input type="checkbox" class="tog" data-cat="' + c[0] + '"' + (cats[c[0]] !== false ? ' checked' : '') + '></label>').join('') + '</div>';
+  h += '<div class="card"><div style="font-weight:800;margin-bottom:8px">Quiet hours</div><div class="grid2"><div><div class="muted small">From</div><select class="input" id="qS">' + hourOpts(prefs.quiet_start != null ? +prefs.quiet_start : 21) + '</select></div><div><div class="muted small">Until</div><select class="input" id="qE">' + hourOpts(prefs.quiet_end != null ? +prefs.quiet_end : 7) + '</select></div></div><div class="muted small" style="margin-top:8px">Pacific time. Alerts during quiet hours wait in the list below. Problems still come through. Set both to the same hour to turn quiet hours off.</div></div>';
+  const items = (list.ok && list.items) || [];
+  h += '<div class="h2" style="text-align:center">Recent alerts</div>' + (items.length ? items.map((n) => '<a class="row" href="' + esc(String(n.url || '/app/#home').replace('/app/', '')) + '"><div class="tile-ic">' + ({ messages: ICON.chat, referrals: ICON.star, alerts: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>', birthdays: ICON.cake, test: ICON.bell }[n.category] || ICON.bell) + '</div><div class="main"><div class="nm"><span class="t">' + esc(n.title) + '</span></div><div class="meta">' + esc(n.body || '') + '</div></div><div class="side">' + esc(ago(n.created_at)) + '</div></a>').join('') : '<div class="empty">No alerts yet.</div>');
+  main.innerHTML = h;
+  if (items[0]) try { localStorage.setItem('ncrm:alertsSeen', items[0].created_at); } catch (_) {}
+  const save = async () => {
+    const c = {}; $$('[data-cat]').forEach((x) => { c[x.getAttribute('data-cat')] = x.checked; });
+    const r = await secure('push', { op: 'prefs', categories: c, quiet_start: +$('#qS').value, quiet_end: +$('#qE').value });
+    toast(r.ok ? 'Saved' : (r.message || 'Could not save'), !r.ok);
+  };
+  $$('[data-cat]').forEach((x) => { x.onchange = save; }); $('#qS').onchange = save; $('#qE').onchange = save;
+  const on = $('#aOn'); if (on) on.onclick = async () => { if (await enableAlerts()) render(); };
+  const tst = $('#aTest'); if (tst) tst.onclick = async () => { tst.disabled = true; const r = await secure('push', { op: 'test' }); tst.disabled = false; toast(r.message || (r.ok ? 'Sent' : 'Not sent'), !r.ok); };
+  const off = $('#aOff'); if (off) off.onclick = async () => { const sb2 = await currentSub(); if (sb2) { await secure('push', { op: 'unsubscribe', endpoint: sb2.endpoint }); await sb2.unsubscribe().catch(() => {}); } localStorage.removeItem('ncrm:alertsOn'); toast('Alerts off on this phone'); render(); };
 };
 
 /* ================= MORE ================= */
 ROUTES.more = async () => {
   setTop('More');
   const me = await loadMe();
-  main.innerHTML = '<a class="row" href="#payouts"><div class="tile-ic">' + ICON.money + '</div><div class="main"><div class="nm">Payouts</div><div class="meta">Referral rewards waiting to be sent</div></div></a>' +
+  main.innerHTML = '<a class="row" href="#alerts"><div class="tile-ic">' + ICON.bell + '</div><div class="main"><div class="nm">Alerts</div><div class="meta">Push alerts, quiet hours, what buzzes</div></div></a>' +
+    '<a class="row" href="#stats"><div class="tile-ic">' + ICON.chart + '</div><div class="main"><div class="nm">Stats</div><div class="meta">The desktop dashboard numbers</div></div></a>' +
+    '<a class="row" href="#payouts"><div class="tile-ic">' + ICON.money + '</div><div class="main"><div class="nm">Payouts</div><div class="meta">Referral rewards waiting to be sent</div></div></a>' +
     '<a class="row" href="#referrals"><div class="tile-ic">' + ICON.star + '</div><div class="main"><div class="nm">Portal referrals</div><div class="meta">And whether each one reached SmartMoving</div></div></a>' +
     '<a class="row" href="#radar"><div class="tile-ic">' + ICON.radar + '</div><div class="main"><div class="nm">Listing Radar</div><div class="meta">Just listed and just went pending</div></div></a>' +
     '<a class="row" href="#install"><div class="tile-ic">' + ICON.download + '</div><div class="main"><div class="nm">Install on your phone</div><div class="meta">' + (isStandalone() ? 'Installed' : 'iPhone and Android steps') + '</div></div></a>' +
     '<a class="row" href="/?desktop=1"><div class="tile-ic">' + ICON.desktop + '</div><div class="main"><div class="nm">Open the full desktop CRM</div><div class="meta">Route planner, landing pages, everything else</div></div></a>' +
-    '<div class="card" style="margin-top:16px"><div class="kv"><span>Signed in as</span><span>' + esc(me.email || 'Unknown') + '</span></div><div class="kv"><span>Version</span><span>' + VERSION + '</span></div><div class="kv"><span>Sending</span><span>Live. Texts come from (360) 588-5228</span></div></div>';
+    '<div class="card" style="margin-top:16px"><div class="kv"><span>Signed in as</span><span>' + esc(me.email || 'Unknown') + '</span></div><div class="kv"><span>Version</span><span>' + VERSION + '</span></div><div class="kv"><span>Sending</span><span>Live. Texts come from (360) 588-5228</span></div><div class="kv"><span>Alerts</span><span>' + (pushSupported() && Notification.permission === 'granted' ? 'On' : 'Off') + '</span></div></div>';
 };
 
 /* ================= PAYOUTS (same rules as the desktop CRM) ================= */
@@ -1027,6 +1154,8 @@ setInterval(async () => {
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') loadMessages(true).then(updateBadge).catch(() => {}); });
 if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/app/sw.js', { scope: '/app/' }).catch(() => {}); }); }
 setOnline();
+try { localStorage.setItem('ncrm:opens', String(+(localStorage.getItem('ncrm:opens') || 0) + 1)); } catch (_) {}
+navigator.serviceWorker && navigator.serviceWorker.addEventListener && navigator.serviceWorker.addEventListener('message', (e) => { if (e.data && e.data.type === 'push') { loadMessages(true).then(() => { updateBadge(); if (/^#(inbox|home|chat)/.test(location.hash || '#home')) render(); }).catch(() => {}); } });
 render();
 loadMe();
 </script>

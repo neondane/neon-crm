@@ -19,7 +19,7 @@ const ACCESS_TEAM = 'https://winter-snowflake-2c4e.cloudflareaccess.com';
 // AUD tag of the Neon CRM Access application (same app covers crm + crm3).
 const ACCESS_AUD = '635d889655dc3b6db0081aa5b767da6bbe30d5e5105e158e416bb07ddee000a9';
 const NEON_API = 'https://neon-api.pages.dev/api/';
-const ALLOWED = { sendSms: 1, sendMms: 1, sendEmail: 1, sendPayout: 1 };
+const ALLOWED = { sendSms: 1, sendMms: 1, sendEmail: 1, sendPayout: 1, push: 1 };
 
 function b64urlBytes(s) {
   s = String(s).replace(/-/g, '+').replace(/_/g, '/');
