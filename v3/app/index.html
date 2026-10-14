@@ -207,7 +207,7 @@ textarea.input{min-height:90px;resize:vertical}
    (Phase 2 moves these behind the login gateway). Every text, email and payout goes
    through /api/secure on this site, which checks the Cloudflare Access login and marks
    the request X-Neon-App: crm-app so the backend's TEST MODE applies (allowlist only). */
-const VERSION = '1.2.0';
+const VERSION = '1.2.1';
 const SB_URL = 'https://aoyfieswynhgqyrveqnp.supabase.co';
 const SB_KEY = 'sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ';
 const NEON_API = 'https://neon-api.pages.dev';
@@ -494,7 +494,7 @@ ROUTES.home = async (arg, seq) => {
     const rl = $('#refList'); if (rl) rl.innerHTML = (attn.length ? '<div class="warn" style="text-align:center">' + attn.length + ' need attention</div>' : '') + (attn.concat(recent.filter((l) => attn.indexOf(l) < 0))).slice(0, 5).map(leadRow).join('') || '<div class="empty">No portal referrals in the last 7 days.</div>';
     watchPhotos();
   }).catch(() => { const pl = $('#payList'); if (pl) pl.innerHTML = '<div class="err">Could not load payouts.</div>'; });
-  sb('referrals?select=amount,date&date=gte.' + new Date().toISOString().slice(0, 7) + '-01').then((rows) => {
+  (() => { const d0 = new Date(); const m0 = new Date(d0.getFullYear(), d0.getMonth(), 1), m1 = new Date(d0.getFullYear(), d0.getMonth() + 1, 1); const ymd = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01'; return sb('referrals?select=amount,date&date=gte.' + ymd(m0) + '&date=lt.' + ymd(m1)); })().then((rows) => {
     const v = rows.reduce((t, r) => t + (+r.amount || 0), 0); const el = $('#revNum'); if (el) el.textContent = kfmt(v);
   }).catch(() => { const el = $('#revNum'); if (el) el.textContent = '–'; });
 };
