@@ -1,73 +1,86 @@
-/** POST /api/push : the phone app's alert settings. Reached only through the CRM gateway
- *  (/api/secure/push on crm3), which verifies the Cloudflare login and passes X-Neon-User.
- *  Body { op, ... }:
- *    config                 -> { publicKey, prefs, myDevices, pushLive, onAllowlist }
- *    subscribe {subscription:{endpoint,keys:{p256dh,auth}}, userAgent}
- *    unsubscribe {endpoint}
- *    prefs {categories:{messages,referrals,alerts,birthdays}, quiet_start, quiet_end}
- *    test                   -> sends "Push alerts are working" to this person's phones now
- *    list {limit}           -> recent alerts for the in-app list (team-wide + mine)
+/** POST /api/push : alert settings + feeds for the phone app and the desktop CRM.
+ *  Reached only through the CRM gateway (/api/secure/push on crm/crm3), which verifies the
+ *  Cloudflare login and passes X-Neon-User. Body { op, ... }:
+ *    config      -> { publicKey, events, prefs, myDevices, pushLive, onAllowlist }
+ *    subscribe   {subscription, userAgent} / unsubscribe {endpoint}
+ *    prefs       {channels:{eventKey:{push,desktop,sms}}, phone, quiet_start, quiet_end}
+ *    test        {event?, channels?:['push','sms']} -> sends a test to this person only
+ *    list        {limit} -> the in-app alert history
+ *    feed        {afterId} -> new alerts for the DESKTOP CRM (filtered by the person's desktop switches)
+ *    twilio_msg  {sid} -> read-only Twilio timestamps (delay diagnosis)
  */
 import { endpoint, preflight } from '../_shared.js';
 import { authKey } from '../_apikeys.js';
-import { db, pushContext, deliver, CATEGORIES } from '../_push.js';
+import { db, pushContext, emitEvent } from '../_push.js';
+import { EVENTS, EVENT_BY_KEY, CHANNELS, wants } from '../_events.js';
 
 const handler = endpoint(async ({ env, body, reply, request }) => {
   const keyCheck = await authKey(env, request, 'write');
   if (!keyCheck.ok) return reply({ ok: false, error: keyCheck.error }, keyCheck.status);
   const user = String(request.headers.get('X-Neon-User') || '').trim().toLowerCase();
   if (!user || user === 'unknown') return reply({ ok: false, error: 'no_user', message: 'Sign in to the CRM again.' }, 401);
-  const d = db(env);
+  const d = db(env); const enc = encodeURIComponent;
   const op = String((body && body.op) || 'config');
+  const myPrefs = async () => (await d.get('notify_prefs?user_email=eq.' + enc(user) + '&select=channels,phone,quiet_start,quiet_end'))[0] || { channels: {}, phone: null, quiet_start: 21, quiet_end: 7 };
 
   if (op === 'config') {
     const ctx = await pushContext(env);
-    const [p, mine] = await Promise.all([
-      d.get('notify_prefs?user_email=eq.' + encodeURIComponent(user) + '&select=categories,quiet_start,quiet_end'),
-      d.get('push_subscriptions?user_email=eq.' + encodeURIComponent(user) + '&select=endpoint,user_agent,last_ok_at,created_at'),
-    ]);
+    const [p, mine] = await Promise.all([myPrefs(), d.get('push_subscriptions?user_email=eq.' + enc(user) + '&select=endpoint,user_agent,last_ok_at,created_at')]);
     const allow = (ctx.settings.allow_emails || []).map((e) => String(e).toLowerCase());
-    return reply({ ok: true, publicKey: ctx.publicKey, prefs: p[0] || { categories: { messages: true, referrals: true, alerts: true, birthdays: true }, quiet_start: 21, quiet_end: 7 }, myDevices: mine, pushLive: ctx.settings.push_live === true, onAllowlist: allow.includes(user) });
+    return reply({ ok: true, me: user, publicKey: ctx.publicKey, events: EVENTS, prefs: p, myDevices: mine, pushLive: ctx.settings.push_live === true, onAllowlist: allow.includes(user) });
   }
 
   if (op === 'subscribe') {
     const s = body.subscription || {}; const k = s.keys || {};
     if (!/^https:\/\//.test(String(s.endpoint || '')) || !k.p256dh || !k.auth) return reply({ ok: false, error: 'bad_subscription' }, 400);
-    const row = { user_email: user, endpoint: String(s.endpoint), p256dh: String(k.p256dh), auth: String(k.auth), user_agent: String(body.userAgent || '').slice(0, 200), fail_count: 0 };
-    await d.post('push_subscriptions?on_conflict=endpoint', row, 'resolution=merge-duplicates,return=minimal');
+    await d.post('push_subscriptions?on_conflict=endpoint', { user_email: user, endpoint: String(s.endpoint), p256dh: String(k.p256dh), auth: String(k.auth), user_agent: String(body.userAgent || '').slice(0, 200), fail_count: 0 }, 'resolution=merge-duplicates,return=minimal');
     return reply({ ok: true });
   }
 
   if (op === 'unsubscribe') {
-    if (body.endpoint) await d.del('push_subscriptions?endpoint=eq.' + encodeURIComponent(String(body.endpoint)) + '&user_email=eq.' + encodeURIComponent(user));
+    if (body.endpoint) await d.del('push_subscriptions?endpoint=eq.' + enc(String(body.endpoint)) + '&user_email=eq.' + enc(user));
     return reply({ ok: true });
   }
 
   if (op === 'prefs') {
-    const c = body.categories || {}; const cats = {};
-    CATEGORIES.forEach((k) => { cats[k] = c[k] !== false; });
-    const qs = Math.max(0, Math.min(23, parseInt(body.quiet_start, 10)));
-    const qe = Math.max(0, Math.min(23, parseInt(body.quiet_end, 10)));
-    await d.post('notify_prefs?on_conflict=user_email', { user_email: user, categories: cats, quiet_start: isNaN(qs) ? 21 : qs, quiet_end: isNaN(qe) ? 7 : qe, updated_at: new Date().toISOString() }, 'resolution=merge-duplicates,return=minimal');
+    const cur = await myPrefs(); const ch = {}; const inC = body.channels || {};
+    EVENTS.forEach((e) => { const v = inC[e.key] || (cur.channels || {})[e.key]; if (v && typeof v === 'object') { ch[e.key] = {}; CHANNELS.forEach((c) => { if (typeof v[c] === 'boolean') ch[e.key][c] = v[c]; }); } });
+    const row = { user_email: user, channels: ch, updated_at: new Date().toISOString() };
+    if (body.phone !== undefined) { const p10 = String(body.phone || '').replace(/\D/g, '').slice(-10); row.phone = p10.length === 10 ? p10 : null; }
+    ['quiet_start', 'quiet_end'].forEach((k) => { if (body[k] !== undefined) { const v = parseInt(body[k], 10); if (!isNaN(v) && v >= 0 && v <= 23) row[k] = v; } });
+    await d.post('notify_prefs?on_conflict=user_email', row, 'resolution=merge-duplicates,return=minimal');
     return reply({ ok: true });
   }
 
   if (op === 'test') {
-    const rows = await d.post('notifications', { category: 'test', title: 'Neon CRM alerts are on', body: 'This is your test. Realtor texts will show up just like this.', url: '/app/#home', urgent: true, target_email: user });
-    const n = rows[0];
-    const r = await deliver(env, n, { onlyEmail: user });
-    await d.patch('notifications?id=eq.' + n.id, { pushed_at: new Date().toISOString(), push_result: JSON.stringify(r).slice(0, 300) }).catch(() => {});
-    return reply({ ok: r.sent > 0, result: r, message: r.sent ? 'Sent. It should pop up in a few seconds.' : (r.error === 'vapid_missing' ? 'Alerts are not set up on the server yet.' : 'No phone is signed up for alerts yet. Turn alerts on first.') });
+    const ev = EVENT_BY_KEY[body.event] ? body.event : null;
+    const label = ev ? EVENT_BY_KEY[ev].label : 'Neon CRM alerts';
+    const p = await myPrefs();
+    const chans = ev ? ['push', 'sms'].filter((c) => wants(p, ev, c)) : ['push'];
+    if (!chans.length) return reply({ ok: false, message: 'Phone and Text me are both off for this alert, so there is nothing to test.' });
+    const n = await emitEvent(env, { event: 'test', title: 'Test: ' + label, body: 'This is how this alert will look.', url: '/app/#alerts', target_email: user, source_key: 'test:' + user + ':' + Date.now() }, { channels: chans });
+    const row = n ? (await d.get('notifications?id=eq.' + n.id + '&select=push_result'))[0] : null;
+    let r = {}; try { r = JSON.parse((row && row.push_result) || '{}'); } catch (_) {}
+    const sent = (r.push || 0) + (r.sms || 0);
+    return reply({ ok: sent > 0, result: r, message: sent ? 'Sent' + (r.sms ? ' (phone alert and text)' : '') + '. It should arrive in a few seconds.' : 'Nothing sent. Turn on alerts on this phone, or add your cell number for texts.' });
   }
 
   if (op === 'list') {
     const lim = Math.min(+body.limit || 40, 100);
-    const rows = await d.get('notifications?select=id,category,title,body,url,urgent,created_at&or=(target_email.is.null,target_email.eq.' + encodeURIComponent(user) + ')&order=id.desc&limit=' + lim);
+    const rows = await d.get('notifications?select=id,event,category,title,body,url,urgent,created_at&or=(target_email.is.null,target_email.eq.' + enc(user) + ')&order=id.desc&limit=' + lim);
     return reply({ ok: true, items: rows });
   }
 
+  if (op === 'feed') {
+    const after = parseInt(body.afterId, 10);
+    if (isNaN(after)) { const top = await d.get('notifications?select=id&order=id.desc&limit=1'); return reply({ ok: true, lastId: top[0] ? top[0].id : 0, items: [] }); }
+    const p = await myPrefs();
+    const rows = await d.get('notifications?select=id,event,title,body,url,urgent,created_at,target_email&id=gt.' + after + '&created_at=gte.' + enc(new Date(Date.now() - 3600 * 1000).toISOString()) + '&order=id.asc&limit=25');
+    const items = rows.filter((n) => (!n.target_email || n.target_email === user) && n.event && (n.event === 'test' || wants(p, n.event, 'desktop')));
+    return reply({ ok: true, lastId: rows.length ? rows[rows.length - 1].id : after, items });
+  }
+
   if (op === 'twilio_msg') {
-    // Read-only: when did Twilio receive/send this message? (diagnoses delivery delays)
     const sid = String(body.sid || '');
     if (!/^(SM|MM)[0-9a-f]{32}$/.test(sid) || !env.TWILIO_SID || !env.TWILIO_TOKEN) return reply({ ok: false, error: 'bad_sid_or_not_configured' }, 400);
     const r = await fetch('https://api.twilio.com/2010-04-01/Accounts/' + env.TWILIO_SID + '/Messages/' + sid + '.json', { headers: { Authorization: 'Basic ' + btoa(env.TWILIO_SID + ':' + env.TWILIO_TOKEN) }, signal: AbortSignal.timeout(8000) });

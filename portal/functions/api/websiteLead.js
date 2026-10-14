@@ -196,6 +196,7 @@ export async function onRequestPost(context) {
     return json({ ok: false, error: 'Could not reach SmartMoving: ' + (err && err.message) }, 502, origin);
   }
 
+  try { context.waitUntil(logInboundLead(env, { source: 'website', name: (firstName + ' ' + lastName).slice(0, 120), phone: phone.slice(0, 30), email: email.slice(0, 120), details: { moveDate: b.moveDate || null, from: originFull || null, size: b.moveSize || null } })); } catch (e) { /* ignore */ }
   if (smRes.ok) return json({ ok: true }, 200, origin);
 
   if (smRes.status === 400 && /already/i.test(smText || '')) {
@@ -315,4 +316,12 @@ async function sendOpenAiConversion(env, request, b, email) {
   } catch (e) {
     // Never let a tracking hiccup affect the lead.
   }
+}
+
+// New alert system: drop one row in inbound_leads (insert-only for the public key);
+// a database trigger turns it into a team alert. Never blocks or fails the lead.
+async function logInboundLead(env, row) {
+  const url = String((env && (env.SUPABASE_URL || env.SB_URL)) || 'https://aoyfieswynhgqyrveqnp.supabase.co').replace(/\/$/, '');
+  const key = (env && (env.SUPABASE_KEY || env.SUPABASE_ANON_KEY)) || 'sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ';
+  try { await fetch(url + '/rest/v1/inbound_leads', { method: 'POST', headers: { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(row), signal: AbortSignal.timeout(5000) }); } catch (_) {}
 }

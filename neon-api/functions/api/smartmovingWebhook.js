@@ -11,6 +11,7 @@
  *  Env: SUPABASE_URL, SUPABASE_KEY, SMARTMOVING_API_KEY, SMARTMOVING_WEBHOOK_SECRET? */
 import { endpoint, preflight, sb } from '../_shared.js';
 import { dispatch, notifyOwner } from '../_webhooks.js';
+import { emitEvent } from '../_push.js';
 
 const SM_BASE = 'https://api-public.smartmoving.com/v1';
 const GENERIC = /google|yelp|\bweb\b|website|online|bing|drive.?by|signage|sign\b|past customer|return(ing)? customer|repeat customer|former customer|facebook|instagram|social|yard sign|billboard|angi|thumbtack|home.?advisor|walk.?in|truck|wrap|\bnone\b|^n\/?a$|^other$|unknown|search engine/i;
@@ -73,6 +74,12 @@ async function emitJob(env, waitUntil, stage, data) {
     try {
       await dispatch(env, 'job.' + stage, data);
       if (stage === 'completed') await dispatch(env, 'payout.due', data);
+      // One alert per job + stage, ever (source_key), so SmartMoving's burst of webhooks can't double-alert.
+      await emitEvent(env, { event: stage === 'booked' ? 'job_booked' : 'job_completed',
+        title: (stage === 'booked' ? 'Booked: ' : 'Completed: ') + (data.customer || 'a job'),
+        body: data.partner ? 'Referred by ' + data.partner + (stage === 'completed' ? '. Their payout is due.' : '.') : (stage === 'completed' ? 'Job completed.' : 'Job booked.'),
+        url: stage === 'completed' ? '/app/#payouts' : '/app/#referrals',
+        source_key: 'job:' + (data.oppId || data.leadId || data.refId || data.customer || 'x') + ':' + stage }).catch(() => {});
       await notifyOwner(env, (stage === 'booked' ? 'Job BOOKED: ' : 'Job COMPLETED: ')
         + (data.customer || 'job') + (data.partner ? ' (via ' + data.partner + ')' : ''));
     } catch (_) {}

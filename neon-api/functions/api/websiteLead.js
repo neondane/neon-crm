@@ -3,6 +3,7 @@
  *          originAddress?, destinationAddress?, notes?, referralSource?, utm*?, gclid?, company?(honeypot) }
  *  Env: SMARTMOVING_PROVIDER_KEY (has fallback), SM_LEAD_BRANCH_ID? */
 import { endpoint, preflight } from '../_shared.js';
+import { db } from '../_push.js';
 
 const handler = endpoint(async ({ env, body, reply }) => {
   const providerKey = env.SMARTMOVING_PROVIDER_KEY || 'd18a311b-7df6-4483-90a7-b3d201630cea';
@@ -44,6 +45,8 @@ const handler = endpoint(async ({ env, body, reply }) => {
   } catch (e) {
     return reply({ ok: false, error: 'Could not reach SmartMoving: ' + (e && e.message) }, 502);
   }
+  // Alert the team (new system): one row -> database trigger -> alert. Never blocks the lead.
+  db(env).post('inbound_leads', { source: 'website', name: (String(b.firstName || '') + ' ' + String(b.lastName || '')).trim().slice(0, 120), phone: phone.slice(0, 30), email: email.slice(0, 120), details: { moveDate: b.moveDate || null, from: originFull || null, size: b.moveSize || null } }, 'return=minimal').catch(() => {});
   if (res.ok) return reply({ ok: true });
   if (res.status === 400 && /already/i.test(txt || '')) return reply({ ok: true, duplicate: true });
   return reply({ ok: false, status: res.status, error: (txt || '').slice(0, 300) }, 502);

@@ -6,6 +6,7 @@
  *  Env: RESEND_API_KEY, EMAIL_FROM, SUPABASE_URL, SUPABASE_KEY,
  *       PARTNER_NOTIFY? (comma-separated recipients) | TEAM_EMAIL? */
 import { endpoint, preflight, sb, toE164 } from '../_shared.js';
+import { emitEvent } from '../_push.js';
 
 function esc(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').split('"').join('&quot;');
@@ -59,6 +60,7 @@ async function addContact(env, a) {
       notes: noteParts.join('\n'),
     };
     await sb(env).insert('contacts', row, { returning: 'minimal' });
+    await emitEvent(env, { event: 'partner_apply', title: 'Partner application: ' + String(a.name || 'New realtor').slice(0, 40), body: (a.brokerage ? a.brokerage + '. ' : '') + 'Open their profile to activate their portal.', url: '/app/#partners', source_key: 'apply:' + String(a.email || a.phone || a.name || '').toLowerCase() + ':' + new Date().toISOString().slice(0, 10) }).catch(() => {});
     return true;
   } catch (e) { return false; }
 }

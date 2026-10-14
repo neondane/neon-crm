@@ -212,6 +212,10 @@ function normalizeDate(s) {
 }
 
 async function notifyOffice(env, payload, formName) {
+  // New alert system (the old text used /api/sendMessage, which was switched off in the 2026-10-14 lockdown).
+  await logInboundLead(env, { source: 'facebook', name: (String(payload.firstName || '') + ' ' + String(payload.lastName || '')).trim().slice(0, 120), phone: String(payload.phoneNumber || '').slice(0, 30), email: String(payload.email || '').slice(0, 120), details: { moveDate: payload.moveDate || null, from: payload.originAddressFull || null, form: formName || null } });
+  return;
+  /* old path below kept for reference, never runs */
   const to = env.NG_SMS_NOTIFY_TO;
   if (!to) return;
   const who = (payload.firstName + ' ' + payload.lastName).trim();
@@ -243,4 +247,12 @@ async function verifySignature(raw, header, secret) {
   } catch (e) {
     return false;
   }
+}
+
+// New alert system: drop one row in inbound_leads (insert-only for the public key);
+// a database trigger turns it into a team alert. Never blocks or fails the lead.
+async function logInboundLead(env, row) {
+  const url = String((env && (env.SUPABASE_URL || env.SB_URL)) || 'https://aoyfieswynhgqyrveqnp.supabase.co').replace(/\/$/, '');
+  const key = (env && (env.SUPABASE_KEY || env.SUPABASE_ANON_KEY)) || 'sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ';
+  try { await fetch(url + '/rest/v1/inbound_leads', { method: 'POST', headers: { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(row), signal: AbortSignal.timeout(5000) }); } catch (_) {}
 }
