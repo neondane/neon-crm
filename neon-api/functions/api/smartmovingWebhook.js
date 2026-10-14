@@ -10,7 +10,7 @@
  *
  *  Env: SUPABASE_URL, SUPABASE_KEY, SMARTMOVING_API_KEY, SMARTMOVING_WEBHOOK_SECRET? */
 import { endpoint, preflight, sb } from '../_shared.js';
-import { dispatch, notifyOwner } from '../_webhooks.js';
+import { dispatch } from '../_webhooks.js';
 import { emitEvent } from '../_push.js';
 
 const SM_BASE = 'https://api-public.smartmoving.com/v1';
@@ -80,8 +80,6 @@ async function emitJob(env, waitUntil, stage, data) {
         body: data.partner ? 'Referred by ' + data.partner + (stage === 'completed' ? '. Their payout is due.' : '.') : (stage === 'completed' ? 'Job completed.' : 'Job booked.'),
         url: stage === 'completed' ? '/app/#payouts' : '/app/#referrals',
         source_key: 'job:' + (data.oppId || data.leadId || data.refId || data.customer || 'x') + ':' + stage }).catch(() => {});
-      await notifyOwner(env, (stage === 'booked' ? 'Job BOOKED: ' : 'Job COMPLETED: ')
-        + (data.customer || 'job') + (data.partner ? ' (via ' + data.partner + ')' : ''));
     } catch (_) {}
   };
   if (typeof waitUntil === 'function') waitUntil(fire()); else await fire();

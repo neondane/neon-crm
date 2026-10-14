@@ -4,21 +4,22 @@
  *  the exact SmartMoving payload in sm_payload, then sends it. If SmartMoving rejects it or
  *  can't be reached, the row is left as sm_status = 'retrying'. This job:
  *    1. resends due rows (backoff 5, 10, 20, 40, 80 min; 6 tries total),
- *    2. texts the owner ONCE on the first failure, once if it later recovers, and once
- *       with the customer's details if all 6 tries fail ("enter it by hand"),
+ *    2. alerts go through the CRM alert system (Alerts tab): the 'referral_stuck' alert fires
+ *       from the database when a row turns 'retrying' or 'failed', and this job sends one
+ *       'fixed' alert if a stuck row later gets through,
  *    3. treats a row stuck in 'pending' for 3+ minutes as due (the portal died mid-way).
  *  Runs every 10 minutes from the CRM database scheduler (pg_cron job
  *  'neon-portal-referral-retry'), and right away when the portal sees a failure.
  *
  *  No login needed on purpose: it only acts on rows already in the database, respects the
- *  backoff, and can't be made to text anything except these fixed alerts. Each try is
+ *  backoff, and can't be made to send anything except these fixed alerts. Each try is
  *  "claimed" first, so two runs at once can't send the same lead twice.
  *
  *  Env: SUPABASE_URL, SUPABASE_KEY, SMARTMOVING_PROVIDER_KEY?, SM_LEAD_BRANCH_ID?,
- *       ALERT_PHONE, TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM
+ *       (alerts: see _push.js)
  */
 import { endpoint, preflight } from '../_shared.js';
-import { notifyOwner } from '../_webhooks.js';
+import { emitEvent } from '../_push.js';
 
 const SM_PROVIDER_KEY_FALLBACK = 'd18a311b-7df6-4483-90a7-b3d201630cea'; // TODO Phase 2: remove after the key is rotated
 const MAX_ATTEMPTS = 6;
@@ -86,10 +87,7 @@ const handler = endpoint(async ({ env, reply }) => {
     // First-failure alert (once), even while we wait for the next try.
     if (row.sm_status === 'retrying' && !row.sm_alerted_at) {
       const claimed = await d.patch(`portal_leads?id=eq.${row.id}&sm_alerted_at=is.null`, { sm_alerted_at: new Date().toISOString() }).catch(() => []);
-      if (claimed.length) {
-        out.alerts++;
-        await notifyOwner(env, `Neon Giant: ${who(row)} did NOT reach SmartMoving yet (${String(row.sm_error || 'unknown error').slice(0, 80)}). It's saved and retrying automatically. Customer: ${row.customerPhone || 'no phone'}.`);
-      }
+      if (claimed.length) out.alerts++; // the alert itself comes from the database trigger (referral_stuck)
     }
 
     const due = row.sm_status === 'pending'
@@ -99,8 +97,7 @@ const handler = endpoint(async ({ env, reply }) => {
 
     if (!row.sm_payload) {
       await d.patch(`portal_leads?id=eq.${row.id}`, { sm_status: 'failed', sm_error: 'no saved payload' }).catch(() => {});
-      out.gaveUp++; out.alerts++;
-      await notifyOwner(env, `Neon Giant: ${who(row)} never reached SmartMoving. Please enter it by hand. Customer: ${row.customerName}, ${row.customerPhone || 'no phone'}.`);
+      out.gaveUp++; out.alerts++; // 'failed' fires the referral_stuck alert from the database
       continue;
     }
 
@@ -116,21 +113,19 @@ const handler = endpoint(async ({ env, reply }) => {
       out.recovered++;
       if (row.sm_alerted_at || row.sm_status === 'retrying') {
         out.alerts++;
-        await notifyOwner(env, `Neon Giant: fixed. ${who(row)} reached SmartMoving on try ${attempts + 1}. Nothing to do.`);
+        if (!/^ZZ /i.test(String(row.customerName || ''))) await emitEvent(env, { event: 'referral_stuck', title: 'Fixed: referral reached SmartMoving',
+          body: who(row) + ' got through on try ' + (attempts + 1) + '. Nothing to do.', url: '/app/#referrals',
+          source_key: 'sm:' + row.id + ':fixed', tag: 'sm:' + row.id }).catch(() => {});
       }
     } else if (attempts + 1 >= MAX_ATTEMPTS) {
       await d.patch(`portal_leads?id=eq.${row.id}`, { sm_status: 'failed', sm_error: sm.error }).catch((e) => out.errors.push(String(e.message || e)));
-      out.gaveUp++; out.alerts++;
-      await notifyOwner(env, `Neon Giant: ${who(row)} still failed after ${MAX_ATTEMPTS} tries. Please enter it in SmartMoving by hand. Customer: ${row.customerName}, ${row.customerPhone || 'no phone'}${row.customerEmail ? ', ' + row.customerEmail : ''}. Move: ${row.fromAddress || '?'} to ${row.toAddress || '?'}${row.moveDate ? ' on ' + row.moveDate : ''}.`);
+      out.gaveUp++; out.alerts++; // 'failed' fires the referral_stuck alert from the database
     } else {
       await d.patch(`portal_leads?id=eq.${row.id}`, { sm_status: 'retrying', sm_error: sm.error }).catch((e) => out.errors.push(String(e.message || e)));
       out.stillRetrying++;
       if (!row.sm_alerted_at && row.sm_status === 'pending') {
         const c2 = await d.patch(`portal_leads?id=eq.${row.id}&sm_alerted_at=is.null`, { sm_alerted_at: new Date().toISOString() }).catch(() => []);
-        if (c2.length) {
-          out.alerts++;
-          await notifyOwner(env, `Neon Giant: ${who(row)} did NOT reach SmartMoving yet (${String(sm.error).slice(0, 80)}). It's saved and retrying automatically. Customer: ${row.customerPhone || 'no phone'}.`);
-        }
+        if (c2.length) out.alerts++; // 'retrying' fires the referral_stuck alert from the database
       }
     }
   }
