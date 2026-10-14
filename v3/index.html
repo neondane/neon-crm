@@ -2893,8 +2893,11 @@ async function liveMsgCheck(seedOnly){
     try{updateTopBadges();}catch(e){}
     if(fresh.length && !seedOnly){
       var top=fresh[0]; var nm="a contact"; try{var c=(ALL||[]).filter(function(x){return x.id===top.cid;})[0]; if(c)nm=c.name;}catch(e){}
-      ngBeep([{f:988,t:0,d:.2,v:.85,type:"triangle"},{f:1319,t:.18,d:.3,v:.85,type:"triangle"},{f:988,t:.52,d:.2,v:.85,type:"triangle"},{f:1319,t:.7,d:.36,v:.9,type:"triangle"}]);
-      try{navigator.vibrate&&navigator.vibrate([200,90,200,90,260]);}catch(e){}
+      // One soft chime per new message, shared by every open tab on this site (was 4 tones per tab).
+      var chimed=""; try{chimed=localStorage.getItem("ngLastChimeAt")||"";}catch(e){}
+      if(String(newestAt)>chimed){ try{localStorage.setItem("ngLastChimeAt",String(newestAt));}catch(e){}
+        ngBeep([{f:880,t:0,d:.16,v:.55,type:"sine"},{f:1320,t:.13,d:.28,v:.55,type:"sine"}]);
+        try{navigator.vibrate&&navigator.vibrate(180);}catch(e){} }
       ngToast(gi("inbox"), fresh.length>1?(fresh.length+" new messages"):("New message from "+nm), String(top.text||"").slice(0,80), "var(--pink,#FF1493)", "inbox");
       try{ DATA.msgs=null; if(view==="inbox"){ loadMsgs(function(){drawInbox();}); } if(view==="contacts" && current){ ACT=null; loadActivity(current); } }catch(e){}
     }

@@ -76,7 +76,7 @@ export async function deliver(env, n, opts) {
     if (n.category !== 'test' && ctx.settings.push_live !== true && !allow.includes(email)) { out.skipped++; continue; }
     if (!catOn(p, n.category)) { out.skipped++; continue; }
     if (!n.urgent && n.category !== 'test' && isQuiet(p)) { out.held++; continue; }
-    const r = await sendWebPush(s, payload, { jwk: ctx.jwk, publicKey: ctx.publicKey, urgency: n.urgent ? 'high' : 'normal', ttl: n.category === 'messages' ? 43200 : 86400 });
+    const r = await sendWebPush(s, payload, { jwk: ctx.jwk, publicKey: ctx.publicKey, urgency: (n.urgent || n.category === 'messages' || n.category === 'test') ? 'high' : 'normal', ttl: n.category === 'messages' ? 43200 : 86400 });
     if (r.ok) { out.sent++; d.patch('push_subscriptions?id=eq.' + s.id, { last_ok_at: new Date().toISOString(), fail_count: 0 }).catch(() => {}); }
     else if (r.gone) { out.removed++; await d.del('push_subscriptions?id=eq.' + s.id).catch(() => {}); }
     else { out.failed++; out.lastError = r.status + ' ' + (r.error || ''); }

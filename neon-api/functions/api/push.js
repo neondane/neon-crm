@@ -66,6 +66,15 @@ const handler = endpoint(async ({ env, body, reply, request }) => {
     return reply({ ok: true, items: rows });
   }
 
+  if (op === 'twilio_msg') {
+    // Read-only: when did Twilio receive/send this message? (diagnoses delivery delays)
+    const sid = String(body.sid || '');
+    if (!/^(SM|MM)[0-9a-f]{32}$/.test(sid) || !env.TWILIO_SID || !env.TWILIO_TOKEN) return reply({ ok: false, error: 'bad_sid_or_not_configured' }, 400);
+    const r = await fetch('https://api.twilio.com/2010-04-01/Accounts/' + env.TWILIO_SID + '/Messages/' + sid + '.json', { headers: { Authorization: 'Basic ' + btoa(env.TWILIO_SID + ':' + env.TWILIO_TOKEN) }, signal: AbortSignal.timeout(8000) });
+    const j = await r.json().catch(() => ({}));
+    return reply({ ok: r.ok, date_created: j.date_created, date_sent: j.date_sent, date_updated: j.date_updated, status: j.status, direction: j.direction, error_code: j.error_code });
+  }
+
   return reply({ ok: false, error: 'unknown_op' }, 400);
 });
 
