@@ -91,6 +91,7 @@ export async function onRequest({ request, env }) {
         'Content-Type': 'application/json',
         Authorization: 'Bearer ' + env.NEON_ADMIN_KEY,
         'X-Neon-User': v.email || 'unknown',
+        ...(request.headers.get('X-Neon-App') === 'crm-app' ? { 'X-Neon-App': 'crm-app' } : {}),
       },
       body,
     });

@@ -7,6 +7,7 @@
  *  NOTE: real money. Validates strictly and fails closed (never sends on bad input). */
 import { endpoint, preflight, sb } from '../_shared.js';
 import { authKey } from '../_apikeys.js';
+import { appPayoutGuard } from '../_appguard.js';
 
 const handler = endpoint(async ({ env, body, reply, request }) => {
   // LOCKDOWN 2026-10-14: callers must present an API key (the CRM gets one via /api/secure on crm3).
@@ -34,6 +35,8 @@ const handler = endpoint(async ({ env, body, reply, request }) => {
   if (!cents || cents < 100) return reply({ ok: false, error: 'invalid_amount', message: 'min $1' }, 400);
   // Money endpoint: require an idempotency key so a repeat/retry can't double-pay.
   if (!leadKey) return reply({ ok: false, error: 'missing_lead_key', message: 'leadId/key required for a safe payout' }, 400);
+  const appGuard = await appPayoutGuard(env, request, email, body.dryRun === true);
+  if (!appGuard.ok) return reply({ ok: false, error: appGuard.error, message: appGuard.message }, appGuard.status);
   // Use the caller's key verbatim (e.g. "portal:26" / "manual:86") so the ledger key
   // matches what the CRM uses to detect "paid" — no prefix drift.
   const ledgerKey = leadKey;

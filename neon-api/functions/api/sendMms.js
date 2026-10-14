@@ -12,6 +12,7 @@
  */
 import { endpoint, preflight, sb, toE164 } from '../_shared.js';
 import { authKey } from '../_apikeys.js';
+import { appSendGuard } from '../_appguard.js';
 
 var BUCKET = 'mms';
 
@@ -77,6 +78,8 @@ var handler = endpoint(async function (ctx) {
 
   var to = toE164(body.to);
   if (!to) return reply({ ok: false, error: 'missing_or_invalid_to' }, 400);
+  var appGuard = await appSendGuard(env, ctx.request, 'sms', to);
+  if (!appGuard.ok) return reply({ ok: false, error: appGuard.error, message: appGuard.message }, appGuard.status);
   var img = dataUrlToBytes(body.imageBase64 || body.image || '');
   if (!img) return reply({ ok: false, error: 'missing_or_bad_image' }, 400);
   var text = String(body.body || '').trim();

@@ -1,0 +1,17 @@
+{
+  "id": "/app/",
+  "name": "Neon CRM",
+  "short_name": "Neon CRM",
+  "description": "Neon Giant's realtor partners, messages and referrals.",
+  "start_url": "/app/#home",
+  "scope": "/app/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d0a1f",
+  "theme_color": "#0d0a1f",
+  "icons": [
+    { "src": "/app/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/app/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/app/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

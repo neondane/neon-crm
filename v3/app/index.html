@@ -1,0 +1,952 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Neon CRM</title>
+<meta name="theme-color" content="#0d0a1f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Neon CRM">
+<link rel="manifest" href="/app/manifest.webmanifest" crossorigin="use-credentials">
+<link rel="icon" type="image/png" href="/app/icons/favicon-64.png">
+<link rel="apple-touch-icon" href="/app/icons/apple-touch-icon.png">
+<style>
+:root{--bg:#0d0a1f;--card:#17132e;--card2:#221c42;--line:rgba(255,255,255,.09);--text:#f3f1ff;--muted:#a9a3c9;--pink:#ff1493;--cyan:#22bfe7;--green:#2fd27f;--amber:#ffb020;--red:#ff4d6d;--grad:linear-gradient(90deg,#ff1493,#22bfe7);--safe-b:env(safe-area-inset-bottom,0px);--safe-t:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+body{min-height:100vh;overscroll-behavior-y:contain}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:var(--cyan)}
+.top{position:sticky;top:0;z-index:20;background:rgba(13,10,31,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:calc(10px + var(--safe-t)) 16px 10px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}
+.top h1{font-size:20px;margin:0;font-weight:800;letter-spacing:.2px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .sub{font-size:12px;color:var(--muted);font-weight:500}
+.iconbtn{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;flex:none;text-decoration:none;color:var(--text)}
+.iconbtn svg{width:22px;height:22px}
+main{padding:14px 14px calc(96px + var(--safe-b))}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;background:rgba(18,14,40,.97);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:6px 4px calc(6px + var(--safe-b))}
+.tabs a{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;color:var(--muted);text-decoration:none;font-size:11px;font-weight:600;position:relative;min-height:48px;justify-content:center}
+.tabs a svg{width:24px;height:24px}
+.tabs a.on{color:var(--text)}
+.tabs a.on svg{color:var(--pink)}
+.tabs a.add .plus{width:46px;height:46px;border-radius:16px;background:var(--grad);display:grid;place-items:center;color:#fff;margin-top:-18px;box-shadow:0 8px 20px rgba(255,20,147,.35)}
+.tabs a.add .plus svg{color:#fff}
+.badge{position:absolute;top:2px;left:calc(50% + 6px);min-width:18px;height:18px;border-radius:9px;background:var(--pink);color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center;padding:0 5px}
+.hidden{display:none!important}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.h2{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin:18px 4px 8px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:12px 16px;border-radius:14px;border:1px solid var(--line);background:var(--card2);font-weight:700;text-decoration:none;color:var(--text)}
+.btn svg{width:20px;height:20px}
+.btn.grad{background:var(--grad);border:0;color:#fff}
+.btn.full{width:100%}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--red)}
+.btn[disabled]{opacity:.5}
+.row{display:flex;align-items:center;gap:12px;padding:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:8px;text-decoration:none;color:var(--text);min-height:64px}
+.row .main{flex:1;min-width:0}
+.row .nm{font-weight:700;font-size:16px;display:flex;align-items:center;gap:6px;min-width:0}
+.row .nm span.t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .meta{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .side{text-align:right;font-size:12px;color:var(--muted);flex:none}
+.av{width:44px;height:44px;border-radius:50%;flex:none;background:var(--card2) center/cover no-repeat;display:grid;place-items:center;font-weight:800;font-size:15px;color:var(--text);border:1px solid var(--line)}
+.av.has{color:transparent}
+.av.lg{width:84px;height:84px;font-size:28px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--pink);flex:none}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font-size:11.5px;font-weight:700;border:1px solid var(--line);background:var(--card2);color:var(--muted);white-space:nowrap}
+.pill.pink{color:var(--pink);border-color:rgba(255,20,147,.4)}
+.pill.cyan{color:var(--cyan);border-color:rgba(34,191,231,.4)}
+.pill.green{color:var(--green);border-color:rgba(47,210,127,.4)}
+.pill.amber{color:var(--amber);border-color:rgba(255,176,32,.45)}
+.pill.red{color:var(--red);border-color:rgba(255,77,109,.45)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:9px 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);font-weight:700;font-size:14px;min-height:40px}
+.chip.on{background:var(--text);color:var(--bg)}
+.search{width:100%;min-height:48px;padding:12px 14px 12px 42px;border-radius:14px;border:1px solid var(--line);background:var(--card) no-repeat 14px center/18px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a9a3c9' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");margin-bottom:10px;font-size:16px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:0 2px 6px}
+.input{width:100%;min-height:50px;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--card);font-size:16px}
+textarea.input{min-height:90px;resize:vertical}
+.input:focus,.search:focus{outline:2px solid rgba(34,191,231,.6);outline-offset:1px}
+.check{display:flex;align-items:center;gap:12px;min-height:48px;padding:10px 12px;border-radius:14px;background:var(--card);border:1px solid var(--line);margin-bottom:10px}
+.check input{width:22px;height:22px;accent-color:var(--pink)}
+.warn{border:1px solid rgba(255,176,32,.5);background:rgba(255,176,32,.08);border-radius:14px;padding:12px;margin-bottom:12px;font-size:14px}
+.ok{border:1px solid rgba(47,210,127,.45);background:rgba(47,210,127,.08);border-radius:14px;padding:12px;margin-bottom:12px;font-size:14px}
+.err{border:1px solid rgba(255,77,109,.5);background:rgba(255,77,109,.08);border-radius:14px;padding:12px;margin-bottom:12px;font-size:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.act{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 4px;border-radius:14px;background:var(--card);border:1px solid var(--line);font-size:12.5px;font-weight:700;text-decoration:none;color:var(--text);min-height:72px;justify-content:center}
+.act svg{width:24px;height:24px;color:var(--cyan)}
+/* expanding tiles */
+.tile{background:var(--card);border:1px solid var(--line);border-radius:18px;margin-bottom:10px;overflow:hidden}
+.tile-head{width:100%;display:flex;align-items:center;gap:14px;padding:14px 16px;background:none;border:0;text-align:left;min-height:72px}
+.tile-ic{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,rgba(255,20,147,.18),rgba(34,191,231,.18));flex:none}
+.tile-ic svg{width:22px;height:22px;color:var(--cyan)}
+.tile-num{font-size:26px;font-weight:800;line-height:1}
+.tile-lbl{font-size:13.5px;color:var(--muted);font-weight:600;margin-top:3px}
+.tile-chev{margin-left:auto;transition:transform .25s ease;color:var(--muted)}
+.tile.open .tile-chev{transform:rotate(180deg)}
+.tile-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .28s ease}
+.tile.open .tile-body{grid-template-rows:1fr}
+.tile-body>div{overflow:hidden}
+.tile-inner{padding:0 12px 12px}
+.tile-inner .row{background:var(--card2)}
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 8px;text-align:center}
+.stat b{display:block;font-size:22px;font-weight:800}
+.stat span{font-size:12px;color:var(--muted);font-weight:600}
+/* chat */
+.chatwrap{padding:12px 12px calc(110px + var(--safe-b))}
+.day{text-align:center;font-size:12px;color:var(--muted);margin:14px 0 8px;font-weight:700}
+.bub{max-width:82%;padding:10px 13px;border-radius:18px;margin:4px 0;white-space:pre-wrap;word-wrap:break-word;font-size:15.5px;line-height:1.38}
+.bub.in{background:var(--card2);border-bottom-left-radius:6px}
+.bub.out{background:linear-gradient(135deg,#d6127e,#1aa3c9);margin-left:auto;border-bottom-right-radius:6px;color:#fff}
+.bub img{max-width:100%;border-radius:12px;display:block;margin:4px 0}
+.btime{font-size:11px;color:var(--muted);margin:0 6px 6px}
+.btime.out{text-align:right}
+.mail{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin:8px 0;max-width:94%}
+.mail.out{margin-left:auto;border-color:rgba(34,191,231,.35)}
+.mail .subj{font-weight:800;font-size:14px;margin-bottom:6px}
+.mail .mbody{white-space:pre-wrap;font-size:14.5px;word-wrap:break-word}
+.quoted{color:var(--muted);border-left:3px solid var(--line);padding-left:10px;margin-top:8px;font-size:13px;white-space:pre-wrap}
+.linkbtn{background:none;border:0;color:var(--cyan);font-weight:700;padding:8px 0;font-size:13.5px}
+.composer{position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(18,14,40,.98);border-top:1px solid var(--line);padding:10px 10px calc(10px + var(--safe-b))}
+.composer .cbar{display:flex;gap:8px;align-items:flex-end}
+.composer textarea{flex:1;min-height:46px;max-height:140px;padding:11px 14px;border-radius:22px;border:1px solid var(--line);background:var(--card);resize:none;font-size:16px}
+.sendbtn{width:48px;height:46px;border-radius:23px;border:0;background:var(--grad);color:#fff;display:grid;place-items:center;flex:none}
+.sendbtn svg{width:22px;height:22px}
+.modes{display:flex;gap:6px;margin-bottom:8px}
+.modes button{padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--card);font-size:13px;font-weight:700;color:var(--muted)}
+.modes button.on{background:var(--text);color:var(--bg)}
+.subjin{width:100%;margin-bottom:8px;min-height:42px;padding:9px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-size:15px}
+/* sheet + toast */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:60;display:flex;align-items:flex-end;animation:fade .15s ease}
+.sheet{width:100%;max-height:88vh;overflow:auto;background:var(--bg);border-radius:22px 22px 0 0;border-top:1px solid var(--line);padding:18px 16px calc(18px + var(--safe-b));animation:up .2s ease}
+.sheet h3{margin:0 0 10px;font-size:19px}
+@keyframes up{from{transform:translateY(30px);opacity:.4}to{transform:none;opacity:1}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + var(--safe-b));z-index:80;background:var(--text);color:var(--bg);padding:12px 16px;border-radius:14px;font-weight:700;font-size:14.5px;max-width:92vw;box-shadow:0 10px 30px rgba(0,0,0,.4);animation:up .2s ease}
+.toast.bad{background:var(--red);color:#fff}
+.spin{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--pink);border-radius:50%;animation:sp 0.8s linear infinite;margin:30px auto}
+@keyframes sp{to{transform:rotate(360deg)}}
+.empty{text-align:center;color:var(--muted);padding:30px 10px}
+.offline{background:var(--amber);color:#1a1300;text-align:center;font-size:13px;font-weight:800;padding:6px}
+.listing{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:10px}
+.listing .addr{font-weight:800}
+.listing .price{color:var(--pink);font-weight:800;float:right;margin-left:8px}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:10px 2px;border-bottom:1px solid var(--line);font-size:15px}
+.kv:last-child{border-bottom:0}
+.kv span:first-child{color:var(--muted)}
+.kv span:last-child{text-align:right;word-break:break-word}
+.payrow{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:10px}
+.payrow .who{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+.payrow .amt{font-size:22px;font-weight:800;color:var(--amber);margin-left:auto}
+.payrow .btns{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px}
+.payrow .btns .btn{padding:10px 6px;font-size:14px}
+</style>
+</head>
+<body>
+<div id="offline" class="offline hidden">You're offline. Showing what was last loaded.</div>
+<header class="top" id="top"><h1 id="title">Neon CRM</h1></header>
+<main id="main"><div class="spin"></div></main>
+<nav class="tabs" id="tabs">
+  <a href="#home" data-tab="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></svg>Home</a>
+  <a href="#inbox" data-tab="inbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>Inbox<span class="badge hidden" id="inboxBadge">0</span></a>
+  <a href="#add" data-tab="add" class="add"><span class="plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>Add</a>
+  <a href="#partners" data-tab="partners"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>Partners</a>
+  <a href="#more" data-tab="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>More</a>
+</nav>
+<script>
+'use strict';
+/* ============ Neon CRM phone app (crm3 /app) ============
+   Data reads/writes go to Supabase with the same public key the desktop CRM uses today
+   (Phase 2 moves these behind the login gateway). Every text, email and payout goes
+   through /api/secure on this site, which checks the Cloudflare Access login and marks
+   the request X-Neon-App: crm-app so the backend's TEST MODE applies (allowlist only). */
+const VERSION = '1.0.0';
+const SB_URL = 'https://aoyfieswynhgqyrveqnp.supabase.co';
+const SB_KEY = 'sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ';
+const NEON_API = 'https://neon-api.pages.dev';
+const FROM_NUMBER = '+13605885228';
+const TERRITORIES = ['Whatcom — Bellingham','Whatcom — North of Bellingham','Skagit — Mount Vernon area','Skagit — Anacortes','Snohomish County','Whidbey Island'];
+const TYPES = ['Realtor','Self-Storage Facility','Assisted Living','Senior Living','Apartment Complex','Property Management','Other'];
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+const main = $('#main');
+const S = { me: null, contacts: null, byId: new Map(), sms: null, email: null, serverRead: {}, photos: new Map(), portal: null, msgLoadedAt: 0, addPrefill: null, radarTab: 'listed', inboxFilter: 'all', partnerFilter: 'realtors', partnerQ: '', chatKey: null };
+
+/* ---------- small helpers ---------- */
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const last10 = (s) => String(s || '').replace(/\D/g, '').slice(-10);
+const fmtPhone = (s) => { const d = last10(s); return d.length === 10 ? '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6) : String(s || ''); };
+const nm = (c) => String((c && (c.name || c.business)) || 'Unknown').trim();
+const first = (n) => String(n || '').trim().split(/\s+/)[0] || 'there';
+const initials = (n) => String(n || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || '?';
+const slugOf = (c) => String(c.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') + '-' + c.id;
+const portalLink = (c) => 'https://refer.neongiantmoving.com/?r=' + slugOf(c);
+const tOf = (m) => m.received_at || m.sent_at || m.created_at || '';
+const ts = (iso) => { const t = Date.parse(iso); return isNaN(t) ? 0 : t; };
+const isRealtor = (c) => /realtor/i.test((c && c.type) || '');
+function daysSince(iso) { const t = ts(iso); return t ? Math.floor((Date.now() - t) / 864e5) : null; }
+function ago(iso) {
+  const t = ts(iso); if (!t) return '';
+  const m = Math.round((Date.now() - t) / 60000);
+  if (m < 1) return 'now'; if (m < 60) return m + 'm'; const h = Math.round(m / 60); if (h < 24) return h + 'h';
+  const d = Math.round(h / 24); if (d < 7) return d + 'd';
+  return new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+const clock = (iso) => { const t = ts(iso); return t ? new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''; };
+const dayLabel = (iso) => { const d = new Date(ts(iso)); const t = new Date(); const y = new Date(Date.now() - 864e5);
+  if (d.toDateString() === t.toDateString()) return 'Today'; if (d.toDateString() === y.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }); };
+const money = (n) => '$' + (Math.round(+n || 0)).toLocaleString();
+function toast(msg, bad) { $$('.toast').forEach((t) => t.remove()); const t = document.createElement('div'); t.className = 'toast' + (bad ? ' bad' : ''); t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), bad ? 5200 : 2600); }
+function cacheSet(k, v) { try { localStorage.setItem('ncrm:' + k, JSON.stringify(v)); } catch (_) {} }
+function cacheGet(k) { try { return JSON.parse(localStorage.getItem('ncrm:' + k) || 'null'); } catch (_) { return null; } }
+const ICON = {
+  chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
+  phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>',
+  mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>',
+  pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+  back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
+  send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>',
+  chev: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>',
+  money: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v20M17 6.5c0-1.9-2.2-3-5-3s-5 1.2-5 3.3c0 4.7 10 2.4 10 7.2 0 2.1-2.2 3.5-5 3.5s-5-1.2-5-3"/></svg>',
+  star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 3 2.8 5.8 6.2.9-4.5 4.4 1 6.3L12 17.5l-5.5 2.9 1-6.3L3 9.7l6.2-.9z"/></svg>',
+  cake: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 21h16v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2z"/><path d="M4 16c2 1.5 4 1.5 6 0s4-1.5 6 0 3 1 4 .5M12 11V7M12 4.5v.01"/></svg>',
+  radar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12 19 5"/></svg>',
+  inbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/></svg>',
+  camera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2l2-2h6l2 2h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+  mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>',
+  link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>',
+  user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+  refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 4v5h-5"/></svg>',
+  download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-5-5 5 5 5-5M4 21h16"/></svg>',
+  desktop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
+};
+
+/* ---------- data access ---------- */
+async function sb(path) {
+  const r = await fetch(SB_URL + '/rest/v1/' + path, { headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY } });
+  if (!r.ok) throw new Error('db ' + r.status);
+  return r.json();
+}
+async function sbWrite(method, path, obj, prefer) {
+  const r = await fetch(SB_URL + '/rest/v1/' + path, { method, headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json', Prefer: prefer || 'return=representation' }, body: obj == null ? undefined : JSON.stringify(obj) });
+  if (!r.ok) throw new Error('db ' + r.status + ': ' + (await r.text()).slice(0, 160));
+  const t = await r.text(); return t ? JSON.parse(t) : null;
+}
+// Texts, emails, payouts: through this site's login-checked gateway, marked as the app.
+async function secure(action, body) {
+  try {
+    const r = await fetch('/api/secure/' + action, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Neon-App': 'crm-app' }, body: JSON.stringify(body) });
+    let j = {}; try { j = await r.json(); } catch (_) {}
+    if (r.status === 401) j.message = j.message || 'Your login expired. Close the app and open it again.';
+    return Object.assign({ httpStatus: r.status }, j, { ok: r.ok && j.ok !== false });
+  } catch (e) {
+    return { ok: false, error: 'network', message: navigator.onLine ? 'Your login may have expired. Close the app and open it again.' : "You're offline. Nothing was sent." };
+  }
+}
+async function loadMe() {
+  if (S.me) return S.me;
+  const cached = cacheGet('me'); if (cached) S.me = cached;
+  try { const r = await fetch('/cdn-cgi/access/get-identity', { credentials: 'same-origin' }); if (r.ok) { const j = await r.json(); S.me = { email: String(j.email || '').toLowerCase(), name: j.name || '' }; cacheSet('me', S.me); } } catch (_) {}
+  return S.me || { email: '', name: '' };
+}
+const CONTACT_COLS = 'id,name,business,type,role,phone,email,territory,tier,portalActivatedAt,lastVisit,dateAdded,birthday,isActive';
+function setContacts(rows) { S.contacts = rows || []; S.byId = new Map(S.contacts.map((c) => [String(c.id), c])); }
+async function loadContacts(force) {
+  if (S.contacts && !force) return S.contacts;
+  if (!S.contacts) { const c = cacheGet('contacts'); if (c) setContacts(c); }
+  try { const rows = await sb('contacts?select=' + CONTACT_COLS + '&order=name.asc'); setContacts(rows); cacheSet('contacts', rows); }
+  catch (e) { if (!S.contacts) throw e; }
+  return S.contacts;
+}
+async function loadMessages(force) {
+  if (S.sms && !force && Date.now() - S.msgLoadedAt < 15000) return;
+  if (!S.sms) { const c = cacheGet('msgs'); if (c) { S.sms = c.sms; S.email = c.email; S.serverRead = c.read || {}; } }
+  try {
+    const [sms, email, rs] = await Promise.all([
+      sb('sms_messages?select=id,contact_id,direction,from_number,to_number,body,status,kind,sent_at,received_at,created_at,media_url&order=id.desc&limit=600'),
+      sb('email_messages?select=id,contact_id,direction,from_email,to_email,to_address,subject,status,sent_at,received_at,created_at&order=id.desc&limit=200'),
+      sb('read_state?select=contact_id,read_at'),
+    ]);
+    S.sms = sms; S.email = email; S.serverRead = {}; (rs || []).forEach((r) => { S.serverRead[String(r.contact_id)] = r.read_at; });
+    S.msgLoadedAt = Date.now(); cacheSet('msgs', { sms: sms.slice(0, 250), email: email.slice(0, 80), read: S.serverRead });
+  } catch (e) { if (!S.sms) throw e; }
+}
+
+/* ---------- threads + read state ---------- */
+// Unknown numbers get their own thread (the desktop inbox drops them).
+const READ_BASE_KEY = 'ncrm:readBase';
+function readBase() { let b = localStorage.getItem(READ_BASE_KEY); if (!b) { b = new Date(Date.now() - 7 * 864e5).toISOString(); try { localStorage.setItem(READ_BASE_KEY, b); } catch (_) {} } return b; }
+function readAt(key) {
+  let best = readBase();
+  const loc = localStorage.getItem('ncrm:read:' + key); if (loc && loc > best) best = loc;
+  if (key[0] === 'c') { const sv = S.serverRead[key.slice(1)]; if (sv && sv > best) best = sv; }
+  return best;
+}
+function markRead(key) {
+  const now = new Date().toISOString();
+  try { localStorage.setItem('ncrm:read:' + key, now); } catch (_) {}
+  if (key[0] === 'c') { S.serverRead[key.slice(1)] = now; sbWrite('POST', 'read_state', { contact_id: +key.slice(1), read_at: now }, 'resolution=merge-duplicates,return=minimal').catch(() => {}); }
+  updateBadge();
+}
+function cleanSms(body) {
+  let s = String(body || ''), media = null; const i = s.indexOf('::NGMMS::');
+  if (i >= 0) { const marker = s.slice(i).replace('::NGMMS::', ''); s = s.slice(0, i).trim(); try { const a = JSON.parse(marker); if (a && a[0] && a[0].u) media = a[0].u; } catch (_) {} }
+  return { text: s, media };
+}
+function threadKeyOfSms(m) {
+  if (m.contact_id != null) return 'c' + m.contact_id;
+  const other = m.direction === 'in' ? m.from_number : m.to_number; const d = last10(other);
+  return d.length === 10 ? 'n' + d : null;
+}
+function threadKeyOfEmail(m) {
+  if (m.contact_id != null) return 'c' + m.contact_id;
+  const other = String((m.direction === 'in' ? m.from_email : (m.to_email || m.to_address)) || '').toLowerCase().trim();
+  return other ? 'e' + other : null;
+}
+function buildThreads() {
+  const map = new Map();
+  const add = (key, item) => {
+    if (!key) return; let t = map.get(key);
+    if (!t) { t = { key, latest: null, lastIn: '', count: 0 }; map.set(key, t); }
+    t.count++;
+    if (!t.latest || item.t > t.latest.t) t.latest = item;
+    if (item.dir === 'in' && item.t > t.lastIn) t.lastIn = item.t;
+  };
+  (S.sms || []).forEach((m) => { if (m.kind === 'note' || m.from_number === 'note') return; const c = cleanSms(m.body); add(threadKeyOfSms(m), { t: tOf(m), dir: m.direction, text: c.text || (c.media || m.media_url ? 'Photo' : ''), ch: 'text' }); });
+  (S.email || []).forEach((m) => add(threadKeyOfEmail(m), { t: tOf(m), dir: m.direction, text: m.subject || '(no subject)', ch: 'email' }));
+  const out = Array.from(map.values()).map((t) => { t.unread = !!(t.lastIn && t.lastIn > readAt(t.key)); return t; });
+  out.sort((a, b) => (a.latest.t < b.latest.t ? 1 : -1));
+  return out;
+}
+function threadTitle(key) {
+  if (key[0] === 'c') { const c = S.byId.get(key.slice(1)); return c ? nm(c) : 'Contact #' + key.slice(1); }
+  if (key[0] === 'n') { const c = contactByPhone(key.slice(1)); return c ? nm(c) : fmtPhone(key.slice(1)); }
+  return key.slice(1);
+}
+function contactByPhone(d10) { return (S.contacts || []).find((c) => last10(c.phone) === d10) || null; }
+function updateBadge() {
+  if (!S.sms) return; const n = buildThreads().filter((t) => t.unread).length; const b = $('#inboxBadge');
+  b.textContent = n > 99 ? '99+' : String(n); b.classList.toggle('hidden', !n);
+  try { if (navigator.setAppBadge) { n ? navigator.setAppBadge(n) : navigator.clearAppBadge(); } } catch (_) {}
+}
+
+/* ---------- photos: loaded only for rows on screen ---------- */
+let photoQueue = new Set(), photoTimer = null;
+const photoObs = 'IntersectionObserver' in window ? new IntersectionObserver((ents) => { ents.forEach((e) => { if (e.isIntersecting) { const id = e.target.getAttribute('data-photo'); photoObs.unobserve(e.target); queuePhoto(id); } }); }, { rootMargin: '200px' }) : null;
+function avatar(c, cls) {
+  const id = c && c.id != null ? String(c.id) : '';
+  const cached = id && S.photos.get(id);
+  const style = cached ? ' style="background-image:url(\'' + cached.replace(/'/g, '%27') + '\')"' : '';
+  return '<div class="av' + (cls ? ' ' + cls : '') + (cached ? ' has' : '') + '"' + (id && !S.photos.has(id) ? ' data-photo="' + esc(id) + '"' : '') + style + '>' + esc(initials(nm(c))) + '</div>';
+}
+function watchPhotos() { $$('[data-photo]').forEach((el) => { if (photoObs) photoObs.observe(el); else queuePhoto(el.getAttribute('data-photo')); }); }
+function queuePhoto(id) { if (!id || S.photos.has(id)) return; photoQueue.add(id); clearTimeout(photoTimer); photoTimer = setTimeout(flushPhotos, 120); }
+async function flushPhotos() {
+  const ids = Array.from(photoQueue).slice(0, 30); ids.forEach((i) => photoQueue.delete(i)); if (!ids.length) return;
+  ids.forEach((i) => S.photos.set(i, ''));
+  try {
+    const rows = await sb('contacts?select=id,profilePic&id=in.(' + ids.join(',') + ')');
+    rows.forEach((r) => { if (r.profilePic) { S.photos.set(String(r.id), r.profilePic); $$('[data-photo="' + r.id + '"], .av[data-pid="' + r.id + '"]').forEach((el) => { el.style.backgroundImage = 'url(\'' + r.profilePic.replace(/'/g, '%27') + '\')'; el.classList.add('has'); el.removeAttribute('data-photo'); }); } });
+  } catch (_) { ids.forEach((i) => S.photos.delete(i)); }
+  if (photoQueue.size) flushPhotos();
+}
+
+/* ---------- shell: header, tabs, router ---------- */
+function setTop(title, opts) {
+  opts = opts || {};
+  const top = $('#top');
+  top.innerHTML = (opts.back ? '<button class="iconbtn" id="backBtn" aria-label="Back">' + ICON.back + '</button>' : '') +
+    '<h1>' + esc(title) + (opts.sub ? '<div class="sub">' + esc(opts.sub) + '</div>' : '') + '</h1>' + (opts.right || '');
+  const b = $('#backBtn'); if (b) b.onclick = () => { if (history.length > 1) history.back(); else location.hash = opts.back; };
+}
+function setTab(name) { $$('#tabs a').forEach((a) => a.classList.toggle('on', a.getAttribute('data-tab') === name)); }
+const ROUTES = {};
+let renderSeq = 0;
+async function render() {
+  const seq = ++renderSeq;
+  const [name, ...rest] = (decodeURIComponent(location.hash.slice(1)) || 'home').split('/');
+  const arg = rest.join('/');
+  const fn = ROUTES[name] || ROUTES.home;
+  document.body.classList.toggle('chatting', name === 'chat');
+  $('#tabs').classList.toggle('hidden', name === 'chat');
+  setTab({ chat: 'inbox', p: 'partners', payouts: 'more', referrals: 'more', radar: 'more', install: 'more' }[name] || name);
+  window.scrollTo(0, 0);
+  try { await fn(arg, seq); } catch (e) { if (seq === renderSeq) main.innerHTML = '<div class="err">Something went wrong loading this screen. ' + esc(e.message || e) + '</div><button class="btn full" onclick="location.reload()">Reload</button>'; }
+  watchPhotos();
+}
+window.addEventListener('hashchange', render);
+const stale = (seq) => seq !== renderSeq;
+function loading() { main.innerHTML = '<div class="spin"></div>'; }
+function bindTiles() { $$('.tile-head').forEach((h) => { h.onclick = () => h.parentElement.classList.toggle('open'); }); }
+function openSheet(html, onMount) {
+  const s = document.createElement('div'); s.className = 'scrim'; s.innerHTML = '<div class="sheet">' + html + '</div>';
+  s.addEventListener('click', (e) => { if (e.target === s) s.remove(); });
+  document.body.appendChild(s); if (onMount) onMount(s.firstChild, () => s.remove()); return s;
+}
+function confirmSheet(title, body, okLabel, danger) {
+  return new Promise((res) => {
+    openSheet('<h3>' + esc(title) + '</h3><div class="muted" style="margin-bottom:16px;white-space:pre-wrap">' + esc(body) + '</div><div class="grid2"><button class="btn" data-x="0">Cancel</button><button class="btn ' + (danger ? 'danger' : 'grad') + '" data-x="1">' + esc(okLabel) + '</button></div>', (el, close) => {
+      $$('[data-x]', el).forEach((b) => { b.onclick = () => { close(); res(b.getAttribute('data-x') === '1'); }; });
+    });
+  });
+}
+
+/* ================= HOME ================= */
+ROUTES.home = async (arg, seq) => {
+  const me = await loadMe();
+  const hr = new Date().getHours();
+  setTop((hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening') + (me.name ? ', ' + first(me.name) : ''), { sub: new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }), right: '<button class="iconbtn" id="homeRefresh" aria-label="Refresh">' + ICON.refresh + '</button>' });
+  if (!S.contacts || !S.sms) loading();
+  await Promise.all([loadContacts(), loadMessages()]);
+  if (stale(seq)) return;
+  const threads = buildThreads(); const unread = threads.filter((t) => t.unread);
+  const realtors = S.contacts.filter(isRealtor);
+  const partners = realtors.filter((c) => c.portalActivatedAt);
+  const visit = partners.slice().sort((a, b) => (daysSince(b.lastVisit) ?? 9999) - (daysSince(a.lastVisit) ?? 9999)).slice(0, 6);
+  const bdays = upcomingBirthdays(7);
+  let h = '';
+  if (!isStandalone() && !localStorage.getItem('ncrm:hideInstall')) h += '<div class="card" style="border-color:rgba(255,20,147,.35)"><b>Install Neon CRM on your phone</b><div class="muted small" style="margin:4px 0 10px">It opens like a real app, right from your home screen.</div><div class="grid2"><a class="btn grad" href="#install">How to install</a><button class="btn ghost" id="hideInstall">Not now</button></div></div>';
+  h += tile('msgs', ICON.inbox, unread.length, unread.length === 1 ? 'unread conversation' : 'unread conversations',
+    (unread.length ? unread : threads).slice(0, 5).map(threadRow).join('') + '<a class="btn full" href="#inbox">Open Inbox</a>', unread.length > 0);
+  h += tile('pay', ICON.money, '<span id="payNum">…</span>', 'payouts due', '<div id="payList"><div class="spin"></div></div><a class="btn full" href="#payouts">Open Payouts</a>');
+  h += tile('refs', ICON.star, '<span id="refNum">…</span>', 'new referrals this week', '<div id="refList"><div class="spin"></div></div><a class="btn full" href="#referrals">All referrals</a>');
+  h += tile('visit', ICON.pin, partners.length, 'active partners. Visit next:', visit.map(contactRow).join('') + '<a class="btn full" href="#partners">All partners</a>');
+  if (bdays.length) h += tile('bday', ICON.cake, bdays.length, bdays.length === 1 ? 'birthday this week' : 'birthdays this week', bdays.map((b) => contactRow(b.c, b.label)).join(''), true);
+  h += '<div class="h2">Quick actions</div><div class="grid2"><a class="btn grad" href="#add">' + ICON.user + ' Add a realtor</a><a class="btn" href="#radar">' + ICON.radar + ' Listing Radar</a></div>';
+  h += '<div class="muted small" style="text-align:center;margin-top:18px">' + realtors.length + ' realtors in the CRM</div>';
+  main.innerHTML = h; bindTiles();
+  const hi = $('#hideInstall'); if (hi) hi.onclick = () => { localStorage.setItem('ncrm:hideInstall', '1'); render(); };
+  $('#homeRefresh').onclick = async () => { S.portal = null; await Promise.all([loadContacts(true), loadMessages(true)]); render(); };
+  updateBadge();
+  loadPortal().then(() => {
+    if (stale(seq)) return;
+    const due = payoutItems().filter((x) => !x.paid);
+    const pn = $('#payNum'); if (pn) pn.textContent = due.length ? due.length + ' (' + money(due.reduce((s, x) => s + x.amount, 0)) + ')' : '0';
+    const pl = $('#payList'); if (pl) pl.innerHTML = due.length ? due.slice(0, 5).map((x) => '<a class="row" href="#payouts">' + avatar(S.byId.get(String(x.rtId)) || { name: x.partner }) + '<div class="main"><div class="nm"><span class="t">' + esc(x.partner) + '</span></div><div class="meta">' + esc(x.customer || '') + '</div></div><div class="side" style="color:var(--amber);font-weight:800">' + money(x.amount) + '</div></a>').join('') : '<div class="empty">Nobody is waiting on a payout.</div>';
+    const wk = Date.now() - 7 * 864e5;
+    const recent = (S.portal.leads || []).filter((l) => ts(l.submittedAt) >= wk);
+    const attn = (S.portal.leads || []).filter((l) => l.sm_status === 'retrying' || l.sm_status === 'failed');
+    const rn = $('#refNum'); if (rn) rn.textContent = recent.length + (attn.length ? ' (' + attn.length + ' need attention)' : '');
+    const rl = $('#refList'); if (rl) rl.innerHTML = (attn.concat(recent.filter((l) => attn.indexOf(l) < 0))).slice(0, 5).map(leadRow).join('') || '<div class="empty">No portal referrals in the last 7 days.</div>';
+    watchPhotos();
+  }).catch(() => { const pl = $('#payList'); if (pl) pl.innerHTML = '<div class="err">Could not load payouts.</div>'; });
+};
+function tile(id, icon, num, label, body, open) {
+  return '<div class="tile' + (open ? ' open' : '') + '" data-tile="' + id + '"><button class="tile-head"><div class="tile-ic">' + icon + '</div><div><div class="tile-num">' + num + '</div><div class="tile-lbl">' + esc(label) + '</div></div><span class="tile-chev">' + ICON.chev + '</span></button><div class="tile-body"><div><div class="tile-inner">' + body + '</div></div></div></div>';
+}
+function upcomingBirthdays(days) {
+  const out = []; const today = new Date(); today.setHours(0, 0, 0, 0);
+  (S.contacts || []).forEach((c) => {
+    if (!c.birthday) return; const m = String(c.birthday).match(/^\d{4}-(\d{2})-(\d{2})/); if (!m) return;
+    for (let i = 0; i <= days; i++) { const d = new Date(today.getTime() + i * 864e5); if (d.getMonth() + 1 === +m[1] && d.getDate() === +m[2]) { out.push({ c, i, label: i === 0 ? 'Birthday today!' : 'Birthday ' + d.toLocaleDateString([], { weekday: 'long' }) }); break; } }
+  });
+  return out.sort((a, b) => a.i - b.i);
+}
+function contactRow(c, metaOverride) {
+  const d = daysSince(c.lastVisit);
+  const meta = metaOverride || [c.business, d == null ? 'never visited' : 'visited ' + d + 'd ago'].filter(Boolean).join(' · ');
+  return '<a class="row" href="#p/' + c.id + '">' + avatar(c) + '<div class="main"><div class="nm"><span class="t">' + esc(nm(c)) + '</span>' + (c.portalActivatedAt ? '<span class="pill green">Partner</span>' : '') + '</div><div class="meta">' + esc(meta) + '</div></div></a>';
+}
+function threadRow(t) {
+  const c = t.key[0] === 'c' ? S.byId.get(t.key.slice(1)) : (t.key[0] === 'n' ? contactByPhone(t.key.slice(1)) : null);
+  const who = c || { name: threadTitle(t.key) };
+  const prev = (t.latest.dir === 'out' ? 'You: ' : '') + (t.latest.ch === 'email' ? 'Email: ' : '') + t.latest.text;
+  return '<a class="row" href="#chat/' + encodeURIComponent(t.key) + '">' + avatar(who) + '<div class="main"><div class="nm">' + (t.unread ? '<span class="dot"></span>' : '') + '<span class="t" style="' + (t.unread ? '' : 'font-weight:600') + '">' + esc(threadTitle(t.key)) + '</span></div><div class="meta" style="' + (t.unread ? 'color:var(--text)' : '') + '">' + esc(prev) + '</div></div><div class="side">' + esc(ago(t.latest.t)) + '</div></a>';
+}
+
+/* ================= INBOX ================= */
+ROUTES.inbox = async (arg, seq) => {
+  setTop('Inbox', { right: '<button class="iconbtn" id="ibRefresh" aria-label="Refresh">' + ICON.refresh + '</button>' });
+  if (!S.sms) loading();
+  await Promise.all([loadContacts(), loadMessages()]);
+  if (stale(seq)) return;
+  const all = buildThreads();
+  const f = S.inboxFilter;
+  const rows = all.filter((t) => f === 'unread' ? t.unread : f === 'reply' ? t.latest.dir === 'in' : f === 'unknown' ? (t.key[0] !== 'c' && !(t.key[0] === 'n' && contactByPhone(t.key.slice(1)))) : true);
+  const unreadN = all.filter((t) => t.unread).length;
+  main.innerHTML = '<div class="chips">' + [['all', 'All'], ['unread', 'Unread' + (unreadN ? ' (' + unreadN + ')' : '')], ['reply', 'Needs reply'], ['unknown', 'Not in CRM']].map((x) => '<button class="chip' + (f === x[0] ? ' on' : '') + '" data-f="' + x[0] + '">' + x[1] + '</button>').join('') + '</div>' +
+    (unreadN ? '<button class="linkbtn" id="allRead">Mark all read</button>' : '') +
+    (rows.length ? rows.slice(0, 150).map(threadRow).join('') : '<div class="empty">' + (f === 'unread' ? "You're all caught up." : 'No conversations here.') + '</div>');
+  $$('[data-f]').forEach((b) => { b.onclick = () => { S.inboxFilter = b.getAttribute('data-f'); render(); }; });
+  const ar = $('#allRead'); if (ar) ar.onclick = () => { all.filter((t) => t.unread).forEach((t) => markRead(t.key)); render(); };
+  $('#ibRefresh').onclick = async () => { await loadMessages(true); render(); };
+  updateBadge();
+};
+
+/* ================= CHAT ================= */
+function stripHtml(s) { return String(s || '').replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\n{3,}/g, '\n\n').trim(); }
+function splitQuoted(text) {
+  const lines = String(text || '').split('\n'); let cut = lines.length;
+  for (let i = 0; i < lines.length; i++) { const l = lines[i].trim(); if (/^On .{4,160}wrote:?$/i.test(l) || /^-{2,}\s*Original Message/i.test(l) || (/^>/.test(l) && i > 0 && lines.slice(i).filter((x) => x.trim() && !/^>/.test(x.trim())).length < 3)) { cut = i; break; } }
+  return { main: lines.slice(0, cut).join('\n').trim(), quoted: lines.slice(cut).join('\n').trim() };
+}
+async function loadThread(key) {
+  if (key[0] === 'c') {
+    const id = +key.slice(1);
+    const [sms, em] = await Promise.all([
+      sb('sms_messages?select=id,direction,body,status,kind,sent_at,received_at,created_at,media_url,from_number&contact_id=eq.' + id + '&order=id.desc&limit=200'),
+      sb('email_messages?select=id,direction,subject,body,status,sent_at,received_at,created_at,from_email,to_email,to_address&contact_id=eq.' + id + '&order=id.desc&limit=60'),
+    ]);
+    return { sms: sms.filter((m) => m.kind !== 'note' && m.from_number !== 'note'), email: em };
+  }
+  if (key[0] === 'n') {
+    const d = key.slice(1);
+    const sms = await sb('sms_messages?select=id,direction,body,status,kind,sent_at,received_at,created_at,media_url,from_number&contact_id=is.null&or=(from_number.like.*' + d + ',to_number.like.*' + d + ')&order=id.desc&limit=200');
+    return { sms, email: [] };
+  }
+  const e = key.slice(1);
+  const em = await sb('email_messages?select=id,direction,subject,body,status,sent_at,received_at,created_at,from_email,to_email,to_address&contact_id=is.null&or=(from_email.eq.' + encodeURIComponent(e) + ',to_email.eq.' + encodeURIComponent(e) + ')&order=id.desc&limit=60');
+  return { sms: [], email: em };
+}
+let chatPoll = null;
+ROUTES.chat = async (key, seq) => {
+  clearInterval(chatPoll);
+  S.chatKey = key;
+  await loadContacts();
+  const contact = key[0] === 'c' ? S.byId.get(key.slice(1)) : key[0] === 'n' ? contactByPhone(key.slice(1)) : null;
+  const phone = key[0] === 'n' ? key.slice(1) : (contact && contact.phone) || '';
+  const emailAddr = key[0] === 'e' ? key.slice(1) : (contact && contact.email) || '';
+  const title = threadTitle(key);
+  setTop(title, { back: '#inbox', sub: phone ? fmtPhone(phone) : emailAddr, right: (phone ? '<a class="iconbtn" href="tel:' + esc(last10(phone)) + '" aria-label="Call">' + ICON.phone + '</a>' : '') + (contact ? '<a class="iconbtn" href="#p/' + contact.id + '" aria-label="Profile">' + ICON.user + '</a>' : '') });
+  main.innerHTML = '<div class="chatwrap" id="chat"><div class="spin"></div></div>';
+  let mode = phone ? 'text' : 'email';
+  const draft = S.draft && S.draft.key === key ? S.draft : null; S.draft = null;
+  const comp = document.createElement('div'); comp.className = 'composer'; comp.id = 'composer';
+  comp.innerHTML = ((phone && emailAddr) ? '<div class="modes"><button data-m="text">Text</button><button data-m="email">Email</button></div>' : '') +
+    '<input class="subjin hidden" id="subj" placeholder="Subject">' +
+    '<div class="cbar"><textarea id="msg" rows="1" placeholder="Message"></textarea><button class="sendbtn" id="send" aria-label="Send">' + ICON.send + '</button></div>';
+  document.body.appendChild(comp);
+  const msg = $('#msg'), subj = $('#subj');
+  if (draft) { msg.value = draft.text || ''; if (draft.mode) mode = draft.mode; }
+  const setMode = (m) => { mode = m; $$('[data-m]', comp).forEach((b) => b.classList.toggle('on', b.getAttribute('data-m') === m)); subj.classList.toggle('hidden', m !== 'email'); msg.placeholder = m === 'email' ? 'Email message' : 'Text message'; };
+  $$('[data-m]', comp).forEach((b) => { b.onclick = () => setMode(b.getAttribute('data-m')); });
+  setMode(mode);
+  const grow = () => { msg.style.height = 'auto'; msg.style.height = Math.min(140, msg.scrollHeight) + 'px'; }; msg.oninput = grow; grow();
+  let lastSubject = '';
+  async function draw(scroll) {
+    let data; try { data = await loadThread(key); } catch (e) { if (S.chatKey === key) $('#chat').innerHTML = '<div class="err">Could not load this conversation.</div>'; return; }
+    if (S.chatKey !== key) return;
+    const items = data.sms.map((m) => ({ t: tOf(m), dir: m.direction, kind: 'sms', m })).concat(data.email.map((m) => ({ t: tOf(m), dir: m.direction, kind: 'email', m })));
+    items.sort((a, b) => (a.t < b.t ? -1 : 1));
+    const em = data.email.slice().sort((a, b) => (tOf(a) < tOf(b) ? 1 : -1))[0]; lastSubject = em && em.subject ? em.subject : '';
+    let h = '', lastDay = '';
+    items.forEach((it, i) => {
+      const dl = dayLabel(it.t); if (dl !== lastDay) { h += '<div class="day">' + esc(dl) + '</div>'; lastDay = dl; }
+      if (it.kind === 'sms') {
+        const c = cleanSms(it.m.body); const media = it.m.media_url || c.media;
+        h += '<div class="bub ' + (it.dir === 'out' ? 'out' : 'in') + '">' + (media ? '<img src="' + esc(media) + '" alt="Photo" loading="lazy">' : '') + esc(c.text) + '</div>';
+        h += '<div class="btime ' + (it.dir === 'out' ? 'out' : '') + '">' + esc(clock(it.t)) + (it.m.status === 'failed' ? ' · <span style="color:var(--red)">not delivered</span>' : '') + '</div>';
+      } else {
+        const body = stripHtml(it.m.body); const parts = splitQuoted(body);
+        h += '<div class="mail ' + (it.dir === 'out' ? 'out' : '') + '"><div class="subj">' + ICON.mail.replace('<svg', '<svg width="14" height="14" style="vertical-align:-2px;margin-right:4px"') + esc(it.m.subject || '(no subject)') + '</div><div class="mbody">' + esc(parts.main || body) + '</div>' +
+          (parts.quoted ? '<button class="linkbtn" data-q="' + i + '">Show earlier messages</button><div class="quoted hidden" id="q' + i + '">' + esc(parts.quoted) + '</div>' : '') +
+          '<div class="btime" style="margin:6px 0 0">' + esc(clock(it.t)) + '</div></div>';
+      }
+    });
+    if (!items.length) h = '<div class="empty">No messages yet. Say hello below.</div>';
+    if (key[0] !== 'c' && !contact) h += '<div class="card" style="margin-top:14px"><b>Not in the CRM yet</b><div class="muted small" style="margin:4px 0 10px">Add them so their texts show up on their profile.</div><button class="btn full grad" id="addFromChat">' + ICON.user + ' Add as a contact</button></div>';
+    const box = $('#chat'); const atBottom = box && (window.innerHeight + window.scrollY >= document.body.scrollHeight - 80);
+    box.innerHTML = h;
+    $$('[data-q]', box).forEach((b) => { b.onclick = () => { $('#q' + b.getAttribute('data-q')).classList.toggle('hidden'); b.textContent = b.textContent.indexOf('Show') === 0 ? 'Hide earlier messages' : 'Show earlier messages'; }; });
+    const af = $('#addFromChat'); if (af) af.onclick = () => { S.addPrefill = { phone: key[0] === 'n' ? key.slice(1) : '', email: key[0] === 'e' ? key.slice(1) : '' }; location.hash = '#add'; };
+    if (scroll || atBottom) window.scrollTo(0, document.body.scrollHeight);
+    markRead(key);
+  }
+  await draw(true);
+  if (!subj.value) subj.value = lastSubject ? (/^re:/i.test(lastSubject) ? lastSubject : 'Re: ' + lastSubject) : 'A note from Neon Giant Moving';
+  chatPoll = setInterval(() => { if (document.visibilityState === 'visible' && S.chatKey === key) draw(false); }, 15000);
+  $('#send').onclick = async () => {
+    const text = msg.value.trim(); if (!text) return;
+    const btn = $('#send'); btn.disabled = true;
+    let r;
+    if (mode === 'text') {
+      r = await secure('sendSms', { to: phone, body: text, contactId: contact ? contact.id : null, kind: 'manual' });
+      if (r.ok) sbWrite('POST', 'sms_messages', { contact_id: contact ? contact.id : null, direction: 'out', to_number: '+1' + last10(phone), from_number: FROM_NUMBER, body: text, kind: 'manual', status: 'sent', sent_at: new Date().toISOString() }, 'return=minimal').catch(() => {});
+    } else {
+      r = await secure('sendEmail', { to: emailAddr, subject: subj.value.trim() || 'A note from Neon Giant Moving', body: text, contactId: contact ? contact.id : null, sender: (S.me && S.me.email) || '' });
+    }
+    btn.disabled = false;
+    if (r.ok) { msg.value = ''; grow(); toast(mode === 'text' ? 'Text sent' : 'Email sent'); S.msgLoadedAt = 0; await draw(true); }
+    else toast(r.message || ('Not sent: ' + (r.error || 'error')), true);
+  };
+};
+window.addEventListener('hashchange', () => { if (!location.hash.startsWith('#chat/')) { clearInterval(chatPoll); S.chatKey = null; const c = $('#composer'); if (c) c.remove(); } });
+
+/* ================= PARTNERS ================= */
+ROUTES.partners = async (arg, seq) => {
+  setTop('Partners');
+  if (!S.contacts) loading();
+  await loadContacts(); if (stale(seq)) return;
+  const f = S.partnerFilter;
+  main.innerHTML = '<input class="search" id="pq" type="search" placeholder="Search name or brokerage" value="' + esc(S.partnerQ) + '" autocomplete="off">' +
+    '<div class="chips">' + [['realtors', 'Realtors'], ['partners', 'Active partners'], ['visit', 'Needs a visit'], ['all', 'Everyone']].map((x) => '<button class="chip' + (f === x[0] ? ' on' : '') + '" data-pf="' + x[0] + '">' + x[1] + '</button>').join('') + '</div><div id="plist"></div>';
+  const draw = () => {
+    const q = S.partnerQ.toLowerCase().trim();
+    let rows = S.contacts.slice();
+    if (f === 'realtors') rows = rows.filter(isRealtor);
+    else if (f === 'partners') rows = rows.filter((c) => c.portalActivatedAt);
+    else if (f === 'visit') rows = rows.filter((c) => isRealtor(c) && (daysSince(c.lastVisit) == null || daysSince(c.lastVisit) > 30));
+    if (q) rows = rows.filter((c) => (nm(c) + ' ' + (c.business || '') + ' ' + (c.phone || '') + ' ' + (c.email || '')).toLowerCase().indexOf(q) >= 0);
+    if (f === 'visit') rows.sort((a, b) => (daysSince(b.lastVisit) ?? 9999) - (daysSince(a.lastVisit) ?? 9999));
+    $('#plist').innerHTML = '<div class="muted small" style="margin:0 4px 8px">' + rows.length + (rows.length === 1 ? ' person' : ' people') + '</div>' + (rows.length ? rows.slice(0, 300).map((c) => contactRow(c)).join('') : '<div class="empty">No matches.</div>');
+    watchPhotos();
+  };
+  draw();
+  $('#pq').oninput = (e) => { S.partnerQ = e.target.value; draw(); };
+  $$('[data-pf]').forEach((b) => { b.onclick = () => { S.partnerFilter = b.getAttribute('data-pf'); render(); }; });
+};
+
+/* ================= PROFILE ================= */
+ROUTES.p = async (id, seq) => {
+  setTop('Partner', { back: '#partners' }); loading();
+  await loadContacts();
+  let c;
+  try { const rows = await sb('contacts?select=' + CONTACT_COLS + ',notes,address,profilePic&id=eq.' + encodeURIComponent(id)); c = rows[0]; } catch (e) { c = S.byId.get(String(id)); }
+  if (stale(seq)) return;
+  if (!c) { main.innerHTML = '<div class="empty">Contact not found.</div>'; return; }
+  if (c.profilePic) S.photos.set(String(c.id), c.profilePic);
+  setTop(nm(c), { back: '#partners', sub: c.business || c.type || '', right: '<button class="iconbtn" id="editBtn" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>' });
+  await loadPortal().catch(() => {});
+  if (stale(seq)) return;
+  const refs = (S.portal ? S.portal.refs : []).filter((r) => String(r.contactId) === String(c.id));
+  const leads = (S.portal ? S.portal.leads : []).filter((l) => String(l.realtorId) === String(c.id));
+  const names = new Set(); const allRefs = [];
+  leads.forEach((l) => { const k = String(l.customerName || '').toLowerCase().trim(); if (k && names.has(k)) return; names.add(k); allRefs.push({ name: l.customerName, status: l.status || 'new', date: l.submittedAt, via: 'portal', sm: l.sm_status }); });
+  refs.forEach((r) => { const k = String(r.jobName || '').toLowerCase().trim(); if (k && names.has(k)) return; names.add(k); allRefs.push({ name: r.jobName, status: r.status || '', date: r.date, via: 'job' }); });
+  allRefs.sort((a, b) => (String(a.date || '') < String(b.date || '') ? 1 : -1));
+  const booked = allRefs.filter((r) => /booked|completed/i.test(r.status)).length;
+  const phone = last10(c.phone); const key = 'c' + c.id;
+  const dv = daysSince(c.lastVisit);
+  const notes = String(c.notes || '').split('\n').filter((l) => l.trim()).reverse();
+  let h = '<div style="display:flex;gap:14px;align-items:center;margin:4px 0 12px">' + avatar(c, 'lg') + '<div style="min-width:0"><div style="font-size:22px;font-weight:800;line-height:1.2">' + esc(nm(c)) + '</div><div class="muted">' + esc(c.business || '') + '</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">' +
+    (c.type ? '<span class="pill pink">' + esc(c.type) + '</span>' : '') + (c.tier ? '<span class="pill cyan">' + esc(c.tier) + '</span>' : '') + (c.portalActivatedAt ? '<span class="pill green">Partner</span>' : '') + '</div></div></div>';
+  h += '<div class="grid4">' +
+    (phone ? '<a class="act" href="#chat/' + key + '" id="actText">' + ICON.chat + 'Text</a><a class="act" href="tel:' + phone + '">' + ICON.phone + 'Call</a>' : '<span class="act" style="opacity:.4">' + ICON.chat + 'No phone</span><span class="act" style="opacity:.4">' + ICON.phone + 'Call</span>') +
+    (c.email ? '<a class="act" href="#chat/' + key + '" id="actEmail">' + ICON.mail + 'Email</a>' : '<span class="act" style="opacity:.4">' + ICON.mail + 'Email</span>') +
+    '<button class="act" id="checkin">' + ICON.pin + 'Check in</button></div>';
+  h += '<div class="stats"><div class="stat"><b>' + allRefs.length + '</b><span>Referrals</span></div><div class="stat"><b>' + booked + '</b><span>Booked</span></div><div class="stat"><b>' + (dv == null ? 'Never' : dv + 'd') + '</b><span>Last visit</span></div></div>';
+  // portal
+  h += '<div class="card"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' + ICON.link.replace('<svg', '<svg width="20" height="20"') + '<b>Referral portal</b><span class="pill ' + (c.portalActivatedAt ? 'green' : '') + '" style="margin-left:auto">' + (c.portalActivatedAt ? 'Active' : 'Not active') + '</span></div>' +
+    '<div class="muted small" style="word-break:break-all;margin-bottom:10px">' + esc(portalLink(c)) + '</div>' +
+    '<div class="grid2"><button class="btn" id="copyLink">Copy link</button>' + (phone ? '<button class="btn grad" id="textLink">Text them it</button>' : '<button class="btn" disabled>No phone</button>') + '</div>' +
+    '<button class="btn full ghost" id="togglePortal" style="margin-top:8px">' + (c.portalActivatedAt ? 'Deactivate portal' : 'Activate portal') + '</button></div>';
+  // details
+  h += '<div class="tile"><button class="tile-head"><div class="tile-ic">' + ICON.user + '</div><div><div style="font-weight:800">Details</div><div class="tile-lbl">Phone, email, territory, birthday</div></div><span class="tile-chev">' + ICON.chev + '</span></button><div class="tile-body"><div><div class="tile-inner">' +
+    [['Phone', c.phone ? fmtPhone(c.phone) : ''], ['Email', c.email], ['Brokerage', c.business], ['Territory', c.territory], ['Birthday', c.birthday ? new Date(c.birthday + 'T12:00:00').toLocaleDateString([], { month: 'long', day: 'numeric' }) : ''], ['Address', c.address], ['Added', c.dateAdded ? String(c.dateAdded).slice(0, 10) : '']].filter((x) => x[1]).map((x) => '<div class="kv"><span>' + x[0] + '</span><span>' + esc(x[1]) + '</span></div>').join('') + '</div></div></div></div>';
+  // referrals
+  h += '<div class="tile' + (allRefs.length ? ' open' : '') + '"><button class="tile-head"><div class="tile-ic">' + ICON.star + '</div><div><div style="font-weight:800">Referrals (' + allRefs.length + ')</div><div class="tile-lbl">' + booked + ' booked or completed</div></div><span class="tile-chev">' + ICON.chev + '</span></button><div class="tile-body"><div><div class="tile-inner">' +
+    (allRefs.length ? allRefs.slice(0, 20).map((r) => '<div class="kv"><span style="color:var(--text);font-weight:600">' + esc(r.name || 'Customer') + '<div class="muted small">' + esc(String(r.date || '').slice(0, 10)) + ' · ' + (r.via === 'portal' ? 'via portal' : 'job') + '</div></span><span>' + statusPill(r.status) + (r.sm ? '<div style="margin-top:4px">' + smPill(r.sm) + '</div>' : '') + '</span></div>').join('') : '<div class="empty">No referrals yet.</div>') + '</div></div></div></div>';
+  // notes
+  h += '<div class="tile"><button class="tile-head"><div class="tile-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h8M4 6h.01M4 12h.01M4 18h.01"/></svg></div><div><div style="font-weight:800">Notes (' + notes.length + ')</div><div class="tile-lbl">Newest first</div></div><span class="tile-chev">' + ICON.chev + '</span></button><div class="tile-body"><div><div class="tile-inner">' +
+    '<div class="cbar" style="display:flex;gap:8px;margin-bottom:10px"><input class="input" id="noteIn" placeholder="Add a quick note"><button class="btn grad" id="noteAdd">Add</button></div>' +
+    (notes.length ? notes.slice(0, 15).map((n) => '<div class="kv"><span style="color:var(--text);text-align:left">' + esc(n) + '</span></div>').join('') : '<div class="empty">No notes yet.</div>') + '</div></div></div></div>';
+  main.innerHTML = h; bindTiles();
+  // wiring
+  $('#editBtn').onclick = () => editContact(c);
+  $('#checkin').onclick = async () => {
+    const ok = await confirmSheet('Log a visit?', 'Marks today as your last visit with ' + nm(c) + '.', 'Log visit'); if (!ok) return;
+    const now = new Date().toISOString(); const stamp = '[Visit ' + now.slice(0, 10) + '] Checked in from the app' + (S.me && S.me.name ? ' (' + first(S.me.name) + ')' : '') + '.';
+    try { await sbWrite('PATCH', 'contacts?id=eq.' + c.id, { lastVisit: now, notes: (c.notes ? c.notes + '\n' : '') + stamp }, 'return=minimal'); const lc = S.byId.get(String(c.id)); if (lc) lc.lastVisit = now; toast('Visit logged'); render(); }
+    catch (e) { toast('Could not save the visit.', true); }
+  };
+  $('#noteAdd').onclick = async () => {
+    const v = $('#noteIn').value.trim(); if (!v) return;
+    const stamp = '[' + new Date().toISOString().slice(0, 10) + '] ' + v + (S.me && S.me.name ? ' (' + first(S.me.name) + ')' : '');
+    try { await sbWrite('PATCH', 'contacts?id=eq.' + c.id, { notes: (c.notes ? c.notes + '\n' : '') + stamp }, 'return=minimal'); toast('Note added'); render(); }
+    catch (e) { toast('Could not save the note.', true); }
+  };
+  $('#copyLink').onclick = () => { try { navigator.clipboard.writeText(portalLink(c)); toast('Link copied'); } catch (_) { toast('Copy failed', true); } };
+  const tl = $('#textLink'); if (tl) tl.onclick = () => { S.draft = { key, mode: 'text', text: 'Hey ' + first(c.name) + ", it's " + first((S.me && S.me.name) || 'Dane') + ' with Neon Giant Moving. Here is your personal referral link. Send it to anyone who is moving and we will take great care of them: ' + portalLink(c) }; location.hash = '#chat/' + key; };
+  const ae = $('#actEmail'); if (ae) ae.onclick = (e) => { e.preventDefault(); S.draft = { key, mode: 'email', text: '' }; location.hash = '#chat/' + key; };
+  $('#togglePortal').onclick = async () => {
+    const on = !!c.portalActivatedAt;
+    const ok = await confirmSheet(on ? 'Deactivate portal?' : 'Activate portal?', on ? nm(c) + "'s referral link will stop working." : nm(c) + ' becomes an active partner and their referral link starts working.', on ? 'Deactivate' : 'Activate', on); if (!ok) return;
+    const val = on ? null : new Date().toISOString();
+    try { await sbWrite('PATCH', 'contacts?id=eq.' + c.id, { portalActivatedAt: val }, 'return=minimal'); const lc = S.byId.get(String(c.id)); if (lc) lc.portalActivatedAt = val; S.portal = null; toast(on ? 'Portal deactivated' : 'Portal activated'); render(); }
+    catch (e) { toast('Could not update the portal.', true); }
+  };
+};
+function statusPill(s) { const k = String(s || 'new').toLowerCase(); const cls = k === 'completed' ? 'amber' : k === 'booked' ? 'green' : k === 'lost' ? '' : k === 'contacted' ? 'cyan' : 'pink'; return '<span class="pill ' + cls + '">' + esc((s || 'new').toString().replace(/^./, (x) => x.toUpperCase())) + '</span>'; }
+function smPill(s) { return ({ accepted: '<span class="pill green">In SmartMoving</span>', duplicate: '<span class="pill green">Already in SmartMoving</span>', retrying: '<span class="pill amber">Retrying</span>', failed: '<span class="pill red">Enter by hand</span>', pending: '<span class="pill amber">Sending</span>' })[s] || ''; }
+function editContact(c) {
+  openSheet('<h3>Edit ' + esc(first(nm(c))) + '</h3>' +
+    fieldHtml('eName', 'Name', c.name) + fieldHtml('ePhone', 'Mobile phone', c.phone, 'tel') + fieldHtml('eEmail', 'Email', c.email, 'email') + fieldHtml('eBiz', 'Brokerage', c.business) +
+    '<div class="field"><label>Territory</label><select class="input" id="eTerr"><option value=""></option>' + TERRITORIES.map((t) => '<option' + (t === c.territory ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + (c.territory && TERRITORIES.indexOf(c.territory) < 0 ? '<option selected>' + esc(c.territory) + '</option>' : '') + '</select></div>' +
+    '<div class="field"><label>Birthday</label><input class="input" id="eBday" type="date" value="' + esc(c.birthday || '') + '"></div>' +
+    '<div class="grid2"><button class="btn" id="eCancel">Cancel</button><button class="btn grad" id="eSave">Save</button></div>', (el, close) => {
+    $('#eCancel', el).onclick = close;
+    $('#eSave', el).onclick = async () => {
+      const v = (id) => $('#' + id, el).value.trim();
+      const patch = { name: v('eName'), phone: v('ePhone'), email: v('eEmail'), business: v('eBiz'), territory: v('eTerr'), birthday: v('eBday') || null };
+      if (!patch.name) { toast('Name is required', true); return; }
+      try { await sbWrite('PATCH', 'contacts?id=eq.' + c.id, patch, 'return=minimal'); Object.assign(S.byId.get(String(c.id)) || {}, patch); close(); toast('Saved'); render(); }
+      catch (e) { toast('Could not save.', true); }
+    };
+  });
+}
+const fieldHtml = (id, label, val, type) => '<div class="field"><label for="' + id + '">' + esc(label) + '</label><input class="input" id="' + id + '" type="' + (type || 'text') + '"' + (type === 'tel' ? ' inputmode="tel"' : type === 'email' ? ' inputmode="email" autocapitalize="off"' : '') + ' value="' + esc(val || '') + '"></div>';
+
+/* ================= ADD ================= */
+ROUTES.add = async (arg, seq) => {
+  setTop('Add a realtor', { sub: 'Scan a card, say it, or type it' });
+  await loadContacts().catch(() => {}); if (stale(seq)) return;
+  const pre = S.addPrefill || {}; S.addPrefill = null;
+  main.innerHTML = '<div class="grid2" style="margin-bottom:14px"><button class="btn grad" id="scanBtn">' + ICON.camera + ' Scan card</button><button class="btn" id="speakBtn">' + ICON.mic + ' Say it</button></div>' +
+    '<input type="file" id="cardFile" accept="image/*" capture="environment" class="hidden"><div id="aiStatus"></div><div id="dupBox"></div>' +
+    fieldHtml('aName', 'Name *', pre.name) + fieldHtml('aPhone', 'Mobile phone *', pre.phone ? fmtPhone(pre.phone) : '', 'tel') + fieldHtml('aEmail', 'Email', pre.email, 'email') + fieldHtml('aBiz', 'Brokerage', pre.business) +
+    '<div class="field"><label>Territory</label><select class="input" id="aTerr"><option value=""></option>' + TERRITORIES.map((t) => '<option>' + esc(t) + '</option>').join('') + '</select></div>' +
+    '<div class="field"><label>Type</label><select class="input" id="aType">' + TYPES.map((t) => '<option>' + esc(t) + '</option>').join('') + '</select></div>' +
+    '<label class="check"><input type="checkbox" id="aPortal" checked><span><b>Activate their referral portal</b><div class="muted small">Their link works right away.</div></span></label>' +
+    '<button class="btn grad full" id="aSave" style="margin-top:6px">Add to Neon CRM</button><div style="height:20px"></div>';
+  const v = (id) => $('#' + id).value.trim();
+  const status = (html, cls) => { $('#aiStatus').innerHTML = html ? '<div class="' + (cls || 'card') + '">' + html + '</div>' : ''; };
+  const dupCheck = () => {
+    const p = last10(v('aPhone')), e = v('aEmail').toLowerCase(), n = v('aName').toLowerCase();
+    const hits = (S.contacts || []).filter((c) => (p.length === 10 && last10(c.phone) === p) || (e && String(c.email || '').toLowerCase() === e) || (n.length > 4 && String(c.name || '').toLowerCase().trim() === n));
+    $('#dupBox').innerHTML = hits.length ? '<div class="warn"><b>Already in the CRM?</b>' + hits.slice(0, 3).map((c) => '<a class="row" style="margin:8px 0 0;background:var(--card2)" href="#p/' + c.id + '">' + avatar(c) + '<div class="main"><div class="nm"><span class="t">' + esc(nm(c)) + '</span></div><div class="meta">' + esc([c.business, c.phone && fmtPhone(c.phone)].filter(Boolean).join(' · ')) + '</div></div></a>').join('') + '</div>' : '';
+    watchPhotos(); return hits;
+  };
+  ['aName', 'aPhone', 'aEmail'].forEach((id) => { $('#' + id).addEventListener('input', dupCheck); });
+  const fill = (c) => {
+    const set = (id, val) => { if (val) $('#' + id).value = val; };
+    set('aName', c.name); set('aPhone', c.phone ? fmtPhone(c.phone) : ''); set('aEmail', c.email); set('aBiz', c.business);
+    if (c.territory) $$('#aTerr option').forEach((o) => { if (o.value === c.territory) $('#aTerr').value = o.value; });
+    if (c.type) $$('#aType option').forEach((o) => { if (o.value === c.type) $('#aType').value = o.value; });
+    S.addNotes = c.notes || ''; dupCheck();
+  };
+  const parse = async (payload, label) => {
+    status('<div class="spin" style="margin:6px auto"></div><div class="muted small" style="text-align:center">Reading ' + label + '...</div>');
+    try {
+      const r = await fetch(NEON_API + '/api/parseContact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then((x) => x.json());
+      if (r && r.ok && r.contact) { fill(r.contact); status('Filled in from ' + label + '. Check it, then tap Add.', 'ok'); }
+      else status("Couldn't read it. Type it in below.", 'warn');
+    } catch (e) { status("Couldn't reach the reader. Type it in below.", 'warn'); }
+  };
+  $('#scanBtn').onclick = () => $('#cardFile').click();
+  $('#cardFile').onchange = async (e) => { const f = e.target.files && e.target.files[0]; if (!f) return; parse({ image: await shrinkImage(f) }, 'the card'); };
+  $('#speakBtn').onclick = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { status('Voice needs Chrome or Safari. Type it in below.', 'warn'); return; }
+    const rec = new SR(); rec.lang = 'en-US'; rec.interimResults = false; rec.maxAlternatives = 1;
+    status('<b>Listening...</b><div class="muted small">Say their name, brokerage, phone and email.</div>');
+    rec.onresult = (ev) => { const t = ev.results[0][0].transcript; parse({ text: t }, 'what you said'); };
+    rec.onerror = () => status("Didn't catch that. Try again or type it.", 'warn');
+    rec.start();
+  };
+  $('#aSave').onclick = async () => {
+    const name = v('aName'), phone = last10(v('aPhone'));
+    if (!name) { toast('Add their name', true); $('#aName').focus(); return; }
+    if (phone.length !== 10) { toast('Add a 10-digit mobile number', true); $('#aPhone').focus(); return; }
+    const dups = dupCheck();
+    if (dups.length) { const go = await confirmSheet('Possible duplicate', nm(dups[0]) + ' looks like the same person. Add anyway?', 'Add anyway'); if (!go) return; }
+    const type = v('aType') || 'Realtor';
+    const now = new Date().toISOString();
+    const rec = { name, phone, email: v('aEmail'), business: v('aBiz'), territory: v('aTerr'), type, role: type === 'Realtor' ? 'Realtor' : '', dateAdded: now, notes: '[' + now.slice(0, 10) + '] Added from the phone app' + (S.me && S.me.name ? ' by ' + first(S.me.name) : '') + '.' + (S.addNotes ? '\n' + S.addNotes : '') };
+    if ($('#aPortal').checked) rec.portalActivatedAt = now;
+    const btn = $('#aSave'); btn.disabled = true; btn.textContent = 'Saving...';
+    try {
+      const rows = await sbWrite('POST', 'contacts', rec); const saved = rows && rows[0];
+      if (!saved || saved.id == null) throw new Error('no id returned');
+      S.contacts.push(saved); S.byId.set(String(saved.id), saved); S.contacts.sort((a, b) => nm(a).localeCompare(nm(b))); cacheSet('contacts', S.contacts); S.addNotes = '';
+      toast(name + ' added'); location.hash = '#p/' + saved.id;
+    } catch (e) { btn.disabled = false; btn.textContent = 'Add to Neon CRM'; toast('Not saved. Check your connection and try again.', true); }
+  };
+  dupCheck();
+};
+function shrinkImage(file) {
+  return new Promise((res) => {
+    const img = new Image(); const url = URL.createObjectURL(file);
+    img.onload = () => { const max = 1600; let w = img.width, h = img.height; const k = Math.min(1, max / Math.max(w, h)); w = Math.round(w * k); h = Math.round(h * k);
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h; cv.getContext('2d').drawImage(img, 0, 0, w, h); URL.revokeObjectURL(url); res(cv.toDataURL('image/jpeg', 0.82)); };
+    img.onerror = () => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(file); };
+    img.src = url;
+  });
+}
+
+/* ================= MORE ================= */
+ROUTES.more = async () => {
+  setTop('More');
+  const me = await loadMe();
+  main.innerHTML = '<a class="row" href="#payouts"><div class="tile-ic">' + ICON.money + '</div><div class="main"><div class="nm">Payouts</div><div class="meta">Referral rewards waiting to be sent</div></div></a>' +
+    '<a class="row" href="#referrals"><div class="tile-ic">' + ICON.star + '</div><div class="main"><div class="nm">Portal referrals</div><div class="meta">And whether each one reached SmartMoving</div></div></a>' +
+    '<a class="row" href="#radar"><div class="tile-ic">' + ICON.radar + '</div><div class="main"><div class="nm">Listing Radar</div><div class="meta">Just listed and just went pending</div></div></a>' +
+    '<a class="row" href="#install"><div class="tile-ic">' + ICON.download + '</div><div class="main"><div class="nm">Install on your phone</div><div class="meta">' + (isStandalone() ? 'Installed' : 'iPhone and Android steps') + '</div></div></a>' +
+    '<a class="row" href="/?desktop=1"><div class="tile-ic">' + ICON.desktop + '</div><div class="main"><div class="nm">Open the full desktop CRM</div><div class="meta">Route planner, landing pages, everything else</div></div></a>' +
+    '<div class="card" style="margin-top:16px"><div class="kv"><span>Signed in as</span><span>' + esc(me.email || 'Unknown') + '</span></div><div class="kv"><span>Version</span><span>' + VERSION + '</span></div><div class="kv"><span>Test mode</span><span>Texts and emails only go to Dane, Jeff and Valentina</span></div></div>';
+};
+
+/* ================= PAYOUTS (same rules as the desktop CRM) ================= */
+async function loadPortal(force) {
+  if (S.portal && !force) return S.portal;
+  const res = await Promise.all([
+    sb('portal_leads?select=id,customerName,realtorName,realtorId,status,moveDate,customerPhone,fromAddress,toAddress,submittedAt,sm_status,sm_error,smJobId&order=id.desc'),
+    sb('referrals?select=id,contactId,contactName,jobName,status,date&order=date.desc'),
+    sb('contacts?or=(type.eq.Realtor,portalActivatedAt.not.is.null)&select=id,name,business,email,phone,portalActivatedAt&order=name.asc'),
+    sb('paid_referrals?select=key,paid_at,partner'),
+    sb('payout_queue?select=id,referral_id,contact_id,partner,customer,amount,added_at&order=id.desc').catch(() => []),
+    sb('payout_skips?select=key,partner,customer&order=skipped_at.desc').catch(() => []),
+  ]);
+  S.portal = { leads: res[0] || [], refs: res[1] || [], realtors: res[2] || [], paid: res[3] || [], queue: res[4] || [], skips: res[5] || [] };
+  return S.portal;
+}
+// Ported line for line from the desktop CRM's payoutItems() so both always agree.
+function payoutItems() {
+  const P = S.portal; if (!P) return [];
+  const paidMap = {}; P.paid.forEach((p) => { paidMap[p.key] = p.paid_at || '1'; });
+  const actMap = {}; P.realtors.forEach((c) => { if (c.portalActivatedAt) actMap[String(c.id)] = String(c.portalActivatedAt).slice(0, 10); });
+  const byId = {}; P.realtors.forEach((c) => { byId[String(c.id)] = c; });
+  let items = [];
+  P.leads.forEach((l) => {
+    if (String(l.status || '').toLowerCase() !== 'completed') return;
+    const key = 'portal:' + l.id; const rt = byId[String(l.realtorId)] || {};
+    items.push({ key, partner: (l.realtorName || '').trim(), customer: l.customerName, source: 'portal', amount: 50, paid: !!paidMap[key], id: l.id, email: rt.email || '', rtId: l.realtorId });
+  });
+  P.refs.forEach((r) => {
+    if (String(r.status || '').toLowerCase() !== 'completed') return;
+    const act = actMap[String(r.contactId)]; if (!act) return;
+    const d = String(r.date || '').slice(0, 10); if (d && d < act) return;
+    const key = 'manual:' + r.id; const rt = byId[String(r.contactId)] || {};
+    items.push({ key, partner: (r.contactName || '').trim(), customer: r.jobName, source: 'referral', amount: 50, paid: !!paidMap[key], id: r.id, email: rt.email || '', rtId: r.contactId });
+  });
+  const seen = {}; items.forEach((it) => { seen[it.key] = 1; });
+  (P.queue || []).forEach((q) => {
+    const key = 'manual:' + (q.referral_id != null ? q.referral_id : ('q' + q.id));
+    if (seen[key]) return; seen[key] = 1;
+    const rt = byId[String(q.contact_id)] || {};
+    items.push({ key, partner: (q.partner || '').trim(), customer: q.customer, source: 'queued', amount: +q.amount || 50, paid: !!paidMap[key], id: (q.referral_id != null ? q.referral_id : q.id), email: rt.email || '', rtId: q.contact_id });
+  });
+  const qidByKey = {}; (P.queue || []).forEach((q) => { const k = 'manual:' + (q.referral_id != null ? q.referral_id : ('q' + q.id)); if (qidByKey[k] == null) qidByKey[k] = q.id; });
+  items.forEach((it) => { if (qidByKey[it.key] != null) it.qid = qidByKey[it.key]; });
+  const skipSet = {}; (P.skips || []).forEach((s) => { skipSet[s.key] = 1; });
+  items = items.filter((it) => !skipSet[it.key]);
+  return items;
+}
+ROUTES.payouts = async (arg, seq) => {
+  setTop('Payouts', { back: '#more' }); loading();
+  await Promise.all([loadPortal(true), loadContacts(), loadMe()]); if (stale(seq)) return;
+  const items = payoutItems(); const due = items.filter((x) => !x.paid);
+  const total = due.reduce((s, x) => s + x.amount, 0);
+  main.innerHTML = '<div class="card" style="display:flex;align-items:center"><div><div class="tile-num" style="color:var(--amber)">' + money(total) + '</div><div class="tile-lbl">' + due.length + ' payout' + (due.length === 1 ? '' : 's') + ' due</div></div></div>' +
+    (due.length ? due.map((x, i) => {
+      const c = S.byId.get(String(x.rtId)) || { name: x.partner };
+      return '<div class="payrow"><div class="who">' + avatar(c) + '<div style="min-width:0"><div style="font-weight:800;font-size:17px">' + esc(x.partner || 'Unknown') + '</div><div class="muted small">For ' + esc(x.customer || 'a referral') + ' · ' + esc(x.source) + '</div><div class="muted small">' + (x.email ? esc(x.email) : '<span style="color:var(--red)">No email on file</span>') + '</div></div><div class="amt">' + money(x.amount) + '</div></div>' +
+        '<div class="btns"><button class="btn grad" data-send="' + i + '"' + (x.email ? '' : ' disabled') + '>Send ' + money(x.amount) + '</button><button class="btn" data-paid="' + i + '">Paid</button><button class="btn danger" data-skip="' + i + '">Remove</button></div></div>';
+    }).join('') : '<div class="empty">Nobody is waiting on a payout.</div>');
+  $$('[data-send]').forEach((b) => { b.onclick = () => sendPayout(due[+b.getAttribute('data-send')], b); });
+  $$('[data-paid]').forEach((b) => { b.onclick = () => markPaid(due[+b.getAttribute('data-paid')]); });
+  $$('[data-skip]').forEach((b) => { b.onclick = () => skipPayout(due[+b.getAttribute('data-skip')]); });
+};
+async function sendPayout(x, btn) {
+  const ok = await confirmSheet('Send ' + money(x.amount) + '?', 'A Tremendous gift card goes to:\n' + x.partner + '\n' + x.email + '\nfor the ' + (x.customer || '') + ' referral.\n\nThis sends real money.', 'Send ' + money(x.amount)); if (!ok) return;
+  btn.disabled = true; btn.textContent = 'Sending...';
+  const r = await secure('sendPayout', { realtorEmail: x.email, realtorName: x.partner, amount: x.amount, leadId: x.key, key: x.key, customerName: x.customer || '' });
+  if (r.ok && (r.orderId || r.alreadyPaid)) { toast(r.alreadyPaid ? 'Already paid earlier' : 'Sent to ' + first(x.partner)); render(); }
+  else { btn.disabled = false; btn.textContent = 'Send ' + money(x.amount); toast(r.message || ('Not sent: ' + (r.error || 'error') + '. Nothing was charged.'), true); }
+}
+async function markPaid(x) {
+  const ok = await confirmSheet('Mark as paid?', 'Only records ' + x.partner + ' as paid for ' + (x.customer || 'this referral') + '. No money is sent here.', 'Mark paid'); if (!ok) return;
+  try { await sbWrite('POST', 'paid_referrals', { key: x.key, partner: x.partner, amount: x.amount, paid_at: new Date().toISOString().slice(0, 10), paid_by: 'manual' }, 'return=minimal'); toast('Marked paid'); render(); }
+  catch (e) { toast('Could not save.', true); }
+}
+async function skipPayout(x) {
+  const ok = await confirmSheet('Remove this payout?', (x.customer || 'This referral') + ' stays on ' + x.partner + "'s record. It just won't show as a payout, and nothing is paid.", 'Remove', true); if (!ok) return;
+  try {
+    await sbWrite('POST', 'payout_skips', { key: x.key, partner: x.partner, customer: x.customer || '' }, 'resolution=merge-duplicates,return=minimal');
+    if (x.qid) await sbWrite('DELETE', 'payout_queue?id=eq.' + encodeURIComponent(x.qid), null, 'return=minimal').catch(() => {});
+    toast('Removed'); render();
+  } catch (e) { toast('Could not remove it.', true); }
+}
+
+/* ================= REFERRALS ================= */
+function leadRow(l) {
+  const c = S.byId.get(String(l.realtorId)) || { name: l.realtorName };
+  return '<div class="row">' + avatar(c) + '<div class="main"><div class="nm"><span class="t">' + esc(l.customerName || 'Customer') + '</span></div><div class="meta">from ' + esc(String(l.realtorName || '').trim()) + ' · ' + esc(ago(l.submittedAt)) + '</div></div><div class="side">' + (smPill(l.sm_status) || statusPill(l.status)) + '</div></div>';
+}
+ROUTES.referrals = async (arg, seq) => {
+  setTop('Portal referrals', { back: '#more' }); loading();
+  await Promise.all([loadPortal(true), loadContacts()]); if (stale(seq)) return;
+  const leads = S.portal.leads.filter((l) => !/^ZZ /i.test(l.customerName || ''));
+  const attn = leads.filter((l) => l.sm_status === 'retrying' || l.sm_status === 'failed');
+  main.innerHTML = (attn.length ? '<div class="warn"><b>' + attn.length + ' need attention.</b> These have not reached SmartMoving yet. Retrying ones fix themselves; "Enter by hand" ones need someone to add them in SmartMoving.</div>' + attn.map(leadRow).join('') + '<div class="h2">All referrals</div>' : '<div class="ok">Every portal referral since Oct 14 reached SmartMoving.</div>') +
+    leads.slice(0, 60).map(leadRow).join('');
+};
+
+/* ================= LISTING RADAR ================= */
+const tplListed = (c, a) => 'Hey ' + first(c.name) + ", it's " + first((S.me && S.me.name) || 'Dane') + ' with Neon Giant Moving. Just saw ' + a + ' hit the market, congrats! If your seller wants free boxes or a hand getting ready, we have them covered.';
+const tplPending = (c, a) => 'Hey ' + first(c.name) + ", it's " + first((S.me && S.me.name) || 'Dane') + ' with Neon Giant Moving. Saw ' + a + ' just went pending, congrats! When your seller is ready to move, we would love to take great care of them.';
+ROUTES.radar = async (arg, seq) => {
+  setTop('Listing Radar', { back: '#more' });
+  await loadContacts(); if (stale(seq)) return;
+  const tab = S.radarTab;
+  main.innerHTML = '<div class="chips"><button class="chip' + (tab === 'listed' ? ' on' : '') + '" data-rt="listed">Just listed</button><button class="chip' + (tab === 'pending' ? ' on' : '') + '" data-rt="pending">Just went pending</button></div><div class="chips" id="rscope"></div><div id="rlist"><div class="spin"></div></div>';
+  $$('[data-rt]').forEach((b) => { b.onclick = () => { S.radarTab = b.getAttribute('data-rt'); render(); }; });
+  const byName = new Map(S.contacts.map((c) => [String(c.name || '').toLowerCase().replace(/[^a-z0-9]/g, ''), c]));
+  let rows = [];
+  try {
+    if (tab === 'listed') {
+      const l = await sb('listing_seen?select=address,city,price,agent_name,agent_phone,agent_email,listed_date&order=listed_date.desc.nullslast&limit=150');
+      rows = l.map((x) => ({ address: x.address, city: x.city, price: x.price, agent: x.agent_name, phone: x.agent_phone, email: x.agent_email, date: x.listed_date, label: 'Listed' }));
+    } else {
+      let cached = null; try { cached = JSON.parse(sessionStorage.getItem('ncrm:pending') || 'null'); } catch (_) {}
+      if (!cached || Date.now() - cached.at > 30 * 60000) {
+        $('#rlist').innerHTML = '<div class="spin"></div><div class="muted small" style="text-align:center">Checking about 23 cities. This takes a few seconds.</div>';
+        const r = await fetch(NEON_API + '/api/rentcast', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'pendingListings', opts: { days: 30 } }) }).then((x) => x.json());
+        if (!r.ok) throw new Error(r.error || 'radar error');
+        cached = { at: Date.now(), listings: r.listings || [] }; try { sessionStorage.setItem('ncrm:pending', JSON.stringify(cached)); } catch (_) {}
+      }
+      rows = cached.listings.map((x) => ({ address: x.address, city: x.city, price: x.price, agent: x.agent, phone: x.agentPhone, email: x.agentEmail, date: x.offMarketDate, label: 'Off market' }));
+    }
+  } catch (e) { if (!stale(seq)) $('#rlist').innerHTML = '<div class="err">Could not load listings right now. Try again in a minute.</div>'; return; }
+  if (stale(seq)) return;
+  rows.forEach((r) => { r.c = byName.get(String(r.agent || '').toLowerCase().replace(/[^a-z0-9]/g, '')) || null; });
+  rows.sort((a, b) => (!!b.c - !!a.c) || (String(a.date || '') < String(b.date || '') ? 1 : -1));
+  const mine = rows.filter((r) => r.c).length;
+  $('#rlist').innerHTML = '<div class="muted small" style="margin:0 4px 10px">' + rows.length + ' homes · ' + mine + ' from agents in your CRM (shown first)</div>' + rows.slice(0, 120).map((r, i) =>
+    '<div class="listing"><span class="price">' + (r.price ? money(r.price) : '') + '</span><div class="addr">' + esc(String(r.address || '').split(',')[0]) + '</div><div class="muted small">' + esc(r.city || '') + ' · ' + esc(r.label) + ' ' + esc(String(r.date || '').slice(0, 10)) + '</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;margin:10px 0"><b>' + esc(r.agent || 'Unknown agent') + '</b>' + (r.c ? (r.c.portalActivatedAt ? '<span class="pill green">Partner</span>' : '<span class="pill cyan">In CRM</span>') : '<span class="pill">New</span>') + '</div>' +
+    '<div class="grid2">' + (r.c && r.c.phone ? '<button class="btn grad" data-rtext="' + i + '">' + ICON.chat + ' Text agent</button>' : '<button class="btn" data-radd="' + i + '">' + ICON.user + ' Add agent</button>') + '<a class="btn" target="_blank" rel="noopener" href="https://www.zillow.com/homes/' + encodeURIComponent(String(r.address || '').trim()) + '_rb/">View</a></div></div>').join('');
+  $$('[data-rtext]').forEach((b) => { b.onclick = () => { const r = rows[+b.getAttribute('data-rtext')]; const a = String(r.address || '').split(',')[0]; S.draft = { key: 'c' + r.c.id, mode: 'text', text: (tab === 'listed' ? tplListed : tplPending)(r.c, a) }; location.hash = '#chat/c' + r.c.id; }; });
+  $$('[data-radd]').forEach((b) => { b.onclick = () => { const r = rows[+b.getAttribute('data-radd')]; S.addPrefill = { name: r.agent, phone: last10(r.phone), email: r.email || '' }; location.hash = '#add'; }; });
+};
+
+/* ================= INSTALL ================= */
+function isStandalone() { return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; }
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; });
+ROUTES.install = async () => {
+  setTop('Install on your phone', { back: '#more' });
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  main.innerHTML = (isStandalone() ? '<div class="ok"><b>Installed.</b> You are using Neon CRM as an app.</div>' : '') +
+    (installEvt ? '<button class="btn grad full" id="doInstall" style="margin-bottom:14px">' + ICON.download + ' Install Neon CRM</button>' : '') +
+    '<div class="card"><b>iPhone</b><ol style="margin:8px 0 0;padding-left:20px;line-height:1.7"><li>Open this page in <b>Safari</b>.</li><li>Tap the <b>Share</b> button (the square with the arrow).</li><li>Scroll down and tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open Neon CRM from your home screen.</li></ol><div class="muted small" style="margin-top:8px">Message alerts (coming next) need iOS 16.4 or newer, and only work from the home screen icon.</div></div>' +
+    '<div class="card"><b>Android</b><ol style="margin:8px 0 0;padding-left:20px;line-height:1.7"><li>Open this page in <b>Chrome</b>.</li><li>Tap the <b>three dots</b> menu.</li><li>Tap <b>Install app</b> (or <b>Add to Home screen</b>).</li></ol></div>' +
+    (ios && !/safari/i.test(navigator.userAgent) ? '<div class="warn">On iPhone, installing only works from Safari.</div>' : '');
+  const di = $('#doInstall'); if (di) di.onclick = async () => { installEvt.prompt(); await installEvt.userChoice.catch(() => {}); installEvt = null; render(); };
+};
+
+/* ---------- background refresh + offline ---------- */
+function setOnline() { $('#offline').classList.toggle('hidden', navigator.onLine); }
+window.addEventListener('online', () => { setOnline(); render(); });
+window.addEventListener('offline', setOnline);
+setInterval(async () => {
+  if (document.visibilityState !== 'visible' || !navigator.onLine) return;
+  try { await loadMessages(true); updateBadge(); if (location.hash === '#inbox') render(); } catch (_) {}
+}, 20000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') loadMessages(true).then(updateBadge).catch(() => {}); });
+if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/app/sw.js', { scope: '/app/' }).catch(() => {}); }); }
+setOnline();
+render();
+loadMe();
+</script>
+</body>
+</html>

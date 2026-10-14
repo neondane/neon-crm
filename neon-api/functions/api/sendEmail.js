@@ -4,6 +4,7 @@
  *       SUPABASE_URL, SUPABASE_KEY */
 import { endpoint, preflight, sb } from '../_shared.js';
 import { authKey } from '../_apikeys.js';
+import { appSendGuard } from '../_appguard.js';
 
 async function logEmail(env, row) {
   try { await sb(env).insert('email_messages', row, { returning: 'minimal' }); } catch (_) {}
@@ -21,6 +22,8 @@ const handler = endpoint(async ({ env, body, reply, request }) => {
   const text = String(body.body || '').trim();
   const html = body.html ? String(body.html) : undefined;
   const contactId = body.contactId != null ? body.contactId : null;
+  const appGuard = await appSendGuard(env, request, 'email', to);
+  if (!appGuard.ok) return reply({ ok: false, error: appGuard.error, message: appGuard.message }, appGuard.status);
   const sender = body.sender ? String(body.sender) : '';
   // Optional attachments: [{ filename, content (base64) }]
   const attachments = Array.isArray(body.attachments)

@@ -3,6 +3,7 @@
  *  Env: TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM, SUPABASE_URL, SUPABASE_KEY */
 import { endpoint, preflight, sb, toE164 } from '../_shared.js';
 import { authKey } from '../_apikeys.js';
+import { appSendGuard } from '../_appguard.js';
 
 async function logSms(env, row) {
   try { await sb(env).insert('sms_messages', row, { returning: 'minimal' }); } catch (_) { /* best-effort */ }
@@ -21,6 +22,8 @@ const handler = endpoint(async ({ env, body, reply, request }) => {
   const contactId = body.contactId != null ? body.contactId : null;
   if (!to) return reply({ ok: false, error: 'missing_or_invalid_to' }, 400);
   if (!text) return reply({ ok: false, error: 'missing_body' }, 400);
+  const appGuard = await appSendGuard(env, request, 'sms', to);
+  if (!appGuard.ok) return reply({ ok: false, error: appGuard.error, message: appGuard.message }, appGuard.status);
 
   const form = new URLSearchParams({ To: to, From: env.TWILIO_FROM, Body: text.slice(0, 1500) });
   const auth = btoa(`${env.TWILIO_SID}:${env.TWILIO_TOKEN}`);
