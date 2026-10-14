@@ -2,8 +2,8 @@
    - Keeps the app shell (page, icons, manifest) so it opens fast and works offline.
    - NEVER caches data: Supabase, /api/*, neon-api and Access requests always go to the network.
    - Push handlers are ready for Phase 4 (nothing subscribes yet). */
-const SHELL = 'ncrm-shell-v2';
-const SHELL_FILES = ['/app/', '/app/manifest.webmanifest', '/app/icons/icon-192.png', '/app/icons/icon-512.png', '/app/icons/apple-touch-icon.png', '/app/icons/favicon-64.png'];
+const SHELL = 'ncrm-shell-v3';
+const SHELL_FILES = ['/app/', '/app/manifest.webmanifest', '/app/icons/icon-192.png?v=2', '/app/icons/icon-512.png?v=2', '/app/icons/apple-touch-icon.png?v=2', '/app/icons/favicon-64.png?v=2'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(SHELL).then((c) => Promise.all(SHELL_FILES.map((u) => fetch(u, { credentials: 'same-origin' }).then((r) => { if (r.ok && r.type === 'basic') return c.put(u, r); }).catch(() => {})))).then(() => self.skipWaiting()));
 });
@@ -22,7 +22,7 @@ self.addEventListener('fetch', (e) => {
 });
 self.addEventListener('push', (e) => {
   let d = {}; try { d = e.data ? e.data.json() : {}; } catch (_) { d = { title: 'Neon CRM', body: e.data ? e.data.text() : '' }; }
-  e.waitUntil(self.registration.showNotification(d.title || 'Neon CRM', { body: d.body || '', icon: '/app/icons/icon-192.png', badge: '/app/icons/icon-192.png', tag: d.tag || undefined, data: { url: d.url || '/app/#inbox' } }));
+  e.waitUntil(self.registration.showNotification(d.title || 'Neon CRM', { body: d.body || '', icon: '/app/icons/icon-192.png?v=2', badge: '/app/icons/icon-192.png?v=2', tag: d.tag || undefined, data: { url: d.url || '/app/#inbox' } }));
 });
 self.addEventListener('notificationclick', (e) => {
   e.notification.close(); const url = (e.notification.data && e.notification.data.url) || '/app/#inbox';

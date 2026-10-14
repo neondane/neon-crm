@@ -10,8 +10,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Neon CRM">
 <link rel="manifest" href="/app/manifest.webmanifest" crossorigin="use-credentials">
-<link rel="icon" type="image/png" href="/app/icons/favicon-64.png">
-<link rel="apple-touch-icon" href="/app/icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="/app/icons/favicon-64.png?v=2">
+<link rel="apple-touch-icon" href="/app/icons/apple-touch-icon.png?v=2">
 <style>
 :root{--bg:#0d0a1f;--card:#17132e;--card2:#221c42;--line:rgba(255,255,255,.09);--text:#f3f1ff;--muted:#a9a3c9;--pink:#ff1493;--cyan:#22bfe7;--green:#2fd27f;--amber:#ffb020;--red:#ff4d6d;--grad:linear-gradient(90deg,#ff1493,#22bfe7);--safe-b:env(safe-area-inset-bottom,0px);--safe-t:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -148,6 +148,21 @@ textarea.input{min-height:90px;resize:vertical}
 .payrow .amt{font-size:22px;font-weight:800;color:var(--amber);margin-left:auto}
 .payrow .btns{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px}
 .payrow .btns .btn{padding:10px 6px;font-size:14px}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+.kpi b{display:block;font-size:26px;font-weight:800;line-height:1.1}
+.kpi span{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.lb{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;margin:10px 0}
+.lb .n{font-weight:700;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lb .v{font-size:13px;color:var(--muted);text-align:right}
+.lb .bar{grid-column:1/3;height:8px;border-radius:5px;background:var(--card2);overflow:hidden}
+.lb .bar i{display:block;height:100%;border-radius:5px;background:var(--grad)}
+.pipe{display:flex;height:16px;border-radius:9px;overflow:hidden;margin:6px 0 10px}
+.legend{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:13.5px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.owed{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.owed div{background:var(--card2);border-radius:12px;padding:12px}
+.owed b{display:block;font-size:22px}
 </style>
 </head>
 <body>
@@ -159,6 +174,7 @@ textarea.input{min-height:90px;resize:vertical}
   <a href="#inbox" data-tab="inbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>Inbox<span class="badge hidden" id="inboxBadge">0</span></a>
   <a href="#add" data-tab="add" class="add"><span class="plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>Add</a>
   <a href="#partners" data-tab="partners"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>Partners</a>
+  <a href="#stats" data-tab="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Stats</a>
   <a href="#more" data-tab="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>More</a>
 </nav>
 <script>
@@ -168,7 +184,7 @@ textarea.input{min-height:90px;resize:vertical}
    (Phase 2 moves these behind the login gateway). Every text, email and payout goes
    through /api/secure on this site, which checks the Cloudflare Access login and marks
    the request X-Neon-App: crm-app so the backend's TEST MODE applies (allowlist only). */
-const VERSION = '1.0.2';
+const VERSION = '1.1.0';
 const SB_URL = 'https://aoyfieswynhgqyrveqnp.supabase.co';
 const SB_KEY = 'sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ';
 const NEON_API = 'https://neon-api.pages.dev';
@@ -775,6 +791,69 @@ function shrinkImage(file) {
     img.src = url;
   });
 }
+
+/* ================= STATS (same numbers and rules as the desktop Dashboard) ================= */
+const TIER_COLORS = { 1: '#FFB300', 2: '#FF1493', 3: '#22BFE7', 4: '#9B5DE5', 5: '#00C2A8' };
+const tierNum = (t) => { const m = /(\d+)/.exec(String(t || '')); return m ? +m[1] : 99; };
+const kfmt = (n) => { n = +n || 0; return n >= 1000 ? '$' + (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : '$' + Math.round(n); };
+function barsSvg(items, fmt, gid) {
+  const W = 360, H = 190, pad = 6, n = items.length || 1, gap = (W - pad * 2) / n, bw = gap * 0.62;
+  const max = Math.max(1, ...items.map((m) => m.v));
+  const bars = items.map((m, i) => { const h = m.v / max * (H - 52); const x = pad + i * gap + (gap - bw) / 2; const y = H - 26 - h;
+    return '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(h, 1.5).toFixed(1) + '" rx="3" fill="url(#' + gid + ')"/>' +
+      (m.v ? '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (y - 5).toFixed(1) + '" text-anchor="middle" font-size="10.5" font-weight="700" fill="#cfcae8">' + esc(fmt(m.v)) + '</text>' : '') +
+      '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="11" fill="#a9a3c9">' + esc(m.label) + '</text>'; }).join('');
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" style="display:block"><defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF1493"/><stop offset="1" stop-color="#22BFE7"/></linearGradient></defs>' + bars + '</svg>';
+}
+ROUTES.stats = async (arg, seq) => {
+  setTop('Stats', { sub: 'Same numbers as the desktop dashboard', right: '<button class="iconbtn" id="stRefresh" aria-label="Refresh">' + ICON.refresh + '</button>' });
+  loading();
+  const [refs, , msgDates] = await Promise.all([
+    sb('referrals?select=id,contactId,contactName,jobName,status,date,amount&order=date.desc'),
+    loadPortal(true),
+    Promise.all([sb('sms_messages?select=created_at'), sb('email_messages?select=created_at')]).then(([a, b]) => a.concat(b).map((m) => m.created_at).filter(Boolean)).catch(() => []),
+    loadContacts(),
+  ]);
+  if (stale(seq)) return;
+  const all = S.contacts;
+  const realtors = all.filter(isRealtor);
+  const activeP = realtors.filter((c) => c.portalActivatedAt).length;
+  const due = payoutItems().filter((x) => !x.paid).reduce((t, x) => t + x.amount, 0);
+  const ym = new Date().toISOString().slice(0, 7);
+  const refsMonth = refs.filter((r) => String(r.date || '').slice(0, 7) === ym).length;
+  const paidTot = (S.portal.paid || []).length * 50;
+  // revenue by month, last 12
+  const now = new Date(); const months = [];
+  for (let i = 11; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push({ key: d.toISOString().slice(0, 7), label: d.toLocaleString('en', { month: 'short' }).slice(0, 3), v: 0 }); }
+  const mi = {}; months.forEach((m, i) => { mi[m.key] = i; });
+  refs.forEach((r) => { const k = String(r.date || '').slice(0, 7); if (mi[k] != null) months[mi[k]].v += (+r.amount || 0); });
+  const yr = String(now.getFullYear()); const ytd = refs.filter((r) => String(r.date || '').slice(0, 4) === yr).reduce((t, r) => t + (+r.amount || 0), 0);
+  // top partners (referrals with an amount), pipeline, tiers, outreach
+  const by = {}; refs.filter((r) => (+r.amount || 0) > 0).forEach((r) => { const k = r.contactName || 'Unknown'; (by[k] = by[k] || { n: 0, amt: 0 }).n++; by[k].amt += (+r.amount || 0); });
+  const top = Object.keys(by).map((k) => ({ name: k, n: by[k].n, amt: by[k].amt })).sort((a, b) => b.n - a.n || b.amt - a.amt).slice(0, 6);
+  const topMax = Math.max(1, ...top.map((a) => a.n));
+  const pl = { referred: 0, booked: 0, completed: 0 }; refs.forEach((r) => { const k = String(r.status || '').toLowerCase(); if (pl[k] != null) pl[k]++; });
+  const plTot = pl.referred + pl.booked + pl.completed || 1;
+  const seg = [['Referred', pl.referred, '#22BFE7'], ['Booked', pl.booked, '#9B5DE5'], ['Completed', pl.completed, '#FF1493']];
+  const tiers = {}; all.forEach((c) => { const t = tierNum(c.tier); const k = (t >= 1 && t <= 5) ? t : 0; tiers[k] = (tiers[k] || 0) + 1; });
+  const order = [1, 2, 3, 4, 5, 0].filter((k) => tiers[k]); const R = 54, Cc = 2 * Math.PI * R; let acc = 0;
+  const donut = '<svg width="150" height="150" viewBox="0 0 140 140" style="flex:none">' + order.map((k) => { const f = tiers[k] / (all.length || 1), col = k === 0 ? '#6f6a8a' : TIER_COLORS[k], dash = f * Cc, off = acc * Cc; acc += f; return '<circle cx="70" cy="70" r="' + R + '" fill="none" stroke="' + col + '" stroke-width="20" stroke-dasharray="' + dash.toFixed(1) + ' ' + (Cc - dash).toFixed(1) + '" stroke-dashoffset="' + (-off).toFixed(1) + '" transform="rotate(-90 70 70)"/>'; }).join('') + '<text x="70" y="70" text-anchor="middle" font-size="26" font-weight="800" fill="#f3f1ff">' + all.length + '</text><text x="70" y="88" text-anchor="middle" font-size="11" fill="#a9a3c9">contacts</text></svg>';
+  const weeks = []; for (let j = 7; j >= 0; j--) { const wd = new Date(now); wd.setHours(0, 0, 0, 0); wd.setDate(wd.getDate() - j * 7); weeks.push({ start: wd.getTime(), label: (wd.getMonth() + 1) + '/' + wd.getDate(), v: 0 }); }
+  msgDates.forEach((ds) => { const t = new Date(ds).getTime(); for (let k = weeks.length - 1; k >= 0; k--) { if (t >= weeks[k].start) { weeks[k].v++; break; } } });
+  const kpi = (v, l, col) => '<div class="kpi"><b' + (col ? ' style="color:' + col + '"' : '') + '>' + v + '</b><span>' + l + '</span></div>';
+  const statTile = (id, icon, title, sub, body, open) => '<div class="tile' + (open ? ' open' : '') + '" data-tile="' + id + '"><button class="tile-head"><div class="tile-ic">' + icon + '</div><div><div style="font-weight:800;font-size:16px">' + title + '</div><div class="tile-lbl">' + sub + '</div></div><span class="tile-chev">' + ICON.chev + '</span></button><div class="tile-body"><div><div class="tile-inner">' + body + '</div></div></div></div>';
+  let h = '<div class="kpis">' + kpi(all.length, 'Contacts') + kpi(realtors.length, 'Realtors') + kpi(activeP, 'Active partners', 'var(--green)') + kpi(money(due), 'Payouts due', 'var(--amber)') + kpi(S.portal.leads.length, 'Portal leads') + kpi(refsMonth, 'Referrals this month', 'var(--pink)') + '</div>';
+  h += statTile('rev', ICON.money, 'Referral revenue', kfmt(ytd) + ' so far in ' + yr + ' · ' + kfmt(months[11].v) + ' this month', barsSvg(months, kfmt, 'grev'), true);
+  h += statTile('top', ICON.star, 'Top referring partners', top.length ? top[0].name + ' leads with ' + top[0].n : 'No paid referrals yet', top.map((a) => '<div class="lb"><span class="n">' + esc(a.name) + '</span><span class="v">' + a.n + ' · ' + kfmt(a.amt) + '</span><span class="bar"><i style="width:' + (a.n / topMax * 100).toFixed(1) + '%"></i></span></div>').join('') || '<div class="empty">No referrals yet.</div>');
+  h += statTile('pipe', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 4h18l-7 8v6l-4 2v-8z"/></svg>', 'Referral pipeline', pl.referred + ' referred · ' + pl.booked + ' booked · ' + pl.completed + ' completed',
+    '<div class="pipe">' + seg.filter((x) => x[1]).map((x) => '<div style="width:' + (x[1] / plTot * 100) + '%;background:' + x[2] + '"></div>').join('') + '</div><div class="legend">' + seg.map((x) => '<span><i style="background:' + x[2] + '"></i>' + x[0] + ' ' + x[1] + '</span>').join('') + '</div>' +
+    '<div class="owed"><div><b style="color:var(--amber)">' + money(due) + '</b><span class="muted small">Payouts owed</span></div><div><b style="color:var(--green)">' + money(paidTot) + '</b><span class="muted small">Paid to date</span></div></div>');
+  h += statTile('tier', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 4v8l6 4"/></svg>', 'Contacts by tier', order.filter((k) => k).map((k) => 'Tier ' + k + ': ' + tiers[k]).slice(0, 3).join(' · '),
+    '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">' + donut + '<div class="legend" style="flex-direction:column;gap:8px">' + order.map((k) => '<span><i style="background:' + (k === 0 ? '#6f6a8a' : TIER_COLORS[k]) + '"></i>' + (k === 0 ? 'No tier' : 'Tier ' + k) + ' ' + tiers[k] + '</span>').join('') + '</div></div>');
+  h += statTile('out', ICON.chat, 'Outreach activity', weeks[7].v + ' texts and emails this week', barsSvg(weeks, (v) => String(v), 'gout'));
+  main.innerHTML = h; bindTiles();
+  $('#stRefresh').onclick = () => render();
+};
 
 /* ================= MORE ================= */
 ROUTES.more = async () => {
