@@ -168,7 +168,7 @@ textarea.input{min-height:90px;resize:vertical}
    (Phase 2 moves these behind the login gateway). Every text, email and payout goes
    through /api/secure on this site, which checks the Cloudflare Access login and marks
    the request X-Neon-App: crm-app so the backend's TEST MODE applies (allowlist only). */
-const VERSION = '1.0.1';
+const VERSION = '1.0.2';
 const SB_URL = 'https://aoyfieswynhgqyrveqnp.supabase.co';
 const SB_KEY = 'sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ';
 const NEON_API = 'https://neon-api.pages.dev';
@@ -785,7 +785,7 @@ ROUTES.more = async () => {
     '<a class="row" href="#radar"><div class="tile-ic">' + ICON.radar + '</div><div class="main"><div class="nm">Listing Radar</div><div class="meta">Just listed and just went pending</div></div></a>' +
     '<a class="row" href="#install"><div class="tile-ic">' + ICON.download + '</div><div class="main"><div class="nm">Install on your phone</div><div class="meta">' + (isStandalone() ? 'Installed' : 'iPhone and Android steps') + '</div></div></a>' +
     '<a class="row" href="/?desktop=1"><div class="tile-ic">' + ICON.desktop + '</div><div class="main"><div class="nm">Open the full desktop CRM</div><div class="meta">Route planner, landing pages, everything else</div></div></a>' +
-    '<div class="card" style="margin-top:16px"><div class="kv"><span>Signed in as</span><span>' + esc(me.email || 'Unknown') + '</span></div><div class="kv"><span>Version</span><span>' + VERSION + '</span></div><div class="kv"><span>Test mode</span><span>Texts and emails only go to Dane, Jeff and Valentina</span></div></div>';
+    '<div class="card" style="margin-top:16px"><div class="kv"><span>Signed in as</span><span>' + esc(me.email || 'Unknown') + '</span></div><div class="kv"><span>Version</span><span>' + VERSION + '</span></div><div class="kv"><span>Sending</span><span>Live. Texts come from (360) 588-5228</span></div></div>';
 };
 
 /* ================= PAYOUTS (same rules as the desktop CRM) ================= */
