@@ -31,14 +31,17 @@ async function verifyAccessJwt(token, env) {
   catch (_) { return { ok: false, error: 'unreadable_jwt' }; }
 
   const iss = String(payload.iss || '').replace(/\/$/, '');
-  if (!/^https:\/\/[a-z0-9-]+\.cloudflareaccess\.com$/i.test(iss)) return { ok: false, error: 'bad_issuer' };
+  // LOCKDOWN 2026-10-14: only OUR Access team may issue tokens (was: any *.cloudflareaccess.com team).
+  if (iss !== 'https://winter-snowflake-2c4e.cloudflareaccess.com') return { ok: false, error: 'bad_issuer' };
 
   const now = Math.floor(Date.now() / 1000);
   if (payload.exp && now > payload.exp) return { ok: false, error: 'expired' };
   if (payload.nbf && now < payload.nbf - 60) return { ok: false, error: 'not_yet_valid' };
-  if (env.ACCESS_AUD) {
+  {
+    // LOCKDOWN 2026-10-14: always pin the Neon CRM Access app (crm + crm3).
+    const want = env.ACCESS_AUD || '635d889655dc3b6db0081aa5b767da6bbe30d5e5105e158e416bb07ddee000a9';
     const auds = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
-    if (auds.indexOf(env.ACCESS_AUD) < 0) return { ok: false, error: 'bad_audience' };
+    if (auds.indexOf(want) < 0) return { ok: false, error: 'bad_audience' };
   }
 
   let jwks = null;

@@ -205,7 +205,7 @@ async function sendInvite(c,link,btn){
   btn.disabled=true;btn.textContent="Sending…";
   var payload={to:c.phone,body:msg,contactId:c.id,kind:"portal_invite"};
   async function post(path){try{var r=await fetch(PORTAL+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});var j={};try{j=await r.json();}catch(e){}return {ok:(r.ok&&j.ok!==false),msg:(j.message||j.error||("HTTP "+r.status))};}catch(e){return {ok:false,msg:String(e&&e.message||e)};}}
-  var sent=await post("/api/sendSms"); if(!sent.ok){var b=await post("/api/smsOut"); if(b.ok)sent=b;}
+  var sent; try{var sr=await fetch("/api/secure/sendSms",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});var sj={};try{sj=await sr.json();}catch(e){}sent={ok:(sr.ok&&sj.ok!==false),msg:(sj.message||sj.error||("HTTP "+sr.status))};}catch(e){sent={ok:false,msg:String(e&&e.message||e)};}
   if(sent.ok){toast("Invite sent to "+first);btn.textContent="Sent ✓";}
   else{toast("Not sent: "+sent.msg,1);btn.disabled=false;btn.textContent="Text invite to "+c.phone;}
 }

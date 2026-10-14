@@ -80,7 +80,14 @@ export async function onRequestOptions({ request }) {
   return new Response(null, { status: 204, headers: corsHeaders(request.headers.get('Origin')) });
 }
 
-export async function onRequestPost({ request, env }) {
+export async function onRequestPost() {
+  // LOCKDOWN 2026-10-14: this endpoint was open to the internet. Texts are sent only from the CRM.
+  return new Response(JSON.stringify({ ok: false, error: 'disabled', message: 'Texts are sent only from the Neon CRM.' }),
+    { status: 410, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+}
+
+// Old handler kept for reference only. Not exported, never runs.
+async function _disabledLegacyPost({ request, env }) {
   const origin = request.headers.get('Origin');
 
   // 1. Env var check — surfaces a friendly error if Twilio creds aren't set yet.

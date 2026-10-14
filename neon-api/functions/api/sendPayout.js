@@ -6,8 +6,12 @@
  *
  *  NOTE: real money. Validates strictly and fails closed (never sends on bad input). */
 import { endpoint, preflight, sb } from '../_shared.js';
+import { authKey } from '../_apikeys.js';
 
-const handler = endpoint(async ({ env, body, reply }) => {
+const handler = endpoint(async ({ env, body, reply, request }) => {
+  // LOCKDOWN 2026-10-14: callers must present an API key (the CRM gets one via /api/secure on crm3).
+  const keyCheck = await authKey(env, request, 'write');
+  if (!keyCheck.ok) return reply({ ok: false, error: keyCheck.error }, keyCheck.status);
   // Accept either key name; pick prod/sandbox from TREMENDOUS_ENV (defaults to prod).
   const TKEY = env.TREMENDOUS_KEY || env.TREMENDOUS_API_KEY;
   const TREMENDOUS_BASE = (String(env.TREMENDOUS_ENV || '').toLowerCase() === 'sandbox')

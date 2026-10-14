@@ -1427,13 +1427,13 @@ async function postSms(url,payload){
 }
 async function sendText(payload){
   // Clean backend first; fall back to the old smsOut so texting is never down.
-  var a=await postSms(NEON_API+"/api/sendSms",payload);
+  var a=await postSms("/api/secure/sendSms",payload);
   if(a.ok) return a;
   var b=await postSms("https://refer.neongiantmoving.com/api/smsOut",payload);
   return b.ok?b:a;
 }
 async function sendPhoto(payload){
-  try{ var r=await fetch(NEON_API+"/api/sendMms",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}); var j={}; try{j=await r.json();}catch(e){} return {ok:!!(r.ok&&j.ok!==false),msg:(j.message||j.error||("HTTP "+r.status)),mediaUrl:j.mediaUrl}; }
+  try{ var r=await fetch("/api/secure/sendMms",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}); var j={}; try{j=await r.json();}catch(e){} return {ok:!!(r.ok&&j.ok!==false),msg:(j.message||j.error||("HTTP "+r.status)),mediaUrl:j.mediaUrl}; }
   catch(e){ return {ok:false,msg:e.message}; }
 }
 async function sendComposer(c){
@@ -1444,7 +1444,7 @@ async function sendComposer(c){
   if(cSub==="text"){ if(!c.phone){alert("No phone on file.");return;} if(!msg.trim()&&!cImg)return; var btn=document.getElementById("cSend"); if(btn){btn.disabled=true;btn.textContent="Sending…";}
     var sent = cImg ? await sendPhoto({to:c.phone,body:msg,contactId:c.id,kind:"manual",imageBase64:cImg}) : await sendText({to:c.phone,body:msg,contactId:c.id,kind:"manual"});
     if(sent.ok){ var hadImg=!!cImg; var mediaUrl=hadImg?(sent.mediaUrl||null):null; cImg=null; var ta=document.getElementById("cmsg");if(ta)ta.value=""; var logBody=(msg||(hadImg?"Photo":"")); if(ACT===null)ACT=[]; ACT.unshift({kind:"text",when:new Date().toISOString().slice(0,16).replace("T"," "),text:"→ "+logBody,media:mediaUrl}); redrawTab(c); var row={contact_id:c.id,direction:"out",to_number:String(c.phone).replace(/[^0-9+]/g,""),from_number:"+13605885228",body:logBody,kind:"manual",status:"sent",sent_at:new Date().toISOString()}; if(mediaUrl)row.media_url=mediaUrl; try{ await sbWrite("POST","sms_messages",row); }catch(e){} if(wantFollow)createFollowup(c,3,msg.slice(0,80)); ACT=null; loadActivity(c); }else{alert((cImg?"Photo":"Text")+" not sent: "+sent.msg);} if(btn){btn.disabled=false;btn.textContent="Send";} return; }
-  if(cSub==="email"){ if(!c.email){alert("No email on file.");return;} if(!msg.trim())return; var subjEl=document.getElementById("emSubject"); var subj=(subjEl&&subjEl.value.trim())||"A note from Neon Giant Moving"; if(!confirm("Send this email to "+c.name+"?"))return; var ebtn=document.getElementById("cSend"); if(ebtn){ebtn.disabled=true;ebtn.textContent="Sending…";} var payload={to:c.email,subject:subj,body:msg,contactId:c.id}; if(emailAttach)payload.attachments=[emailAttach]; try{var er=await fetch(NEON_API+"/api/sendEmail",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});var ej={};try{ej=await er.json();}catch(e){} if(er.ok&&ej.ok!==false){ emailAttach=null; var eta=document.getElementById("cmsg"); if(eta)eta.value=""; if(subjEl)subjEl.value=""; if(wantFollow)createFollowup(c,7,"Email: "+subj); banner("Email sent."); loadActivity(c); }else{alert("Email not sent: "+(ej.message||ej.error||("HTTP "+er.status)));}}catch(e){alert("Send failed — check connection.");} if(ebtn){ebtn.disabled=false;ebtn.textContent="Send Email";} return; }
+  if(cSub==="email"){ if(!c.email){alert("No email on file.");return;} if(!msg.trim())return; var subjEl=document.getElementById("emSubject"); var subj=(subjEl&&subjEl.value.trim())||"A note from Neon Giant Moving"; if(!confirm("Send this email to "+c.name+"?"))return; var ebtn=document.getElementById("cSend"); if(ebtn){ebtn.disabled=true;ebtn.textContent="Sending…";} var payload={to:c.email,subject:subj,body:msg,contactId:c.id}; if(emailAttach)payload.attachments=[emailAttach]; try{var er=await fetch("/api/secure/sendEmail",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});var ej={};try{ej=await er.json();}catch(e){} if(er.ok&&ej.ok!==false){ emailAttach=null; var eta=document.getElementById("cmsg"); if(eta)eta.value=""; if(subjEl)subjEl.value=""; if(wantFollow)createFollowup(c,7,"Email: "+subj); banner("Email sent."); loadActivity(c); }else{alert("Email not sent: "+(ej.message||ej.error||("HTTP "+er.status)));}}catch(e){alert("Send failed — check connection.");} if(ebtn){ebtn.disabled=false;ebtn.textContent="Send Email";} return; }
   alert("Call logging comes next.");
 }
 async function createFollowup(c,days,note){
@@ -1711,7 +1711,7 @@ async function sendPayoutGo(it,btn){
   if(!confirm("Send a $"+it.amount+" Tremendous gift card to:\n\n"+(it.partner||"")+"  <"+it.email+">\nfor the "+(it.customer||"")+" referral.\n\nThis sends REAL money. Continue?")) return;
   if(btn){ btn.disabled=true; btn.textContent="Sending…"; }
   try{
-    var res=await fetch(NEON_API+"/api/sendPayout",{method:"POST",headers:{"Content-Type":"application/json"},
+    var res=await fetch("/api/secure/sendPayout",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({realtorEmail:it.email,realtorName:it.partner,amount:it.amount,leadId:it.key,key:it.key,customerName:it.customer,testMode:false})}).then(function(x){return x.json();});
     // Only treat as paid on a REAL Tremendous order id (or a confirmed prior payment). The
     // backend records the paid row itself (with the order id) — we don't write an unverified one.

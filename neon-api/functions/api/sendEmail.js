@@ -3,12 +3,16 @@
  *  Env: RESEND_API_KEY, EMAIL_FROM (e.g. "Neon Giant Moving <crew@neongiantmoving.com>"),
  *       SUPABASE_URL, SUPABASE_KEY */
 import { endpoint, preflight, sb } from '../_shared.js';
+import { authKey } from '../_apikeys.js';
 
 async function logEmail(env, row) {
   try { await sb(env).insert('email_messages', row, { returning: 'minimal' }); } catch (_) {}
 }
 
-const handler = endpoint(async ({ env, body, reply }) => {
+const handler = endpoint(async ({ env, body, reply, request }) => {
+  // LOCKDOWN 2026-10-14: callers must present an API key (the CRM gets one via /api/secure on crm3).
+  const keyCheck = await authKey(env, request, 'write');
+  if (!keyCheck.ok) return reply({ ok: false, error: keyCheck.error }, keyCheck.status);
   if (!env.RESEND_API_KEY || !env.EMAIL_FROM)
     return reply({ ok: false, error: 'email_not_configured', message: 'Set RESEND_API_KEY and EMAIL_FROM.' }, 503);
 

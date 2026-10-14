@@ -54,7 +54,14 @@ export async function onRequestOptions(context) {
   return new Response(null, { status: 204, headers: corsHeaders(origin) });
 }
 
-export async function onRequestPost(context) {
+export async function onRequestPost() {
+  // LOCKDOWN 2026-10-14: this endpoint was open to the internet. Payouts are sent only from the CRM.
+  return new Response(JSON.stringify({ ok: false, error: 'disabled', message: 'Payouts are sent only from the Neon CRM.' }),
+    { status: 410, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+}
+
+// Old handler kept for reference only. Not exported, never runs.
+async function _disabledLegacyPost(context) {
   const { request, env } = context;
   const origin = request.headers.get('Origin');
 

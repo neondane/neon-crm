@@ -11,6 +11,7 @@
  *  Returns: { ok, sid, status, mediaUrl }
  */
 import { endpoint, preflight, sb, toE164 } from '../_shared.js';
+import { authKey } from '../_apikeys.js';
 
 var BUCKET = 'mms';
 
@@ -56,6 +57,9 @@ async function logSms(env, row) {
 
 var handler = endpoint(async function (ctx) {
   var env = ctx.env, body = ctx.body, reply = ctx.reply;
+  // LOCKDOWN 2026-10-14: API key required (the CRM gets one via /api/secure on crm3).
+  var keyCheck = await authKey(env, ctx.request, 'write');
+  if (!keyCheck.ok) return reply({ ok: false, error: keyCheck.error }, keyCheck.status);
   var base = (env.SUPABASE_URL || '').replace(/\/$/, '');
   var key = env.SUPABASE_KEY;
   if (!base || !key) return reply({ ok: false, error: 'supabase_not_configured' }, 503);
@@ -106,5 +110,4 @@ var handler = endpoint(async function (ctx) {
 });
 
 export var onRequestPost = handler;
-export var onRequestGet = handler;
 export var onRequestOptions = function (ctx) { return preflight(ctx.request); };
