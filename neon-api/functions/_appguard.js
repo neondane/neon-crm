@@ -16,15 +16,21 @@ export function isAppRequest(request) {
   return (request.headers.get('X-Neon-App') || '') === 'crm-app';
 }
 
+let SETTINGS_CACHE = { v: null, at: 0 };
+export function resetAppSettingsCache() { SETTINGS_CACHE = { v: null, at: 0 }; } // tests only
 async function appSettings(env) {
+  if (SETTINGS_CACHE.v && Date.now() - SETTINGS_CACHE.at < 30000) return SETTINGS_CACHE.v;
   try {
     const base = String(env.SUPABASE_URL || '').replace(/\/$/, '');
     const r = await fetch(base + '/rest/v1/app_settings?key=eq.crm_app&select=value', {
       headers: { apikey: env.SUPABASE_KEY, Authorization: 'Bearer ' + env.SUPABASE_KEY },
+      signal: AbortSignal.timeout(4000),
     });
     if (!r.ok) return null;
     const rows = await r.json();
-    return (rows && rows[0] && rows[0].value) || null;
+    const v = (rows && rows[0] && rows[0].value) || null;
+    if (v) SETTINGS_CACHE = { v, at: Date.now() };
+    return v;
   } catch (_) { return null; }
 }
 

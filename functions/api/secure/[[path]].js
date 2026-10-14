@@ -30,6 +30,15 @@ function b64urlBytes(s) {
 }
 function b64urlJson(s) { return JSON.parse(new TextDecoder().decode(b64urlBytes(s))); }
 
+// Signing keys of our Access team, cached for this worker's lifetime (refreshed hourly or on an unknown key id).
+let JWKS_CACHE = { keys: null, at: 0 };
+async function accessKeys(team, force) {
+  if (!force && JWKS_CACHE.keys && Date.now() - JWKS_CACHE.at < 3600000) return JWKS_CACHE.keys;
+  const j = await fetch(team + '/cdn-cgi/access/certs', { signal: AbortSignal.timeout(5000) }).then((r) => r.json());
+  if (j && Array.isArray(j.keys)) JWKS_CACHE = { keys: j.keys, at: Date.now() };
+  return JWKS_CACHE.keys;
+}
+
 export async function verifyAccessJwt(token, env) {
   const parts = String(token || '').split('.');
   if (parts.length !== 3) return { ok: false, error: 'malformed_jwt' };
@@ -48,10 +57,11 @@ export async function verifyAccessJwt(token, env) {
   if (!payload.exp || now > payload.exp) return { ok: false, error: 'expired' };
   if (payload.nbf && now < payload.nbf - 60) return { ok: false, error: 'not_yet_valid' };
 
-  let jwks = null;
-  try { jwks = await fetch(team + '/cdn-cgi/access/certs').then((r) => r.json()); } catch (_) {}
-  if (!jwks || !Array.isArray(jwks.keys)) return { ok: false, error: 'jwks_unavailable' };
-  const jwk = jwks.keys.find((k) => k.kid === header.kid);
+  let keys = null;
+  try { keys = await accessKeys(team, false); } catch (_) {}
+  let jwk = keys && keys.find((k) => k.kid === header.kid);
+  if (!jwk) { try { keys = await accessKeys(team, true); } catch (_) {} jwk = keys && keys.find((k) => k.kid === header.kid); }
+  if (!keys) return { ok: false, error: 'jwks_unavailable' };
   if (!jwk) return { ok: false, error: 'unknown_kid' };
 
   let valid = false;
@@ -78,14 +88,17 @@ export async function onRequest({ request, env }) {
 
   const token = request.headers.get('Cf-Access-Jwt-Assertion') || '';
   if (!token) return j({ ok: false, error: 'sign_in_required', message: 'Sign in to the CRM again, then retry.' }, 401);
+  const t0 = Date.now();
   const v = await verifyAccessJwt(token, env);
+  const tJwt = Date.now() - t0;
   if (!v.ok) return j({ ok: false, error: v.error, message: 'Sign in to the CRM again, then retry.' }, 401);
   if (!env.NEON_ADMIN_KEY) return j({ ok: false, error: 'server_not_configured', message: 'NEON_ADMIN_KEY is missing on the CRM site.' }, 503);
 
   const body = await request.text();
-  let r;
+  let r; const t1 = Date.now();
   try {
     r = await fetch(NEON_API + action, {
+      signal: AbortSignal.timeout(25000),
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -96,8 +109,9 @@ export async function onRequest({ request, env }) {
       body,
     });
   } catch (e) {
-    return j({ ok: false, error: 'backend_unreachable', message: String((e && e.message) || e) }, 502);
+    const slow = e && (e.name === 'TimeoutError' || e.name === 'AbortError');
+    return j({ ok: false, error: slow ? 'backend_timeout' : 'backend_unreachable', message: slow ? 'The server took too long. Nothing was confirmed sent; check the thread before retrying.' : String((e && e.message) || e) }, 502);
   }
   const txt = await r.text();
-  return new Response(txt, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+  return new Response(txt, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Server-Timing': 'jwt;dur=' + tJwt + ', upstream;dur=' + (Date.now() - t1) + ', backend;desc="' + (r.headers.get('X-Neon-Timing') || '') + '"' } });
 }

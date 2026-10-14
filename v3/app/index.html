@@ -168,7 +168,7 @@ textarea.input{min-height:90px;resize:vertical}
    (Phase 2 moves these behind the login gateway). Every text, email and payout goes
    through /api/secure on this site, which checks the Cloudflare Access login and marks
    the request X-Neon-App: crm-app so the backend's TEST MODE applies (allowlist only). */
-const VERSION = '1.0.0';
+const VERSION = '1.0.1';
 const SB_URL = 'https://aoyfieswynhgqyrveqnp.supabase.co';
 const SB_KEY = 'sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ';
 const NEON_API = 'https://neon-api.pages.dev';
@@ -186,7 +186,7 @@ const last10 = (s) => String(s || '').replace(/\D/g, '').slice(-10);
 const fmtPhone = (s) => { const d = last10(s); return d.length === 10 ? '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6) : String(s || ''); };
 const nm = (c) => String((c && (c.name || c.business)) || 'Unknown').trim();
 const first = (n) => String(n || '').trim().split(/\s+/)[0] || 'there';
-const initials = (n) => String(n || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || '?';
+const initials = (n) => /^[\s(+]*\d/.test(String(n || '')) ? '#' : String(n || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || '?';
 const slugOf = (c) => String(c.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') + '-' + c.id;
 const portalLink = (c) => 'https://refer.neongiantmoving.com/?r=' + slugOf(c);
 const tOf = (m) => m.received_at || m.sent_at || m.created_at || '';
@@ -245,11 +245,12 @@ async function sbWrite(method, path, obj, prefer) {
 // Texts, emails, payouts: through this site's login-checked gateway, marked as the app.
 async function secure(action, body) {
   try {
-    const r = await fetch('/api/secure/' + action, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Neon-App': 'crm-app' }, body: JSON.stringify(body) });
+    const r = await fetch('/api/secure/' + action, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Neon-App': 'crm-app' }, body: JSON.stringify(body), signal: AbortSignal.timeout(30000) });
     let j = {}; try { j = await r.json(); } catch (_) {}
     if (r.status === 401) j.message = j.message || 'Your login expired. Close the app and open it again.';
     return Object.assign({ httpStatus: r.status }, j, { ok: r.ok && j.ok !== false });
   } catch (e) {
+    if (e && (e.name === 'TimeoutError' || e.name === 'AbortError')) return { ok: false, error: 'timeout', message: 'The server took too long. Check the conversation before sending again.' };
     return { ok: false, error: 'network', message: navigator.onLine ? 'Your login may have expired. Close the app and open it again.' : "You're offline. Nothing was sent." };
   }
 }
@@ -488,6 +489,8 @@ function stripHtml(s) { return String(s || '').replace(/<style[\s\S]*?<\/style>/
 function splitQuoted(text) {
   const lines = String(text || '').split('\n'); let cut = lines.length;
   for (let i = 0; i < lines.length; i++) { const l = lines[i].trim(); if (/^On .{4,160}wrote:?$/i.test(l) || /^-{2,}\s*Original Message/i.test(l) || (/^>/.test(l) && i > 0 && lines.slice(i).filter((x) => x.trim() && !/^>/.test(x.trim())).length < 3)) { cut = i; break; } }
+  // Mail apps often wrap the attribution line: "On Mon, Jun 22 ... Name" + "wrote:" on the next line.
+  for (let i = 0; i < cut; i++) { if (/^On .{4,160}/i.test(lines[i].trim()) && /wrote:?\s*$/i.test((lines[i] + ' ' + (lines[i + 1] || '') + ' ' + (lines[i + 2] || '')).trim()) && /\d{4}/.test(lines[i])) { cut = i; break; } }
   return { main: lines.slice(0, cut).join('\n').trim(), quoted: lines.slice(cut).join('\n').trim() };
 }
 async function loadThread(key) {
