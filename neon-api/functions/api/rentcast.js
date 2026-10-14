@@ -13,6 +13,13 @@ const RC_BASE = 'https://api.rentcast.io/v1';
 const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const qs = (obj) => Object.keys(obj).filter((k) => obj[k] != null && obj[k] !== '').map((k) => k + '=' + encodeURIComponent(obj[k])).join('&');
 
+// Service-area cities used for market-wide sweeps (mirrors scanAgentListings.js).
+const DEFAULT_CITIES = [
+  'Bellingham', 'Ferndale', 'Lynden', 'Blaine', 'Birch Bay', 'Everson', 'Sumas', 'Custer', 'Nooksack',
+  'Mount Vernon', 'Burlington', 'Anacortes', 'Sedro-Woolley', 'La Conner', 'Concrete',
+  'Stanwood', 'Arlington', 'Marysville', 'Everett', 'Lake Stevens', 'Snohomish', 'Monroe', 'Granite Falls',
+];
+
 async function rc(env, path) {
   try {
     const r = await fetch(RC_BASE + path, { headers: { 'X-Api-Key': env.RENTCAST_API_KEY, Accept: 'application/json' } });
@@ -101,6 +108,43 @@ const handler = endpoint(async ({ env, body, reply }) => {
       leads.push(Object.assign(slimListing(L), { owner: arr[0] ? ownerOf(arr[0]) : null }));
     }
     return reply({ ok: true, action, count: leads.length, leads });
+  }
+
+  if (action === 'pendingListings') {
+    // RentCast has NO pending status: a sale listing is only "Active" or "Inactive".
+    // When a home goes under contract (or closes) it flips to Inactive and gets a removedDate.
+    // So "just went pending" = listings that very recently left the market. Pending OR sold,
+    // either way the seller is about to move.
+    const cities = Array.isArray(o.cities) && o.cities.length ? o.cities : DEFAULT_CITIES;
+    const state = o.state || 'WA';
+    const days = Math.min(+o.days || 45, 120);
+    const limit = Math.min(+o.limit || 500, 500);
+    const agent = o.agentName ? norm(o.agentName) : '';
+    const cutoffMs = Date.now() - days * 86400000;
+    const offDateOf = (L) => L.removedDate || L.lastSeenDate || null;
+    const results = await Promise.all(cities.map((city) =>
+      rc(env, '/listings/sale?' + qs({ city, state, status: 'Inactive', limit })).then((res) => ({ city, res }))));
+    const seen = {}; const out = []; const cityErrors = []; let totalInactive = 0;
+    for (const { city, res } of results) {
+      if (!res.ok) { cityErrors.push({ city, status: res.status }); continue; }
+      const list = Array.isArray(res.body) ? res.body : [];
+      totalInactive += list.length;
+      for (const L of list) {
+        const off = offDateOf(L); if (!off) continue;
+        const t = Date.parse(off); if (!(t >= cutoffMs)) continue;
+        const a = agentOf(L);
+        if (agent) { const n = norm(a.name); if (!n || (n.indexOf(agent) < 0 && agent.indexOf(n) < 0)) continue; }
+        const addr = L.formattedAddress || L.addressLine1; if (!addr) continue;
+        const k = norm(addr); if (!k || seen[k]) continue; seen[k] = 1;
+        out.push(Object.assign(slimListing(L), {
+          city, offMarketDate: String(off).slice(0, 10),
+          listedDate: String(L.listedDate || L.listingDate || '').slice(0, 10) || null,
+          daysOnMarket: L.daysOnMarket == null ? null : Number(L.daysOnMarket),
+        }));
+      }
+    }
+    out.sort((x, y) => String(y.offMarketDate || '').localeCompare(String(x.offMarketDate || '')));
+    return reply({ ok: true, action, days, citiesScanned: cities.length, totalInactive, count: out.length, cityErrors, listings: out });
   }
 
   return reply({ ok: false, error: 'unknown_action', action });

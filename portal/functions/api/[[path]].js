@@ -148,47 +148,71 @@ function splitName(full) {
   return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
 }
 
-async function pushReferralToSmartMoving(env, cust, realtor) {
-  const providerKey = (env && env.SMARTMOVING_PROVIDER_KEY) || SM_PROVIDER_KEY_FALLBACK;
-  let url = 'https://api.smartmoving.com/api/leads/from-provider/v2?providerKey=' + encodeURIComponent(providerKey);
-  if (env && env.SM_LEAD_BRANCH_ID) url += '&branchId=' + encodeURIComponent(env.SM_LEAD_BRANCH_ID);
-
+// Builds the exact SmartMoving lead. Stored on the portal_leads row (sm_payload) so the
+// retry job in neon-api (/api/retryReferrals) can resend the identical lead later.
+function buildSmPayload(cust, realtor) {
   const nm = splitName(cust.name);
-  const noteLines = ['REALTOR REFERRAL — submitted via the Neon Giant referral portal.'];
-  noteLines.push('Referred by (Realtor Affiliate): ' + (realtor.name || 'Unknown'));
+  const rName = String(realtor.name || '').trim();
+  const noteLines = ['REALTOR REFERRAL: submitted via the Neon Giant referral portal.'];
+  noteLines.push('Referred by (Realtor Affiliate): ' + (rName || 'Unknown'));
   if (realtor.business) noteLines.push('Brokerage: ' + realtor.business);
   if (realtor.email) noteLines.push('Realtor email: ' + realtor.email);
   if (cust.notes) noteLines.push('Customer notes: ' + cust.notes);
-
   const payload = {
     firstName: nm.firstName || String(cust.name || '').trim(),
     lastName: nm.lastName,
     phoneNumber: String(cust.phone || '').trim(),
     email: String(cust.email || '').trim(),
-    serviceType: /junk/i.test(cust.moveSize || '') ? 'Junk Removal' : 'Moving',
+    // SmartMoving's accepted values are 'Moving' and 'JunkRemoval' (no space).
+    serviceType: /junk/i.test(cust.moveSize || '') ? 'JunkRemoval' : 'Moving',
     moveSize: String(cust.moveSize || '').trim(),
     moveDate: String(cust.moveDate || '').replace(/-/g, ''), // YYYY-MM-DD -> YYYYMMDD
     notes: noteLines.join('\n'),
+    // Without this SmartMoving labels every portal lead "Your Website".
+    referralSource: rName ? ('Portal - ' + rName) : 'Realtor Portal',
   };
   const oFull = String(cust.fromAddress || '').trim();
   const dFull = String(cust.toAddress || '').trim();
   if (oFull) payload.originAddressFull = oFull;
   if (dFull) payload.destinationAddressFull = dFull;
+  return payload;
+}
 
+// Sends one lead. Never throws. A timeout or any non-2xx is a FAILURE (never success).
+async function sendToSmartMoving(env, payload) {
+  if (payload && payload.__simulateFailure) return { ok: false, error: 'simulated_failure' }; // test hook (Dane Test only)
+  const providerKey = (env && env.SMARTMOVING_PROVIDER_KEY) || SM_PROVIDER_KEY_FALLBACK;
+  let url = 'https://api.smartmoving.com/api/leads/from-provider/v2?providerKey=' + encodeURIComponent(providerKey);
+  if (env && env.SM_LEAD_BRANCH_ID) url += '&branchId=' + encodeURIComponent(env.SM_LEAD_BRANCH_ID);
   try {
     const r = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(10000),
     });
     const txt = await r.text();
-    if (r.ok) { let j = {}; try { j = JSON.parse(txt); } catch (_) {} return { ok: true, smJobId: (j && (j.leadId || j.id)) || '' }; }
+    if (r.ok) { let j = {}; try { j = JSON.parse(txt); } catch (_) {} return { ok: true, smJobId: String((j && (j.leadId || j.id)) || '') }; }
     if (r.status === 400 && /already/i.test(txt || '')) return { ok: true, duplicate: true, smJobId: '' };
     return { ok: false, error: 'smartmoving_' + r.status, body: (txt || '').slice(0, 200) };
-  } catch (e) { return { ok: false, error: 'smartmoving_network_error', message: e && e.message }; }
+  } catch (e) {
+    const timedOut = e && (e.name === 'TimeoutError' || e.name === 'AbortError');
+    return { ok: false, error: timedOut ? 'smartmoving_timeout' : 'smartmoving_network_error', message: e && e.message };
+  }
 }
 
-async function handleSupabaseAction(action, payload, baseUrl, key, origin, env) {
+async function sbPatch(baseUrl, key, query, obj) {
+  const r = await fetch(baseUrl + '/rest/v1/' + query, {
+    method: 'PATCH',
+    headers: { ...sbHeaders(key), Prefer: 'return=minimal' },
+    body: JSON.stringify(obj),
+  });
+  if (!r.ok) throw new Error('Supabase PATCH ' + r.status + ': ' + (await r.text()).slice(0, 200));
+}
+
+const RETRY_URL = 'https://neon-api.pages.dev/api/retryReferrals';
+
+async function handleSupabaseAction(action, payload, baseUrl, key, origin, env, bg) {
   /* ----- realtor dashboard: realtor + their leads + totals ----- */
   if (action === 'getRealtorPortalView') {
     const id = slugToId(payload.slug);
@@ -321,13 +345,13 @@ async function handleSupabaseAction(action, payload, baseUrl, key, origin, env) 
       if (rows[0]) { realtorName = rows[0].name || ''; realtorEmail = rows[0].email || ''; realtorBusiness = rows[0].business || ''; }
     } catch (e) { /* non-fatal */ }
 
-    // Push into SmartMoving FIRST so the office works it like any other lead (this is
-    // the step that was missing). Best-effort and wrapped — it can never block or lose
-    // the lead; whatever happens, we still save to portal_leads below.
-    let sm = { ok: false, error: 'not_attempted' };
-    try {
-      sm = await pushReferralToSmartMoving(env, cust, { name: realtorName, email: realtorEmail, business: realtorBusiness });
-    } catch (e) { sm = { ok: false, error: 'sm_exception', message: e && e.message }; }
+    // RELIABILITY RULE: a referral that doesn't reach SmartMoving must never look like
+    // success. Order: (1) save the lead + the exact SmartMoving payload, (2) send to
+    // SmartMoving, (3) record the result. Reply ok:true ONLY if SmartMoving accepted it,
+    // or if it is safely saved and queued for automatic retry (neon-api retryReferrals,
+    // run every 10 minutes by the database scheduler, which also texts the owner).
+    const smPayload = buildSmPayload(cust, { name: realtorName, email: realtorEmail, business: realtorBusiness });
+    if (String(realtorId) === '231' && /^ZZ FAILTEST/i.test(String(cust.name || ''))) smPayload.__simulateFailure = true; // test hook: Dane Test only
 
     const row = {
       submittedAt: new Date().toISOString(),
@@ -344,19 +368,41 @@ async function handleSupabaseAction(action, payload, baseUrl, key, origin, env) 
       notes: (cust.notes || '').trim(),
       status: 'New',
       sourceTag: 'portal',
-      smJobId: (sm && sm.smJobId) || '',
+      smJobId: '',
+      sm_status: 'pending',
+      sm_attempts: 0,
+      sm_payload: smPayload,
     };
 
-    let newId = null;
+    let newId = null, saveError = null;
     try {
       const inserted = await sbInsert(baseUrl, key, 'portal_leads', row);
       newId = (inserted && inserted[0] && inserted[0].id) || null;
-    } catch (e) {
-      // Saving to the DB failed, but the lead may already be in SmartMoving — surface both.
-      return jsonResponse({ ok: false, error: 'db_insert_failed', message: e.message, smartmoving: sm }, 200, origin);
-    }
+    } catch (e) { saveError = e.message; }
 
-    return jsonResponse({ ok: true, id: newId, smartmoving: sm }, 200, origin);
+    const sm = await sendToSmartMoving(env, smPayload);
+    const nowIso = new Date().toISOString();
+
+    if (newId) {
+      const patch = sm.ok
+        ? { sm_status: sm.duplicate ? 'duplicate' : 'accepted', smJobId: sm.smJobId || '', sm_error: null, sm_attempts: 1, sm_last_attempt_at: nowIso }
+        : { sm_status: 'retrying', sm_error: (sm.error || 'unknown') + (sm.body ? ': ' + sm.body : ''), sm_attempts: 1, sm_last_attempt_at: nowIso };
+      try { await sbPatch(baseUrl, key, 'portal_leads?id=eq.' + newId, patch); } catch (_) { /* the retry job treats a stale 'pending' row as due */ }
+    }
+    // On failure, wake the retry job right away so the owner gets texted now, not in 10 min.
+    if (!sm.ok && bg) bg(fetch(RETRY_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => {}));
+
+    if (sm.ok) {
+      return jsonResponse({ ok: true, id: newId, smartmoving: { ok: true, duplicate: !!sm.duplicate }, saved: !!newId }, 200, origin);
+    }
+    if (newId) {
+      return jsonResponse({ ok: true, id: newId, queued: true,
+        message: 'Got it! Your referral is saved and our team has been notified.' }, 200, origin);
+    }
+    // Neither SmartMoving nor our database has it: this is a real failure. Say so.
+    return jsonResponse({ ok: false, error: 'not_saved',
+      message: "Sorry, we couldn't save this referral. Please try again in a minute, or text us the details.",
+      detail: { smartmoving: sm.error || null, database: saveError } }, 200, origin);
   }
 
   return null; // not a Supabase action
@@ -396,7 +442,9 @@ export async function onRequestOptions({ request }) {
   return new Response(null, { status: 204, headers: corsHeaders(request.headers.get('Origin')) });
 }
 
-export async function onRequest({ request, params, env }) {
+export async function onRequest(context) {
+  const { request, params, env } = context;
+  const bg = (p) => { try { context.waitUntil(p); } catch (_) {} };
   const origin = request.headers.get('Origin') || '';
   const action = (params.path || [])[0];
 
@@ -436,11 +484,16 @@ export async function onRequest({ request, params, env }) {
   // ---- Supabase path (when enabled) ----
   if (supabaseOn && SUPABASE_ACTIONS.has(action)) {
     try {
-      const res = await handleSupabaseAction(action, payload, SUPABASE_URL, SUPABASE_KEY, origin, env);
+      const res = await handleSupabaseAction(action, payload, SUPABASE_URL, SUPABASE_KEY, origin, env, bg);
       if (res) return res;
     } catch (err) {
       return jsonResponse({ ok: false, error: 'Supabase error: ' + err.message }, 200, origin);
     }
+  }
+
+  // ---- Never route referrals to the old Apps Script path (it never reached SmartMoving) ----
+  if (action === 'submitReferralLead') {
+    return jsonResponse({ ok: false, error: 'not_saved', message: "Sorry, we couldn't save this referral. Please try again in a minute, or text us the details." }, 503, origin);
   }
 
   // ---- Fallback: Apps Script proxy ----
