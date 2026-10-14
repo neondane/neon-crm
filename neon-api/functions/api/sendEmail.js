@@ -10,6 +10,10 @@ async function logEmail(env, row) {
   try { await sb(env).insert('email_messages', row, { returning: 'minimal' }); } catch (_) {}
 }
 
+// email_messages has no to_address / provider_id / error_message columns; writing them made
+// every outgoing email log fail silently from 2026-06-05 to 2026-10-14. Use the real columns.
+const fromAddr = (env) => { const m = String(env.EMAIL_FROM || '').match(/<([^>]+)>/); return (m ? m[1] : String(env.EMAIL_FROM || '')).trim(); };
+
 const handler = endpoint(async ({ env, body, reply, request }) => {
   // LOCKDOWN 2026-10-14: callers must present an API key (the CRM gets one via /api/secure on crm3).
   const keyCheck = await authKey(env, request, 'write');
@@ -49,14 +53,14 @@ const handler = endpoint(async ({ env, body, reply, request }) => {
     });
     j = await res.json();
   } catch (e) {
-    await logEmail(env, { direction: 'out', to_address: to, subject, body: text, contact_id: contactId, status: 'network_error', error_message: e.message });
+    await logEmail(env, { direction: 'out', from_email: fromAddr(env), to_email: to, subject, body: text, contact_id: contactId, status: 'failed: network error', sender: sender || request.headers.get('X-Neon-User') || '' });
     return reply({ ok: false, error: 'email_network_error', message: e.message }, 502);
   }
   if (!res.ok) {
-    await logEmail(env, { direction: 'out', to_address: to, subject, body: text, contact_id: contactId, status: 'failed', error_message: (j && (j.message || j.error)) || ('HTTP ' + res.status) });
+    await logEmail(env, { direction: 'out', from_email: fromAddr(env), to_email: to, subject, body: text, contact_id: contactId, status: ('failed: ' + ((j && (j.message || j.error)) || ('HTTP ' + res.status))).slice(0, 200), sender: sender || request.headers.get('X-Neon-User') || '' });
     return reply({ ok: false, error: 'email_rejected', message: (j && (j.message || j.error)) || ('HTTP ' + res.status) }, 502);
   }
-  await logEmail(env, { direction: 'out', to_address: to, subject, body: text, contact_id: contactId, status: 'sent', provider_id: j.id, sent_at: new Date().toISOString() });
+  await logEmail(env, { direction: 'out', from_email: fromAddr(env), to_email: to, subject, body: text, contact_id: contactId, status: 'sent', sender: sender || request.headers.get('X-Neon-User') || '', sent_at: new Date().toISOString() });
   return reply({ ok: true, id: j.id });
 });
 

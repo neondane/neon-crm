@@ -274,7 +274,7 @@ async function loadMessages(force) {
   try {
     const [sms, email, rs] = await Promise.all([
       sb('sms_messages?select=id,contact_id,direction,from_number,to_number,body,status,kind,sent_at,received_at,created_at,media_url&order=id.desc&limit=600'),
-      sb('email_messages?select=id,contact_id,direction,from_email,to_email,to_address,subject,status,sent_at,received_at,created_at&order=id.desc&limit=200'),
+      sb('email_messages?select=id,contact_id,direction,from_email,to_email,subject,status,sent_at,received_at,created_at&order=id.desc&limit=200'),
       sb('read_state?select=contact_id,read_at'),
     ]);
     S.sms = sms; S.email = email; S.serverRead = {}; (rs || []).forEach((r) => { S.serverRead[String(r.contact_id)] = r.read_at; });
@@ -495,7 +495,7 @@ async function loadThread(key) {
     const id = +key.slice(1);
     const [sms, em] = await Promise.all([
       sb('sms_messages?select=id,direction,body,status,kind,sent_at,received_at,created_at,media_url,from_number&contact_id=eq.' + id + '&order=id.desc&limit=200'),
-      sb('email_messages?select=id,direction,subject,body,status,sent_at,received_at,created_at,from_email,to_email,to_address&contact_id=eq.' + id + '&order=id.desc&limit=60'),
+      sb('email_messages?select=id,direction,subject,body,status,sent_at,received_at,created_at,from_email,to_email&contact_id=eq.' + id + '&order=id.desc&limit=60'),
     ]);
     return { sms: sms.filter((m) => m.kind !== 'note' && m.from_number !== 'note'), email: em };
   }
@@ -505,7 +505,7 @@ async function loadThread(key) {
     return { sms, email: [] };
   }
   const e = key.slice(1);
-  const em = await sb('email_messages?select=id,direction,subject,body,status,sent_at,received_at,created_at,from_email,to_email,to_address&contact_id=is.null&or=(from_email.eq.' + encodeURIComponent(e) + ',to_email.eq.' + encodeURIComponent(e) + ')&order=id.desc&limit=60');
+  const em = await sb('email_messages?select=id,direction,subject,body,status,sent_at,received_at,created_at,from_email,to_email&contact_id=is.null&or=(from_email.eq.' + encodeURIComponent(e) + ',to_email.eq.' + encodeURIComponent(e) + ')&order=id.desc&limit=60');
   return { sms: [], email: em };
 }
 let chatPoll = null;
