@@ -210,36 +210,61 @@ textarea.input{min-height:90px;resize:vertical}
    (Phase 2: they now carry a one-hour login, see NG-DB-LOGIN). Every text, email and payout goes
    through /api/secure on this site, which checks the Cloudflare Access login and marks
    the request X-Neon-App: crm-app so the backend's TEST MODE applies (allowlist only). */
-const VERSION = '1.4.1';
+const VERSION = '1.4.2';
 const SB_URL = 'https://aoyfieswynhgqyrveqnp.supabase.co';
 const SB_KEY = 'sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ';
-/* NG-DB-LOGIN (Phase 2): every database call carries a one-hour login for the signed-in
-   person, issued by /api/secure/dbSession (checks the Cloudflare login). The public key alone
-   can no longer read CRM data. Expired logins renew automatically and the call is retried once. */
+/* NG-DB-LOGIN v2 (Phase 2): every database call carries a one-hour login for the signed-in
+   person, issued by /api/secure/dbSession (checks the Cloudflare login). It NEVER falls back to
+   the public key (that showed an empty CRM). If the login can't be had it retries, then shows a
+   bar at the top with a Reload button. A refused call gets a fresh login and is retried once. */
 (function(){
   var SBU="https://aoyfieswynhgqyrveqnp.supabase.co/rest/v1/", raw=window.fetch.bind(window);
-  var tok=null, exp=0, inflight=null, failedAt=0, KEY="ngDbLogin";
+  var tok=null, exp=0, inflight=null, lastForce=0, KEY="ngDbLogin";
   try{ var s=JSON.parse(sessionStorage.getItem(KEY)||"null"); if(s&&s.t&&s.e-Date.now()>5*60000){tok=s.t;exp=s.e;} }catch(e){}
+  function bar(msg){ try{ var b=document.getElementById("ngDbBar");
+      if(!msg){ if(b) b.remove(); return; }
+      if(!b){ b=document.createElement("div"); b.id="ngDbBar";
+        b.style.cssText="position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:2147483000;background:#14141c;color:#fff;border:2px solid #ff2d95;border-radius:12px;padding:10px 14px;font:600 14px system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.4);display:flex;gap:12px;align-items:center;max-width:92vw";
+        (document.body||document.documentElement).appendChild(b); }
+      b.innerHTML=""; var t=document.createElement("span"); t.textContent=msg; b.appendChild(t);
+      var r=document.createElement("button"); r.textContent="Reload"; r.style.cssText="background:#ff2d95;color:#fff;border:0;border-radius:8px;padding:6px 12px;font:700 13px system-ui,sans-serif;cursor:pointer";
+      r.onclick=function(){ try{sessionStorage.removeItem(KEY);}catch(e){} location.reload(); }; b.appendChild(r);
+    }catch(e){} }
+  function fetchTok(){
+    return raw("/api/secure/dbSession",{method:"POST",credentials:"same-origin",redirect:"manual",headers:{"Content-Type":"application/json"},body:"{}"})
+      .then(function(r){ if(r.type==="opaqueredirect"||r.status===401){ var e=new Error("signin"); e.signin=true; throw e; }
+        return r.json().catch(function(){ var e=new Error("signin"); e.signin=true; throw e; }); })
+      .then(function(j){ if(j&&j.ok&&j.token) return j; var e=new Error((j&&j.error)||"login_failed"); if(j&&(j.error==="sign_in_required"||j.error==="no_user")) e.signin=true; throw e; });
+  }
   function getTok(force){
     if(!force&&tok&&exp-Date.now()>5*60000) return Promise.resolve(tok);
-    if(!force&&failedAt&&Date.now()-failedAt<15000) return Promise.resolve(tok);
     if(inflight) return inflight;
-    inflight=raw("/api/secure/dbSession",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:"{}"})
-      .then(function(r){return r.json();})
-      .then(function(j){ if(j&&j.ok&&j.token){ tok=j.token; exp=+j.expiresAt||Date.now()+3000000; failedAt=0; try{sessionStorage.setItem(KEY,JSON.stringify({t:tok,e:exp}));}catch(e){} return tok; }
-        failedAt=Date.now(); if(window.console) console.warn("Database login failed", j&&j.error); return null; })
-      .catch(function(e){ failedAt=Date.now(); if(window.console) console.warn("Database login failed", e); return null; })
-      .then(function(t){ inflight=null; return t; });
+    var tries=0, slow=setTimeout(function(){ bar("Connecting to the CRM database..."); }, 8000);
+    inflight=new Promise(function(resolve){
+      (function attempt(){ tries++;
+        fetchTok().then(function(j){ tok=j.token; exp=+j.expiresAt||Date.now()+3000000;
+            try{sessionStorage.setItem(KEY,JSON.stringify({t:tok,e:exp}));}catch(e){} clearTimeout(slow); bar(null); resolve(tok); })
+          .catch(function(e){
+            if(e&&e.signin){ clearTimeout(slow); bar("Your CRM sign-in expired. Reload to sign in again."); resolve(null); return; }
+            if(tries<4){ setTimeout(attempt, 2000*tries); return; }
+            clearTimeout(slow); bar("Couldn't connect to the CRM database. Check the internet, then reload."); resolve(null);
+          });
+      })();
+    }).then(function(t){ inflight=null; return t; });
     return inflight;
   }
   window.ngDbToken=getTok;
   window.fetch=function(input,init){
     if(typeof input!=="string"||input.indexOf(SBU)!==0) return raw(input,init);
     return getTok(false).then(function(t){
+      if(!t) return new Response(JSON.stringify({message:"Not signed in to the CRM database"}),{status:401,headers:{"Content-Type":"application/json"}});
       function go(tt){ var o=Object.assign({},init||{}), h0=(init&&init.headers)||{}, h={};
         if(typeof Headers!=="undefined"&&h0 instanceof Headers){ h0.forEach(function(v,k){h[k]=v;}); } else { Object.assign(h,h0); }
-        if(tt){ delete h.authorization; h.Authorization="Bearer "+tt; } o.headers=h; return raw(input,o); }
-      return go(t).then(function(r){ if(r.status===401){ return getTok(true).then(function(t2){ return t2?go(t2):r; }); } return r; });
+        delete h.authorization; h.Authorization="Bearer "+tt; o.headers=h; return raw(input,o); }
+      return go(t).then(function(r){
+        if((r.status===401||r.status===403)&&Date.now()-lastForce>30000){ lastForce=Date.now();
+          return getTok(true).then(function(t2){ return t2?go(t2):r; }); }
+        return r; });
     });
   };
   getTok(false);
