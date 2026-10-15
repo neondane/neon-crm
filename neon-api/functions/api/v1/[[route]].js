@@ -88,7 +88,8 @@ export async function onRequest(ctx) {
 
       if (resource === 'leads' && method === 'POST') {
         const r = await fetch('https://neon-api.pages.dev/api/submitReferralLead', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          // Pass the caller's own (already checked) key through: submitReferralLead needs one since Phase 2.
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: request.headers.get('Authorization') || ('Bearer ' + (request.headers.get('x-api-key') || '')) },
           body: JSON.stringify({ realtorId: body.realtorId || null, customer: body.customer || body }),
         });
         const j = await r.json().catch(() => ({}));

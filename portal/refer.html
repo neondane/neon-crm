@@ -296,16 +296,11 @@ async function loadRealtor() {
       backLink.href = '/portal?r=' + encodeURIComponent(slug);
       backLink.style.display = 'inline-block';
     } else {
-      // FALLBACK: slug not in PortalRealtors lookup → resolve by trailing ID via getAll
+      // No realtor found for this link: fall through to the generic greeting.
       const _idMatch = String(slug).match(/-(\d+)$/);
       let _matched = null;
-      if (_idMatch) {
-        try {
-          const _all = await api('getAll');
-          const _id = +_idMatch[1];
-          _matched = ((_all && _all.contacts) || []).find(function(x){ return +x.id === _id; });
-        } catch (_e) {}
-      }
+      // (The old getAll lookup downloaded every contact to the browser. Retired in Phase 2:
+      // getRealtorBySlug above already resolves the trailing ID from the database.)
       if (_matched) {
         realtor = {
           id: _matched.id,

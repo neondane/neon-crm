@@ -1,4 +1,4 @@
-// build-stamp: 2026-06-01 (Supabase-backed portal API; Apps Script fallback for legacy actions)
+// build-stamp: 2026-10-15 (Supabase-backed portal API; Apps Script fallback REMOVED in Phase 2)
 /**
  * /api/[[path]].js — Cloudflare Pages Function for the Neon Giant realtor portal.
  *
@@ -7,15 +7,12 @@
  *   was still reading the old Google Sheets / Apps Script backend, so it could
  *   only see a partial, stale slice of realtors and none of the CRM headshots.
  *   This function now serves the portal's data actions straight from Supabase,
- *   so realtors + headshots always match the CRM. Any action it does NOT know
- *   about (e.g. geocode) is still proxied to Apps Script, so legacy integrations
- *   keep working untouched.
+ *   so realtors + headshots always match the CRM. PHASE 2 (2026-10-15): actions it
+ *   does not know now get 404. The old Apps Script proxy is gone (it leaked data).
  *
  * SAFE ROLLOUT:
  *   Supabase is only used when the SUPABASE_KEY environment variable is set in
- *   the Cloudflare Pages project. If it is missing, every action falls back to
- *   the Apps Script proxy (the previous behavior) — so deploying this file can
- *   never break the live portal before you flip the switch. Set SUPABASE_KEY to
+ *   the Cloudflare Pages project (it is). Without it the portal answers nothing. Set SUPABASE_KEY to
  *   the project's publishable key (the same sb_publishable_... value the CRM
  *   already uses client-side) to turn on the Supabase path.
  *
@@ -30,8 +27,6 @@
  *   submitReferralLead   { realtorId, customer:{...} } -> inserts portal_leads
  */
 
-const APPS_SCRIPT_URL =
-  'https://script.google.com/macros/s/AKfycbxh1ecAF9yWN91w04SHROy5T9N-PehvpF29LTFu8M6vjnp1PRyhgxUYf7bfU5DKzbq_nA/exec';
 
 const DEFAULT_SUPABASE_URL = 'https://aoyfieswynhgqyrveqnp.supabase.co';
 
@@ -408,34 +403,6 @@ async function handleSupabaseAction(action, payload, baseUrl, key, origin, env, 
   return null; // not a Supabase action
 }
 
-/* --------------------- Apps Script proxy (legacy fallback) ------------------ */
-
-async function proxyToAppsScript(action, payload, origin) {
-  const upstreamUrl = new URL(APPS_SCRIPT_URL);
-  upstreamUrl.searchParams.set('action', action);
-  upstreamUrl.searchParams.set('payload', JSON.stringify(payload));
-
-  let upstream;
-  try {
-    upstream = await fetch(upstreamUrl.toString(), { method: 'GET', redirect: 'follow' });
-  } catch (err) {
-    return jsonResponse({ ok: false, error: 'Upstream fetch failed: ' + err.message }, 502, origin);
-  }
-  const text = await upstream.text();
-  let body;
-  try {
-    body = JSON.parse(text);
-  } catch (e) {
-    return jsonResponse({
-      ok: false,
-      error: 'Upstream returned non-JSON. Check the Apps Script deploy access.',
-      upstreamStatus: upstream.status,
-      upstreamPreview: text.substring(0, 200),
-    }, 502, origin);
-  }
-  return { __body: body, __origin: origin };
-}
-
 /* --------------------------------- Router ---------------------------------- */
 
 export async function onRequestOptions({ request }) {
@@ -496,17 +463,8 @@ export async function onRequest(context) {
     return jsonResponse({ ok: false, error: 'not_saved', message: "Sorry, we couldn't save this referral. Please try again in a minute, or text us the details." }, 503, origin);
   }
 
-  // ---- Fallback: Apps Script proxy ----
-  // getRealtorPublic / getRealtorBySlug aren't known to Apps Script, so map them
-  // to getRealtorPortalView and strip everything except the realtor identity, so
-  // the client landing page never receives the realtor's leads even pre-Supabase.
-  const isPublicOnly = (action === 'getRealtorPublic' || action === 'getRealtorBySlug');
-  const proxied = await proxyToAppsScript(isPublicOnly ? 'getRealtorPortalView' : action, payload, origin);
-  if (proxied instanceof Response) return proxied; // an error Response
-
-  let body = proxied.__body;
-  if (isPublicOnly && body && body.realtor) {
-    body = { ok: true, realtor: realtorPublic(body.realtor) };
-  }
-  return jsonResponse(body, 200, origin);
+  // ---- Nothing else is answered here (Phase 2) ----
+  // This used to forward ANY other action to the old Google Apps Script, which handed out
+  // the old CRM's data (getAll) and sent texts (smsOut) for anyone who asked. Closed.
+  return jsonResponse({ ok: false, error: 'unknown_action' }, 404, origin);
 }

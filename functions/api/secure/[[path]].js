@@ -1,5 +1,6 @@
-/** /api/secure/<action> : the ONLY way the CRM sends texts, emails, and payouts, and gets
- *  its database login (dbSession: a one-hour login for the signed-in person, Phase 2).
+/** /api/secure/<action> : the ONLY way the CRM sends texts, emails, and payouts, gets its
+ *  database login (dbSession: a one-hour login for the signed-in person), and uses the paid or
+ *  private tools (AI, maps, Listing Radar, website publishing). Phase 2.
  *
  *  Why this exists: neon-api's sendSms / sendMms / sendEmail / sendPayout used to
  *  accept calls from anyone on the internet. They now require an API key. This
@@ -20,7 +21,13 @@ const ACCESS_TEAM = 'https://winter-snowflake-2c4e.cloudflareaccess.com';
 // AUD tag of the Neon CRM Access application (same app covers crm + crm3).
 const ACCESS_AUD = '635d889655dc3b6db0081aa5b767da6bbe30d5e5105e158e416bb07ddee000a9';
 const NEON_API = 'https://neon-api.pages.dev/api/';
-const ALLOWED = { sendSms: 1, sendMms: 1, sendEmail: 1, sendPayout: 1, push: 1, dbSession: 1 };
+const ALLOWED = { sendSms: 1, sendMms: 1, sendEmail: 1, sendPayout: 1, push: 1, dbSession: 1,
+  // Phase 2: tools that spend money, publish to the website or read private data.
+  parseContact: 1, improveNotes: 1, suggestComments: 1, researchAgent: 1, checkListings: 1, discoverNewLeads: 1,
+  generateDayPlan: 1, publishPartnerPage: 1, rentcast: 1, geocode: 1, resolvePlace: 1 };
+// Sends must answer fast (and never be retried blindly). AI and research tools can take longer.
+const SLOW = { researchAgent: 1, checkListings: 1, discoverNewLeads: 1, generateDayPlan: 1, publishPartnerPage: 1, rentcast: 1, parseContact: 1, suggestComments: 1, improveNotes: 1 };
+const SENDS = { sendSms: 1, sendMms: 1, sendEmail: 1, sendPayout: 1 };
 
 function b64urlBytes(s) {
   s = String(s).replace(/-/g, '+').replace(/_/g, '/');
@@ -99,7 +106,7 @@ export async function onRequest({ request, env }) {
   let r; const t1 = Date.now();
   try {
     r = await fetch(NEON_API + action, {
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.timeout(SLOW[action] ? 90000 : 25000),
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -111,7 +118,7 @@ export async function onRequest({ request, env }) {
     });
   } catch (e) {
     const slow = e && (e.name === 'TimeoutError' || e.name === 'AbortError');
-    return j({ ok: false, error: slow ? 'backend_timeout' : 'backend_unreachable', message: slow ? 'The server took too long. Nothing was confirmed sent; check the thread before retrying.' : String((e && e.message) || e) }, 502);
+    return j({ ok: false, error: slow ? 'backend_timeout' : 'backend_unreachable', message: slow ? (SENDS[action] ? 'The server took too long. Nothing was confirmed sent; check the thread before retrying.' : 'The server took too long. Try again.') : String((e && e.message) || e) }, 502);
   }
   const txt = await r.text();
   return new Response(txt, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Server-Timing': 'jwt;dur=' + tJwt + ', upstream;dur=' + (Date.now() - t1) + ', backend;desc="' + (r.headers.get('X-Neon-Timing') || '') + '"' } });

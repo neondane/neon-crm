@@ -210,7 +210,7 @@ textarea.input{min-height:90px;resize:vertical}
    (Phase 2: they now carry a one-hour login, see NG-DB-LOGIN). Every text, email and payout goes
    through /api/secure on this site, which checks the Cloudflare Access login and marks
    the request X-Neon-App: crm-app so the backend's TEST MODE applies (allowlist only). */
-const VERSION = '1.4.0';
+const VERSION = '1.4.1';
 const SB_URL = 'https://aoyfieswynhgqyrveqnp.supabase.co';
 const SB_KEY = 'sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ';
 /* NG-DB-LOGIN (Phase 2): every database call carries a one-hour login for the signed-in
@@ -835,7 +835,7 @@ ROUTES.add = async (arg, seq) => {
   const parse = async (payload, label) => {
     status('<div class="spin" style="margin:6px auto"></div><div class="muted small" style="text-align:center">Reading ' + label + '...</div>');
     try {
-      const r = await fetch(NEON_API + '/api/parseContact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then((x) => x.json());
+      const r = await fetch('/api/secure/parseContact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then((x) => x.json());
       if (r && r.ok && r.contact) { fill(r.contact); status('Filled in from ' + label + '. Check it, then tap Add.', 'ok'); }
       else status("Couldn't read it. Type it in below.", 'warn');
     } catch (e) { status("Couldn't reach the reader. Type it in below.", 'warn'); }
@@ -1168,7 +1168,7 @@ ROUTES.radar = async (arg, seq) => {
       let cached = null; try { cached = JSON.parse(sessionStorage.getItem('ncrm:pending') || 'null'); } catch (_) {}
       if (!cached || Date.now() - cached.at > 30 * 60000) {
         $('#rlist').innerHTML = '<div class="spin"></div><div class="muted small" style="text-align:center">Checking about 23 cities. This takes a few seconds.</div>';
-        const r = await fetch(NEON_API + '/api/rentcast', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'pendingListings', opts: { days: 30 } }) }).then((x) => x.json());
+        const r = await fetch('/api/secure/rentcast', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'pendingListings', opts: { days: 30 } }) }).then((x) => x.json());
         if (!r.ok) throw new Error(r.error || 'radar error');
         cached = { at: Date.now(), listings: r.listings || [] }; try { sessionStorage.setItem('ncrm:pending', JSON.stringify(cached)); } catch (_) {}
       }

@@ -772,7 +772,7 @@ function acFill(c){
 async function acParse(payload,fromLabel){
   acAiStatus("Reading…",true);
   try{
-    var res=await fetch(NEON_API+"/api/parseContact",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}).then(function(x){return x.json();});
+    var res=await fetch("/api/secure/parseContact",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}).then(function(x){return x.json();});
     if(res&&res.ok&&res.contact){ acFill(res.contact); acAiStatus("Filled from "+fromLabel+" — check the fields and tap Add contact."); }
     else { acAiStatus((res&&res.error)?("Couldn't read it ("+res.error+") — enter it manually."):"Couldn't read it — enter it manually."); }
   }catch(e){ acAiStatus("Couldn't reach the AI service — enter it manually for now."); }
@@ -811,7 +811,7 @@ function aiImprove(taId, btn, statusId){
   var ta=document.getElementById(taId); if(!ta||!ta.value.trim()){ return; }
   var orig=ta.value, ot=btn?btn.innerHTML:""; if(btn){btn.disabled=true;btn.innerHTML=gi("sparkle")+" Improving…";}
   var st=statusId?document.getElementById(statusId):null;
-  fetch(NEON_API+"/api/improveNotes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:orig})})
+  fetch("/api/secure/improveNotes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:orig})})
     .then(function(x){return x.json();})
     .then(function(j){ if(j&&j.ok&&j.improved){ ta.value=j.improved; ta.dispatchEvent(new Event("input")); if(st)st.textContent="Cleaned up."; } else if(st){ st.textContent=(j&&j.error)?("Couldn't improve: "+j.error):"Couldn't improve — kept your text."; } if(btn){btn.disabled=false;btn.innerHTML=ot;} })
     .catch(function(){ if(st)st.textContent="Couldn't reach the AI — kept your text."; if(btn){btn.disabled=false;btn.innerHTML=ot;} });
@@ -1189,7 +1189,7 @@ async function profileCheckListings(c){
   c._listings={loading:true}; redrawTab(c);
   var area=rcAreaForContact(c);
   try{
-    var res=await fetch(NEON_API+"/api/rentcast",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"agentListings",opts:{agentName:c.name,latitude:area.latitude,longitude:area.longitude,radius:area.radius,state:area.state,limit:500}})}).then(function(x){return x.json();});
+    var res=await fetch("/api/secure/rentcast",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"agentListings",opts:{agentName:c.name,latitude:area.latitude,longitude:area.longitude,radius:area.radius,state:area.state,limit:500}})}).then(function(x){return x.json();});
     if(res&&res.ok!==false){ c._listings={count:res.matched||0,scanned:res.scanned||0,listings:res.listings||[]}; }
     else { c._listings={error:"Listing lookup failed ("+((res&&(res.status||res.error))||"unknown")+"). Try Refresh in a moment."}; }
   }catch(e){ c._listings={error:"Couldn't reach the listings service. Try Refresh in a moment."}; }
@@ -1249,7 +1249,7 @@ function wireLpCard(c){
 async function lpRefreshState(c){
   if(!c||!/realtor/i.test(c.type||"")) return;
   try{
-    var r=await fetch(NEON_API+"/api/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"status",opts:{slug:lpSlug(c)}})}).then(function(x){return x.json();});
+    var r=await fetch("/api/secure/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"status",opts:{slug:lpSlug(c)}})}).then(function(x){return x.json();});
     if(!r||!r.ok) return;
     var cur=lpGet(c.id)||{};
     if(r.live){ lpSet(c.id,{url:r.url||cur.url,status:"live"}); }
@@ -1262,7 +1262,7 @@ async function lpDo(c,action,status){
   if(msg)msg.textContent=(action==="publish"?(status==="publish"?"Publishing live…":"Building draft…"):(action==="delete"?"Deleting…":"Unpublishing…"));
   try{
     var body=(action==="publish")?{opts:buildLpOpts(c),status:status}:{action:action,opts:{slug:lpSlug(c)}};
-    var r=await fetch(NEON_API+"/api/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(x){return x.json();});
+    var r=await fetch("/api/secure/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(x){return x.json();});
     if(r&&r.ok){
       if(action==="delete") lpSet(c.id,null);
       else if(action==="unpublish"){ var s0=lpGet(c.id)||{}; lpSet(c.id,{url:s0.url,status:"draft"}); }
@@ -1457,11 +1457,9 @@ async function postSms(url,payload){
   }catch(e){ return {ok:false, threw:true, msg:String(e&&e.message||e)}; }
 }
 async function sendText(payload){
-  // Clean backend first; fall back to the old smsOut so texting is never down.
-  var a=await postSms("/api/secure/sendSms",payload);
-  if(a.ok) return a;
-  var b=await postSms("https://refer.neongiantmoving.com/api/smsOut",payload);
-  return b.ok?b:a;
+  // Only the login-checked path. (The old refer.../api/smsOut fallback went through the
+  // retired Apps Script and is closed in Phase 2.)
+  return await postSms("/api/secure/sendSms",payload);
 }
 async function sendPhoto(payload){
   try{ var r=await fetch("/api/secure/sendMms",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}); var j={}; try{j=await r.json();}catch(e){} return {ok:!!(r.ok&&j.ok!==false),msg:(j.message||j.error||("HTTP "+r.status)),mediaUrl:j.mediaUrl}; }
@@ -1551,7 +1549,7 @@ async function prefetchPagesStatus(){
   var slugs=rs.map(ppSlug);
   for(var i=0;i<slugs.length;i+=50){
     var batch=slugs.slice(i,i+50);
-    try{ var r=await fetch(NEON_API+"/api/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"statusBulk",slugs:batch})}).then(function(x){return x.json();}); var res=(r&&r.results)||{}; batch.forEach(function(sg){ PP.pageStatus[sg]=(res[sg]&&res[sg].live)?"live":"off"; }); }catch(e){}
+    try{ var r=await fetch("/api/secure/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"statusBulk",slugs:batch})}).then(function(x){return x.json();}); var res=(r&&r.results)||{}; batch.forEach(function(sg){ PP.pageStatus[sg]=(res[sg]&&res[sg].live)?"live":"off"; }); }catch(e){}
     if(view==="portal"&&portalMode==="pages") drawPagesPortal();
   }
 }
@@ -1563,7 +1561,7 @@ async function ppTogglePage(c,live){
     var slug=ppSlug(c), body;
     if(live){ body={action:"unpublish",opts:{slug:slug}}; }
     else { var full=c; try{ var fr=await sb("contacts?id=eq."+c.id+"&select=*"); if(fr&&fr[0]) full=fr[0]; }catch(e){} body={opts:buildLpOpts(full),status:"publish"}; }
-    var r=await fetch(NEON_API+"/api/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(x){return x.json();});
+    var r=await fetch("/api/secure/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(x){return x.json();});
     if(!r||r.ok===false){ banner("Page action failed: "+((r&&(r.error||r.message))||"try again")); return; }
     try{ if(typeof lpSet==="function") lpSet(c.id,{url:(r.url||((typeof lpGet==="function"&&lpGet(c.id)||{}).url)),status:(live?"draft":"live")}); }catch(e){}
     PP.pageStatus[slug]=live?"off":"live"; drawPagesPortal();
@@ -1719,7 +1717,7 @@ async function prHydratePages(){
   if(!chips.length) return;
   var slugs=chips.map(function(el){return el.getAttribute("data-pagechip");});
   var res={};
-  try{ var r=await fetch(NEON_API+"/api/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"statusBulk",slugs:slugs})}).then(function(x){return x.json();}); res=(r&&r.results)||{}; }catch(e){ return; }
+  try{ var r=await fetch("/api/secure/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"statusBulk",slugs:slugs})}).then(function(x){return x.json();}); res=(r&&r.results)||{}; }catch(e){ return; }
   chips.forEach(function(el){ var sg=el.getAttribute("data-pagechip"); var live=!!(res[sg]&&res[sg].live); el.textContent="PAGE "+(live?"LIVE":"OFF"); var col=live?"#1d9e75":"#888"; el.style.color=col; el.style.background=col+"22"; el.style.border="1px solid "+col+"55"; });
 }
 async function skipPayout(key,qid,partner,customer){
@@ -2014,7 +2012,7 @@ async function dpFindNew(){
   ALL.forEach(function(c){ var bn=c.business||c.name; if(bn){ haveKeys[norm(bn)]=1; if(c.name&&c.name!==bn) haveKeys[norm(c.name)]=1; } });
   haveRows.forEach(function(c){ var bn=c.business||c.name; if(bn) excludeNames.push(bn); });
   try{
-    var r=await fetch(NEON_API+"/api/discoverNewLeads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"discoverNewLeads",opts:{territories:terrs,types:types,limit:12,exclude:excludeNames}})}).then(function(x){return x.json();});
+    var r=await fetch("/api/secure/discoverNewLeads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"discoverNewLeads",opts:{territories:terrs,types:types,limit:12,exclude:excludeNames}})}).then(function(x){return x.json();});
     var list=(r&&(r.leads||r.results||r.businesses||r.addons))||[];
     // client-side safety net: drop anything that matches a business/contact we already have
     list=list.filter(function(b){ var k=norm(b.name||b.business); return k && !haveKeys[k]; });
@@ -2025,11 +2023,11 @@ async function dpFindNew(){
   }catch(e){ el.innerHTML='<div class="muted" style="font-size:13px;padding:8px;color:#e24b4a">Search failed: '+esc(e.message)+'</div>'; }
   btn.disabled=false;btn.innerHTML=gi("search")+" Find new businesses";
 }
-function dpGeocodeBase(base){ return fetch(NEON_API+"/api/geocode",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({address:base})}).then(function(x){return x.json();}).then(function(j){return (j&&j.lat!=null)?{lat:j.lat,lon:j.lon,address:j.address||base,name:"Base"}:null;}).catch(function(){return null;}); }
+function dpGeocodeBase(base){ return fetch("/api/secure/geocode",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({address:base})}).then(function(x){return x.json();}).then(function(j){return (j&&j.lat!=null)?{lat:j.lat,lon:j.lon,address:j.address||base,name:"Base"}:null;}).catch(function(){return null;}); }
 async function dpResolveStop(p){
   if(p.lat!=null && p.lon!=null) return p;
   try{
-    var j=await fetch(NEON_API+"/api/resolvePlace",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({opts:{name:p.name,area:p.territory,address:p.address}})}).then(function(x){return x.json();});
+    var j=await fetch("/api/secure/resolvePlace",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({opts:{name:p.name,area:p.territory,address:p.address}})}).then(function(x){return x.json();});
     if(j&&j.ok&&j.lat!=null){ p.address=j.address||p.address; p.lat=j.lat; p.lon=j.lon;
       if(p.id){ var c2=ALL.filter(function(x){return x.id===p.id;})[0]; if(c2){c2.address=p.address;c2.lat=j.lat;c2.lon=j.lon;} try{ sbWrite("PATCH","contacts?id=eq."+p.id,{address:p.address,lat:j.lat,lon:j.lon}); }catch(e){} }
     }
@@ -2060,7 +2058,7 @@ async function dpGenerate(){
     res.innerHTML='<div class="noact"><span class="spin"></span> Adding talking points…</div>';
     var brief={};
     try{
-      var r=await fetch(NEON_API+"/api/generateDayPlan",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"generateDayPlan",opts:{person:person,date:date,base:base,stops:ordered}})}).then(function(x){return x.json();});
+      var r=await fetch("/api/secure/generateDayPlan",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"generateDayPlan",opts:{person:person,date:date,base:base,stops:ordered}})}).then(function(x){return x.json();});
       var bs=(r&&(r.stops||r.route||r.plan))||[]; bs.forEach(function(s){var k=(s.name||s.business||"").toLowerCase();if(k)brief[k]=s;});
     }catch(e){}
     var html=dpRenderPlan(ordered,baseGeo,mapsUrl,opt.miles,missing.length,brief,person,date);
@@ -2109,7 +2107,7 @@ function dpApplyDone(){
 }
 /* Re-improve a just-saved note/visit entry: clean the raw text and swap that entry in the contact's notes. */
 async function reImproveEntry(id,prefix,rawText){
-  var j=await fetch(NEON_API+"/api/improveNotes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:rawText})}).then(function(x){return x.json();});
+  var j=await fetch("/api/secure/improveNotes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:rawText})}).then(function(x){return x.json();});
   if(!(j&&j.ok&&j.improved)) throw new Error((j&&j.error)||"no improvement");
   var c=(typeof ALL!=="undefined"?ALL:[]).filter(function(x){return x.id===id;})[0];
   var cur=(c&&c.notes)||"";
@@ -2444,7 +2442,7 @@ async function socialEngage(idx){
   [].forEach.call(document.querySelectorAll("#socModal [data-dm]"),function(b){b.onclick=function(){var first=document.querySelector("#socModal .soccmt");if(first){try{navigator.clipboard.writeText(first.getAttribute("data-copy"));}catch(e){}} var u=b.getAttribute("data-dm"); if(u)window.open(u,"_blank","noopener"); banner("Message copied — paste it in the DM.");};});
   document.getElementById("socDone").onclick=function(){ markSocialEngaged(c,l); ov.remove(); };
   try{
-    var r=await fetch(NEON_API+"/api/suggestComments",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({agentName:c.name||l.agent_name,address:l.address,city:l.city})});
+    var r=await fetch("/api/secure/suggestComments",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({agentName:c.name||l.agent_name,address:l.address,city:l.city})});
     var j=await r.json(); var cm=(j&&j.comments)||[];
     var box=document.getElementById("socComments"); if(box){
       box.innerHTML=cm.length?cm.map(function(t){return '<div class="soccmt" data-copy="'+esc(t)+'" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px;cursor:pointer;line-height:1.45">'+esc(t)+'<span class="muted" style="font-size:11px;float:right;margin-left:8px">copy</span></div>';}).join(''):'<div class="muted" style="font-size:12.5px">Could not generate comments — write your own.</div>';
@@ -2465,7 +2463,7 @@ var pendingState={loaded:false,loading:false,err:null,days:45};
 function loadPending(){
   if(pendingState.loading||pendingState.loaded) return;
   pendingState.loading=true; pendingState.err=null;
-  fetch(NEON_API+"/api/rentcast",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"pendingListings",opts:{state:"WA",days:pendingState.days,limit:500}})})
+  fetch("/api/secure/rentcast",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"pendingListings",opts:{state:"WA",days:pendingState.days,limit:500}})})
     .then(function(x){return x.json();})
     .then(function(j){
       DATA.pendingListings=(j&&j.listings)||[];
@@ -2694,7 +2692,7 @@ async function pbResearch(r){
   var out=document.getElementById("pbAIout"),btn=document.getElementById("pbAI");
   btn.disabled=true;btn.innerHTML=gi("bolt")+" Building dossier… (~20s)";out.innerHTML='<div class="noact"><span class="spin"></span> Researching '+esc(firstName(r.name))+' &amp; profiling how to win them…</div>';
   try{
-    var res=await fetch(NEON_API+"/api/researchAgent",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"researchAgent",opts:{name:r.name,brokerage:r.brokerage,mode:"dossier"}})}).then(function(x){return x.json();});
+    var res=await fetch("/api/secure/researchAgent",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"researchAgent",opts:{name:r.name,brokerage:r.brokerage,mode:"dossier"}})}).then(function(x){return x.json();});
     var d=res&&(res.dossier||res.summary||res.result||res);
     out.innerHTML='<div class="pbdossier">'+esc(typeof d==="string"?d:JSON.stringify(d,null,1))+'</div>';
   }catch(e){ out.innerHTML='<div class="muted" style="font-size:12.5px">The AI dossier (contact info + personality read + the exact angle, channel and tone to win them) connects once v2 is on your live domain — it can\'t reach the endpoint from a local file. Use the research links above in the meantime.</div>'; }
@@ -2704,7 +2702,7 @@ async function pbCheckListings(r){
   var out=document.getElementById("pbListOut"),btn=document.getElementById("pbListings");
   btn.disabled=true;btn.innerHTML=gi("search")+" Checking… (~20s)";out.innerHTML='<div class="noact"><span class="spin"></span> Searching for recent listings…</div>';
   try{
-    var res=await fetch(NEON_API+"/api/checkListings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"checkListings",opts:{name:r.name,brokerage:r.brokerage,area:(r.county?r.county+" County, WA":"Whatcom/Skagit County, WA")}})}).then(function(x){return x.json();});
+    var res=await fetch("/api/secure/checkListings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"checkListings",opts:{name:r.name,brokerage:r.brokerage,area:(r.county?r.county+" County, WA":"Whatcom/Skagit County, WA")}})}).then(function(x){return x.json();});
     var c=res&&(res.count!=null?res.count:(res.listings?res.listings.length:0));
     var sum=res&&(res.summary||"");
     var listArr=(res&&res.listings)||[];
@@ -3220,7 +3218,7 @@ async function mFindNew(){
   var excludeNames=(ALL||[]).filter(function(c){return (typeof typeMatches==="function")&&typeMatches(c.type,[type])&&(!terr||c.territory===terr);}).map(function(c){return c.business||c.name;}).filter(Boolean);
   try{
     var terrs=terr?[terr]:DP_TR.slice();
-    var r=await fetch(NEON_API+"/api/discoverNewLeads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"discoverNewLeads",opts:{territories:terrs,types:[type],limit:12,exclude:excludeNames}})}).then(function(x){return x.json();});
+    var r=await fetch("/api/secure/discoverNewLeads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"discoverNewLeads",opts:{territories:terrs,types:[type],limit:12,exclude:excludeNames}})}).then(function(x){return x.json();});
     var list=(r&&(r.leads||r.results||r.businesses||r.addons))||[];
     list=list.filter(function(b){var k=norm(b.name||b.business); return k && !haveKeys[k];});
     mNewFound=list;
@@ -3397,7 +3395,7 @@ async function mLpSlug(c){ return (typeof lpSlug==="function")?lpSlug(c):((typeo
 async function mLoadLanding(c){
   var box=document.getElementById("mLpBox"); if(!box)return;
   var slug=await mLpSlug(c), live=false, url="";
-  try{ var r=await fetch(NEON_API+"/api/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"status",opts:{slug:slug}})}).then(function(x){return x.json();}); live=!!(r&&r.live); url=(r&&r.url)||""; }
+  try{ var r=await fetch("/api/secure/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"status",opts:{slug:slug}})}).then(function(x){return x.json();}); live=!!(r&&r.live); url=(r&&r.url)||""; }
   catch(e){ box.innerHTML='<div class="m-meta" style="font-size:12px;color:#c0392b">Couldn’t check page status.</div>'; return; }
   var h='<div class="m-meta" style="font-size:12px;margin-bottom:8px">'+(live?'<b style="color:#00C2A8">● Live</b> — public on neongiantmoving.com':'<b style="color:var(--text-dim)">○ Not live</b> — paused or not built yet')+'</div>';
   if(live){ h+='<a class="m-btn full" target="_blank" rel="noopener" href="'+esc(url)+'" style="margin-bottom:6px">'+gi("search")+' View live page</a><button class="m-btn full" id="mLpDown" style="color:#c0392b">Take page down (pause)</button>'; }
@@ -3411,7 +3409,7 @@ async function mToggleLanding(c,action,status){
   try{
     var slug=await mLpSlug(c);
     var body=(action==="publish")?{opts:buildLpOpts(c),status:status}:{action:action,opts:{slug:slug}};
-    var r=await fetch(NEON_API+"/api/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(x){return x.json();});
+    var r=await fetch("/api/secure/publishPartnerPage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(x){return x.json();});
     if(!r||r.ok===false){ if(box)box.innerHTML='<div class="m-meta" style="font-size:12px;color:#c0392b">Failed: '+esc(String((r&&(r.error||r.message))||"try again"))+'</div>'; return; }
     try{ if(typeof lpSet==="function") lpSet(c.id,{url:(r.url||((typeof lpGet==="function"&&lpGet(c.id)||{}).url)),status:(action==="unpublish"?"draft":(status==="publish"?"live":"draft"))}); }catch(e){}
     try{ banner(action==="unpublish"?"Page taken down (saved as a private draft).":"Page is LIVE."); }catch(e){}
@@ -3443,7 +3441,7 @@ async function mFindListings(c,boxId,btn){
   if(btn){btn.disabled=true;btn.innerHTML="⏳ Searching… (~20s)";}
   box.innerHTML='<div class="m-meta" style="padding:6px">'+gi("search")+' Searching public listings…</div>';
   try{
-    var res=await fetch(NEON_API+"/api/checkListings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({opts:{name:c.name,brokerage:c.business||c.brokerage||"",area:c.territory||"Whatcom/Skagit County, WA"}})}).then(function(x){return x.json();});
+    var res=await fetch("/api/secure/checkListings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({opts:{name:c.name,brokerage:c.business||c.brokerage||"",area:c.territory||"Whatcom/Skagit County, WA"}})}).then(function(x){return x.json();});
     var list=(res&&res.listings)||[];
     if(!list.length){ box.innerHTML='<div class="m-meta">No recent public listings found right now.'+((res&&res.summary)?' '+esc(res.summary):'')+'</div>'; }
     else { box.innerHTML=(res.count!=null?'<div class="m-meta" style="font-size:12px;margin-bottom:6px">'+res.count+' found</div>':'')+list.map(function(it){var addr,price; if(typeof it==="string"){var p=it.split(" - ");addr=p[0];price=p.slice(1).join(" - ");}else{addr=it.address||it.addr||it.title||"Listing";price=it.price||it.list_price||"";} return '<div style="padding:7px 0;border-top:1px solid var(--border)"><div class="m-nm" style="font-size:13px">'+esc(addr||"Listing")+'</div>'+(price?'<div class="m-meta" style="font-size:11px">'+esc(price)+'</div>':'')+'</div>';}).join(""); }
