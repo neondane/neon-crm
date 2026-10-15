@@ -83,6 +83,37 @@ nav button.active{color:var(--pink)}
 var SB_URL="https://aoyfieswynhgqyrveqnp.supabase.co";
 var SB_KEY="sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ";
 var H={apikey:SB_KEY,Authorization:"Bearer "+SB_KEY};
+/* NG-DB-LOGIN (Phase 2): every database call carries a one-hour login for the signed-in
+   person, issued by /api/secure/dbSession (checks the Cloudflare login). The public key alone
+   can no longer read CRM data. Expired logins renew automatically and the call is retried once. */
+(function(){
+  var SBU="https://aoyfieswynhgqyrveqnp.supabase.co/rest/v1/", raw=window.fetch.bind(window);
+  var tok=null, exp=0, inflight=null, failedAt=0, KEY="ngDbLogin";
+  try{ var s=JSON.parse(sessionStorage.getItem(KEY)||"null"); if(s&&s.t&&s.e-Date.now()>5*60000){tok=s.t;exp=s.e;} }catch(e){}
+  function getTok(force){
+    if(!force&&tok&&exp-Date.now()>5*60000) return Promise.resolve(tok);
+    if(!force&&failedAt&&Date.now()-failedAt<15000) return Promise.resolve(tok);
+    if(inflight) return inflight;
+    inflight=raw("/api/secure/dbSession",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:"{}"})
+      .then(function(r){return r.json();})
+      .then(function(j){ if(j&&j.ok&&j.token){ tok=j.token; exp=+j.expiresAt||Date.now()+3000000; failedAt=0; try{sessionStorage.setItem(KEY,JSON.stringify({t:tok,e:exp}));}catch(e){} return tok; }
+        failedAt=Date.now(); if(window.console) console.warn("Database login failed", j&&j.error); return null; })
+      .catch(function(e){ failedAt=Date.now(); if(window.console) console.warn("Database login failed", e); return null; })
+      .then(function(t){ inflight=null; return t; });
+    return inflight;
+  }
+  window.ngDbToken=getTok;
+  window.fetch=function(input,init){
+    if(typeof input!=="string"||input.indexOf(SBU)!==0) return raw(input,init);
+    return getTok(false).then(function(t){
+      function go(tt){ var o=Object.assign({},init||{}), h0=(init&&init.headers)||{}, h={};
+        if(typeof Headers!=="undefined"&&h0 instanceof Headers){ h0.forEach(function(v,k){h[k]=v;}); } else { Object.assign(h,h0); }
+        if(tt){ delete h.authorization; h.Authorization="Bearer "+tt; } o.headers=h; return raw(input,o); }
+      return go(t).then(function(r){ if(r.status===401){ return getTok(true).then(function(t2){ return t2?go(t2):r; }); } return r; });
+    });
+  };
+  getTok(false);
+})();
 var PORTAL="https://refer.neongiantmoving.com";
 var TYPES=["Realtor","Self-Storage Facility","Assisted Living","Senior Living","Apartment Complex","Property Management","Other"];
 var TERRS=["Whatcom — Bellingham","Whatcom — North of Bellingham","Skagit — Mount Vernon area","Skagit — Anacortes","Snohomish County","Whidbey Island"];

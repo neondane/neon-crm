@@ -2,7 +2,7 @@
    - Keeps the app shell (page, icons, manifest) so it opens fast and works offline.
    - NEVER caches data: Supabase, /api/*, neon-api and Access requests always go to the network.
    - Push handlers are ready for Phase 4 (nothing subscribes yet). */
-const SHELL = 'ncrm-shell-v5';
+const SHELL = 'ncrm-shell-v6';
 const SHELL_FILES = ['/app/', '/app/manifest.webmanifest', '/app/icons/icon-192.png?v=2', '/app/icons/icon-512.png?v=2', '/app/icons/apple-touch-icon.png?v=2', '/app/icons/favicon-64.png?v=2'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(SHELL).then((c) => Promise.all(SHELL_FILES.map((u) => fetch(u, { credentials: 'same-origin' }).then((r) => { if (r.ok && r.type === 'basic') return c.put(u, r); }).catch(() => {})))).then(() => self.skipWaiting()));
