@@ -21,6 +21,7 @@
  *  Env: SUPABASE_URL, SUPABASE_KEY, SMARTMOVING_API_KEY
  */
 import { endpoint, preflight, sb } from '../_shared.js';
+import { emitEvent } from '../_push.js';
 
 const SM_BASE = 'https://api-public.smartmoving.com/v1';
 const GENERIC = /google|yelp|\bweb\b|website|online|bing|drive.?by|signage|sign\b|past customer|return(ing)? customer|repeat customer|former customer|facebook|instagram|social|yard sign|billboard|angi|thumbtack|home.?advisor|walk.?in|truck|wrap|\bnone\b|^n\/?a$|^other$|unknown|search engine/i;
@@ -94,7 +95,7 @@ async function listRecentOpportunities(env, sinceDays) {
   return ids;
 }
 
-async function reconcileOne(db, oppId, contacts, refsByContact, key, dry, applyLost) {
+async function reconcileOne(db, oppId, contacts, refsByContact, key, dry, applyLost, env, alerts) {
   const g = await smGet(key, '/api/opportunities/' + encodeURIComponent(oppId));
   if (!g.ok) return { id: oppId, skip: 'fetch-failed', detail: g.status || g.err };
   const opp = g.body;
@@ -122,6 +123,14 @@ async function reconcileOne(db, oppId, contacts, refsByContact, key, dry, applyL
     const cur = RANK[String(existing.status || '').toLowerCase()] || 0; const nw = RANK[stage] || 0;
     if (nw > cur) {
       if (!dry) await db.update('referrals', `id=eq.${existing.id}`, { status: stage, notes: (existing.notes || '') + ' | reconcile->' + stage });
+      // Alert only for CURRENT jobs (a missed webhook), never for old history being cleaned up.
+      // Same source_key as the live webhook, so a job can never alert twice.
+      const today = new Date().toISOString().slice(0, 10), ago = (d) => new Date(Date.now() - d * 864e5).toISOString().slice(0, 10);
+      if (!dry && alerts && ((stage === 'booked' && date >= ago(1)) || (stage === 'completed' && date >= ago(3) && date <= today))) {
+        await emitEvent(env, { event: stage === 'booked' ? 'job_booked' : 'job_completed', title: (stage === 'booked' ? 'Booked: ' : 'Completed: ') + cust,
+          body: 'Referred by ' + match.name + (stage === 'completed' ? '. Their payout may be due.' : '.'), url: stage === 'completed' ? '/app/#payouts' : '/app/#referrals',
+          source_key: 'job:' + oppId + ':' + stage }).catch(() => {});
+      }
       return { id: oppId, partner: match.name, cust, action: 'advance', from: existing.status, to: stage, amount, dry: !!dry };
     }
     return { id: oppId, partner: match.name, action: 'unchanged', status: existing.status };
@@ -165,7 +174,7 @@ const handler = endpoint(async ({ env, body, reply }) => {
   try { refs = (await db.select('referrals?select=id,contactId,status,notes,jobName&limit=2000')) || []; } catch (e) {}
   const refsByContact = {}; refs.forEach((r) => { const k = String(r.contactId); (refsByContact[k] = refsByContact[k] || []).push(r); });
   const out = [];
-  for (const id of ids) { try { out.push(await reconcileOne(db, id, contacts, refsByContact, key, dry, applyLost)); } catch (e) { out.push({ id, error: String(e && e.message || e) }); } }
+  for (const id of ids) { try { out.push(await reconcileOne(db, id, contacts, refsByContact, key, dry, applyLost, env, !!body.alerts)); } catch (e) { out.push({ id, error: String(e && e.message || e) }); } }
   if (body.open && !dry && cursorNext !== null) {
     try { await db.update('app_settings', 'key=eq.sm_reconcile', { value: { offset: cursorNext, at: new Date().toISOString() } }); } catch (_) {}
   }

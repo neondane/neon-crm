@@ -71,6 +71,16 @@ async function smGet(key, path) {
 
 // Fire outbound webhooks + owner SMS when a job actually advances. Best-effort and
 // non-blocking: it can never delay or fail the SmartMoving webhook response.
+// A brand-new referral that came straight into SmartMoving (phone call, partner booked directly).
+// Portal referrals already alert from the portal ("Portal - Name"), and lost / bad leads don't buzz.
+function emitNewReferral(env, waitUntil, opp, d) {
+  if (/^portal\b/i.test(String(d.partner || ''))) return;
+  const n = Number(opp && opp.status); if ([20, 30, 50].includes(n)) return;
+  const p = emitEvent(env, { event: 'referral_new', title: 'New referral from ' + String(d.partner || 'a partner').trim(),
+    body: (d.customer || 'A customer') + (d.matchedId ? ' · in SmartMoving' : ' · ' + String(d.partner || '').trim() + " isn't in the CRM yet"),
+    url: d.matchedId ? '/app/#p/' + d.matchedId : '/app/#referrals', source_key: 'smref:' + d.oppId }).catch(() => {});
+  if (typeof waitUntil === 'function') waitUntil(p);
+}
 async function emitJob(env, waitUntil, stage, data) {
   if (stage !== 'booked' && stage !== 'completed') return;
   const fire = async () => {
@@ -151,6 +161,7 @@ const handler = endpoint(async ({ request, env, body, reply, waitUntil }) => {
           date: date, amount: String(amount), enteredBy: 'SmartMoving Webhook',
           notes: '[SM:' + oppId + '] UNMATCHED affiliate "' + partner + '" — add them to contacts to credit · ' + lead,
         });
+        emitNewReferral(env, waitUntil, opp, { oppId, partner, customer: cust, matchedId: null });
       }
     } catch (e) { return reply({ ok: false, error: 'unmatched_record_failed', message: e.message }, 500); }
     return reply({ ok: true, oppId, affiliate: partner, matched: false, recorded: true });
@@ -177,6 +188,7 @@ const handler = endpoint(async ({ request, env, body, reply, waitUntil }) => {
       date: date, amount: String(amount), enteredBy: 'SmartMoving Webhook', notes: '[SM:' + oppId + '] live · ' + lead,
     });
   } catch (e) { return reply({ ok: false, error: 'insert_failed', message: e.message }, 500); }
+  if (stage === 'referred') emitNewReferral(env, waitUntil, opp, { oppId, partner: match.name, customer: cust, matchedId: match.id });
   await emitJob(env, waitUntil, stage, { source: 'referral', oppId, customer: cust, partner: match.name, stage, amount, date });
   return reply({ ok: true, oppId, partner: match.name, action: 'create', stage, cust, amount });
 });

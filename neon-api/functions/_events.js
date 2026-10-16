@@ -7,7 +7,7 @@ export const EVENTS = [
   { key: 'text_in',        group: 'Messages',  label: 'Texts from realtors and customers', desc: 'Someone texts the business line (360) 588-5228.', defaults: { push: true,  desktop: true, sms: false } },
   { key: 'email_in',       group: 'Messages',  label: 'Email replies',                     desc: 'Someone replies to an email sent from the CRM.', defaults: { push: true,  desktop: true, sms: false } },
   { key: 'opt_out',        group: 'Messages',  label: 'Someone texted STOP',               desc: 'They asked not to be texted again.',           defaults: { push: true,  desktop: true, sms: false } },
-  { key: 'referral_new',   group: 'Leads',     label: 'New portal referral',               desc: 'A realtor sends a client through their portal.', defaults: { push: true,  desktop: true, sms: false } },
+  { key: 'referral_new',   group: 'Leads',     label: 'New partner referral',              desc: 'A partner sends a client, through their portal or straight into SmartMoving.', defaults: { push: true,  desktop: true, sms: false } },
   { key: 'lead_website',   group: 'Leads',     label: 'New website quote request',         desc: 'Someone fills out the quote form on neongiantmoving.com.', defaults: { push: true, desktop: true, sms: false } },
   { key: 'lead_facebook',  group: 'Leads',     label: 'New Facebook lead',                 desc: 'A Facebook or Instagram lead form comes in.',  defaults: { push: true,  desktop: true, sms: false } },
   { key: 'partner_apply',  group: 'Leads',     label: 'New partner application',           desc: 'A realtor applies on the /partners page.',     defaults: { push: true,  desktop: true, sms: false } },
