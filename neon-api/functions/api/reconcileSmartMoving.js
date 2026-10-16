@@ -10,6 +10,10 @@
  *  Two modes:
  *    { "ids": ["<oppId>", ...], "dry": true|false }   ← WORKS NOW via the proven single-opp GET.
  *                                                        Use this to fix known-missing jobs today.
+ *    { "open": true, "batch": 35, "dry": true }       ← HOURLY (Oct 2026): re-checks our own open referrals,
+ *                                                        a batch per run, rotating (cursor in app_settings).
+ *        Moves forward on its own (referred -> booked -> completed). Lost in SmartMoving is only
+ *        reported, unless "applyLost": true (Dane confirms first).
  *    { "auto": true, "sinceDays": 180, "dry": true }  ← daily self-heal. Enumerates recent opps.
  *        listRecentOpportunities() must be pointed at the correct SmartMoving LIST endpoint.
  *        Until confirmed it returns [] (no-op) — so auto mode can never write bad data.
@@ -29,13 +33,18 @@ function fmtDate(d) {
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
   const dt = new Date(s); return isNaN(dt.getTime()) ? new Date().toISOString().slice(0, 10) : dt.toISOString().slice(0, 10);
 }
-function classifyStage(o) {
+// SmartMoving's real opportunity status is a NUMBER (the stage text, e.g. "4) Estimate Scheduled",
+// is usually stale). Read from Neon Giant's own jobs, Oct 2026:
+//   0-3 open lead/quote, 4 booked, 10 completed, 11 closed (completed + closed out),
+//   20/30 lost or cancelled, 50 bad lead / duplicate.
+const SM_STATUS = { 0: 'referred', 1: 'referred', 2: 'referred', 3: 'referred', 4: 'booked', 10: 'completed', 11: 'completed', 20: 'lost', 30: 'lost', 50: 'lost' };
+export function classifyStage(o) {
+  const raw = o && o.status; const n = Number(raw);
+  if (raw !== null && raw !== undefined && raw !== '' && !isNaN(n) && SM_STATUS[n]) return SM_STATUS[n];
+  // Fallback for text statuses only. "Estimate Scheduled" is NOT booked, so no "scheduled" here.
   const blob = (String(o.leadStatus || '') + ' ' + String(o.status || '') + ' ' + String(o.jobStatus || '')).toLowerCase();
-  const today = new Date().toISOString().slice(0, 10); const svc = fmtDate(o.serviceDate);
-  const paid = Array.isArray(o.payments) && o.payments.some((p) => Number(p && (p.amount || p.total || p.value)) > 0);
   if (/complet|moved|finished|delivered|closed won|paid in full/.test(blob)) return 'completed';
-  if (o.serviceDate && svc < today && paid) return 'completed';
-  if (/book|confirm|scheduled|deposit|\bwon\b/.test(blob)) return 'booked';
+  if (/\bbooked\b|confirmed|deposit paid|\bwon\b/.test(blob)) return 'booked';
   return 'referred';
 }
 function partnerOf(o) {
@@ -85,7 +94,7 @@ async function listRecentOpportunities(env, sinceDays) {
   return ids;
 }
 
-async function reconcileOne(db, oppId, contacts, refsByContact, key, dry) {
+async function reconcileOne(db, oppId, contacts, refsByContact, key, dry, applyLost) {
   const g = await smGet(key, '/api/opportunities/' + encodeURIComponent(oppId));
   if (!g.ok) return { id: oppId, skip: 'fetch-failed', detail: g.status || g.err };
   const opp = g.body;
@@ -102,13 +111,22 @@ async function reconcileOne(db, oppId, contacts, refsByContact, key, dry) {
   const mine = refsByContact[String(match.id)] || [];
   const existing = mine.find((r) => (String(r.notes || '') + ' ' + String(r.jobName || '')).indexOf(tag) >= 0);
   if (existing) {
+    if (stage === 'lost') {
+      // Never demote on our own: report it, and only write when Dane has said yes (applyLost).
+      if (applyLost && String(existing.status || '').toLowerCase() !== 'lost') {
+        if (!dry) await db.update('referrals', `id=eq.${existing.id}`, { status: 'lost', notes: (existing.notes || '') + ' | reconcile->lost' });
+        return { id: oppId, partner: match.name, cust, action: 'lost', from: existing.status, dry: !!dry };
+      }
+      return { id: oppId, partner: match.name, cust, action: 'lost_in_sm', status: existing.status, smStatus: opp.status };
+    }
     const cur = RANK[String(existing.status || '').toLowerCase()] || 0; const nw = RANK[stage] || 0;
     if (nw > cur) {
       if (!dry) await db.update('referrals', `id=eq.${existing.id}`, { status: stage, notes: (existing.notes || '') + ' | reconcile->' + stage });
-      return { id: oppId, partner: match.name, action: 'advance', from: existing.status, to: stage, dry: !!dry };
+      return { id: oppId, partner: match.name, cust, action: 'advance', from: existing.status, to: stage, amount, dry: !!dry };
     }
     return { id: oppId, partner: match.name, action: 'unchanged', status: existing.status };
   }
+  if (stage === 'lost') return { id: oppId, partner: match.name, cust, action: 'skip_lost' };
   if (!dry) {
     await db.insert('referrals', {
       contactId: String(match.id), contactName: match.name, jobName: cust, status: stage,
@@ -124,8 +142,22 @@ const handler = endpoint(async ({ env, body, reply }) => {
   const db = sb(env);
   const dry = !!body.dry;
   let ids = Array.isArray(body.ids) ? body.ids.map(String).filter(Boolean) : [];
-  let enumerated = 0;
+  const applyLost = !!body.applyLost;
+  let enumerated = 0, openTotal = 0, cursorFrom = null, cursorNext = null;
   if (body.auto) { const list = await listRecentOpportunities(env, +body.sinceDays || 180); enumerated = list.length; ids = ids.concat(list); }
+  if (body.open) {
+    // Re-check our own OPEN referrals (referred / booked, tied to a partner, move date within the
+    // last 120 days or later), a batch per run, rotating so every one gets checked several times a day.
+    const since = new Date(Date.now() - 120 * 864e5).toISOString().slice(0, 10);
+    const open = (await db.select('referrals?select=id,notes&status=in.(referred,booked)&notes=like.*%5BSM:*&contactId=neq.&date=gte.' + since + '&order=id.asc&limit=1000')) || [];
+    const oppIds = open.map((r) => (String(r.notes || '').match(/\[SM:([0-9a-f-]{36})\]/) || [])[1]).filter(Boolean);
+    openTotal = oppIds.length;
+    const batch = Math.max(1, Math.min(+body.batch || 35, 60));
+    let off = 0;
+    try { const cs = (await db.select('app_settings?key=eq.sm_reconcile&select=value'))[0]; off = Number(cs && cs.value && cs.value.offset) || 0; } catch (_) {}
+    if (off >= openTotal) off = 0;
+    cursorFrom = off; ids = ids.concat(oppIds.slice(off, off + batch)); cursorNext = off + batch >= openTotal ? 0 : off + batch;
+  }
   ids = Array.from(new Set(ids));
   if (!ids.length) return reply({ ok: true, note: body.auto ? 'auto enumeration returned 0 — confirm the SmartMoving list endpoint in listRecentOpportunities()' : 'no ids provided', enumerated });
   let contacts = [], refs = [];
@@ -133,12 +165,17 @@ const handler = endpoint(async ({ env, body, reply }) => {
   try { refs = (await db.select('referrals?select=id,contactId,status,notes,jobName&limit=2000')) || []; } catch (e) {}
   const refsByContact = {}; refs.forEach((r) => { const k = String(r.contactId); (refsByContact[k] = refsByContact[k] || []).push(r); });
   const out = [];
-  for (const id of ids) { try { out.push(await reconcileOne(db, id, contacts, refsByContact, key, dry)); } catch (e) { out.push({ id, error: String(e && e.message || e) }); } }
+  for (const id of ids) { try { out.push(await reconcileOne(db, id, contacts, refsByContact, key, dry, applyLost)); } catch (e) { out.push({ id, error: String(e && e.message || e) }); } }
+  if (body.open && !dry && cursorNext !== null) {
+    try { await db.update('app_settings', 'key=eq.sm_reconcile', { value: { offset: cursorNext, at: new Date().toISOString() } }); } catch (_) {}
+  }
   const tally = (a) => out.filter((o) => o.action === a).length;
   return reply({
     ok: true, dry, scanned: ids.length, enumerated,
     created: tally('create'), advanced: tally('advance'), unchanged: tally('unchanged'),
-    unmatched: out.filter((o) => o.unmatched).length, results: out.slice(0, 60),
+    lostInSmartMoving: tally('lost_in_sm'), markedLost: tally('lost'), fetchFailed: out.filter((o) => o.skip === 'fetch-failed').length,
+    unmatched: out.filter((o) => o.unmatched).length, openTotal, cursorFrom, cursorNext,
+    results: out.filter((o) => o.action !== 'unchanged').slice(0, 80),
   });
 });
 

@@ -26,16 +26,19 @@ function fmtDate(d) {
   const dt = new Date(s);
   return isNaN(dt.getTime()) ? new Date().toISOString().slice(0, 10) : dt.toISOString().slice(0, 10);
 }
+// Numeric SmartMoving status first (see reconcileSmartMoving.js for the table). The stage text
+// is often stale, and "Estimate Scheduled" must never count as booked.
+const SM_STATUS = { 0: 'referred', 1: 'referred', 2: 'referred', 3: 'referred', 4: 'booked', 10: 'completed', 11: 'completed', 20: 'lost', 30: 'lost', 50: 'lost' };
 function classifyStage(o) {
-  // Read BOTH the sales leadStatus and the opportunity status — SmartMoving shows
-  // "Booked" on opp.status even while leadStatus is still "New Lead".
+  const raw = o && o.status; const n = Number(raw);
+  if (raw !== null && raw !== undefined && raw !== '' && !isNaN(n) && SM_STATUS[n]) return SM_STATUS[n] === 'lost' ? 'referred' : SM_STATUS[n];
   const blob = (String(o.leadStatus || '') + ' ' + String(o.status || '') + ' ' + String(o.jobStatus || '')).toLowerCase();
   const today = new Date().toISOString().slice(0, 10);
   const svc = fmtDate(o.serviceDate);
   const paid = Array.isArray(o.payments) && o.payments.some((p) => Number(p && (p.amount || p.total || p.value)) > 0);
   if (/complet|moved|finished|delivered|closed won|paid in full/.test(blob)) return 'completed';
   if (o.serviceDate && svc < today && paid) return 'completed';
-  if (/book|confirm|scheduled|deposit|\bwon\b/.test(blob)) return 'booked';
+  if (/\bbooked\b|confirmed|deposit|\bwon\b/.test(blob)) return 'booked';
   return 'referred';
 }
 function partnerOf(o) {
