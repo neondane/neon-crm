@@ -1378,7 +1378,7 @@ async function loadRefs(c){
   var refs=[], leads=[];
   try{ refs=await sb("referrals?contactId=eq."+c.id+"&select=id,jobName,status,date,amount,contactName&order=date.desc"); }catch(e){}
   // Realtor referrals also live in portal_leads (portal submissions) — merge them so the profile matches the Referral Portal.
-  if(/realtor/i.test(c.type||"")||c.portalActivatedAt){ try{ leads=await sb("portal_leads?realtorId=eq."+encodeURIComponent(c.id)+"&select=id,customerName,status,moveDate,smJobId&order=id.desc"); }catch(e){} }
+  try{ leads=await sb("portal_leads?realtorId=eq."+encodeURIComponent(c.id)+"&select=id,customerName,status,moveDate,smJobId&order=id.desc"); }catch(e){}
   var norm=function(s){return String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");};
   var seen={}, merged=[];
   (refs||[]).forEach(function(r){ var k=norm(r.jobName); if(k)seen[k]=1; merged.push({id:r.id,jobName:r.jobName,status:r.status,date:r.date,amount:r.amount,contactName:r.contactName,source:"referral"}); });
@@ -1609,7 +1609,7 @@ async function renderPortal(){
       var res=await Promise.all([
         sb("portal_leads?select=id,customerName,realtorName,realtorId,status,moveDate,customerPhone,fromAddress,toAddress,notes,submittedAt&order=id.desc"),
         sb("referrals?select=id,contactId,contactName,jobName,status,date&order=date.desc"),
-        sb("contacts?or=(type.eq.Realtor,portalActivatedAt.not.is.null)&select=id,name,business,email,phone,portalActivatedAt,profilePic,cardImage&order=name.asc"),
+        sb("contacts?select=id,name,business,type,email,phone,portalActivatedAt,profilePic,cardImage&order=name.asc"),
         sb("paid_referrals?select=key,paid_at,partner"),
         sb("payout_queue?select=id,referral_id,contact_id,partner,customer,amount,added_at&order=id.desc").catch(function(){return [];}),
         sb("payout_skips?select=key,partner,customer&order=skipped_at.desc").catch(function(){return [];})
@@ -1708,11 +1708,11 @@ function drawPortal(){
     });
   }else{
     // Partners — active referral partners; activate/deactivate their referral portal.
-    html+='<div class="cfilters" style="margin:0 0 12px"><select id="prView"><option value="active"'+(portalRealtorView==="active"?" selected":"")+'>Activated partners ('+activeRealtors.length+')</option><option value="all"'+(portalRealtorView==="all"?" selected":"")+'>All realtors ('+PORTAL.realtors.length+')</option></select></div>';
+    html+='<div class="cfilters" style="margin:0 0 12px"><select id="prView"><option value="active"'+(portalRealtorView==="active"?" selected":"")+'>Activated partners ('+activeRealtors.length+')</option><option value="all"'+(portalRealtorView==="all"?" selected":"")+'>All partners ('+PORTAL.realtors.length+')</option></select></div>';
     var pool=portalRealtorView==="active"?activeRealtors:PORTAL.realtors.slice();
     pool=pool.filter(function(c){ if(!f) return true; return ((c.name||"")+" "+(c.business||"")).toLowerCase().indexOf(f)>=0; });
     pool.sort(function(a,b){return (b.portalActivatedAt?1:0)-(a.portalActivatedAt?1:0)||String(a.name||"").localeCompare(String(b.name||""));});
-    if(!pool.length) html+='<div class="muted" style="padding:14px">'+(portalRealtorView==="active"?"No activated partners yet — activate one from their profile or the Landing Pages tab.":"No realtors.")+'</div>';
+    if(!pool.length) html+='<div class="muted" style="padding:14px">'+(portalRealtorView==="active"?"No activated partners yet. Activate one from their profile.":"No partners.")+'</div>';
     pool.forEach(function(c){
       var on=!!c.portalActivatedAt, plink="https://refer.neongiantmoving.com/?r="+((typeof slugOf==="function")?slugOf(c):c.id);
       html+='<div class="crow2" style="align-items:flex-start">'+pAvatar(c)+'<div class="meta" style="flex:1;min-width:0"><div class="nm">'+esc(c.name||"—")+'</div><div class="sub">'+esc(c.business||"")+'</div>'
@@ -1857,7 +1857,7 @@ function wireContactClicks(){ [].forEach.call(document.querySelectorAll(".crow2[
 function renderDashboard(){ spinPage("Dashboard"); ensureData(function(){ if(view==="dashboard") drawDashboard(); }); }
 function drawDashboard(){
   var realtors=ALL.filter(function(c){return /realtor/i.test(c.type||"");});
-  var activeP=realtors.filter(function(c){return c.portalActivatedAt;}).length;
+  var activeP=ALL.filter(function(c){return c.portalActivatedAt;}).length;
   var paidMap={};(DATA.paid||[]).forEach(function(p){paidMap[p.key]=1;});
   var actMap={};ALL.forEach(function(c){if(c.portalActivatedAt)actMap[String(c.id)]=String(c.portalActivatedAt).slice(0,10);});
   var due=0;
@@ -3445,7 +3445,7 @@ async function mLoadProfileRefs(c,boxId){
   var box=document.getElementById(boxId); if(!box)return;
   var refs=[],leads=[];
   try{ refs=await sb("referrals?contactId=eq."+c.id+"&select=id,jobName,status,date,amount,contactName&order=date.desc"); }catch(e){}
-  if(/realtor/i.test(c.type||"")||c.portalActivatedAt){ try{ leads=await sb("portal_leads?realtorId=eq."+encodeURIComponent(c.id)+"&select=id,customerName,status,moveDate&order=id.desc"); }catch(e){} }
+  try{ leads=await sb("portal_leads?realtorId=eq."+encodeURIComponent(c.id)+"&select=id,customerName,status,moveDate&order=id.desc"); }catch(e){}
   var norm=function(s){return String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");};
   var seen={},merged=[];
   (refs||[]).forEach(function(r){var k=norm(r.jobName);if(k)seen[k]=1;merged.push({jobName:r.jobName,status:r.status,date:r.date,amount:r.amount,source:"referral"});});

@@ -110,7 +110,7 @@ function firstNameOf(name) {
   return String(name || '').trim().split(/\s+/)[0] || '';
 }
 
-// Only the realtor's public-facing identity. Never phone/email/notes/leads.
+// Only the partner's public-facing identity. Never phone/email/notes/leads.
 function realtorPublic(c) {
   const name = String(c.name || '').trim();
   const photo = c.profilePic || c.cardImage || '';
@@ -121,11 +121,24 @@ function realtorPublic(c) {
     business: c.business || '',
     profilePic: photo,
     photo: photo, // alias so older client code that reads r.photo also works
+    kind: kindOf(c.type),
   };
 }
 
-function isRealtor(c) {
-  return c && String(c.type || '').toLowerCase() === 'realtor';
+// Any referral partner can have a portal: realtors, storage facilities, senior living,
+// apartments, property managers and others. (Until Oct 2026 only type "Realtor" worked.)
+function isPartner(c) {
+  return !!(c && c.id != null && !/^(customer|vendor|crew|employee)$/i.test(String(c.type || '').trim()));
+}
+// Which wording the portal pages use for this partner.
+function kindOf(type) {
+  const t = String(type || '').toLowerCase();
+  if (/realtor|broker|agent/.test(t)) return 'realtor';
+  if (/storage/.test(t)) return 'storage';
+  if (/assisted|senior|retire|care/.test(t)) return 'senior';
+  if (/apartment/.test(t)) return 'apartment';
+  if (/property/.test(t)) return 'property';
+  return 'other';
 }
 
 /* --------- Realtor referral -> SmartMoving (same proven push the website uses) -------- */
@@ -211,13 +224,13 @@ async function handleSupabaseAction(action, payload, baseUrl, key, origin, env, 
   /* ----- realtor dashboard: realtor + their leads + totals ----- */
   if (action === 'getRealtorPortalView') {
     const id = slugToId(payload.slug);
-    if (!id) return jsonResponse({ ok: false, error: 'This link is missing the realtor ID.' }, 200, origin);
+    if (!id) return jsonResponse({ ok: false, error: 'This link is missing the partner ID.' }, 200, origin);
 
     const rows = await sbGet(baseUrl, key,
       'contacts?id=eq.' + id +
       '&select=id,name,role,business,email,phone,type,profilePic,cardImage,portalActivatedAt');
     const c = rows[0];
-    if (!isRealtor(c)) {
+    if (!isPartner(c)) {
       return jsonResponse({ ok: false, error: "This referral link isn't recognized." }, 200, origin);
     }
 
@@ -317,10 +330,10 @@ async function handleSupabaseAction(action, payload, baseUrl, key, origin, env, 
   /* ----- client landing page: realtor identity ONLY (no leads) ----- */
   if (action === 'getRealtorPublic' || action === 'getRealtorBySlug') {
     const id = slugToId(payload.slug);
-    if (!id) return jsonResponse({ ok: false, error: 'This link is missing the realtor ID.' }, 200, origin);
+    if (!id) return jsonResponse({ ok: false, error: 'This link is missing the partner ID.' }, 200, origin);
     const rows = await sbGet(baseUrl, key, 'contacts?id=eq.' + id + '&select=id,name,business,type,profilePic,cardImage');
     const c = rows[0];
-    if (!isRealtor(c)) return jsonResponse({ ok: false, error: 'Realtor not found.' }, 200, origin);
+    if (!isPartner(c)) return jsonResponse({ ok: false, error: 'Partner not found.' }, 200, origin);
     return jsonResponse({ ok: true, realtor: realtorPublic(c) }, 200, origin);
   }
 

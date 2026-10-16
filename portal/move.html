@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>You've been referred to Neon Giant Moving</title>
-<meta name="description" content="Your agent referred you to Neon Giant Moving & Junk Removal. Get $50 off your move.">
+<meta name="description" content="You were referred to Neon Giant Moving & Junk Removal. Get $50 off your move.">
 <meta name="theme-color" content="#050008">
 <link rel="icon" href="/logo.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -72,7 +72,7 @@ footer a{color:#9fe9ff;text-decoration:none}
         <span class="x">×</span>
         <img class="blogo" src="/bigfoot-mark.png" alt="Neon Giant" onerror="this.onerror=null;this.src='/logo.jpg'">
       </div>
-      <div class="chead audw"><span class="grad" id="rname">Your agent</span> referred you to<br>Neon Giant Moving</div>
+      <div class="chead audw"><span class="grad" id="rname">A trusted partner</span> referred you to<br>Neon Giant Moving</div>
       <div class="csub" id="rsub">A trusted partner of ours thought we'd take great care of your move — and we'd love to. Tell us a little about it and we'll reach out with a free quote.</div>
       <div class="perk">🎉 You get $50 off your move</div>
     </div>
@@ -127,7 +127,8 @@ function paintRealtor(r){
   var name = r.name || ((r.firstName||'') + (r.lastName? ' '+r.lastName:'')).trim() || titleCase(getSlug());
   document.getElementById('rname').textContent = name;
   document.getElementById('rini').textContent = initials(name);
-  document.getElementById('rsub').textContent = name + ' trusts Neon Giant with their clients — and we’d love to take great care of your move too. Tell us a little about it and we’ll reach out with a free quote.';
+  var THEIR = { realtor: 'their clients', storage: 'their customers', senior: 'their residents and families', apartment: 'their residents', property: 'their tenants' }[r.kind] || 'the people they know';
+  document.getElementById('rsub').textContent = name + ' trusts Neon Giant with ' + THEIR + ', and we’d love to take great care of your move too. Tell us a little about it and we’ll reach out with a free quote.';
   var photo = r.profilePic || r.photo || r.headshot || r.photoUrl || r.image;
   if(photo){ var im=document.getElementById('rphoto'); im.src=photo; im.style.display='block'; im.onerror=function(){this.style.display='none';}; }
   document.title = name + ' referred you to Neon Giant Moving';
@@ -150,7 +151,7 @@ function showErr(m){ var el=document.getElementById('err'); el.textContent=m; el
 document.getElementById('refForm').addEventListener('submit', async function(e){
   e.preventDefault();
   document.getElementById('err').style.display='none';
-  if(!realtor || !realtor.id){ showErr('This link looks incomplete — please reopen the link your agent sent you.'); return; }
+  if(!realtor || !realtor.id){ showErr('This link looks incomplete. Please reopen the link you were sent.'); return; }
   var customer = {
     name: document.getElementById('fName').value.trim(),
     phone: document.getElementById('fPhone').value.trim(),
@@ -168,7 +169,7 @@ document.getElementById('refForm').addEventListener('submit', async function(e){
   try{
     var r = await api('submitReferralLead', { realtorId: realtor.id, customer: customer });
     if(r && r.ok){
-      var nm = realtor.name || realtor.firstName || 'your agent';
+      var nm = realtor.name || realtor.firstName || 'your referral partner';
       document.getElementById('doneMsg').innerHTML = 'Thanks for trusting ' + escapeHtml(nm) + '’s recommendation. A real human from Neon Giant will reach out within one business day with your free quote — and your <b>$50 off</b> is locked in.';
       document.getElementById('formWrap').style.display='none';
       document.getElementById('doneWrap').style.display='block';

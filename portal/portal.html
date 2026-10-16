@@ -361,7 +361,8 @@ function render(view) {
   }
   h += '<div class="linkcard">';
   h += '<h3>Your client referral link</h3>';
-  h += '<div style="font-size:12px;color:#9aa0c8;margin:-6px 0 9px;line-height:1.5">Share with your buyers and sellers. They land on a page that shows <b>you</b> referred them, and you get the credit automatically.</div>';
+  var WHO = { realtor: 'your buyers and sellers', storage: 'your tenants and customers', senior: 'your residents and their families', apartment: 'your residents', property: 'your tenants and owners' }[r.kind] || 'anyone you know who is moving';
+  h += '<div style="font-size:12px;color:#9aa0c8;margin:-6px 0 9px;line-height:1.5">Share with ' + WHO + '. They land on a page that shows <b>you</b> referred them, and you get the credit automatically.</div>';
   h += '<div class="url" id="urlBox">' + escapeHtml(portalLink) + '</div>';
   h += '<button onclick="copyLink()">Copy link</button>';
   h += '<button onclick="shareLink()">Share</button>';
@@ -597,7 +598,7 @@ function mtInit(){ mtBind(); mtRestore(); mtPlace(); }
 async function load() {
   var slug = getSlug();
   if (!slug) {
-    renderError('Your portal link is missing the realtor ID. Please use the link your Neon Giant contact sent you.');
+    renderError('Your portal link is missing your partner ID. Please use the link your Neon Giant contact sent you.');
     return;
   }
   var view;

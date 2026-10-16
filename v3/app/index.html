@@ -210,7 +210,7 @@ textarea.input{min-height:90px;resize:vertical}
    (Phase 2: they now carry a one-hour login, see NG-DB-LOGIN). Every text, email and payout goes
    through /api/secure on this site, which checks the Cloudflare Access login and marks
    the request X-Neon-App: crm-app so the backend's TEST MODE applies (allowlist only). */
-const VERSION = '1.5.0';
+const VERSION = '1.5.1';
 const SB_URL = 'https://aoyfieswynhgqyrveqnp.supabase.co';
 const SB_KEY = 'sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ';
 /* NG-DB-LOGIN v2 (Phase 2): every database call carries a one-hour login for the signed-in
@@ -512,7 +512,7 @@ ROUTES.home = async (arg, seq) => {
   if (stale(seq)) return;
   const threads = buildThreads(); const unread = threads.filter((t) => t.unread);
   const realtors = S.contacts.filter(isRealtor);
-  const partners = realtors.filter((c) => c.portalActivatedAt);
+  const partners = S.contacts.filter((c) => c.portalActivatedAt);
   const visit = partners.slice().sort((a, b) => (daysSince(b.lastVisit) ?? 9999) - (daysSince(a.lastVisit) ?? 9999)).slice(0, 6);
   const bdays = upcomingBirthdays(7);
   let h = '<div class="greet"><h2>' + (hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening') + (me.name ? ', ' + esc(first(me.name)) : '') + '</h2><div>' + esc(new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })) + '</div></div>';
@@ -721,14 +721,16 @@ ROUTES.partners = async (arg, seq) => {
   if (!S.contacts) loading();
   await loadContacts(); if (stale(seq)) return;
   const f = S.partnerFilter;
-  main.innerHTML = '<input class="search" id="pq" type="search" placeholder="Search name or brokerage" value="' + esc(S.partnerQ) + '" autocomplete="off">' +
-    '<div class="chips">' + [['realtors', 'Realtors'], ['partners', 'Active partners'], ['visit', 'Needs a visit'], ['all', 'Everyone']].map((x) => '<button class="chip' + (f === x[0] ? ' on' : '') + '" data-pf="' + x[0] + '">' + x[1] + '</button>').join('') + '</div><div id="plist"></div>';
+  main.innerHTML = '<input class="search" id="pq" type="search" placeholder="Search name or business" value="' + esc(S.partnerQ) + '" autocomplete="off">' +
+    '<div class="chips">' + [['realtors', 'Realtors'], ['storage', 'Storage'], ['senior', 'Senior living'], ['partners', 'Active partners'], ['visit', 'Needs a visit'], ['all', 'Everyone']].map((x) => '<button class="chip' + (f === x[0] ? ' on' : '') + '" data-pf="' + x[0] + '">' + x[1] + '</button>').join('') + '</div><div id="plist"></div>';
   const draw = () => {
     const q = S.partnerQ.toLowerCase().trim();
     let rows = S.contacts.slice();
     if (f === 'realtors') rows = rows.filter(isRealtor);
+    else if (f === 'storage') rows = rows.filter((c) => /storage/i.test(c.type || ''));
+    else if (f === 'senior') rows = rows.filter((c) => /assisted|senior|care/i.test(c.type || ''));
     else if (f === 'partners') rows = rows.filter((c) => c.portalActivatedAt);
-    else if (f === 'visit') rows = rows.filter((c) => isRealtor(c) && (daysSince(c.lastVisit) == null || daysSince(c.lastVisit) > 30));
+    else if (f === 'visit') rows = rows.filter((c) => (isRealtor(c) || c.portalActivatedAt) && (daysSince(c.lastVisit) == null || daysSince(c.lastVisit) > 30));
     if (q) rows = rows.filter((c) => (nm(c) + ' ' + (c.business || '') + ' ' + (c.phone || '') + ' ' + (c.email || '')).toLowerCase().indexOf(q) >= 0);
     if (f === 'visit') rows.sort((a, b) => (daysSince(b.lastVisit) ?? 9999) - (daysSince(a.lastVisit) ?? 9999));
     $('#plist').innerHTML = '<div class="muted small" style="margin:0 4px 8px">' + rows.length + (rows.length === 1 ? ' person' : ' people') + '</div>' + (rows.length ? rows.slice(0, 300).map((c) => contactRow(c)).join('') : '<div class="empty">No matches.</div>');
@@ -928,7 +930,7 @@ async function statsHtml() {
   ]);
   const all = S.contacts;
   const realtors = all.filter(isRealtor);
-  const activeP = realtors.filter((c) => c.portalActivatedAt).length;
+  const activeP = all.filter((c) => c.portalActivatedAt).length;
   const due = payoutItems().filter((x) => !x.paid).reduce((t, x) => t + x.amount, 0);
   const ym = new Date().toISOString().slice(0, 7);
   const refsMonth = refs.filter((r) => String(r.date || '').slice(0, 7) === ym).length;
