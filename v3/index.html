@@ -1608,7 +1608,7 @@ async function renderPortal(){
     try{
       var res=await Promise.all([
         sb("portal_leads?select=id,customerName,realtorName,realtorId,status,moveDate,customerPhone,fromAddress,toAddress,notes,submittedAt&order=id.desc"),
-        sb("referrals?select=id,contactId,contactName,jobName,status,date&order=date.desc"),
+        sb("referrals?select=id,contactId,contactName,jobName,status,date,amount&order=date.desc"),
         sb("contacts?select=id,name,business,type,email,phone,portalActivatedAt,profilePic,cardImage&order=name.asc"),
         sb("paid_referrals?select=key,paid_at,partner"),
         sb("payout_queue?select=id,referral_id,contact_id,partner,customer,amount,added_at&order=id.desc").catch(function(){return [];}),
@@ -1634,6 +1634,8 @@ function payoutItems(){
     var act=actMap[String(r.contactId)]; if(!act) return;
     var d=String(r.date||"").slice(0,10); if(d && d<act) return;
     var key="manual:"+r.id; var rt=byId[String(r.contactId)]||{};
+    // Payout rule (Dane, Oct 2026): completed moves over $1,000, from real partners (not our own staff contacts).
+    if(!(Number(r.amount)>1000)) return; if(/@neongiantmoving\.com$/i.test(rt.email||"")) return;
     items.push({key:key,partner:(r.contactName||"").trim(),customer:r.jobName,source:"referral",amount:50,paid:!!paidMap[key],paidAt:(paidMap[key]&&paidMap[key]!=="1")?paidMap[key]:"",id:r.id,email:rt.email||"",rtId:r.contactId,photo:rt.profilePic||rt.cardImage||""});
   });
   // manually-queued referrals ("Add to Portal" from a profile)
@@ -1862,7 +1864,8 @@ function drawDashboard(){
   var actMap={};ALL.forEach(function(c){if(c.portalActivatedAt)actMap[String(c.id)]=String(c.portalActivatedAt).slice(0,10);});
   var due=0;
   (DATA.leads||[]).forEach(function(l){if(String(l.status||"").toLowerCase()==="completed"&&!paidMap["portal:"+l.id])due+=50;});
-  (DATA.refs||[]).forEach(function(r){if(String(r.status||"").toLowerCase()!=="completed")return;var a=actMap[String(r.contactId)];if(!a)return;if(String(r.date||"").slice(0,10)<a)return;if(!paidMap["manual:"+r.id])due+=50;});
+  var ngEmail={};ALL.forEach(function(c){ngEmail[String(c.id)]=c.email||"";});
+  (DATA.refs||[]).forEach(function(r){if(String(r.status||"").toLowerCase()!=="completed")return;var a=actMap[String(r.contactId)];if(!a)return;if(String(r.date||"").slice(0,10)<a)return;if(!(Number(r.amount)>1000))return;if(/@neongiantmoving\.com$/i.test(ngEmail[String(r.contactId)]||""))return;if(!paidMap["manual:"+r.id])due+=50;});
   var ym=new Date().toISOString().slice(0,7);
   var refsMonth=(DATA.refs||[]).filter(function(r){return String(r.date||"").slice(0,7)===ym;}).length;
   var stale=ALL.filter(function(c){var d=daysSince(c);return d!==null&&d>21;}).sort(function(a,b){return (daysSince(b)||0)-(daysSince(a)||0);}).slice(0,8);
@@ -2758,7 +2761,8 @@ function topAlerts(){
   var actMap={};ALL.forEach(function(c){if(c.portalActivatedAt)actMap[String(c.id)]=String(c.portalActivatedAt).slice(0,10);});
   var due=0;
   (DATA.leads||[]).forEach(function(l){if(String(l.status||"").toLowerCase()==="completed"&&!paidMap["portal:"+l.id])due+=50;});
-  (DATA.refs||[]).forEach(function(r){if(String(r.status||"").toLowerCase()!=="completed")return;var a=actMap[String(r.contactId)];if(!a)return;if(String(r.date||"").slice(0,10)<a)return;if(!paidMap["manual:"+r.id])due+=50;});
+  var ngEmail={};ALL.forEach(function(c){ngEmail[String(c.id)]=c.email||"";});
+  (DATA.refs||[]).forEach(function(r){if(String(r.status||"").toLowerCase()!=="completed")return;var a=actMap[String(r.contactId)];if(!a)return;if(String(r.date||"").slice(0,10)<a)return;if(!(Number(r.amount)>1000))return;if(/@neongiantmoving\.com$/i.test(ngEmail[String(r.contactId)]||""))return;if(!paidMap["manual:"+r.id])due+=50;});
   var _seen=crmSeen();
   var newLeads=(DATA.leads||[]).filter(function(l){var s=String(l.status||"").toLowerCase();if(!(s==="new"||s===""))return false;var t=String(l.submittedAt||l.moveDate||"");return _seen.leads?(t>_seen.leads):true;}).length;
   var recentMsgs=(DATA.msgDates||[]).filter(function(d){var t=String(d||"");return _seen.inbox?(t>_seen.inbox):((Date.now()-new Date(d).getTime())/86400000<=7);}).length;

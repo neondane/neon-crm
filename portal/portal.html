@@ -255,7 +255,8 @@ var STATUS = {
   'new':       { color:'var(--neon-cyan)',   label:'UNBOOKED' },
   'contacted': { color:'var(--neon-pink)',   label:'CONTACTED' },
   'booked':    { color:'var(--neon-green)',  label:'BOOKED' },
-  'completed': { color:'var(--neon-yellow)', label:'COMPLETED' }
+  'completed': { color:'var(--neon-yellow)', label:'COMPLETED' },
+  'lost':      { color:'#8a8fb0',             label:'NOT BOOKED' }
 };
 function statusBadge(s) {
   var key = String(s||'new').toLowerCase();

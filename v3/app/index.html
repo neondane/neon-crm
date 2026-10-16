@@ -210,7 +210,7 @@ textarea.input{min-height:90px;resize:vertical}
    (Phase 2: they now carry a one-hour login, see NG-DB-LOGIN). Every text, email and payout goes
    through /api/secure on this site, which checks the Cloudflare Access login and marks
    the request X-Neon-App: crm-app so the backend's TEST MODE applies (allowlist only). */
-const VERSION = '1.5.1';
+const VERSION = '1.5.2';
 const SB_URL = 'https://aoyfieswynhgqyrveqnp.supabase.co';
 const SB_KEY = 'sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ';
 /* NG-DB-LOGIN v2 (Phase 2): every database call carries a one-hour login for the signed-in
@@ -1150,7 +1150,7 @@ async function loadPortal(force) {
   if (S.portal && !force) return S.portal;
   const res = await Promise.all([
     sb('portal_leads?select=id,customerName,realtorName,realtorId,status,moveDate,customerPhone,fromAddress,toAddress,submittedAt,sm_status,sm_error,smJobId&order=id.desc'),
-    sb('referrals?select=id,contactId,contactName,jobName,status,date&order=date.desc'),
+    sb('referrals?select=id,contactId,contactName,jobName,status,date,amount&order=date.desc'),
     sb('contacts?or=(type.eq.Realtor,portalActivatedAt.not.is.null)&select=id,name,business,email,phone,portalActivatedAt&order=name.asc'),
     sb('paid_referrals?select=key,paid_at,partner'),
     sb('payout_queue?select=id,referral_id,contact_id,partner,customer,amount,added_at&order=id.desc').catch(() => []),
@@ -1176,6 +1176,8 @@ function payoutItems() {
     const act = actMap[String(r.contactId)]; if (!act) return;
     const d = String(r.date || '').slice(0, 10); if (d && d < act) return;
     const key = 'manual:' + r.id; const rt = byId[String(r.contactId)] || {};
+    // Payout rule (Dane, Oct 2026): completed moves over $1,000, from real partners (not our own staff contacts).
+    if (!(Number(r.amount) > 1000) || /@neongiantmoving\.com$/i.test(rt.email || '')) return;
     items.push({ key, partner: (r.contactName || '').trim(), customer: r.jobName, source: 'referral', amount: 50, paid: !!paidMap[key], id: r.id, email: rt.email || '', rtId: r.contactId });
   });
   const seen = {}; items.forEach((it) => { seen[it.key] = 1; });

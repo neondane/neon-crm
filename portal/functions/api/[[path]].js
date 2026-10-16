@@ -288,9 +288,11 @@ async function handleSupabaseAction(action, payload, baseUrl, key, origin, env, 
       if (!k) { __merged.push(l); return; }
       if (!(k in __seen)) { __seen[k] = __merged.length; __merged.push(l); return; }
       const ex = __merged[__seen[k]];
-      const better = (!l.historical && ex.historical) ||
-        ((__rank[String(l.status || '').toLowerCase()] || 0) > (__rank[String(ex.status || '').toLowerCase()] || 0));
-      if (better) __merged[__seen[k]] = l;
+      // Keep the portal record (it has move size etc.), but always show the most advanced status:
+      // the SmartMoving copy is the one that says booked / completed. (Jen's Sandy Hirzel, Oct 2026.)
+      const rl = __rank[String(l.status || '').toLowerCase()] || 0, re = __rank[String(ex.status || '').toLowerCase()] || 0;
+      const keep = (!l.historical && ex.historical) ? l : (l.historical && !ex.historical) ? ex : (rl > re ? l : ex);
+      __merged[__seen[k]] = Object.assign({}, keep, { status: rl > re ? l.status : ex.status });
     });
     const allLeads = __merged.sort(function (a, b) {
       return new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0);
