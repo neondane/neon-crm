@@ -5,7 +5,8 @@
  *    subscribe   {subscription, userAgent} / unsubscribe {endpoint}
  *    prefs       {channels:{eventKey:{push,desktop,sms}}, phone, quiet_start, quiet_end}
  *    test        {event?, channels?:['push','sms']} -> sends a test to this person only
- *    list        {limit} -> the in-app alert history
+ *    list        {limit} -> the in-app alert history (Activity)
+ *    lead        {id} -> one website/Facebook lead for the app's lead page
  *    feed        {afterId} -> new alerts for the DESKTOP CRM (filtered by the person's desktop switches)
  *    twilio_msg  {sid} -> read-only Twilio timestamps (delay diagnosis)
  */
@@ -66,9 +67,17 @@ const handler = endpoint(async ({ env, body, reply, request }) => {
   }
 
   if (op === 'list') {
-    const lim = Math.min(+body.limit || 40, 100);
-    const rows = await d.get('notifications?select=id,event,category,title,body,url,urgent,created_at&or=(target_email.is.null,target_email.eq.' + enc(user) + ')&order=id.desc&limit=' + lim);
+    const lim = Math.min(+body.limit || 40, 150);
+    const rows = await d.get('notifications?select=id,event,category,title,body,url,urgent,created_at,source_key&or=(target_email.is.null,target_email.eq.' + enc(user) + ')&order=id.desc&limit=' + lim);
     return reply({ ok: true, items: rows });
+  }
+
+  if (op === 'lead') {
+    // One website / Facebook lead, for the app's lead page (the alert links here).
+    const id = parseInt(body.id, 10);
+    if (!(id > 0)) return reply({ ok: false, error: 'bad_id' }, 400);
+    const row = (await d.get('inbound_leads?id=eq.' + id + '&select=id,source,name,phone,email,details,created_at'))[0];
+    return row ? reply({ ok: true, lead: row }) : reply({ ok: false, error: 'not_found', message: 'That lead is no longer here.' }, 404);
   }
 
   if (op === 'feed') {

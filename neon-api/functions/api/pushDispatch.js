@@ -64,7 +64,7 @@ const handler = endpoint(async ({ env, body, reply }) => {
   // 5) website + Facebook leads (capped so a flood can't spam phones)
   const il = await d.get('inbound_leads?select=id,source,name,phone,details&created_at=gte.' + enc(since) + '&order=id.asc&limit=10');
   il.forEach((l) => { const fb = l.source === 'facebook'; const det = l.details || {};
-    add(fb ? 'lead_facebook' : 'lead_website', (fb ? 'Facebook lead: ' : 'Website lead: ') + clip(l.name || 'New lead', 40), clip([det.moveDate ? 'Move ' + det.moveDate : '', det.from || '', l.phone ? fmtPhone(l.phone) : ''].filter(Boolean).join(' · ') || 'Check SmartMoving for details.', 140), '/app/#home', 'inlead:' + l.id); });
+    add(fb ? 'lead_facebook' : 'lead_website', (fb ? 'Facebook lead: ' : 'Website lead: ') + clip(l.name || 'New lead', 40), clip([det.moveDate ? 'Move ' + det.moveDate : '', det.from || '', l.phone ? fmtPhone(l.phone) : ''].filter(Boolean).join(' · ') || 'Check SmartMoving for details.', 140), '/app/#lead/' + l.id, 'inlead:' + l.id); });
   // 6) partner just listed (morning sweep)
   const aa = await d.get('agent_alerts?select=id,contact_id,agent_name,address,price&created_at=gte.' + enc(since) + '&order=id.asc&limit=30');
   aa.forEach((a) => add('partner_listed', clip(a.agent_name, 40) + ' just listed a home', clip(String(a.address || '').split(',')[0], 60) + (a.price ? ' · $' + Math.round(+a.price).toLocaleString() : ''), a.contact_id ? '/app/#chat/c' + a.contact_id : '/app/#radar', 'listed:' + a.id));

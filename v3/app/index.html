@@ -210,7 +210,7 @@ textarea.input{min-height:90px;resize:vertical}
    (Phase 2: they now carry a one-hour login, see NG-DB-LOGIN). Every text, email and payout goes
    through /api/secure on this site, which checks the Cloudflare Access login and marks
    the request X-Neon-App: crm-app so the backend's TEST MODE applies (allowlist only). */
-const VERSION = '1.4.2';
+const VERSION = '1.5.0';
 const SB_URL = 'https://aoyfieswynhgqyrveqnp.supabase.co';
 const SB_KEY = 'sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ';
 /* NG-DB-LOGIN v2 (Phase 2): every database call carries a one-hour login for the signed-in
@@ -480,7 +480,7 @@ async function render() {
   const fn = ROUTES[name] || ROUTES.home;
   document.body.classList.toggle('chatting', name === 'chat');
   $('#tabs').classList.toggle('hidden', name === 'chat');
-  setTab({ chat: 'inbox', p: 'partners', payouts: 'home', referrals: 'home', radar: 'home', install: 'home', more: 'home', stats: 'home' }[name] || name);
+  setTab({ chat: 'inbox', p: 'partners', payouts: 'home', referrals: 'home', radar: 'home', install: 'home', more: 'home', stats: 'home', alert: 'alerts', lead: 'alerts' }[name] || name);
   window.scrollTo(0, 0);
   try { await fn(arg, seq); } catch (e) { if (seq === renderSeq) main.innerHTML = '<div class="err">Something went wrong loading this screen. ' + esc(e.message || e) + '</div><button class="btn full" onclick="location.reload()">Reload</button>'; }
   watchPhotos();
@@ -1017,9 +1017,78 @@ async function refreshAlertBadge() {
 }
 const hourOpts = (sel) => Array.from({ length: 24 }, (_, h) => '<option value="' + h + '"' + (h === sel ? ' selected' : '') + '>' + ((h % 12) || 12) + ' ' + (h < 12 ? 'AM' : 'PM') + '</option>').join('');
 const EV_ICON = { Messages: ICON.chat, Leads: ICON.star, Problems: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>', Jobs: ICON.money, Reminders: ICON.cake };
+/* ---------- Alerts: Activity (everything that buzzed) + Settings ---------- */
+function alertSeg(on) {
+  return '<div class="chips" style="justify-content:center"><a class="chip' + (on === 'activity' ? ' on' : '') + '" href="#alerts">Activity</a><a class="chip' + (on === 'settings' ? ' on' : '') + '" href="#alerts/settings">Settings</a></div>';
+}
+// Where tapping an alert goes. Leads open their own page; alerts with no better place open a detail card.
+function alertTarget(n) {
+  const m = String(n.source_key || '').match(/^inlead:(\d+)$/); if (m) return '#lead/' + m[1];
+  const u = String(n.url || ''); const k = u.indexOf('#'); const h = k >= 0 ? u.slice(k) : '';
+  return (!h || h === '#home' || h === '#alerts') ? '#alert/' + n.id : h;
+}
+const tTime = (iso) => { const t = ts(iso); return t ? new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''; };
+function alertDay(iso) {
+  const t = ts(iso); if (!t) return ''; const d = new Date(t); const k = d.toDateString();
+  const now = new Date(); if (k === now.toDateString()) return 'Today';
+  const y = new Date(now); y.setDate(now.getDate() - 1); if (k === y.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+}
+const ALERT_F = ['All', 'Leads', 'Messages', 'Jobs', 'Problems', 'Reminders'];
 ROUTES.alerts = async (arg, seq) => {
-  setTop('Alerts', { sub: 'Choose what reaches you, and how' }); loading();
-  const [cfg, list, sub] = await Promise.all([secure('push', { op: 'config' }), secure('push', { op: 'list', limit: 50 }), pushSupported() ? currentSub() : Promise.resolve(null)]);
+  if (arg === 'settings') return alertSettings(seq);
+  setTop('Alerts', { sub: 'Everything that came in, newest first' });
+  if (!S.alerts) loading();
+  const r = await secure('push', { op: 'list', limit: 150 });
+  if (stale(seq)) return;
+  if (!r.ok) { main.innerHTML = alertSeg('activity') + '<div class="err">' + esc(r.message || 'Could not load your alerts.') + '</div>'; return; }
+  S.alerts = r.items || [];
+  const seen = localStorage.getItem('ncrm:alertsSeen') || '';
+  let f = 'All'; try { f = sessionStorage.getItem('ncrm:alertF') || 'All'; } catch (_) {}
+  const items = S.alerts.filter((n) => f === 'All' || n.category === f);
+  let h = alertSeg('activity') + '<div class="chips">' + ALERT_F.map((x) => '<button class="chip' + (f === x ? ' on' : '') + '" data-af="' + x + '">' + x + '</button>').join('') + '</div>';
+  if (!items.length) h += '<div class="empty">' + (f === 'All' ? 'Nothing yet. New leads, texts, referrals and job updates show up here.' : 'Nothing in ' + esc(f) + ' yet.') + '</div>';
+  let lastDay = '';
+  items.forEach((n) => {
+    const dl = alertDay(n.created_at);
+    if (dl !== lastDay) { if (lastDay) h += '</div>'; h += '<div class="h2">' + esc(dl) + '</div><div class="card" style="padding:4px 0">'; lastDay = dl; }
+    const isNew = seen && n.created_at > seen;
+    h += '<a class="row" href="' + esc(alertTarget(n)) + '"><div class="tile-ic">' + (EV_ICON[n.category] || ICON.bell) + '</div><div class="main"><div class="nm">' + (isNew ? '<span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--pink);margin-right:7px"></span>' : '') + '<span class="t">' + esc(n.title) + '</span></div><div class="meta">' + esc(n.body || '') + '</div></div><div class="side">' + esc(tTime(n.created_at)) + '</div></a>';
+  });
+  if (lastDay) h += '</div>';
+  main.innerHTML = h;
+  $$('[data-af]').forEach((b) => { b.onclick = () => { try { sessionStorage.setItem('ncrm:alertF', b.getAttribute('data-af')); } catch (_) {} render(); }; });
+  if (S.alerts[0]) { try { localStorage.setItem('ncrm:alertsSeen', S.alerts[0].created_at); } catch (_) {} const ab = $('#alertBadge'); if (ab) ab.classList.add('hidden'); }
+};
+// One alert, for alerts that have no better page to open.
+ROUTES.alert = async (arg, seq) => {
+  setTop('Alert', { back: '#alerts' });
+  if (!S.alerts) { loading(); const r = await secure('push', { op: 'list', limit: 150 }); if (stale(seq)) return; S.alerts = (r.ok && r.items) || []; }
+  const n = S.alerts.find((x) => String(x.id) === String(arg));
+  if (!n) { main.innerHTML = '<div class="empty">This alert is too old to show.</div>'; return; }
+  main.innerHTML = '<div class="card" style="text-align:center"><div class="tile-ic" style="margin:0 auto 8px">' + (EV_ICON[n.category] || ICON.bell) + '</div><div style="font-weight:800;font-size:18px">' + esc(n.title) + '</div><div style="margin-top:6px;white-space:pre-wrap">' + esc(n.body || '') + '</div><div class="muted small" style="margin-top:10px">' + esc(alertDay(n.created_at) + ' at ' + tTime(n.created_at)) + (n.category ? ' · ' + esc(n.category) : '') + '</div></div>';
+};
+// A website or Facebook lead.
+ROUTES.lead = async (arg, seq) => {
+  setTop('New lead', { back: '#alerts' }); loading();
+  const r = await secure('push', { op: 'lead', id: arg });
+  if (stale(seq)) return;
+  if (!r.ok || !r.lead) { main.innerHTML = '<div class="err">' + esc(r.message || 'Could not load this lead.') + '</div>'; return; }
+  const l = r.lead; const d = l.details || {}; const p10 = last10(l.phone);
+  const src = l.source === 'facebook' ? 'Facebook lead' : 'Website quote request';
+  const LBL = { moveDate: 'Move date', from: 'Moving from', to: 'Moving to', size: 'Size', zip: 'Zip', service: 'Service', notes: 'Notes', message: 'Message' };
+  const rows = Object.keys(d).filter((k) => d[k] != null && String(d[k]).trim() !== '').map((k) => '<div class="row" style="cursor:default"><div class="main"><div class="meta">' + esc(LBL[k] || k) + '</div><div class="nm"><span class="t">' + esc(String(d[k])) + '</span></div></div></div>').join('');
+  main.innerHTML = '<div class="card" style="text-align:center"><span class="pill">' + esc(src) + '</span><div style="font-weight:800;font-size:22px;margin-top:8px">' + esc(l.name || 'New lead') + '</div>' +
+    (l.phone ? '<div class="muted" style="margin-top:2px">' + esc(fmtPhone(l.phone)) + '</div>' : '') + (l.email ? '<div class="muted small">' + esc(l.email) + '</div>' : '') +
+    '<div class="muted small" style="margin-top:6px">' + esc(alertDay(l.created_at) + ' at ' + tTime(l.created_at)) + '</div>' +
+    '<div class="grid2" style="margin-top:14px">' + (p10.length === 10 ? '<a class="btn grad" href="tel:+1' + p10 + '">' + ICON.phone + ' Call</a><a class="btn" href="#chat/n' + p10 + '">' + ICON.chat + ' Text</a>' : '') + '</div>' +
+    (l.email ? '<a class="btn ghost full" style="margin-top:8px" href="mailto:' + esc(l.email) + '">' + ICON.mail + ' Email</a>' : '') + '</div>' +
+    (rows ? '<div class="h2">Details</div><div class="card" style="padding:4px 0">' + rows + '</div>' : '');
+};
+
+async function alertSettings(seq) {
+  setTop('Alert settings', { sub: 'Choose what reaches you, and how' }); loading();
+  const [cfg, sub] = await Promise.all([secure('push', { op: 'config' }), pushSupported() ? currentSub() : Promise.resolve(null)]);
   if (stale(seq)) return;
   if (!cfg.ok) { main.innerHTML = '<div class="err">' + esc(cfg.message || 'Could not load your alert settings.') + '</div>'; return; }
   const prefs = cfg.prefs || {}; const ch = prefs.channels || {};
@@ -1030,7 +1099,7 @@ ROUTES.alerts = async (arg, seq) => {
   else if (Notification.permission === 'denied') state = '<div class="warn" style="text-align:center"><b>Alerts are blocked on this phone.</b><br>' + (isIOS() ? 'Settings, Notifications, Neon CRM, Allow Notifications.' : 'Tap the lock by the address, Permissions, Notifications, Allow.') + '</div>';
   else if (Notification.permission === 'granted' && known) state = '<div class="ok" style="text-align:center"><b>Phone alerts are on for this device.</b></div><div class="grid2"><button class="btn grad" id="aTest">Send me a test</button><button class="btn ghost" id="aOff">Turn off here</button></div>';
   else state = '<button class="btn grad full" id="aOn">' + ICON.bell + ' Turn on phone alerts</button>';
-  let h = '<div class="card" style="text-align:center">' + state + (!cfg.pushLive && !cfg.onAllowlist ? '<div class="muted small" style="margin-top:10px">Alerts are being tested with Dane, Jeff and Valentina. You will start getting them when Dane turns them on for the team.</div>' : '') + '</div>';
+  let h = alertSeg('settings') + '<div class="card" style="text-align:center">' + state + (!cfg.pushLive && !cfg.onAllowlist ? '<div class="muted small" style="margin-top:10px">Alerts are being tested with Dane, Jeff and Valentina. You will start getting them when Dane turns them on for the team.</div>' : '') + '</div>';
   h += '<div class="card"><div style="font-weight:800;text-align:center">Text me at</div><div class="muted small" style="text-align:center;margin:2px 0 10px">For alerts where you switch on Text.</div><div style="display:flex;gap:8px"><input class="input" id="smsPhone" inputmode="tel" placeholder="Your cell number" value="' + esc(prefs.phone ? fmtPhone(prefs.phone) : '') + '"><button class="btn" id="smsSave">Save</button></div></div>';
   const groups = {}; (cfg.events || []).forEach((e) => { (groups[e.group] = groups[e.group] || []).push(e); });
   h += '<div class="legend" style="justify-content:center;margin:6px 0 4px"><span><b style="color:var(--text)">Phone</b> buzz on this phone</span><span><b style="color:var(--text)">Desktop</b> chime in the CRM</span><span><b style="color:var(--text)">Text</b> a text message</span></div>';
@@ -1042,11 +1111,7 @@ ROUTES.alerts = async (arg, seq) => {
     });
   });
   h += '<div class="card"><div style="font-weight:800;text-align:center;margin-bottom:8px">Quiet hours</div><div class="grid2"><div><div class="muted small">From</div><select class="input" id="qS">' + hourOpts(prefs.quiet_start != null ? +prefs.quiet_start : 21) + '</select></div><div><div class="muted small">Until</div><select class="input" id="qE">' + hourOpts(prefs.quiet_end != null ? +prefs.quiet_end : 7) + '</select></div></div><div class="muted small" style="margin-top:8px;text-align:center">Pacific time. During quiet hours, phone and text alerts wait, and you get one summary when they end. Urgent problems still come through. Same hour twice turns quiet hours off.</div></div>';
-  const items = (list.ok && list.items) || [];
-  h += '<div class="tile' + (items.length ? '' : ' open') + '"><button class="tile-head"><div class="tile-ic">' + ICON.inbox + '</div><div><div style="font-weight:800">Alert history</div><div class="tile-lbl">' + items.length + ' recent</div></div><span class="tile-chev">' + ICON.chev + '</span></button><div class="tile-body"><div><div class="tile-inner">' +
-    (items.length ? items.map((n) => '<a class="row" href="' + esc(String(n.url || '/app/#home').replace('/app/', '')) + '"><div class="tile-ic">' + (EV_ICON[n.category] || ICON.bell) + '</div><div class="main"><div class="nm"><span class="t">' + esc(n.title) + '</span></div><div class="meta">' + esc(n.body || '') + '</div></div><div class="side">' + esc(ago(n.created_at)) + '</div></a>').join('') : '<div class="empty">No alerts yet.</div>') + '</div></div></div></div>';
   main.innerHTML = h; bindTiles();
-  if (items[0]) { try { localStorage.setItem('ncrm:alertsSeen', items[0].created_at); } catch (_) {} const ab = $('#alertBadge'); if (ab) ab.classList.add('hidden'); }
   let tmr = null;
   const save = () => { clearTimeout(tmr); tmr = setTimeout(async () => {
     const channels = {}; $$('[data-ev]').forEach((x) => { const k = x.getAttribute('data-ev'); (channels[k] = channels[k] || {})[x.getAttribute('data-ch')] = x.checked; });
@@ -1062,13 +1127,13 @@ ROUTES.alerts = async (arg, seq) => {
   const on = $('#aOn'); if (on) on.onclick = async () => { if (await enableAlerts()) render(); };
   const tst = $('#aTest'); if (tst) tst.onclick = async () => { tst.disabled = true; const r = await secure('push', { op: 'test' }); tst.disabled = false; toast(r.message || (r.ok ? 'Sent' : 'Not sent'), !r.ok); };
   const off = $('#aOff'); if (off) off.onclick = async () => { const sb2 = await currentSub(); if (sb2) { await secure('push', { op: 'unsubscribe', endpoint: sb2.endpoint }); await sb2.unsubscribe().catch(() => {}); } toast('Phone alerts off on this device'); render(); };
-};
+}
 
 /* ================= MORE ================= */
 ROUTES.more = async () => {
   setTop('More');
   const me = await loadMe();
-  main.innerHTML = '<a class="row" href="#alerts"><div class="tile-ic">' + ICON.bell + '</div><div class="main"><div class="nm">Alerts</div><div class="meta">Push alerts, quiet hours, what buzzes</div></div></a>' +
+  main.innerHTML = '<a class="row" href="#alerts/settings"><div class="tile-ic">' + ICON.bell + '</div><div class="main"><div class="nm">Alert settings</div><div class="meta">Push alerts, quiet hours, what buzzes</div></div></a>' +
     '<a class="row" href="#stats"><div class="tile-ic">' + ICON.chart + '</div><div class="main"><div class="nm">Stats</div><div class="meta">The desktop dashboard numbers</div></div></a>' +
     '<a class="row" href="#payouts"><div class="tile-ic">' + ICON.money + '</div><div class="main"><div class="nm">Payouts</div><div class="meta">Referral rewards waiting to be sent</div></div></a>' +
     '<a class="row" href="#referrals"><div class="tile-ic">' + ICON.star + '</div><div class="main"><div class="nm">Portal referrals</div><div class="meta">And whether each one reached SmartMoving</div></div></a>' +
