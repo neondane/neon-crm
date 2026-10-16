@@ -182,6 +182,20 @@ const handler = endpoint(async ({ request, env, body, reply, waitUntil }) => {
     }
     return reply({ ok: true, oppId, partner: match.name, action: 'unchanged', status: existing.status });
   }
+  // Same job already saved under no partner (it came in before the partner was in the CRM)?
+  // Link that row instead of saving a second copy. (52 doubles cleaned up Oct 16, 2026.)
+  try {
+    const prior = ((await db.select('referrals?notes=ilike.*' + encodeURIComponent('[SM:' + oppId + ']') + '*&status=neq.duplicate&select=id,contactId,status,notes&order=id.asc&limit=5')) || []);
+    const loose = prior.find((r) => !String(r.contactId || '').trim());
+    if (loose) {
+      const up = { contactId: String(match.id), contactName: match.name, notes: (loose.notes || '') + ' | linked to ' + match.name };
+      if ((RANK[stage] || 0) > (RANK[String(loose.status || '').toLowerCase()] || 0)) up.status = stage;
+      await db.update('referrals', `id=eq.${loose.id}`, up);
+      if (up.status) await emitJob(env, waitUntil, stage, { source: 'referral', oppId, refId: loose.id, customer: cust, partner: match.name, stage, amount, date });
+      return reply({ ok: true, oppId, partner: match.name, action: 'linked', refId: loose.id });
+    }
+    if (prior.length) return reply({ ok: true, oppId, partner: match.name, action: 'unchanged', note: 'already saved under another contact', refId: prior[0].id });
+  } catch (_) { /* fall through to a normal save */ }
   try {
     await db.insert('referrals', {
       contactId: String(match.id), contactName: match.name, jobName: cust, status: stage,
