@@ -101,6 +101,13 @@ const handler = endpoint(async ({ env, body, reply }) => {
       serviceDate: opp.serviceDate || null,
       status: opp.status || null,
       leadStatus: opp.leadStatus || null,
+      // Who SmartMoving says referred this job (the CRM credits the partner from these).
+      referral: {
+        affiliateName: opp.affiliateName || null,
+        referralSource: (opp.referralSource && typeof opp.referralSource === 'object') ? (opp.referralSource.name || opp.referralSource.type || null) : (opp.referralSource || opp.referralSourceName || null),
+        salesPerson: (opp.salesPerson && (opp.salesPerson.name || opp.salesPerson.fullName)) || opp.salesPersonName || null,
+        keys: Object.keys(opp).filter((k) => /affil|referr|source|partner|agent/i.test(k)),
+      },
       jobs, crew: all,
     });
   } catch (e) {
