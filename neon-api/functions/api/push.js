@@ -7,6 +7,7 @@
  *    test        {event?, channels?:['push','sms']} -> sends a test to this person only
  *    list        {limit} -> the in-app alert history (Activity)
  *    lead        {id} -> one website/Facebook lead for the app's lead page
+ *    alias       {affiliate, contactId} -> remember who a SmartMoving referrer is, credit their open referrals
  *    feed        {afterId} -> new alerts for the DESKTOP CRM (filtered by the person's desktop switches)
  *    twilio_msg  {sid} -> read-only Twilio timestamps (delay diagnosis)
  */
@@ -70,6 +71,22 @@ const handler = endpoint(async ({ env, body, reply, request }) => {
     const lim = Math.min(+body.limit || 40, 150);
     const rows = await d.get('notifications?select=id,event,category,title,body,url,urgent,created_at,source_key&or=(target_email.is.null,target_email.eq.' + enc(user) + ')&order=id.desc&limit=' + lim);
     return reply({ ok: true, items: rows });
+  }
+
+  if (op === 'alias') {
+    // Someone matched a SmartMoving referrer to a contact in the app. Remember it, and credit every
+    // other unmatched referral with the same SmartMoving name.
+    const aff = String(body.affiliate || '').trim(); const cid = parseInt(body.contactId, 10);
+    const key = aff.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!key || !(cid > 0)) return reply({ ok: false, error: 'bad_input' }, 400);
+    const c = (await d.get('contacts?id=eq.' + cid + '&select=id,name'))[0];
+    if (!c) return reply({ ok: false, error: 'no_contact' }, 404);
+    const cur = (await d.get('app_settings?key=eq.partner_aliases&select=value'))[0];
+    const map = Object.assign({}, (cur && cur.value && cur.value.map) || {}); map[key] = cid;
+    await d.post('app_settings?on_conflict=key', { key: 'partner_aliases', value: { map } }, 'resolution=merge-duplicates,return=minimal');
+    const loose = await d.get('referrals?contactName=eq.' + enc(aff) + '&or=(contactId.is.null,contactId.eq."")&select=id,notes');
+    for (const r of loose) await d.patch('referrals?id=eq.' + r.id, { contactId: String(cid), contactName: c.name, notes: (r.notes || '') + ' | matched to ' + c.name + ' by ' + user }).catch(() => {});
+    return reply({ ok: true, linked: loose.length, contact: c.name });
   }
 
   if (op === 'lead') {

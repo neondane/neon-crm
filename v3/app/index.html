@@ -210,7 +210,7 @@ textarea.input{min-height:90px;resize:vertical}
    (Phase 2: they now carry a one-hour login, see NG-DB-LOGIN). Every text, email and payout goes
    through /api/secure on this site, which checks the Cloudflare Access login and marks
    the request X-Neon-App: crm-app so the backend's TEST MODE applies (allowlist only). */
-const VERSION = '1.5.2';
+const VERSION = '1.6.0';
 const SB_URL = 'https://aoyfieswynhgqyrveqnp.supabase.co';
 const SB_KEY = 'sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ';
 /* NG-DB-LOGIN v2 (Phase 2): every database call carries a one-hour login for the signed-in
@@ -480,7 +480,7 @@ async function render() {
   const fn = ROUTES[name] || ROUTES.home;
   document.body.classList.toggle('chatting', name === 'chat');
   $('#tabs').classList.toggle('hidden', name === 'chat');
-  setTab({ chat: 'inbox', p: 'partners', payouts: 'home', referrals: 'home', radar: 'home', install: 'home', more: 'home', stats: 'home', alert: 'alerts', lead: 'alerts' }[name] || name);
+  setTab({ chat: 'inbox', p: 'partners', payouts: 'home', referrals: 'home', radar: 'home', install: 'home', more: 'home', stats: 'home', alert: 'alerts', lead: 'alerts', match: 'home', unmatched: 'home' }[name] || name);
   window.scrollTo(0, 0);
   try { await fn(arg, seq); } catch (e) { if (seq === renderSeq) main.innerHTML = '<div class="err">Something went wrong loading this screen. ' + esc(e.message || e) + '</div><button class="btn full" onclick="location.reload()">Reload</button>'; }
   watchPhotos();
@@ -517,7 +517,7 @@ ROUTES.home = async (arg, seq) => {
   const bdays = upcomingBirthdays(7);
   let h = '<div class="greet"><h2>' + (hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening') + (me.name ? ', ' + esc(first(me.name)) : '') + '</h2><div>' + esc(new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })) + '</div></div>';
   if (!isStandalone() && !localStorage.getItem('ncrm:hideInstall')) h += '<div class="card" style="border-color:rgba(255,20,147,.35);text-align:center"><b>Put Neon CRM on your home screen</b><div class="muted small" style="margin:4px 0 10px">It opens like a real app, and you get alerts.</div><div class="grid2"><a class="btn grad" href="#install">How to install</a><button class="btn ghost" id="hideInstall">Not now</button></div></div>';
-  h += alertsNudge('home');
+  h += '<div id="unmBox"></div>' + alertsNudge('home');
   h += '<div class="hgrid">';
   h += htile('msgs', ICON.inbox, unread.length, unread.length === 1 ? 'Unread conversation' : 'Unread conversations', (unread.length ? unread : threads).slice(0, 5).map(threadRow).join('') + '<a class="btn full" href="#inbox">Open Inbox</a>', unread.length > 0);
   h += htile('pay', ICON.money, '<span id="payNum">…</span>', 'Payouts due', '<div id="payList"><div class="spin"></div></div><a class="btn full" href="#payouts">Open Payouts</a>');
@@ -543,6 +543,7 @@ ROUTES.home = async (arg, seq) => {
   const hi = $('#hideInstall'); if (hi) hi.onclick = () => { localStorage.setItem('ncrm:hideInstall', '1'); render(); };
   $('#homeRefresh').onclick = async () => { S.portal = null; S.statsHtml = null; await Promise.all([loadContacts(true), loadMessages(true)]); render(); };
   wireAlertsNudge();
+  loadUnmatched().then((u) => { const b = $('#unmBox'); if (b && u.length) b.innerHTML = '<a class="card" href="#unmatched" style="display:flex;gap:12px;align-items:center;border-color:rgba(255,20,147,.45);text-decoration:none;color:inherit"><div class="tile-ic">' + ICON.user + '</div><div style="flex:1"><b>' + u.length + (u.length === 1 ? ' referral needs' : ' referrals need') + ' a partner</b><div class="muted small">SmartMoving named someone we can\'t place. Tap to match.</div></div>' + ICON.chev + '</a>'; }).catch(() => {});
   updateBadge(); refreshAlertBadge();
   loadPortal().then(() => {
     if (stale(seq)) return;
@@ -1130,6 +1131,86 @@ async function alertSettings(seq) {
   const tst = $('#aTest'); if (tst) tst.onclick = async () => { tst.disabled = true; const r = await secure('push', { op: 'test' }); tst.disabled = false; toast(r.message || (r.ok ? 'Sent' : 'Not sent'), !r.ok); };
   const off = $('#aOff'); if (off) off.onclick = async () => { const sb2 = await currentSub(); if (sb2) { await secure('push', { op: 'unsubscribe', endpoint: sb2.endpoint }); await sb2.unsubscribe().catch(() => {}); } toast('Phone alerts off on this device'); render(); };
 }
+
+
+/* ================= WHO REFERRED THIS? (match a SmartMoving referrer to a contact) ================= */
+const UNM_SINCE = () => new Date(Date.now() - 180 * 864e5).toISOString().slice(0, 10);
+async function loadUnmatched() {
+  const rows = await sb('referrals?select=id,contactName,jobName,status,date,amount&or=(contactId.is.null,contactId.eq."")&status=in.(referred,booked,completed)&date=gte.' + UNM_SINCE() + '&order=date.desc&limit=100');
+  return (rows || []).filter((r) => String(r.contactName || '').trim() && !/^portal\b/i.test(r.contactName));
+}
+// SmartMoving text -> { person, company }, e.g. "Renee - Windermere Real Estate", "Melissa (Creekside)"
+function splitAff(t) {
+  t = String(t || '').trim(); const br = t.match(/^(.+?)\s*\((.+)\)\s*$/); if (br) return { person: br[1].trim(), company: br[2].trim() };
+  const p = t.split(/\s+[-–—|@/]\s+|\s+at\s+|,\s+/i).map((x) => x.trim()).filter(Boolean);
+  return p.length > 1 ? { person: p[0], company: p.slice(1).join(' ') } : { person: t, company: '' };
+}
+const nrm = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+function suggestFor(aff) {
+  const { person, company } = splitAff(aff); const words = person.toLowerCase().split(/\s+/).filter((w) => w.length > 1);
+  const co = nrm(company).slice(0, 6);
+  return (S.contacts || []).map((c) => {
+    const nw = String(c.name || '').toLowerCase().split(/\s+/); let sc = 0;
+    words.forEach((w, i) => { if (nw.includes(w)) sc += i === 0 ? 3 : 4; else if (nw.some((x) => x.length > 3 && (x.startsWith(w) || w.startsWith(x)))) sc += 1; });
+    const em = nrm(c.email); if (nrm(person).length > 4 && em.indexOf(nrm(person.split(/\s+/)[0])) >= 0) sc += 2; // e.g. "paulinaandjacson@..." for Jacson
+    if (co && nrm(c.business).indexOf(co) >= 0) sc += sc ? 2 : 0.5;
+    if (c.portalActivatedAt && sc) sc += 0.3;
+    return { c, sc };
+  }).filter((x) => x.sc >= 1).sort((a, b) => b.sc - a.sc).slice(0, 6).map((x) => x.c);
+}
+ROUTES.unmatched = async (arg, seq) => {
+  setTop('Needs a partner', { back: '#home', sub: 'SmartMoving referrers we could not place' }); loading();
+  const [u] = await Promise.all([loadUnmatched(), loadContacts()]); if (stale(seq)) return;
+  main.innerHTML = u.length ? '<div class="card" style="padding:4px 0">' + u.map((r) => '<a class="row" href="#match/' + r.id + '"><div class="tile-ic">' + ICON.user + '</div><div class="main"><div class="nm"><span class="t">' + esc(r.contactName) + '</span></div><div class="meta">' + esc((r.jobName || 'Customer') + ' · ' + (r.status || '') + (r.date ? ' · ' + String(r.date).slice(0, 10) : '')) + '</div></div><div class="side">Match</div></a>').join('') + '</div>' : '<div class="empty">All caught up. Every referral has a partner.</div>';
+};
+ROUTES.match = async (arg, seq) => {
+  setTop('Who referred this?', { back: '#unmatched' }); loading();
+  const [rows] = await Promise.all([sb('referrals?id=eq.' + encodeURIComponent(arg) + '&select=id,contactId,contactName,jobName,status,date,amount'), loadContacts()]);
+  if (stale(seq)) return;
+  const r = rows && rows[0];
+  if (!r) { main.innerHTML = '<div class="empty">That referral is gone.</div>'; return; }
+  if (String(r.contactId || '').trim()) { const c = S.byId.get(String(r.contactId)); main.innerHTML = '<div class="ok" style="text-align:center"><b>Already credited to ' + esc(c ? nm(c) : r.contactName) + '.</b></div>' + (c ? '<a class="btn full" href="#p/' + c.id + '">Open ' + esc(nm(c)) + '</a>' : ''); return; }
+  const aff = String(r.contactName || '').trim(); const { person, company } = splitAff(aff);
+  const sug = suggestFor(aff);
+  const row = (c) => '<div class="row"><div class="tile-ic">' + ICON.user + '</div><div class="main"><div class="nm"><span class="t">' + esc(nm(c)) + '</span></div><div class="meta">' + esc([c.business, c.type].filter(Boolean).join(' · ')) + '</div></div><button class="btn" data-credit="' + c.id + '">Credit</button></div>';
+  const guessType = /storage/i.test(company) ? 'Self-Storage Facility' : /senior|assisted|living/i.test(company) ? 'Assisted Living' : 'Realtor';
+  main.innerHTML = '<div class="card" style="text-align:center"><div class="muted small">SmartMoving says</div><div style="font-weight:800;font-size:19px;margin:2px 0 6px">' + esc(aff) + '</div>' +
+      '<div>' + esc(r.jobName || 'Customer') + ' · ' + esc(r.status || '') + (r.date ? ' · ' + esc(String(r.date).slice(0, 10)) : '') + '</div></div>' +
+    '<div class="h2">' + (sug.length ? 'Is it one of these?' : 'No close match in the CRM') + '</div>' + (sug.length ? '<div class="card" style="padding:4px 0">' + sug.map(row).join('') + '</div>' : '') +
+    '<div class="h2">Someone else</div><input class="search" id="mq" type="search" placeholder="Search everyone" autocomplete="off"><div class="card" style="padding:4px 0" id="mres"><div class="muted small" style="padding:10px 14px">Type a name or business.</div></div>' +
+    '<div class="h2">Not in the CRM yet?</div><div class="card">' +
+      '<div class="field"><label>Name *</label><input class="input" id="nName" value="' + esc(person) + '"></div>' +
+      '<div class="field"><label>Business</label><input class="input" id="nBiz" value="' + esc(company) + '"></div>' +
+      '<div class="field"><label>Type</label><select class="input" id="nType">' + TYPES.map((t) => '<option' + (t === guessType ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select></div>' +
+      '<div class="field"><label>Mobile phone</label><input class="input" id="nPhone" inputmode="tel" placeholder="Optional"></div>' +
+      '<div class="field"><label>Email</label><input class="input" id="nEmail" inputmode="email" placeholder="Optional"></div>' +
+      '<button class="btn grad full" id="nSave">Add and credit them</button></div><div style="height:20px"></div>';
+  const credit = async (cid, btn) => {
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+    const res = await secure('push', { op: 'alias', affiliate: aff, contactId: cid });
+    if (!res.ok) { if (btn) { btn.disabled = false; btn.textContent = 'Credit'; } toast(res.message || 'Not saved. Try again.', true); return false; }
+    toast('Credited to ' + res.contact + (res.linked > 1 ? ' (' + res.linked + ' referrals)' : '') + '. Next time it happens automatically.');
+    S.portal = null; location.hash = '#p/' + cid; return true;
+  };
+  const bind = () => $$('[data-credit]').forEach((b) => { b.onclick = () => credit(+b.getAttribute('data-credit'), b); });
+  bind();
+  $('#mq').oninput = () => { const q = $('#mq').value.toLowerCase().trim(); if (q.length < 2) { $('#mres').innerHTML = '<div class="muted small" style="padding:10px 14px">Type a name or business.</div>'; return; }
+    const hits = (S.contacts || []).filter((c) => (nm(c) + ' ' + (c.business || '')).toLowerCase().indexOf(q) >= 0).slice(0, 12);
+    $('#mres').innerHTML = hits.length ? hits.map(row).join('') : '<div class="muted small" style="padding:10px 14px">Nobody matches.</div>'; bind(); };
+  $('#nSave').onclick = async () => {
+    const name = $('#nName').value.trim(); if (!name) { toast('Add their name', true); return; }
+    const phone = last10($('#nPhone').value); if ($('#nPhone').value.trim() && phone.length !== 10) { toast('Enter a 10-digit number or leave it blank', true); return; }
+    const type = $('#nType').value; const now = new Date().toISOString();
+    const rec = { name, business: $('#nBiz').value.trim(), type, role: type === 'Realtor' ? 'Realtor' : '', phone: phone || null, email: $('#nEmail').value.trim() || null, dateAdded: now,
+      notes: '[' + now.slice(0, 10) + '] Added from a SmartMoving referral ("' + aff + '")' + (S.me && S.me.name ? ' by ' + first(S.me.name) : '') + '.' };
+    const b = $('#nSave'); b.disabled = true; b.textContent = 'Saving...';
+    try {
+      const out = await sbWrite('POST', 'contacts', rec); const saved = out && out[0]; if (!saved || saved.id == null) throw new Error('no id');
+      S.contacts.push(saved); S.byId.set(String(saved.id), saved); cacheSet('contacts', S.contacts);
+      if (!(await credit(saved.id, null))) { b.disabled = false; b.textContent = 'Add and credit them'; }
+    } catch (e) { b.disabled = false; b.textContent = 'Add and credit them'; toast('Not saved. Check your connection and try again.', true); }
+  };
+};
 
 /* ================= MORE ================= */
 ROUTES.more = async () => {

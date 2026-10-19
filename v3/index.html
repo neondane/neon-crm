@@ -3015,7 +3015,7 @@ setInterval(ngRefPoll, 20000);
    The old pollers above still update badges and unread dots, but no longer chime or toast. */
 function ngLegacy(){ /* retired: replaced by ngAlertFeed */ }
 var NG_FEED_KEY="ngFeedLastId";
-function ngFeedNav(url){ var m=String(url||"").match(/#chat\/c(\d+)|#p\/(\d+)/); if(m){ try{ openContact(+(m[1]||m[2])); return; }catch(e){} } if(/payouts|referrals/.test(url||"")){ try{go("portal");return;}catch(e){} } if(/radar/.test(url||"")){ try{go("radar");return;}catch(e){} } try{go("inbox");}catch(e){} }
+function ngFeedNav(url){ if(/#(match|unmatched)\b/.test(String(url||""))){ try{ window.open("/app/"+String(url).slice(String(url).indexOf("#")),"_blank"); return; }catch(e){} } var m=String(url||"").match(/#chat\/c(\d+)|#p\/(\d+)/); if(m){ try{ openContact(+(m[1]||m[2])); return; }catch(e){} } if(/payouts|referrals/.test(url||"")){ try{go("portal");return;}catch(e){} } if(/radar/.test(url||"")){ try{go("radar");return;}catch(e){} } try{go("inbox");}catch(e){} }
 async function ngAlertFeed(){
   try{
     var after=null; try{after=localStorage.getItem(NG_FEED_KEY);}catch(e){}

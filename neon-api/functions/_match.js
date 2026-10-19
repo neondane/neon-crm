@@ -14,7 +14,11 @@
  *  A brokerage shared by several agents never decides it. No match = saved as unmatched and
  *  Dane is alerted that the partner isn't in the CRM. Better no credit than the wrong person's.
  *  When the same person exists twice in the CRM, the one with the portal switched on wins.
+ *  0. Before all of that: a name someone already matched in the app (app_settings.partner_aliases).
  */
+export async function loadAliases(db) {
+  try { const r = (await db.select('app_settings?key=eq.partner_aliases&select=value'))[0]; return (r && r.value && r.value.map) || {}; } catch (_) { return {}; }
+}
 export const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
 function splitAffiliate(partner) {
@@ -38,10 +42,12 @@ function pick(arr) {
   return arr.slice().sort((a, b) => (b.portalActivatedAt ? 1 : 0) - (a.portalActivatedAt ? 1 : 0) || (+a.id || 0) - (+b.id || 0))[0];
 }
 
-export function matchContact(partner, contacts) {
+// aliases: { normalized SmartMoving name: contactId }, saved when someone picks a partner in the app.
+export function matchContact(partner, contacts, aliases) {
   const { person, company, whole } = splitAffiliate(partner);
   const t = norm(whole); if (!t) return null;
   const list = (contacts || []).filter((c) => c && norm(c.name));
+  if (aliases && aliases[t] != null) { const a = list.find((c) => String(c.id) === String(aliases[t])); if (a) return a; }
   const byName = (s) => list.filter((c) => norm(c.name) === norm(s));
   let m;
   if ((m = pick(byName(whole)))) return m;                                           // 1

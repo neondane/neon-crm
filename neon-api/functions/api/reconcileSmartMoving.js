@@ -21,7 +21,7 @@
  *  Env: SUPABASE_URL, SUPABASE_KEY, SMARTMOVING_API_KEY
  */
 import { endpoint, preflight, sb } from '../_shared.js';
-import { matchContact } from '../_match.js';
+import { matchContact, loadAliases } from '../_match.js';
 import { emitEvent } from '../_push.js';
 
 const SM_BASE = 'https://api-public.smartmoving.com/v1';
@@ -87,13 +87,14 @@ async function listRecentOpportunities(env, sinceDays) {
   return ids;
 }
 
+let ALIASES = {};
 async function reconcileOne(db, oppId, contacts, refsByContact, key, dry, applyLost, env, alerts) {
   const g = await smGet(key, '/api/opportunities/' + encodeURIComponent(oppId));
   if (!g.ok) return { id: oppId, skip: 'fetch-failed', detail: g.status || g.err };
   const opp = g.body;
   const partner = partnerOf(opp);
   if (!partner) return { id: oppId, skip: 'no-affiliate' };
-  const match = matchContact(partner, contacts);
+  const match = matchContact(partner, contacts, ALIASES);
   if (!match) return { id: oppId, unmatched: partner };
   const stage = classifyStage(opp);
   const cust = (opp.customer && (opp.customer.name || opp.customer.fullName)) || 'SmartMoving job';
@@ -161,7 +162,7 @@ const handler = endpoint(async ({ env, body, reply }) => {
   }
   ids = Array.from(new Set(ids));
   if (!ids.length) return reply({ ok: true, note: body.auto ? 'auto enumeration returned 0 — confirm the SmartMoving list endpoint in listRecentOpportunities()' : 'no ids provided', enumerated });
-  let contacts = [], refs = [];
+  let contacts = [], refs = []; ALIASES = await loadAliases(db);
   try { contacts = (await db.select('contacts?select=id,name,business,portalActivatedAt')) || []; } catch (e) { return reply({ ok: false, error: 'contacts_load_failed', message: e.message }, 500); }
   try { refs = (await db.select('referrals?select=id,contactId,status,notes,jobName&limit=2000')) || []; } catch (e) {}
   const refsByContact = {}; refs.forEach((r) => { const k = String(r.contactId); (refsByContact[k] = refsByContact[k] || []).push(r); });

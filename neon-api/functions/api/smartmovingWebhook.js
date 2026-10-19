@@ -10,7 +10,7 @@
  *
  *  Env: SUPABASE_URL, SUPABASE_KEY, SMARTMOVING_API_KEY, SMARTMOVING_WEBHOOK_SECRET? */
 import { endpoint, preflight, sb } from '../_shared.js';
-import { matchContact } from '../_match.js';
+import { matchContact, loadAliases } from '../_match.js';
 import { dispatch } from '../_webhooks.js';
 import { emitEvent } from '../_push.js';
 
@@ -68,6 +68,15 @@ function emitNewReferral(env, waitUntil, opp, d) {
   const p = emitEvent(env, { event: 'referral_new', title: 'New referral from ' + String(d.partner || 'a partner').trim(),
     body: (d.customer || 'A customer') + (d.matchedId ? ' · in SmartMoving' : ' · ' + String(d.partner || '').trim() + " isn't in the CRM yet"),
     url: d.matchedId ? '/app/#p/' + d.matchedId : '/app/#referrals', source_key: 'smref:' + d.oppId }).catch(() => {});
+  if (typeof waitUntil === 'function') waitUntil(p);
+}
+// The CRM can't tell for sure who referred this job: ask the team, with a one-tap match screen.
+function emitWhoReferred(env, waitUntil, opp, d) {
+  if (/^portal\b/i.test(String(d.partner || ''))) return;
+  const n = Number(opp && opp.status); if ([20, 30, 50].includes(n)) return;
+  const p = emitEvent(env, { event: 'partner_unknown', title: 'Who referred ' + (d.customer || 'this job') + '?',
+    body: 'SmartMoving says "' + String(d.partner || '').trim() + '". Tap to credit someone or add them.',
+    url: d.refId ? '/app/#match/' + d.refId : '/app/#unmatched', source_key: 'smref:' + d.oppId }).catch(() => {});
   if (typeof waitUntil === 'function') waitUntil(p);
 }
 async function emitJob(env, waitUntil, stage, data) {
@@ -137,19 +146,20 @@ const handler = endpoint(async ({ request, env, body, reply, waitUntil }) => {
 
   // --- Affiliate-tagged: match to a CRM contact, upsert a referral in Supabase ---
   let match = null;
-  try { match = matchContact(partner, (await db.select('contacts?select=id,name,business,portalActivatedAt')) || []); } catch (e) {}
+  try { match = matchContact(partner, (await db.select('contacts?select=id,name,business,portalActivatedAt')) || [], await loadAliases(db)); } catch (e) {}
   if (!match) {
     // Don't silently drop an affiliate-tagged job. Record it (deduped by the SM tag) with no
     // contactId so the CRM still surfaces + chimes it, and Dane can add/link "<affiliate>".
     try {
       const dup = (await db.select('referrals?notes=ilike.*' + encodeURIComponent('[SM:' + oppId + ']') + '*&select=id&limit=1')) || [];
       if (!dup.length) {
-        await db.insert('referrals', {
+        const ins = await db.insert('referrals', {
           contactId: '', contactName: partner, jobName: cust, status: stage,
           date: date, amount: String(amount), enteredBy: 'SmartMoving Webhook',
-          notes: '[SM:' + oppId + '] UNMATCHED affiliate "' + partner + '" — add them to contacts to credit · ' + lead,
+          notes: '[SM:' + oppId + '] UNMATCHED affiliate "' + partner + '" · ' + lead,
         });
-        emitNewReferral(env, waitUntil, opp, { oppId, partner, customer: cust, matchedId: null });
+        const refId = ins && ins[0] && ins[0].id;
+        emitWhoReferred(env, waitUntil, opp, { oppId, partner, customer: cust, refId });
       }
     } catch (e) { return reply({ ok: false, error: 'unmatched_record_failed', message: e.message }, 500); }
     return reply({ ok: true, oppId, affiliate: partner, matched: false, recorded: true });
