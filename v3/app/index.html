@@ -210,7 +210,7 @@ textarea.input{min-height:90px;resize:vertical}
    (Phase 2: they now carry a one-hour login, see NG-DB-LOGIN). Every text, email and payout goes
    through /api/secure on this site, which checks the Cloudflare Access login and marks
    the request X-Neon-App: crm-app so the backend's TEST MODE applies (allowlist only). */
-const VERSION = '1.6.0';
+const VERSION = '1.6.1';
 const SB_URL = 'https://aoyfieswynhgqyrveqnp.supabase.co';
 const SB_KEY = 'sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ';
 /* NG-DB-LOGIN v2 (Phase 2): every database call carries a one-hour login for the signed-in
@@ -1137,7 +1137,9 @@ async function alertSettings(seq) {
 const UNM_SINCE = () => new Date(Date.now() - 180 * 864e5).toISOString().slice(0, 10);
 async function loadUnmatched() {
   const rows = await sb('referrals?select=id,contactName,jobName,status,date,amount&or=(contactId.is.null,contactId.eq."")&status=in.(referred,booked,completed)&date=gte.' + UNM_SINCE() + '&order=date.desc&limit=100');
-  return (rows || []).filter((r) => String(r.contactName || '').trim() && !/^portal\b/i.test(r.contactName));
+  const NOT_PARTNER = /^(something else|other|unknown.*|affiliate|realtors?( referral)?|real estate( agency)?|referral|word of mouth|friend.*|direct mail.*|mailer|employee.*|portal - (affiliate|.*test)|.*\btest\b.*|.*debug.*|.*campaign.*|.*\bfb\b.*|snoball.*|capi-.*)$/i;
+  const GEN = /google|yelp|website|online|bing|facebook|instagram|social|chat ?gpt|openai|claude|repeat customer|past customer/i;
+  return (rows || []).filter((r) => { const n = String(r.contactName || '').trim(); return n && !/^portal\b/i.test(n) && !NOT_PARTNER.test(n) && !GEN.test(n); });
 }
 // SmartMoving text -> { person, company }, e.g. "Renee - Windermere Real Estate", "Melissa (Creekside)"
 function splitAff(t) {
@@ -1156,7 +1158,7 @@ function suggestFor(aff) {
     if (co && nrm(c.business).indexOf(co) >= 0) sc += sc ? 2 : 0.5;
     if (c.portalActivatedAt && sc) sc += 0.3;
     return { c, sc };
-  }).filter((x) => x.sc >= 1).sort((a, b) => b.sc - a.sc).slice(0, 6).map((x) => x.c);
+  }).filter((x) => x.sc >= 2).sort((a, b) => b.sc - a.sc).slice(0, 6).map((x) => x.c);
 }
 ROUTES.unmatched = async (arg, seq) => {
   setTop('Needs a partner', { back: '#home', sub: 'SmartMoving referrers we could not place' }); loading();

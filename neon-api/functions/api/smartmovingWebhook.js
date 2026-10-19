@@ -42,12 +42,14 @@ function classifyStage(o) {
   if (/\bbooked\b|confirmed|deposit|\bwon\b/.test(blob)) return 'booked';
   return 'referred';
 }
+// Lead sources that are not a referral partner (SmartMoving puts these where a partner would go).
+const NOT_PARTNER = /^(something else|other|unknown.*|affiliate|realtors?( referral)?|real estate( agency)?|referral|word of mouth|friend.*|direct mail.*|mailer|employee.*|portal - (affiliate|.*test)|.*\btest\b.*|.*debug.*|.*campaign.*|.*\bfb\b.*|snoball.*|capi-.*)$/i;
 function partnerOf(o) {
-  if (o.affiliateName && String(o.affiliateName).trim() && !GENERIC.test(String(o.affiliateName))) return String(o.affiliateName).trim();
+  if (o.affiliateName && String(o.affiliateName).trim() && !GENERIC.test(String(o.affiliateName)) && !NOT_PARTNER.test(String(o.affiliateName).trim())) return String(o.affiliateName).trim();
   const rs = o.referralSource || o.referralSourceName;
   let name = '';
   if (rs) { if (typeof rs === 'string') name = rs.trim(); else if (typeof rs === 'object' && (rs.name || rs.type)) name = String(rs.name || rs.type).trim(); }
-  if (!name || GENERIC.test(name)) return '';
+  if (!name || GENERIC.test(name) || NOT_PARTNER.test(name)) return '';
   return name;
 }
 async function smGet(key, path) {
