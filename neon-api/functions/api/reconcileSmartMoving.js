@@ -21,10 +21,11 @@
  *  Env: SUPABASE_URL, SUPABASE_KEY, SMARTMOVING_API_KEY
  */
 import { endpoint, preflight, sb } from '../_shared.js';
+import { matchContact } from '../_match.js';
 import { emitEvent } from '../_push.js';
 
 const SM_BASE = 'https://api-public.smartmoving.com/v1';
-const GENERIC = /google|yelp|\bweb\b|website|online|bing|drive.?by|signage|sign\b|past customer|return(ing)? customer|repeat customer|former customer|facebook|instagram|social|yard sign|billboard|angi|thumbtack|home.?advisor|walk.?in|truck|wrap|\bnone\b|^n\/?a$|^other$|unknown|search engine/i;
+const GENERIC = /google|yelp|\bweb\b|website|online|bing|drive.?by|signage|sign\b|past customer|return(ing)? customer|repeat customer|former customer|facebook|instagram|social|yard sign|billboard|angi|thumbtack|home.?advisor|walk.?in|truck|wrap|\bnone\b|^n\/?a$|^other$|unknown|search engine|chat ?gpt|openai|\bclaude\b|perplexity|gemini|copilot|\bai\b/i;
 const RANK = { referred: 1, booked: 2, completed: 3 };
 const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -49,19 +50,10 @@ export function classifyStage(o) {
   return 'referred';
 }
 function partnerOf(o) {
-  if (o.affiliateName && String(o.affiliateName).trim()) return String(o.affiliateName).trim();
+  if (o.affiliateName && String(o.affiliateName).trim() && !GENERIC.test(String(o.affiliateName))) return String(o.affiliateName).trim();
   const rs = o.referralSource || o.referralSourceName; let name = '';
   if (rs) { if (typeof rs === 'string') name = rs.trim(); else if (typeof rs === 'object' && (rs.name || rs.type)) name = String(rs.name || rs.type).trim(); }
   if (!name || GENERIC.test(name)) return ''; return name;
-}
-function matchContact(partner, contacts) {
-  const t = norm(partner); if (!t) return null;
-  let m = contacts.find((c) => norm(c.name) === t || norm(c.business) === t); if (m) return m;
-  if (t.length > 4) {
-    m = contacts.find((c) => { const n = norm(c.name); return n.length > 4 && (n.indexOf(t) >= 0 || t.indexOf(n) >= 0); }); if (m) return m;
-    m = contacts.find((c) => { const b = norm(c.business); return b.length > 4 && (b.indexOf(t) >= 0 || t.indexOf(b) >= 0); }); if (m) return m;
-  }
-  return null;
 }
 async function smGet(key, path) {
   try { const r = await fetch(SM_BASE + path, { headers: { 'x-api-key': key, Accept: 'application/json' } }); if (!r.ok) return { ok: false, status: r.status }; return { ok: true, body: await r.json() }; }
@@ -170,7 +162,7 @@ const handler = endpoint(async ({ env, body, reply }) => {
   ids = Array.from(new Set(ids));
   if (!ids.length) return reply({ ok: true, note: body.auto ? 'auto enumeration returned 0 — confirm the SmartMoving list endpoint in listRecentOpportunities()' : 'no ids provided', enumerated });
   let contacts = [], refs = [];
-  try { contacts = (await db.select('contacts?select=id,name,business')) || []; } catch (e) { return reply({ ok: false, error: 'contacts_load_failed', message: e.message }, 500); }
+  try { contacts = (await db.select('contacts?select=id,name,business,portalActivatedAt')) || []; } catch (e) { return reply({ ok: false, error: 'contacts_load_failed', message: e.message }, 500); }
   try { refs = (await db.select('referrals?select=id,contactId,status,notes,jobName&limit=2000')) || []; } catch (e) {}
   const refsByContact = {}; refs.forEach((r) => { const k = String(r.contactId); (refsByContact[k] = refsByContact[k] || []).push(r); });
   const out = [];

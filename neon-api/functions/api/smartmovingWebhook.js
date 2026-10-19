@@ -10,11 +10,12 @@
  *
  *  Env: SUPABASE_URL, SUPABASE_KEY, SMARTMOVING_API_KEY, SMARTMOVING_WEBHOOK_SECRET? */
 import { endpoint, preflight, sb } from '../_shared.js';
+import { matchContact } from '../_match.js';
 import { dispatch } from '../_webhooks.js';
 import { emitEvent } from '../_push.js';
 
 const SM_BASE = 'https://api-public.smartmoving.com/v1';
-const GENERIC = /google|yelp|\bweb\b|website|online|bing|drive.?by|signage|sign\b|past customer|return(ing)? customer|repeat customer|former customer|facebook|instagram|social|yard sign|billboard|angi|thumbtack|home.?advisor|walk.?in|truck|wrap|\bnone\b|^n\/?a$|^other$|unknown|search engine/i;
+const GENERIC = /google|yelp|\bweb\b|website|online|bing|drive.?by|signage|sign\b|past customer|return(ing)? customer|repeat customer|former customer|facebook|instagram|social|yard sign|billboard|angi|thumbtack|home.?advisor|walk.?in|truck|wrap|\bnone\b|^n\/?a$|^other$|unknown|search engine|chat ?gpt|openai|\bclaude\b|perplexity|gemini|copilot|\bai\b/i;
 const RANK = { referred: 1, booked: 2, completed: 3 };
 const PRANK = { 'new': 0, contacted: 1, booked: 2, completed: 3, lost: 0 };
 
@@ -42,24 +43,12 @@ function classifyStage(o) {
   return 'referred';
 }
 function partnerOf(o) {
-  if (o.affiliateName && String(o.affiliateName).trim()) return String(o.affiliateName).trim();
+  if (o.affiliateName && String(o.affiliateName).trim() && !GENERIC.test(String(o.affiliateName))) return String(o.affiliateName).trim();
   const rs = o.referralSource || o.referralSourceName;
   let name = '';
   if (rs) { if (typeof rs === 'string') name = rs.trim(); else if (typeof rs === 'object' && (rs.name || rs.type)) name = String(rs.name || rs.type).trim(); }
   if (!name || GENERIC.test(name)) return '';
   return name;
-}
-function matchContact(partner, contacts) {
-  const t = norm(partner); if (!t) return null;
-  let m = contacts.find((c) => norm(c.name) === t || norm(c.business) === t);
-  if (m) return m;
-  if (t.length > 4) {
-    m = contacts.find((c) => { const n = norm(c.name); return n.length > 4 && (n.indexOf(t) >= 0 || t.indexOf(n) >= 0); });
-    if (m) return m;
-    m = contacts.find((c) => { const b = norm(c.business); return b.length > 4 && (b.indexOf(t) >= 0 || t.indexOf(b) >= 0); });
-    if (m) return m;
-  }
-  return null;
 }
 async function smGet(key, path) {
   try {
@@ -148,8 +137,7 @@ const handler = endpoint(async ({ request, env, body, reply, waitUntil }) => {
 
   // --- Affiliate-tagged: match to a CRM contact, upsert a referral in Supabase ---
   let match = null;
-  try { match = matchContact(partner, (await db.select('contacts?type=eq.Realtor&select=id,name,business')) || []); } catch (e) {}
-  if (!match) { try { match = matchContact(partner, (await db.select('contacts?select=id,name,business')) || []); } catch (e) {} }
+  try { match = matchContact(partner, (await db.select('contacts?select=id,name,business,portalActivatedAt')) || []); } catch (e) {}
   if (!match) {
     // Don't silently drop an affiliate-tagged job. Record it (deduped by the SM tag) with no
     // contactId so the CRM still surfaces + chimes it, and Dane can add/link "<affiliate>".
