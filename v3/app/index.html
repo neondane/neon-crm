@@ -210,7 +210,7 @@ textarea.input{min-height:90px;resize:vertical}
    (Phase 2: they now carry a one-hour login, see NG-DB-LOGIN). Every text, email and payout goes
    through /api/secure on this site, which checks the Cloudflare Access login and marks
    the request X-Neon-App: crm-app so the backend's TEST MODE applies (allowlist only). */
-const VERSION = '1.6.2';
+const VERSION = '1.6.3';
 const SB_URL = 'https://aoyfieswynhgqyrveqnp.supabase.co';
 const SB_KEY = 'sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ';
 /* NG-DB-LOGIN v2 (Phase 2): every database call carries a one-hour login for the signed-in
@@ -276,7 +276,7 @@ const TYPES = ['Realtor','Self-Storage Facility','Assisted Living','Senior Livin
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
 const main = $('#main');
-const S = { me: null, contacts: null, byId: new Map(), sms: null, email: null, serverRead: {}, photos: new Map(), portal: null, msgLoadedAt: 0, addPrefill: null, radarTab: 'listed', inboxFilter: 'all', partnerFilter: 'realtors', partnerQ: '', chatKey: null };
+const S = { me: null, contacts: null, byId: new Map(), sms: null, email: null, serverRead: {}, photos: new Map(), portal: null, msgLoadedAt: 0, addPrefill: null, radarTab: 'listed', inboxFilter: 'all', partnerFilter: 'realtors', partnerSearchFilter: 'all', partnerQ: '', notesLoaded: false, notesLoading: null, chatKey: null };
 
 /* ---------- small helpers ---------- */
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -361,7 +361,36 @@ async function loadMe() {
   return S.me || { email: '', name: '' };
 }
 const CONTACT_COLS = 'id,name,business,type,role,phone,email,territory,tier,portalActivatedAt,lastVisit,dateAdded,birthday,isActive';
-function setContacts(rows) { S.contacts = rows || []; S.byId = new Map(S.contacts.map((c) => [String(c.id), c])); }
+function setContacts(rows) { S.contacts = rows || []; S.byId = new Map(S.contacts.map((c) => [String(c.id), c])); S.notesLoaded = false; }
+/* Notes stay off the main contact download. One id+notes read, only after a search starts, so a phrase in notes can match without slowing the list. */
+function ensureSearchNotes(onReady) {
+  if (S.notesLoaded) { if (onReady) onReady(); return; }
+  if (!S.notesLoading) {
+    S.notesLoading = sb('contacts?select=id,notes').then((rows) => {
+      (rows || []).forEach((r) => { const c = S.byId.get(String(r.id)); if (c) c.notes = r.notes || ''; });
+      S.notesLoaded = true;
+    }).catch(() => {}).finally(() => { S.notesLoading = null; });
+  }
+  if (onReady) S.notesLoading.then(onReady, () => {});
+}
+const hayCache = new WeakMap();
+function contactHay(c) {
+  const notes = c.notes ? String(c.notes) : '';
+  const phone = c.phone || '', email = c.email || '', biz = c.business || '', name = nm(c);
+  const hit = hayCache.get(c);
+  if (hit && hit.notes === notes && hit.phone === phone && hit.email === email && hit.biz === biz && hit.name === name) return hit;
+  const rec = { notes, phone, email, biz, name, text: (name + ' ' + biz + ' ' + phone + ' ' + email).toLowerCase(), digits: String(phone).replace(/\D/g, ''), notesL: notes.toLowerCase() };
+  hayCache.set(c, rec);
+  return rec;
+}
+function contactMatches(c, q) {
+  const h = contactHay(c);
+  if (h.text.indexOf(q) >= 0) return true;
+  const qd = q.replace(/\D/g, '');
+  if (qd.length >= 3 && h.digits.indexOf(qd) >= 0) return true;
+  if (q.length >= 3 && h.notesL && h.notesL.indexOf(q) >= 0) return true;
+  return false;
+}
 async function loadContacts(force) {
   if (S.contacts && !force) return S.contacts;
   if (!S.contacts) { const c = cacheGet('contacts'); if (c) setContacts(c); }
@@ -717,29 +746,49 @@ ROUTES.chat = async (key, seq) => {
 window.addEventListener('hashchange', () => { if (!location.hash.startsWith('#chat/')) { clearInterval(chatPoll); S.chatKey = null; const c = $('#composer'); if (c) c.remove(); } });
 
 /* ================= PARTNERS ================= */
+const PARTNER_CHIPS = [['all', 'All'], ['realtors', 'Realtors'], ['storage', 'Storage'], ['senior', 'Senior living'], ['partners', 'Active partners'], ['visit', 'Needs a visit']];
+function partnerCategory(c, f) {
+  if (f === 'realtors') return isRealtor(c);
+  if (f === 'storage') return /storage/i.test(c.type || '');
+  if (f === 'senior') return /assisted|senior|care/i.test(c.type || '');
+  if (f === 'partners') return !!c.portalActivatedAt;
+  if (f === 'visit') return (isRealtor(c) || c.portalActivatedAt) && (daysSince(c.lastVisit) == null || daysSince(c.lastVisit) > 30);
+  return true;
+}
 ROUTES.partners = async (arg, seq) => {
   setTop('Partners');
   if (!S.contacts) loading();
   await loadContacts(); if (stale(seq)) return;
-  const f = S.partnerFilter;
-  main.innerHTML = '<input class="search" id="pq" type="search" placeholder="Search name or business" value="' + esc(S.partnerQ) + '" autocomplete="off">' +
-    '<div class="chips">' + [['realtors', 'Realtors'], ['storage', 'Storage'], ['senior', 'Senior living'], ['partners', 'Active partners'], ['visit', 'Needs a visit'], ['all', 'Everyone']].map((x) => '<button class="chip' + (f === x[0] ? ' on' : '') + '" data-pf="' + x[0] + '">' + x[1] + '</button>').join('') + '</div><div id="plist"></div>';
+  const activeFilter = () => (S.partnerQ.trim() ? (S.partnerSearchFilter || 'all') : S.partnerFilter);
+  const paintChips = () => { const f = activeFilter(); $$('[data-pf]').forEach((b) => b.classList.toggle('on', b.getAttribute('data-pf') === f)); };
+  main.innerHTML = '<input class="search" id="pq" type="search" placeholder="Search all contacts" value="' + esc(S.partnerQ) + '" autocomplete="off" enterkeyhint="search">' +
+    '<div class="chips">' + PARTNER_CHIPS.map((x) => '<button class="chip' + (activeFilter() === x[0] ? ' on' : '') + '" data-pf="' + x[0] + '">' + x[1] + '</button>').join('') + '</div><div id="plist"></div>';
   const draw = () => {
     const q = S.partnerQ.toLowerCase().trim();
-    let rows = S.contacts.slice();
-    if (f === 'realtors') rows = rows.filter(isRealtor);
-    else if (f === 'storage') rows = rows.filter((c) => /storage/i.test(c.type || ''));
-    else if (f === 'senior') rows = rows.filter((c) => /assisted|senior|care/i.test(c.type || ''));
-    else if (f === 'partners') rows = rows.filter((c) => c.portalActivatedAt);
-    else if (f === 'visit') rows = rows.filter((c) => (isRealtor(c) || c.portalActivatedAt) && (daysSince(c.lastVisit) == null || daysSince(c.lastVisit) > 30));
-    if (q) rows = rows.filter((c) => (nm(c) + ' ' + (c.business || '') + ' ' + (c.phone || '') + ' ' + (c.email || '')).toLowerCase().indexOf(q) >= 0);
+    const f = q ? (S.partnerSearchFilter || 'all') : S.partnerFilter;
+    let rows = S.contacts.filter((c) => partnerCategory(c, f));
+    if (q) rows = rows.filter((c) => contactMatches(c, q));
     if (f === 'visit') rows.sort((a, b) => (daysSince(b.lastVisit) ?? 9999) - (daysSince(a.lastVisit) ?? 9999));
-    $('#plist').innerHTML = '<div class="muted small" style="margin:0 4px 8px">' + rows.length + (rows.length === 1 ? ' person' : ' people') + '</div>' + (rows.length ? rows.slice(0, 300).map((c) => contactRow(c)).join('') : '<div class="empty">No matches.</div>');
+    const noun = q ? (rows.length === 1 ? 'match' : 'matches') : (rows.length === 1 ? 'person' : 'people');
+    $('#plist').innerHTML = '<div class="muted small" style="margin:0 4px 8px">' + rows.length + ' ' + noun + '</div>' + (rows.length ? rows.slice(0, 300).map((c) => contactRow(c)).join('') : '<div class="empty">' + (q ? 'No matches.' : 'No one in this list.') + '</div>');
     watchPhotos();
   };
+  const refreshNotes = () => { if (S.partnerQ.trim().length >= 3) ensureSearchNotes(() => { if (!stale(seq) && $('#pq') && S.partnerQ.trim().length >= 3) draw(); }); };
   draw();
-  $('#pq').oninput = (e) => { S.partnerQ = e.target.value; draw(); };
-  $$('[data-pf]').forEach((b) => { b.onclick = () => { S.partnerFilter = b.getAttribute('data-pf'); render(); }; });
+  refreshNotes();
+  $('#pq').oninput = (e) => {
+    const was = S.partnerQ.trim();
+    S.partnerQ = e.target.value;
+    if (!was && S.partnerQ.trim()) S.partnerSearchFilter = 'all';
+    paintChips();
+    draw();
+    refreshNotes();
+  };
+  $$('[data-pf]').forEach((b) => { b.onclick = () => {
+    const id = b.getAttribute('data-pf');
+    if (S.partnerQ.trim()) { S.partnerSearchFilter = id; paintChips(); draw(); }
+    else { S.partnerFilter = id; render(); }
+  }; });
 };
 
 /* ================= PROFILE ================= */
