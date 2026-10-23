@@ -210,7 +210,7 @@ textarea.input{min-height:90px;resize:vertical}
    (Phase 2: they now carry a one-hour login, see NG-DB-LOGIN). Every text, email and payout goes
    through /api/secure on this site, which checks the Cloudflare Access login and marks
    the request X-Neon-App: crm-app so the backend's TEST MODE applies (allowlist only). */
-const VERSION = '1.6.1';
+const VERSION = '1.6.2';
 const SB_URL = 'https://aoyfieswynhgqyrveqnp.supabase.co';
 const SB_KEY = 'sb_publishable_I9S3tXRLe-AdUMdpod08Yg_E87kiArZ';
 /* NG-DB-LOGIN v2 (Phase 2): every database call carries a one-hour login for the signed-in
@@ -763,7 +763,8 @@ ROUTES.p = async (id, seq) => {
   const booked = allRefs.filter((r) => /booked|completed/i.test(r.status)).length;
   const phone = last10(c.phone); const key = 'c' + c.id;
   const dv = daysSince(c.lastVisit);
-  const notes = String(c.notes || '').split('\n').filter((l) => l.trim()).reverse();
+  const noteDay = (l) => { const m = /^\[(?:Visit )?(\d{4}-\d{2}-\d{2})\]/.exec(l); return m ? m[1] : ''; };
+  const notes = String(c.notes || '').split('\n').filter((l) => l.trim()).reverse().map((l, i) => ({ l, i, d: noteDay(l) })).sort((x, y) => (x.d && y.d && x.d !== y.d ? (x.d < y.d ? 1 : -1) : x.i - y.i)).map((x) => x.l);
   let h = '<div style="display:flex;gap:14px;align-items:center;margin:4px 0 12px">' + avatar(c, 'lg') + '<div style="min-width:0"><div style="font-size:22px;font-weight:800;line-height:1.2">' + esc(nm(c)) + '</div><div class="muted">' + esc(c.business || '') + '</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">' +
     (c.type ? '<span class="pill pink">' + esc(c.type) + '</span>' : '') + (c.tier ? '<span class="pill cyan">' + esc(c.tier) + '</span>' : '') + (c.portalActivatedAt ? '<span class="pill green">Partner</span>' : '') + '</div></div></div>';
   h += '<div class="grid4">' +
@@ -783,17 +784,41 @@ ROUTES.p = async (id, seq) => {
   h += '<div class="tile' + (allRefs.length ? ' open' : '') + '"><button class="tile-head"><div class="tile-ic">' + ICON.star + '</div><div><div style="font-weight:800">Referrals (' + allRefs.length + ')</div><div class="tile-lbl">' + booked + ' booked or completed</div></div><span class="tile-chev">' + ICON.chev + '</span></button><div class="tile-body"><div><div class="tile-inner">' +
     (allRefs.length ? allRefs.slice(0, 20).map((r) => '<div class="kv"><span style="color:var(--text);font-weight:600">' + esc(r.name || 'Customer') + '<div class="muted small">' + esc(String(r.date || '').slice(0, 10)) + ' · ' + (r.via === 'portal' ? 'via portal' : 'job') + '</div></span><span>' + statusPill(r.status) + (r.sm ? '<div style="margin-top:4px">' + smPill(r.sm) + '</div>' : '') + '</span></div>').join('') : '<div class="empty">No referrals yet.</div>') + '</div></div></div></div>';
   // notes
-  h += '<div class="tile"><button class="tile-head"><div class="tile-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h8M4 6h.01M4 12h.01M4 18h.01"/></svg></div><div><div style="font-weight:800">Notes (' + notes.length + ')</div><div class="tile-lbl">Newest first</div></div><span class="tile-chev">' + ICON.chev + '</span></button><div class="tile-body"><div><div class="tile-inner">' +
+  h += '<div class="tile' + (notes.length ? ' open' : '') + '"><button class="tile-head"><div class="tile-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h8M4 6h.01M4 12h.01M4 18h.01"/></svg></div><div><div style="font-weight:800">Notes (' + notes.length + ')</div><div class="tile-lbl">Visits and notes, newest first</div></div><span class="tile-chev">' + ICON.chev + '</span></button><div class="tile-body"><div><div class="tile-inner">' +
     '<div class="cbar" style="display:flex;gap:8px;margin-bottom:10px"><input class="input" id="noteIn" placeholder="Add a quick note"><button class="btn grad" id="noteAdd">Add</button></div>' +
-    (notes.length ? notes.slice(0, 15).map((n) => '<div class="kv"><span style="color:var(--text);text-align:left">' + esc(n) + '</span></div>').join('') : '<div class="empty">No notes yet.</div>') + '</div></div></div></div>';
+    (notes.length ? notes.slice(0, 25).map((n) => '<div class="kv"><span style="color:var(--text);text-align:left' + (/^\[Visit /.test(n) ? ';border-left:3px solid var(--cyan,#22d3ee);padding-left:8px' : '') + '">' + esc(n) + '</span></div>').join('') : '<div class="empty">No notes yet.</div>') + '</div></div></div></div>';
   main.innerHTML = h; bindTiles();
   // wiring
   $('#editBtn').onclick = () => editContact(c);
-  $('#checkin').onclick = async () => {
-    const ok = await confirmSheet('Log a visit?', 'Marks today as your last visit with ' + nm(c) + '.', 'Log visit'); if (!ok) return;
-    const now = new Date().toISOString(); const stamp = '[Visit ' + now.slice(0, 10) + '] Checked in from the app' + (S.me && S.me.name ? ' (' + first(S.me.name) + ')' : '') + '.';
-    try { await sbWrite('PATCH', 'contacts?id=eq.' + c.id, { lastVisit: now, notes: (c.notes ? c.notes + '\n' : '') + stamp }, 'return=minimal'); const lc = S.byId.get(String(c.id)); if (lc) lc.lastVisit = now; toast('Visit logged'); render(); }
-    catch (e) { toast('Could not save the visit.', true); }
+  $('#checkin').onclick = () => {
+    const pad = (n) => String(n).padStart(2, '0'); const t = new Date(); const today = t.getFullYear() + '-' + pad(t.getMonth() + 1) + '-' + pad(t.getDate());
+    openSheet('<h3>Log a visit with ' + esc(first(nm(c))) + '</h3>' +
+      '<div class="field"><label>Visit date</label><input class="input" id="vDate" type="date" value="' + today + '" max="' + today + '"></div>' +
+      '<div class="field"><label>Who did you meet? (optional)</label><input class="input" id="vWho" placeholder="Name or role"></div>' +
+      '<div class="field"><label>Notes</label><textarea class="input" id="vNotes" placeholder="What happened, what they said, what to bring next time"></textarea></div>' +
+      '<div class="grid2"><button class="btn" id="vCancel">Cancel</button><button class="btn grad" id="vSave">Log visit</button></div>', (el, close) => {
+      $('#vCancel', el).onclick = close;
+      $('#vSave', el).onclick = async () => {
+        const btn = $('#vSave', el); if (btn.disabled) return;
+        const day = $('#vDate', el).value || today;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) { toast('Pick a visit date', true); return; }
+        const clean = (x) => String(x || '').replace(/\s*\n+\s*/g, ' / ').trim();
+        const who = clean($('#vWho', el).value); const txt = clean($('#vNotes', el).value);
+        const by = S.me && S.me.name ? ' (' + first(S.me.name) + ')' : '';
+        const stamp = '[Visit ' + day + '] ' + (txt || 'Checked in from the app.') + (who ? ' Met: ' + who + '.' : '') + by;
+        const visitIso = day === today ? new Date().toISOString() : new Date(day + 'T12:00:00').toISOString();
+        btn.disabled = true;
+        try {
+          let cur = c.notes || '', curLast = c.lastVisit || null;
+          try { const r = await sb('contacts?select=notes,lastVisit&id=eq.' + c.id); if (r && r[0]) { cur = r[0].notes || ''; curLast = r[0].lastVisit || null; } } catch (_) {}
+          const patch = { notes: (cur ? cur + '\n' : '') + stamp };
+          if (!curLast || new Date(visitIso) > new Date(curLast)) patch.lastVisit = visitIso;
+          await sbWrite('PATCH', 'contacts?id=eq.' + c.id, patch, 'return=minimal');
+          const lc = S.byId.get(String(c.id)); if (lc && patch.lastVisit) lc.lastVisit = patch.lastVisit;
+          close(); toast('Visit logged'); render();
+        } catch (e) { btn.disabled = false; toast('Could not save the visit.', true); }
+      };
+    });
   };
   $('#noteAdd').onclick = async () => {
     const v = $('#noteIn').value.trim(); if (!v) return;
