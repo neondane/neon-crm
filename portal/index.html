@@ -169,9 +169,13 @@
   .signup-hp{position:absolute!important;left:-9999px!important;width:1px;height:1px;opacity:0}
   .signup-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
   @media(max-width:480px){.signup-row{grid-template-columns:1fr}}
-  .signup-card input,.signup-card textarea{width:100%;background:rgba(0,0,0,0.42);border:1px solid rgba(34,191,231,0.25);border-radius:11px;color:#fff;padding:13px 14px;font-family:'Space Grotesk',sans-serif;font-size:15px;box-sizing:border-box;transition:border-color .25s,box-shadow .25s}
+  .signup-card input,.signup-card textarea,.signup-card select{width:100%;background:rgba(0,0,0,0.42);border:1px solid rgba(34,191,231,0.25);border-radius:11px;color:#fff;padding:13px 14px;font-family:'Space Grotesk',sans-serif;font-size:15px;box-sizing:border-box;transition:border-color .25s,box-shadow .25s}
   .signup-card input::placeholder,.signup-card textarea::placeholder{color:#6d6d85}
-  .signup-card input:focus,.signup-card textarea:focus{outline:none;border-color:var(--neon-cyan);box-shadow:0 0 14px rgba(34,191,231,0.3)}
+  .signup-card input:focus,.signup-card textarea:focus,.signup-card select:focus{outline:none;border-color:var(--neon-cyan);box-shadow:0 0 14px rgba(34,191,231,0.3)}
+  .signup-card select option{color:#111}
+  .signup-facility{margin:0 0 12px;text-align:center;font-size:15px;font-weight:600;color:var(--neon-cyan);text-shadow:0 0 10px rgba(34,191,231,0.35)}
+  .signup-role{margin:0 0 10px}
+  .signup-label{display:block;margin:0 0 6px;text-align:left;font-size:12px;letter-spacing:0.4px;color:var(--muted)}
   .signup-card textarea{margin-bottom:14px;resize:vertical;min-height:54px}
   .signup-card button{width:100%;border:none;cursor:pointer;margin-top:2px}
   </style>
@@ -193,11 +197,11 @@
       <button type="submit" class="cta primary">Sign Me Up &rarr;</button>
     </form>
   </div>
+  <script src="facility-signup.js"></script>
   <script>
   function ngRealtorSubmit(e){
     e.preventDefault();
-    var f=e.target, data=new URLSearchParams();
-    ['name','brokerage','email','phone','message','company_website'].forEach(function(k){var el=f.elements[k]; if(el) data.append(k, el.value);});
+    var f=e.target, data=ngSignupPayload(f, location.search);
     var btn=f.querySelector('button'); btn.textContent='Sending…'; btn.disabled=true;
     var done=function(){ f.innerHTML='<div style="text-align:center;padding:14px 4px"><div style="font-family:\'Audiowide\',cursive;font-size:20px;color:var(--neon-cyan);text-shadow:0 0 12px rgba(34,191,231,0.5)">You\'re in!</div><p style="color:#cfcfe0;font-size:14px;margin:12px 0 0;line-height:1.6">We\'ll reach out shortly to set up your personal referral link and dashboard so you can track everything. Thanks!</p></div>'; };
     fetch('https://neongiantmoving.com/wp-json/neon/v1/realtor-signup',{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:data.toString()}).then(done).catch(done);

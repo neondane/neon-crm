@@ -125,11 +125,19 @@ function realtorPublic(c) {
   };
 }
 
-// Any referral partner can have a portal: realtors, storage facilities, senior living,
-// apartments, property managers and others. (Until Oct 2026 only type "Realtor" worked.)
+// PARTNER_GATE_START
+// Dashboard access: realtors, storage facilities, assisted living / senior care,
+// apartments, property managers, and general partner or affiliate types (CRM type "Other").
+// Customers, vendors, crew, and employees stay out. This does not change payouts or SmartMoving.
+const PARTNER_TYPE_RE = /realtor|broker|agent|storage|assisted|senior|retire|partner|affiliate|apartment|property|^other$/i;
+const BLOCKED_CONTACT_TYPE_RE = /^(customer|vendor|crew|employee)$/i;
 function isPartner(c) {
-  return !!(c && c.id != null && !/^(customer|vendor|crew|employee)$/i.test(String(c.type || '').trim()));
+  if (!c || c.id == null) return false;
+  const type = String(c.type || '').trim();
+  if (!type || BLOCKED_CONTACT_TYPE_RE.test(type)) return false;
+  return PARTNER_TYPE_RE.test(type);
 }
+// PARTNER_GATE_END
 // Which wording the portal pages use for this partner.
 function kindOf(type) {
   const t = String(type || '').toLowerCase();
