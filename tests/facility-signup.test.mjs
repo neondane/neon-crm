@@ -7,7 +7,18 @@ const context = { URLSearchParams, console };
 vm.createContext(context);
 vm.runInContext(code, context);
 
-const { ngFacilityFromLocation, ngSignupPayload, NG_FACILITIES } = context;
+const {
+  ngFacilityFromLocation,
+  ngSignupPayload,
+  ngCobrandForLocation,
+  ngCobrandHeadline,
+  ngCobrandIntro,
+  NG_FACILITIES,
+  NG_FACILITY_BRANDS,
+  NG_COBRAND_TRUST,
+  NG_COBRAND_OFFER,
+  NG_COBRAND_SERVICES,
+} = context;
 
 function form(values) {
   return {
@@ -20,27 +31,7 @@ function form(values) {
   };
 }
 
-const known = [
-  ['advanced-heated-self-storage', 'Advanced Heated Self Storage'],
-  ['discovery-park-heated-storage', 'Discovery Park Heated Storage'],
-  ['ferndale-self-storage', 'Ferndale Self Storage'],
-  ['glacier-west-self-storage', 'Glacier West Self Storage'],
-  ['pacific-self-storage-bellingham', 'Pacific Self Storage Bellingham'],
-  ['pacific-self-storage-ferndale', 'Pacific Self Storage Ferndale'],
-  ['public-storage-bellingham', 'Public Storage Bellingham'],
-  ['storage-court-bellingham', 'Storage Court Bellingham'],
-  ['storehouse-mini-storage', 'Storehouse Mini Storage'],
-  ['storquest-bellingham', 'StorQuest Bellingham'],
-  ['sunset-park-self-storage', 'Sunset Park Self Storage'],
-  ['sedro-woolley-mini-storage', 'Sedro-Woolley Mini Storage'],
-  ['skagit-self-storage', 'Skagit Self Storage'],
-  ['urban-storage-on-bennett', 'Urban Storage on Bennett'],
-  ['alger-mini-storage', 'Alger Mini Storage'],
-  ['pantec-mini-storage', 'Pantec Mini Storage'],
-  ['cubesmart-bellingham', 'CubeSmart Bellingham'],
-  ['lynden-heated-self-storage', 'Lynden Heated Self Storage'],
-  ['birch-bay-storage', 'Birch Bay Storage'],
-];
+const known = Object.entries(NG_FACILITIES);
 
 for (const [slug, name] of known) {
   assert.equal(NG_FACILITIES[slug], name, slug);
@@ -105,7 +96,64 @@ const blankNote = ngSignupPayload(form({
   company_website: '',
   role: 'Manager',
 }), '?facility=cubesmart-bellingham');
-assert.equal(blankNote.get('message'), 'Facility: CubeSmart Bellingham\nFacility tag: cubesmart-bellingham\nRole: Manager\nSource: flyer');
-assert.equal(blankNote.get('facility_name'), 'CubeSmart Bellingham');
+assert.equal(blankNote.get('message'), 'Facility: CubeSmart Self Storage\nFacility tag: cubesmart-bellingham\nRole: Manager\nSource: flyer');
+assert.equal(blankNote.get('facility_name'), 'CubeSmart Self Storage');
+
+const html = fs.readFileSync(new URL('../portal/index.html', import.meta.url), 'utf8');
+const slugLine = html.match(/ng-cobrand-slugs:([a-z0-9- ]+)/);
+assert.ok(slugLine, 'index.html lists co-brand slugs');
+assert.deepEqual(
+  slugLine[1].trim().split(/\s+/).sort(),
+  Object.keys(NG_FACILITY_BRANDS).sort(),
+);
+
+const cobrandHtml = html.slice(html.indexOf('id="cobrand"'), html.indexOf('id="signup"'));
+assert.match(cobrandHtml, /Full-service moving, truck included\. Licensed, insured, DOT compliant and UTC compliant\. Nearly 500 Google reviews\./);
+assert.match(cobrandHtml, /You earn \$50 on a completed move over \$1,000\. Your tenant gets \$50 off\./);
+assert.match(cobrandHtml, /Hot tub moves/);
+assert.match(cobrandHtml, /src="\/logo\.jpg"/);
+assert.doesNotMatch(cobrandHtml, /bonded|—|–/i);
+assert.equal(NG_COBRAND_TRUST, 'Full-service moving, truck included. Licensed, insured, DOT compliant and UTC compliant. Nearly 500 Google reviews.');
+assert.equal(NG_COBRAND_OFFER, 'You earn $50 on a completed move over $1,000. Your tenant gets $50 off.');
+assert.equal([].join.call(NG_COBRAND_SERVICES, '|'), 'Moving|Junk removal|Hot tub moves|Packing|Storage moves');
+assert.doesNotMatch(NG_COBRAND_TRUST + NG_COBRAND_OFFER + ngCobrandIntro('StorQuest'), /bonded|—|–/i);
+
+assert.equal(Object.keys(NG_FACILITY_BRANDS).length, 17);
+for (const [slug, brand] of Object.entries(NG_FACILITY_BRANDS)) {
+  assert.equal(NG_FACILITIES[slug], brand.name, slug);
+  const view = ngCobrandForLocation('?utm_source=' + slug + '&utm_medium=flyer');
+  assert.equal(view.slug, slug);
+  assert.equal(view.name, brand.name);
+  assert.equal(view.city, brand.city);
+  assert.equal(view.headline, 'Neon Giant x ' + brand.name + ': refer a tenant, earn $50');
+  assert.equal(view.beside, !!brand.beside);
+  if (brand.logo) {
+    assert.equal(view.logo, brand.logo);
+    assert.equal(fs.existsSync(new URL('../portal' + brand.logo, import.meta.url)), true, brand.logo);
+  } else {
+    assert.ok(brand.wordmark, slug);
+    assert.equal(view.logo, '');
+  }
+}
+
+const advanced = ngCobrandForLocation('?facility=advanced-heated-self-storage');
+assert.equal(advanced.wordmark, '#E8672A');
+assert.equal(advanced.logo, '');
+const discovery = ngCobrandForLocation('?utm_source=discovery-park-heated-storage&utm_medium=flyer');
+assert.equal(discovery.wordmark, '#1F6F8B');
+const aztec = ngCobrandForLocation('?utm_source=aztec-self-storage&utm_medium=flyer');
+assert.equal(aztec.beside, true);
+assert.equal(aztec.logo, '/facilities/aztec-icon.jpeg');
+assert.ok(aztec.wordmark);
+const storquest = ngCobrandForLocation('?utm_source=StorQuest-Bellingham&utm_medium=flyer');
+assert.equal(storquest.name, 'StorQuest');
+assert.equal(storquest.logo, '/facilities/storquest.svg');
+
+assert.equal(ngCobrandForLocation(''), null);
+assert.equal(ngCobrandForLocation('?utm_medium=flyer'), null);
+assert.equal(ngCobrandForLocation('?utm_source=brand-new-storage'), null);
+assert.equal(ngCobrandForLocation('?utm_source=ferndale-self-storage'), null);
+assert.equal(ngFacilityFromLocation('?utm_source=ferndale-self-storage').name, 'Ferndale Self Storage');
+assert.equal(ngCobrandHeadline('Save On Storage'), 'Neon Giant x Save On Storage: refer a tenant, earn $50');
 
 console.log('facility signup payload tests passed');
