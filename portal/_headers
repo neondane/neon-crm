@@ -15,6 +15,8 @@
 # Logo + static assets — long cache, content-addressed
 /logo.jpg
   Cache-Control: public, max-age=86400
+/facilities/*
+  Cache-Control: public, max-age=604800
 
 # Security headers everywhere
 /*
