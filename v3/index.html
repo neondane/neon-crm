@@ -41,10 +41,19 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);display:flex
 .brand{font-family:var(--display);font-weight:400;letter-spacing:1.5px;font-size:23px;text-transform:uppercase;line-height:1.05}
 .brand .n{color:var(--pink)}.brand .g{color:var(--cyan)}
 .brand .sub{display:block;font-family:var(--font);font-size:9.5px;letter-spacing:3.5px;color:var(--text-muted);font-weight:700;margin-top:5px}
-.search{flex:1;max-width:520px;margin:0 auto}
+.search{position:relative;flex:1;max-width:520px;margin:0 auto}
 .search input{width:100%;height:40px;border-radius:999px;border:1px solid var(--border);background:var(--surface2);color:var(--text);padding:0 18px;font-size:14px;font-family:inherit;outline:none;transition:border-color .15s,box-shadow .15s}
 .search input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(34,191,231,.18)}
 .search input::placeholder{color:var(--text-muted)}
+.gsearch{position:fixed;z-index:10050;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:0 18px 48px rgba(10,16,40,.28);overflow:auto;padding:6px 6px 8px;-webkit-overflow-scrolling:touch}
+.gsh{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px 2px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
+.gsall{font-family:inherit;font-size:12px;font-weight:700;color:var(--cyan);background:none;border:none;cursor:pointer;padding:6px 8px;border-radius:8px;min-height:32px}
+.gsall.on,.gsall:hover{background:var(--row-hover)}
+.gsrow{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;width:100%;text-align:left;background:none;border:none;color:var(--text);font-family:inherit;padding:9px 10px;border-radius:10px;cursor:pointer;min-height:44px}
+.gsrow.on,.gsrow:hover{background:var(--row-hover)}
+.gsrow .t{font-weight:700;font-size:14px;line-height:1.25;width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gsrow .s{font-size:12px;color:var(--text-muted);line-height:1.3;width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gsnote{padding:8px 12px 10px;font-size:12.5px;color:var(--text-muted)}
 .toggle{flex:none;width:40px;height:40px;border-radius:12px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:18px;cursor:pointer;display:grid;place-items:center;transition:background .15s}
 .topicons{display:flex;align-items:center;gap:7px;flex:none}
 .ticon{position:relative;width:40px;height:40px;border-radius:12px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:17px;cursor:pointer;display:grid;place-items:center;transition:background .15s}
@@ -452,7 +461,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);display:flex
 <body>
 <div class="topbar">
   <div class="brandwrap"><img class="logo" src="Logos/NeonGiant_BigFoot-NoGlow-NoBckgrd_CMYK.svg" alt="Neon Giant" onerror="this.style.display='none'"><div class="brand"><span class="n">NEON</span> <span class="g">CRM</span><span class="sub">Command Center</span></div></div>
-  <div class="search"><input id="q" type="search" placeholder="Search contacts…" autocomplete="off"></div>
+  <div class="search"><input id="q" type="search" placeholder="Search everything" autocomplete="off" enterkeyhint="search" aria-label="Search everything" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="gsearch"></div>
   <div class="topicons">
     <button class="ticon" id="tFollow" title="New portal leads"><span class="gi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21V3.8M6 4.8h11.4l-2.1 3.1 2.1 3.1H6"/></svg></span><span class="tbadge" id="bFollow" style="display:none">0</span></button>
     <button class="ticon" id="tBell" title="Alerts"><span class="gi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.4 10a5.6 5.6 0 0 1 11.2 0c0 5 2.1 6.2 2.1 6.2H4.3S6.4 15 6.4 10z"/><path d="M9.8 19.2a2.2 2.2 0 0 0 4.4 0"/></svg></span><span class="tbadge" id="bBell" style="display:none">0</span></button>
@@ -594,8 +603,8 @@ function go(v){
   view=v; renderNav();
   try{ if(v==="inbox")crmSeenSet("inbox"); else if(v==="portal")crmSeenSet("leads"); }catch(e){}
   try{localStorage.setItem("crmNav",v);}catch(e){}
-  var q=document.getElementById("q"); q.value="";
-  q.placeholder = v==="contacts"?"Search contacts…":(v==="portal"?"Search leads & partners…":(v==="inbox"?"Search messages…":"Search…"));
+  var q=document.getElementById("q"); if(q) q.value="";
+  try{ gsClose(); }catch(e){}
   try{
     if(v==="contacts") renderContacts("");
     else if(v==="portal") renderPortal();
@@ -701,7 +710,7 @@ async function loadInteractions(){
   try{var s=await sb("sms_messages?select=contact_id,created_at");s.forEach(function(m){var id=m.contact_id;if(id==null)return;ICOUNT[id]=(ICOUNT[id]||0)+1;var t=m.created_at||"";if(!LASTSEEN[id]||t>LASTSEEN[id])LASTSEEN[id]=t;});}catch(e){}
   try{var em=await sb("email_messages?select=contact_id,created_at");em.forEach(function(m){var id=m.contact_id;if(id==null)return;ICOUNT[id]=(ICOUNT[id]||0)+1;var t=m.created_at||"";if(!LASTSEEN[id]||t>LASTSEEN[id])LASTSEEN[id]=t;});}catch(e){}
   try{var rf=await sb("referrals?select=contactId,status,amount");rf.forEach(function(r){var id=r.contactId;if(id==null)return;REFCOUNT[id]=(REFCOUNT[id]||0)+1;REFREV[id]=(REFREV[id]||0)+(+r.amount||0);var st=String(r.status||"").toLowerCase();if(st==="booked"||st==="completed")REFBOOKED[id]=(REFBOOKED[id]||0)+1;});}catch(e){}
-  if(view==="contacts") renderContacts(document.getElementById("q").value||"");
+  if(view==="contacts") renderContacts("");
 }
 function banner(msg){var b=document.getElementById("banner");if(!b)return;clearTimeout(window.__bnT);b.style.display="block";b.style.position="relative";b.innerHTML='<span>'+esc(msg)+'</span><span id="bnX" title="Dismiss" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);cursor:pointer;font-weight:700;opacity:.55;font-size:14px">&#10005;</span>';var x=document.getElementById("bnX");if(x)x.onclick=function(){clearTimeout(window.__bnT);b.style.display="none";};window.__bnT=setTimeout(function(){b.style.display="none";},8000);}
 async function loadPhotos(){
@@ -911,7 +920,9 @@ var EDITABLE=[["name","Name"],["business","Business"],["type","Type"],["role","R
 async function openContact(id, focusInbound){
   if(window.pendingDraft && (+window.pendingDraft.cid)!==(+id)) window.pendingDraft=null; // stale draft from another agent
   if(NAV.some(function(n){return n[0]===view;})) profileFrom=view; // remember where we came from
-  activeId=id; editing=false; saveState=""; saveCls=""; pTab="conversation"; cSub="text"; ACT=null;
+  activeId=id; editing=false; saveState=""; saveCls="";
+  var jumpTab=window.__gsTab||""; window.__gsTab="";
+  pTab=jumpTab||"conversation"; cSub="text"; ACT=null;
   if(window.pendingDraft && (+window.pendingDraft.cid)===(+id)){ cSub=(window.pendingDraft.channel==="email"?"email":"text"); }
   _focusInbound=!!focusInbound; // deep-link: scroll to + highlight the latest inbound message
   // NOTE: opening a thread no longer auto-marks it read — only an explicit "Mark read" clears a notification (SmartMoving-style "deal with later").
@@ -1366,6 +1377,7 @@ function wireProfile(c){
   var rs=document.getElementById("remSet"); if(rs)rs.onclick=function(){setReminder(c);};
   [].forEach.call(document.querySelectorAll("[data-rdone]"),function(b){b.onclick=function(){reminderDone(b.getAttribute("data-rdone"));};});
   [].forEach.call(document.querySelectorAll(".ptab"),function(el){el.onclick=function(){pTab=el.getAttribute("data-pt");if(pTab==="referrals"&&c._refs===undefined)loadRefs(c);redrawTab(c);};});
+  if(pTab==="referrals"&&c._refs===undefined) loadRefs(c);
   if(pTab==="conversation"&&ACT===null) loadActivity(c);
   wireTab(c);
 }
@@ -2229,8 +2241,6 @@ function drawInbox(){
   var threads=Object.keys(byC).map(function(k){return byC[k];}).sort(function(a,b){return a.latest.when<b.latest.when?1:-1;});
   var nameOf=function(id){var c=ALL.filter(function(x){return +x.id===+id;})[0];return c?c.name:("Contact "+id);};
   var unreadCount=Object.keys(byC).filter(function(cid){return isUnread(cid);}).length;
-  var f=(document.getElementById("q").value||"").toLowerCase().trim();
-  if(f) threads=threads.filter(function(t){return nameOf(t.cid).toLowerCase().indexOf(f)>=0||(t.latest.text||"").toLowerCase().indexOf(f)>=0;});
   if(inboxChan!=="all") threads=threads.filter(function(t){return t.latest.kind===inboxChan;});
   if(inboxDir==="unread") threads=threads.filter(function(t){return isUnread(t.cid);});
   else if(inboxDir==="in") threads=threads.filter(function(t){return t.latest.dir!=="out";});
@@ -2859,6 +2869,7 @@ async function addPendingAgent(idx){
   if(view==="radar")drawRadar();
 }
 function drawRadar(){
+  try{ gsPinListing(); }catch(e){}
   if(radarTab==="pending" && !pendingState.loaded && !pendingState.loading) loadPending();
   var agents=DATA.marketAgents||[], listings=DATA.radarListings||[];
   var cut=new Date(Date.now()-3*86400000).toISOString().slice(0,10);
@@ -3197,12 +3208,388 @@ function _msgOff(e){var d=document.getElementById("msgDrop");if(d&&!d.contains(e
 document.getElementById("tFollow").onclick=function(){go("portal");};
 document.getElementById("tInbox").onclick=toggleMsgDrop;
 document.getElementById("tBell").onclick=toggleBell;
-document.addEventListener("keydown",function(e){if(e.key!=="Escape")return;var m=document.getElementById("avModal");if(m){avCloseModal();return;}var b=document.getElementById("bellDrop");if(b){b.remove();document.removeEventListener("mousedown",_bellOff);return;}var mm=document.getElementById("msgDrop");if(mm){mm.remove();document.removeEventListener("mousedown",_msgOff);return;}closeAvMenu();});
-document.getElementById("q").addEventListener("input",function(){
-  if(view==="contacts") renderContacts(this.value);
-  else if(view==="portal"){ portalFilter=this.value; if(PORTAL) drawPortal(); }
-  else if(view==="inbox"&&DATA.msgs) drawInbox();
+document.addEventListener("keydown",function(e){if(e.key!=="Escape")return;var m=document.getElementById("avModal");if(m){avCloseModal();return;}var gs=document.getElementById("gsearch");if(gs){gsClose();return;}var b=document.getElementById("bellDrop");if(b){b.remove();document.removeEventListener("mousedown",_bellOff);return;}var mm=document.getElementById("msgDrop");if(mm){mm.remove();document.removeEventListener("mousedown",_msgOff);return;}closeAvMenu();});
+/* Global search: one box on every screen. Results stay inside the user's database login, same as the rest of the CRM. */
+var GS={input:null,q:"",seq:0,timer:null,hi:0,more:{},loading:false,items:{},data:{contacts:[],locations:[],messages:[],jobs:[],notes:[],listings:[]}};
+var GS_GROUPS=[["contacts","Contacts"],["locations","Locations"],["messages","Messages"],["jobs","Referrals and jobs"],["notes","Notes"],["listings","Listings"]];
+function gsClose(){
+  GS.loading=false; GS.seq++;
+  var p=document.getElementById("gsearch"); if(p) p.remove();
+  if(GS.input) GS.input.setAttribute("aria-expanded","false");
+}
+function gsTerm(raw){
+  return String(raw==null?"":raw).replace(/[*"()\\%]/g,"").replace(/,/g," ").replace(/\s+/g," ").trim();
+}
+function gsDigits(s){return String(s||"").replace(/\D/g,"");}
+function gsMatch(val,q,qd){
+  var h=String(val||"").toLowerCase();
+  if(q && h.indexOf(q.toLowerCase())>=0) return true;
+  if(qd && qd.length>=3){ var d=gsDigits(val); if(d && d.indexOf(qd)>=0) return true; }
+  return false;
+}
+function gsStar(q){return "*"+encodeURIComponent(q)+"*";}
+function gsOr(cols,q,digitCols){
+  var parts=cols.map(function(c){return c+".ilike."+gsStar(q);});
+  var d=gsDigits(q);
+  if(digitCols && d.length>=4){
+    digitCols.forEach(function(c){ var piece=c+".ilike."+gsStar(d); if(parts.indexOf(piece)<0) parts.push(piece); });
+  }
+  return "or=("+parts.join(",")+")";
+}
+function gsGet(path){return sb(path).catch(function(){return [];});}
+function gsSnippet(text,q){
+  var s=String(text||"").replace(/\s+/g," ").trim();
+  if(!s) return "";
+  if(/^data:/i.test(s)) return "";
+  var i=q?s.toLowerCase().indexOf(String(q).toLowerCase()):-1;
+  if(i<0) return s.slice(0,88);
+  var start=Math.max(0,i-28);
+  var cut=s.slice(start, start+88);
+  return (start>0?"...":"")+cut+(start+88<s.length?"...":"");
+}
+function gsName(id){
+  var c=(ALL||[]).filter(function(x){return +x.id===+id;})[0];
+  return c?cName(c):"";
+}
+function gsWhen(s){return String(s||"").slice(0,10);}
+function gsLim(group){return GS.more[group]?40:5;}
+function gsTake(group, rows){
+  var expanded=!!GS.more[group];
+  var cap=expanded?40:4;
+  return {rows:rows.slice(0,cap), more:!expanded && rows.length>cap, full:!!expanded && rows.length>=40};
+}
+function gsScore(c,q){
+  var qq=q.toLowerCase();
+  var name=String(c.name||"").toLowerCase();
+  var biz=String(c.business||"").toLowerCase();
+  if(name.indexOf(qq)===0) return 0;
+  if(name.indexOf(qq)>0) return 1;
+  if(biz.indexOf(qq)===0) return 2;
+  if(biz.indexOf(qq)>0) return 3;
+  return 4;
+}
+function gsContactHit(c,q,qd){
+  return gsMatch(c.name,q,qd)||gsMatch(c.business,q,qd)||gsMatch(c.phone,q,qd)||gsMatch(c.email,q,qd)||gsMatch(c.address,q,qd)||gsMatch(c.role,q,qd);
+}
+function gsContactSub(c,q,qd){
+  var fields=[c.business,c.role,c.phone,c.email,c.address,c.territory,c.type];
+  var i; for(i=0;i<fields.length;i++){ if(fields[i] && gsMatch(fields[i],q,qd)) return String(fields[i]); }
+  return [c.business,c.type,c.territory].filter(Boolean).join(" · ");
+}
+function gsLocal(q){
+  var qd=gsDigits(q), contacts=[], locations=[];
+  (ALL||[]).forEach(function(c){
+    if(gsContactHit(c,q,qd)) contacts.push(c);
+    if(gsMatch(c.address,q,qd)||gsMatch(c.territory,q,qd)) locations.push(c);
+  });
+  contacts.sort(function(a,b){return gsScore(a,q)-gsScore(b,q)||String(cName(a)).localeCompare(String(cName(b)));});
+  locations.sort(function(a,b){return String(a.address||a.territory||"").localeCompare(String(b.address||b.territory||""));});
+  var ct=gsTake("contacts", contacts), lc=gsTake("locations", locations);
+  return {
+    contacts:ct.rows.map(function(c){return {key:"c"+c.id, title:cName(c), sub:gsContactSub(c,q,qd)||c.type||"", open:function(){gsOpenContact(c.id);}};}),
+    contactsMore:ct.more, contactsFull:ct.full,
+    locations:lc.rows.map(function(c){return {key:"l"+c.id, title:c.address||c.territory||cName(c), sub:[cName(c), c.type].filter(Boolean).join(" · "), open:function(){gsOpenContact(c.id);}};}),
+    locationsMore:lc.more, locationsFull:lc.full
+  };
+}
+function gsOpenContact(id, tab, focusMsg){
+  id=+id; if(!id) return;
+  var goOpen=function(){
+    if(gsField()){
+      var sheet=document.getElementById("mSheet"); if(sheet) sheet.remove();
+      mOpen(id); return;
+    }
+    if(tab) window.__gsTab=tab;
+    openContact(id, !!focusMsg);
+  };
+  if((ALL||[]).some(function(c){return +c.id===id;})){ goOpen(); return; }
+  sb("contacts?id=eq."+id+"&select=id,name,business,type,phone,email,role,territory,address,lat,lon,tier,portalActivatedAt").then(function(r){
+    if(r&&r[0]){ ALL.push(r[0]); goOpen(); }
+    else banner("That contact is no longer in the CRM.");
+  }).catch(function(){ banner("Couldn't open that contact."); });
+}
+function gsInfoSheet(title, lines, buttons){
+  var old=document.getElementById("gsSheet"); if(old) old.remove();
+  var sheet=document.createElement("div"); sheet.className="m-sheet"; sheet.id="gsSheet";
+  var html='<div class="in"><div class="m-h">'+esc(title)+'</div>';
+  lines.forEach(function(l){ if(l) html+='<div style="font-size:14px;margin:6px 0">'+esc(l)+'</div>'; });
+  (buttons||[]).forEach(function(b,i){ html+='<button class="m-btn'+(i===0?" grad":"")+' full" data-gsb="'+i+'" style="margin-top:8px">'+esc(b.label)+'</button>'; });
+  html+='<button class="m-btn full" id="gsSheetClose" style="margin-top:8px">Close</button></div>';
+  sheet.innerHTML=html;
+  document.body.appendChild(sheet);
+  sheet.addEventListener("click",function(e){ if(e.target===sheet) sheet.remove(); });
+  var cl=document.getElementById("gsSheetClose"); if(cl) cl.onclick=function(){ sheet.remove(); };
+  [].forEach.call(sheet.querySelectorAll("[data-gsb]"),function(btn){
+    btn.onclick=function(){ var b=(buttons||[])[+btn.getAttribute("data-gsb")]; sheet.remove(); if(b&&b.run) b.run(); };
+  });
+}
+function gsOpenJob(row){
+  if(row.contactId){ gsOpenContact(row.contactId,"referrals"); return; }
+  var lines=[row.sub, row.extra].filter(Boolean);
+  if(gsField()){ gsInfoSheet(row.title, lines); return; }
+  portalTab="leads"; portalMode="referral"; portalFilter=row.title||"";
+  banner(row.title+(row.sub?(" · "+row.sub):""));
+  go("portal");
+}
+function gsOpenListing(row){
+  var run=function(){
+    window.__gsListing=row.raw||null;
+    radarFeedQuery=(row.raw&&(row.raw.address||row.raw.agent_name))||"";
+    radarTab="listed";
+    go("radar");
+  };
+  if(gsField()){
+    var buttons=[];
+    if(row.contactId) buttons.push({label:"Open agent", run:function(){ gsOpenContact(row.contactId); }});
+    buttons.push({label:"Open Listing Radar", run:function(){ var app=document.getElementById("mApp"); if(app) app.style.display="none"; run(); }});
+    gsInfoSheet(row.title, [row.sub], buttons);
+    return;
+  }
+  run();
+}
+function gsPinListing(){
+  var l=window.__gsListing;
+  if(!l||typeof DATA==="undefined"||!DATA.radarListings) return;
+  var addr=String(l.address||"").toLowerCase(), agent=String(l.agent_name||"").toLowerCase();
+  var have=DATA.radarListings.some(function(x){return String(x.address||"").toLowerCase()===addr && String(x.agent_name||"").toLowerCase()===agent;});
+  if(!have) DATA.radarListings.unshift(l);
+}
+function gsEnsurePanel(){
+  var panel=document.getElementById("gsearch");
+  if(!panel){
+    panel=document.createElement("div");
+    panel.id="gsearch";
+    panel.className="gsearch";
+    panel.setAttribute("role","listbox");
+    document.body.appendChild(panel);
+  }
+  if(!panel.classList.contains("gsearch")) panel.classList.add("gsearch");
+  return panel;
+}
+function gsPlace(){
+  var panel=document.getElementById("gsearch"), inp=GS.input;
+  if(!panel||!inp) return;
+  panel.style.position="fixed";
+  panel.style.zIndex="10050";
+  var r=inp.getBoundingClientRect();
+  var narrow=window.innerWidth<760;
+  var left=narrow?8:Math.max(8,r.left);
+  var width=narrow?(window.innerWidth-16):Math.min(Math.max(r.width,280), window.innerWidth-left-8);
+  var top=Math.max(8, r.bottom+8);
+  var maxH=Math.max(160, Math.min(520, window.innerHeight-top-12));
+  var nav=document.getElementById("mNav");
+  if(nav && document.getElementById("mApp")){
+    var nb=nav.getBoundingClientRect();
+    if(nb.top>top+80) maxH=Math.max(160, Math.min(maxH, nb.top-top-8));
+  }
+  panel.style.left=left+"px";
+  panel.style.top=top+"px";
+  panel.style.width=width+"px";
+  panel.style.maxHeight=maxH+"px";
+}
+function gsField(){ var app=document.getElementById("mApp"); return !!(app && app.style.display!=="none"); }
+function gsRender(){
+  var inp=GS.input; if(!inp) return;
+  GS.items={};
+  var local=gsLocal(GS.q);
+  var groups={
+    contacts:{rows:local.contacts, more:local.contactsMore, full:local.contactsFull},
+    locations:{rows:local.locations, more:local.locationsMore, full:local.locationsFull},
+    messages:gsPack("messages"),
+    jobs:gsPack("jobs"),
+    notes:gsPack("notes"),
+    listings:gsPack("listings")
+  };
+  var html="", n=0, any=false;
+  GS_GROUPS.forEach(function(g){
+    var pack=groups[g[0]]; if(!pack||!pack.rows.length) return;
+    any=true;
+    html+='<div class="gsh"><span>'+esc(g[1])+'</span></div>';
+    pack.rows.forEach(function(row){
+      html+='<button type="button" class="gsrow" data-gsi="'+n+'" data-gskey="'+esc(row.key)+'"><span class="t">'+esc(row.title||"Untitled")+'</span>'+(row.sub?'<span class="s">'+esc(row.sub)+'</span>':'')+'</button>';
+      GS.items[row.key]=row; n++;
+    });
+    if(pack.more){ html+='<button type="button" class="gsall" data-gsmore="'+g[0]+'" data-gsi="'+n+'">See all</button>'; n++; }
+    if(pack.full) html+='<div class="gsnote">Showing the first 40. Add a word to narrow this list.</div>';
+  });
+  if(!any) html='<div class="gsnote">'+(GS.loading?"Searching...":"No matches.")+'</div>';
+  else if(GS.loading) html+='<div class="gsnote">Searching messages, jobs, notes, and listings...</div>';
+  var panel=gsEnsurePanel();
+  panel.innerHTML=html;
+  inp.setAttribute("aria-expanded","true");
+  gsPlace();
+  var nodes=[].slice.call(panel.querySelectorAll("[data-gsi]"));
+  if(GS.hi>=nodes.length) GS.hi=0;
+  nodes.forEach(function(el,i){
+    var on=i===GS.hi;
+    el.classList.toggle("on", on);
+    if(on) el.setAttribute("aria-selected","true"); else el.removeAttribute("aria-selected");
+    el.addEventListener("click", function(){ gsActivateEl(el); });
+  });
+  var cur=nodes[GS.hi]; if(cur){ try{ cur.scrollIntoView({block:"nearest"}); }catch(e){} }
+}
+function gsPack(group){
+  var rows=GS.data[group]||[];
+  var taken=gsTake(group, rows);
+  return {rows:taken.rows, more:taken.more, full:taken.full};
+}
+function gsShowHint(msg){
+  var inp=GS.input; if(!inp) return;
+  var panel=gsEnsurePanel();
+  panel.innerHTML='<div class="gsnote">'+esc(msg)+'</div>';
+  inp.setAttribute("aria-expanded","true");
+  gsPlace();
+}
+function gsActivateEl(el){
+  if(!el) return;
+  var more=el.getAttribute("data-gsmore");
+  if(more){ gsExpand(more); return; }
+  var item=GS.items[el.getAttribute("data-gskey")];
+  if(!item) return;
+  var input=GS.input;
+  gsClose();
+  if(input) input.value="";
+  item.open();
+}
+function gsExpand(group){
+  GS.more[group]=true;
+  if(group==="contacts"||group==="locations"){ gsRender(); return; }
+  GS.seq++;
+  gsFetch(GS.q, GS.seq);
+}
+function gsSchedule(){
+  var inp=GS.input; if(!inp) return;
+  var q=gsTerm(inp.value);
+  if(q!==GS.q){ GS.more={}; GS.hi=0; GS.data.messages=[]; GS.data.jobs=[]; GS.data.notes=[]; GS.data.listings=[]; }
+  GS.q=q;
+  clearTimeout(GS.timer);
+  GS.seq++;
+  var seq=GS.seq;
+  if(q.length<2){
+    if(q.length===1) gsShowHint("Type at least 2 characters.");
+    else gsClose();
+    return;
+  }
+  GS.loading=true;
+  gsRender();
+  GS.timer=setTimeout(function(){ if(seq===GS.seq) gsFetch(q, seq); }, 180);
+}
+function gsRowsFromServer(q, pack){
+  var messages=[];
+  (pack.sms||[]).forEach(function(m){
+    var cm=cleanSms(m.body);
+    var who=gsName(m.contact_id)||(m.direction==="in"?(m.from_number||"Unknown"):(m.to_number||"Unknown"));
+    messages.push({key:"s"+m.id, at:m.created_at||"", title:(m.direction==="in"?"Text from ":"Text to ")+who, sub:[gsWhen(m.created_at), gsSnippet(cm.text||(cm.media?"(photo)":""), q)].filter(Boolean).join(" · "), open:function(){ if(m.contact_id) gsOpenContact(m.contact_id,"conversation",true); else if(gsField()) gsInfoSheet("Text", [who, gsSnippet(cm.text,q)]); else go("inbox"); }});
+  });
+  (pack.email||[]).forEach(function(m){
+    var who=gsName(m.contact_id)||(m.direction==="in"?(m.from_email||"Unknown"):(m.to_email||"Unknown"));
+    var bit=gsSnippet(m.subject||m.body||"(email)", q);
+    messages.push({key:"e"+m.id, at:m.created_at||"", title:(m.direction==="in"?"Email from ":"Email to ")+who, sub:[gsWhen(m.created_at), bit].filter(Boolean).join(" · "), open:function(){ if(m.contact_id) gsOpenContact(m.contact_id,"conversation",true); else if(gsField()) gsInfoSheet("Email", [who, m.subject||"", gsSnippet(m.body,q)]); else go("inbox"); }});
+  });
+  messages.sort(function(a,b){return a.at<b.at?1:-1;});
+  var jobs=[];
+  (pack.refs||[]).forEach(function(r){
+    var sub=[r.contactName, r.status, gsWhen(r.date), (r.amount?money(r.amount):"")].filter(Boolean).join(" · ");
+    jobs.push({key:"r"+r.id, title:r.jobName||r.contactName||"Referral", sub:sub, open:function(){ gsOpenJob({title:r.jobName||r.contactName||"Referral", sub:sub, contactId:r.contactId}); }});
+  });
+  (pack.leads||[]).forEach(function(l){
+    var sub=["From "+(l.realtorName||"portal"), l.status, gsWhen(l.moveDate||l.submittedAt), l.fromAddress].filter(Boolean).join(" · ");
+    jobs.push({key:"p"+l.id, title:l.customerName||"Portal lead", sub:sub, open:function(){ gsOpenJob({title:l.customerName||"Portal lead", sub:sub, contactId:l.realtorId}); }});
+  });
+  var notes=[];
+  var qd=gsDigits(q), contactIds={};
+  (ALL||[]).forEach(function(c){ if(gsContactHit(c,q,qd)) contactIds[String(c.id)]=1; });
+  (pack.noteContacts||[]).forEach(function(c){
+    if(contactIds[String(c.id)]) return;
+    var blob=gsSnippet(c.notes,q)||gsSnippet(c.enrichmentNotes,q);
+    if(!blob) return;
+    notes.push({key:"n"+c.id, title:c.name||c.business||"Note", sub:blob, open:function(){ gsOpenContact(c.id,"notes"); }});
+  });
+  (pack.visits||[]).forEach(function(v){
+    var who=gsName(v.contactId)||v.handler||"Visit";
+    notes.push({key:"v"+v.id, title:who, sub:["Visit", gsWhen(v.date), gsSnippet(v.notes,q)].filter(Boolean).join(" · "), open:function(){ if(v.contactId) gsOpenContact(v.contactId,"visits"); else gsInfoSheet(who, [gsSnippet(v.notes,q)]); }});
+  });
+  (pack.followups||[]).forEach(function(f){
+    var who=gsName(f.contact_id)||"Follow-up";
+    notes.push({key:"f"+f.id, title:who, sub:["Follow-up", gsWhen(f.due_date), gsSnippet(f.note,q)].filter(Boolean).join(" · "), open:function(){ if(f.contact_id) gsOpenContact(f.contact_id); }});
+  });
+  var listings=[];
+  (pack.listings||[]).forEach(function(l){
+    var agent=(ALL||[]).filter(function(c){return String(c.name||"").toLowerCase()===String(l.agent_name||"").toLowerCase();})[0];
+    listings.push({key:"ls"+String(l.listing_key||l.address||""), title:l.address||l.agent_name||"Listing", sub:[l.city, l.agent_name, (l.price?money(l.price):""), gsWhen(l.listed_date)].filter(Boolean).join(" · "), raw:l, contactId:agent?agent.id:null, open:function(){ gsOpenListing({title:l.address||"Listing", sub:[l.city, l.agent_name, (l.price?money(l.price):"")].filter(Boolean).join(" · "), raw:l, contactId:agent?agent.id:null}); }});
+  });
+  return {messages:messages, jobs:jobs, notes:notes, listings:listings};
+}
+async function gsFetch(q, seq){
+  var limC=gsLim("contacts"), limM=gsLim("messages"), limJ=gsLim("jobs"), limN=gsLim("notes"), limL=gsLim("listings");
+  var starQ=q;
+  var idP=gsGet("contacts?"+gsOr(["name","business","phone","email","address","role"], starQ, ["phone"])+"&select=id,name,business,type,phone,email,role,territory,address,lat,lon&limit="+limC);
+  var smsP=gsGet("sms_messages?"+gsOr(["body","from_number","to_number"], starQ, ["from_number","to_number"])+"&select=id,contact_id,direction,body,from_number,to_number,created_at&order=created_at.desc&limit="+limM);
+  var emP=gsGet("email_messages?"+gsOr(["subject","body","from_email","to_email"], starQ)+"&select=id,contact_id,direction,subject,body,from_email,to_email,created_at&order=created_at.desc&limit="+limM);
+  var refP=gsGet("referrals?"+gsOr(["jobName","contactName","notes","status"], starQ)+"&select=id,contactId,contactName,jobName,status,date,amount&order=date.desc&limit="+limJ);
+  var leadP=gsGet("portal_leads?"+gsOr(["customerName","realtorName","fromAddress","toAddress","customerPhone","customerEmail","notes"], starQ, ["customerPhone"])+"&select=id,customerName,realtorName,realtorId,status,moveDate,submittedAt,fromAddress,toAddress,customerPhone&order=id.desc&limit="+limJ);
+  var noteP=gsGet("contacts?"+gsOr(["notes","enrichmentNotes"], starQ)+"&select=id,name,business,notes,enrichmentNotes&limit="+limN);
+  var visP=gsGet("visits?notes=ilike."+gsStar(q)+"&select=id,contactId,date,handler,notes&order=date.desc&limit="+limN);
+  var fuP=gsGet("followups?note=ilike."+gsStar(q)+"&select=id,contact_id,due_date,note,done&order=due_date.desc&limit="+limN);
+  var listP=gsGet("listing_seen?"+gsOr(["address","city","agent_name"], starQ)+"&select=listing_key,address,city,price,agent_name,listed_date&order=listed_date.desc.nullslast&limit="+limL);
+  var got=await Promise.all([idP,smsP,emP,refP,leadP,noteP,visP,fuP,listP]);
+  if(seq!==GS.seq || gsTerm(GS.input&&GS.input.value)!==q) return;
+  (got[0]||[]).forEach(function(c){
+    if(c&&c.id!=null&&!(ALL||[]).some(function(x){return +x.id===+c.id;})) ALL.push(c);
+  });
+  var built=gsRowsFromServer(q,{sms:got[1],email:got[2],refs:got[3],leads:got[4],noteContacts:got[5],visits:got[6],followups:got[7],listings:got[8]});
+  GS.data.messages=built.messages;
+  GS.data.jobs=built.jobs;
+  GS.data.notes=built.notes;
+  GS.data.listings=built.listings;
+  GS.loading=false;
+  gsRender();
+}
+function gsKey(e){
+  var inp=e.currentTarget; GS.input=inp;
+  if(e.key==="Escape"){
+    if(document.getElementById("gsearch")){ e.preventDefault(); e.stopPropagation(); gsClose(); }
+    else if(inp.value){ e.preventDefault(); e.stopPropagation(); inp.value=""; }
+    return;
+  }
+  var open=!!document.getElementById("gsearch");
+  if((e.key==="ArrowDown"||e.key==="ArrowUp") && gsTerm(inp.value).length>=2){
+    e.preventDefault();
+    if(!open){ gsSchedule(); return; }
+    var nodes=document.querySelectorAll("#gsearch [data-gsi]");
+    if(!nodes.length) return;
+    GS.hi = e.key==="ArrowDown" ? (GS.hi+1)%nodes.length : (GS.hi-1+nodes.length)%nodes.length;
+    gsRender();
+    return;
+  }
+  if(e.key==="Enter"){
+    var nodes2=document.querySelectorAll("#gsearch [data-gsi]");
+    if(!nodes2.length) return;
+    e.preventDefault();
+    var pick=nodes2[GS.hi]||nodes2[0];
+    gsActivateEl(pick);
+  }
+}
+function gsBind(inp){
+  if(!inp||inp.__gs) return;
+  inp.__gs=1;
+  inp.setAttribute("role","combobox");
+  inp.setAttribute("aria-autocomplete","list");
+  inp.setAttribute("aria-expanded","false");
+  inp.setAttribute("aria-controls","gsearch");
+  inp.addEventListener("input", function(){ GS.input=inp; gsSchedule(); });
+  inp.addEventListener("focus", function(){ GS.input=inp; if(gsTerm(inp.value).length>=2) gsSchedule(); });
+  inp.addEventListener("keydown", gsKey);
+}
+gsBind(document.getElementById("q"));
+document.addEventListener("mousedown", function(e){
+  var panel=document.getElementById("gsearch"); if(!panel) return;
+  if(panel.contains(e.target)) return;
+  if(GS.input && (e.target===GS.input || GS.input.contains(e.target))) return;
+  gsClose();
 });
+window.addEventListener("resize", function(){ if(document.getElementById("gsearch")) gsPlace(); });
+window.addEventListener("scroll", function(){ if(document.getElementById("gsearch")) gsPlace(); }, true);
 var MOBILE_MODE = /[?&]m=1/.test(location.search) || (window.matchMedia && window.matchMedia("(max-width: 760px)").matches && !/[?&]desktop=1/.test(location.search));
 renderNav();
 loadContacts().then(function(){
@@ -3402,10 +3789,11 @@ function bootMobile(){
   +".m-sec{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--text-muted,#888);margin:8px 2px 10px}";
   document.head.appendChild(st);
   var app=document.createElement("div"); app.id="mApp";
-  app.innerHTML='<div class="m-top" style="flex-direction:column;align-items:stretch;gap:10px"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div class="m-logo">NEON CRM</div><div class="m-sub">FIELD</div></div><button class="m-btn" id="mDesk" style="padding:7px 12px;font-size:12px">Desktop</button></div><input class="m-in" id="mTopSearch" placeholder="🔍 Search contacts &amp; partners…" style="margin:0"></div><div class="m-body" id="mBody"></div><div class="m-nav" id="mNav"></div>';
+  app.innerHTML='<div class="m-top" style="flex-direction:column;align-items:stretch;gap:10px"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div class="m-logo">NEON CRM</div><div class="m-sub">FIELD</div></div><button class="m-btn" id="mDesk" style="padding:7px 12px;font-size:12px">Desktop</button></div><input class="m-in" id="mTopSearch" placeholder="Search everything" enterkeyhint="search" aria-label="Search everything" style="margin:0"></div><div class="m-body" id="mBody"></div><div class="m-nav" id="mNav"></div>';
   document.body.appendChild(app);
   document.getElementById("mDesk").onclick=function(){ location.href=location.pathname+"?desktop=1"; };
-  var ts=document.getElementById("mTopSearch"); if(ts) ts.oninput=function(){ if(mScreen!=="partners"){ mGo("partners"); } else { mDrawList(ts.value); } };
+  var ts=document.getElementById("mTopSearch");
+  if(ts){ ts.placeholder="Search everything"; ts.setAttribute("enterkeyhint","search"); ts.setAttribute("aria-label","Search everything"); gsBind(ts); }
   // Delegated tap handler — every contact row (Today + Partners) opens its sheet, survives re-renders.
   document.getElementById("mBody").addEventListener("click",function(e){
     var rm=e.target.closest&&e.target.closest("[data-rmroute]"); if(rm){ e.stopPropagation(); mRouteToggle(+rm.getAttribute("data-rmroute")); return; }
@@ -3676,7 +4064,7 @@ function mWire(){
   var srb=document.getElementById("mSaveRouteBtn"); if(srb)srb.onclick=mSaveRoute;
   if(document.getElementById("mSavedBox")) mLoadSavedRoutes();
   if(document.getElementById("mRouteMap")) mRenderMap();
-  if(document.getElementById("mList")){ var hv=(document.getElementById("mTopSearch")||{}).value||""; mDrawList(hv); }
+  if(document.getElementById("mList")) mDrawList("");
   // Home-screen launcher tiles
   var vh=document.getElementById("mVoiceAdd"); if(vh)vh.onclick=function(){ mGo("add"); setTimeout(function(){var b=document.getElementById("acSpeak"); if(b)b.click();},90); };
   var tr=document.getElementById("mtRoute"); if(tr)tr.onclick=function(){ mGo("route"); };
