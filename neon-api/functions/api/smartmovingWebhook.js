@@ -4,17 +4,19 @@
  *  Flow: fetch the full opportunity from SmartMoving's API, classify its stage,
  *  and write DIRECTLY to Supabase (no Apps Script):
  *    - Affiliate-tagged (opp.affiliateName / referralSource) → match the affiliate to a
- *      CRM contact and create/advance a row in `referrals` (deduped by [SM:<oppId>]).
+ *      CRM contact and create/advance a row in `referrals` (deduped by opp id or any job id in notes).
  *    - No affiliate → advance a matching `portal_leads` row by customer name/phone.
- *  Never sends money; payouts stay human-initiated in the CRM. Only ever advances a status.
+ *  Never sends money; payouts stay human-initiated in the CRM. Status only ever advances.
+ *  Amount, service date, and a placeholder job name are refreshed from the opportunity
+ *  (final invoice once there is one) without firing payouts.
  *
  *  Env: SUPABASE_URL, SUPABASE_KEY, SMARTMOVING_API_KEY, SMARTMOVING_WEBHOOK_SECRET? */
 import { endpoint, preflight, sb } from '../_shared.js';
 import { matchContact, loadAliases } from '../_match.js';
 import { dispatch } from '../_webhooks.js';
 import { emitEvent } from '../_push.js';
+import { smOpp, moneyOf, needsSmartMovingCloseOut, oppNoteIds, notesContainId, referralIdFilter, referralFieldPatch } from '../_smopp.js';
 
-const SM_BASE = 'https://api-public.smartmoving.com/v1';
 const GENERIC = /google|yelp|\bweb\b|website|online|bing|drive.?by|signage|sign\b|past customer|return(ing)? customer|repeat customer|former customer|facebook|instagram|social|yard sign|billboard|angi|thumbtack|home.?advisor|walk.?in|truck|wrap|\bnone\b|^n\/?a$|^other$|unknown|search engine|chat ?gpt|openai|\bclaude\b|perplexity|gemini|copilot|\bai\b/i;
 const RANK = { referred: 1, booked: 2, completed: 3 };
 const PRANK = { 'new': 0, contacted: 1, booked: 2, completed: 3, lost: 0 };
@@ -52,12 +54,10 @@ function partnerOf(o) {
   if (!name || GENERIC.test(name) || NOT_PARTNER.test(name)) return '';
   return name;
 }
-async function smGet(key, path) {
-  try {
-    const r = await fetch(SM_BASE + path, { headers: { 'x-api-key': key, Accept: 'application/json' } });
-    if (!r.ok) return { ok: false, status: r.status };
-    return { ok: true, body: await r.json() };
-  } catch (e) { return { ok: false, err: String((e && e.message) || e) }; }
+async function rowsMatchingIds(db, ids) {
+  const filter = referralIdFilter(ids);
+  if (!filter) return [];
+  return (await db.select('referrals?' + filter + '&status=neq.duplicate&select=id,contactId,status,notes,jobName,amount,date&order=id.asc&limit=5')) || [];
 }
 
 // Fire outbound webhooks + owner SMS when a job actually advances. Best-effort and
@@ -111,15 +111,20 @@ const handler = endpoint(async ({ request, env, body, reply, waitUntil }) => {
   const key = env.SMARTMOVING_API_KEY;
   if (!key) return reply({ ok: false, error: 'sm_not_configured' }, 503);
 
-  const g = await smGet(key, '/api/opportunities/' + encodeURIComponent(oppId));
+  const g = await smOpp(key, oppId);
   if (!g.ok) return reply({ ok: true, oppId, fetched: false, status: g.status || g.err });
   const opp = g.body;
-  const stage = classifyStage(opp);
+  const today = new Date().toISOString().slice(0, 10);
+  let stage = classifyStage(opp);
+  // Paid and invoiced, but SmartMoving still says Booked: don't auto-complete or pay out.
+  if (needsSmartMovingCloseOut(opp, today) && stage === 'completed') stage = 'booked';
   const partner = partnerOf(opp);
   const cust = (opp.customer && (opp.customer.name || opp.customer.fullName)) || 'SmartMoving job';
   const phone = String((opp.customer && (opp.customer.phoneNumber || opp.customer.phone || opp.customer.mobile)) || '').replace(/\D/g, '');
-  const amount = Number((opp.estimatedTotal && (opp.estimatedTotal.finalTotal || opp.estimatedTotal.subtotal)) || 0) || 0;
+  const amount = moneyOf(opp, stage);
   const date = fmtDate(opp.serviceDate);
+  const dated = opp.serviceDate ? date : '';
+  const ids = oppNoteIds(opp, oppId);
   const lead = opp.leadStatus || stage;
   const db = sb(env);
 
@@ -153,7 +158,7 @@ const handler = endpoint(async ({ request, env, body, reply, waitUntil }) => {
     // Don't silently drop an affiliate-tagged job. Record it (deduped by the SM tag) with no
     // contactId so the CRM still surfaces + chimes it, and Dane can add/link "<affiliate>".
     try {
-      const dup = (await db.select('referrals?notes=ilike.*' + encodeURIComponent('[SM:' + oppId + ']') + '*&select=id&limit=1')) || [];
+      const dup = await rowsMatchingIds(db, ids);
       if (!dup.length) {
         const ins = await db.insert('referrals', {
           contactId: '', contactName: partner, jobName: cust, status: stage,
@@ -162,39 +167,64 @@ const handler = endpoint(async ({ request, env, body, reply, waitUntil }) => {
         });
         const refId = ins && ins[0] && ins[0].id;
         emitWhoReferred(env, waitUntil, opp, { oppId, partner, customer: cust, refId });
+      } else {
+        const row = dup[0];
+        const fields = referralFieldPatch(row, { amount, date: dated, jobName: cust });
+        const patch = { ...fields };
+        const cur = RANK[String(row.status || '').toLowerCase()] || 0;
+        const nw = RANK[stage] || 0;
+        if (nw > cur) { patch.status = stage; patch.notes = (row.notes || '') + ' | live->' + stage; }
+        if (Object.keys(patch).length) await db.update('referrals', `id=eq.${row.id}`, patch);
       }
     } catch (e) { return reply({ ok: false, error: 'unmatched_record_failed', message: e.message }, 500); }
     return reply({ ok: true, oppId, affiliate: partner, matched: false, recorded: true });
   }
 
   let referrals = [];
-  try { referrals = (await db.select(`referrals?contactId=eq.${encodeURIComponent(match.id)}&select=id,status,notes,jobName`)) || []; } catch (e) {}
-  const tag = String(oppId);
-  const existing = referrals.find((r) => (String(r.notes || '') + ' ' + String(r.jobName || '')).indexOf(tag) >= 0);
+  try { referrals = (await db.select(`referrals?contactId=eq.${encodeURIComponent(match.id)}&select=id,status,notes,jobName,amount,date`)) || []; } catch (e) {}
+  const existing = referrals.find((r) => notesContainId(r.notes, ids) || String(r.jobName || '').indexOf(String(oppId)) >= 0);
   if (existing) {
+    const fields = referralFieldPatch(existing, { amount, date: dated, jobName: cust });
     const cur = RANK[String(existing.status || '').toLowerCase()] || 0;
     const nw = RANK[stage] || 0;
-    if (nw > cur) {
-      try { await db.update('referrals', `id=eq.${existing.id}`, { status: stage, notes: (existing.notes || '') + ' | live->' + stage }); }
+    const patch = { ...fields };
+    if (nw > cur) { patch.status = stage; patch.notes = (existing.notes || '') + ' | live->' + stage; }
+    if (Object.keys(patch).length) {
+      try { await db.update('referrals', `id=eq.${existing.id}`, patch); }
       catch (e) { return reply({ ok: false, error: 'update_failed', message: e.message }, 500); }
-      await emitJob(env, waitUntil, stage, { source: 'referral', oppId, refId: existing.id, customer: cust, partner: match.name, stage, amount, date });
-      return reply({ ok: true, oppId, partner: match.name, action: 'advance', from: existing.status, to: stage, refId: existing.id });
     }
+    if (nw > cur) {
+      await emitJob(env, waitUntil, stage, { source: 'referral', oppId, refId: existing.id, customer: cust, partner: match.name, stage, amount, date });
+      return reply({ ok: true, oppId, partner: match.name, action: 'advance', from: existing.status, to: stage, refId: existing.id, refreshed: Object.keys(fields) });
+    }
+    if (Object.keys(fields).length) return reply({ ok: true, oppId, partner: match.name, action: 'refresh', refId: existing.id, refreshed: Object.keys(fields) });
     return reply({ ok: true, oppId, partner: match.name, action: 'unchanged', status: existing.status });
   }
-  // Same job already saved under no partner (it came in before the partner was in the CRM)?
-  // Link that row instead of saving a second copy. (52 doubles cleaned up Oct 16, 2026.)
+  // Same job already saved (opp id or any job id in notes)? Update that row instead of
+  // inserting a second copy. Legacy "SmartMoving Sync" rows store job ids, not the opp id.
   try {
-    const prior = ((await db.select('referrals?notes=ilike.*' + encodeURIComponent('[SM:' + oppId + ']') + '*&status=neq.duplicate&select=id,contactId,status,notes&order=id.asc&limit=5')) || []);
+    const prior = await rowsMatchingIds(db, ids);
     const loose = prior.find((r) => !String(r.contactId || '').trim());
     if (loose) {
-      const up = { contactId: String(match.id), contactName: match.name, notes: (loose.notes || '') + ' | linked to ' + match.name };
+      const fields = referralFieldPatch(loose, { amount, date: dated, jobName: cust });
+      const up = { ...fields, contactId: String(match.id), contactName: match.name, notes: (loose.notes || '') + ' | linked to ' + match.name };
       if ((RANK[stage] || 0) > (RANK[String(loose.status || '').toLowerCase()] || 0)) up.status = stage;
       await db.update('referrals', `id=eq.${loose.id}`, up);
       if (up.status) await emitJob(env, waitUntil, stage, { source: 'referral', oppId, refId: loose.id, customer: cust, partner: match.name, stage, amount, date });
-      return reply({ ok: true, oppId, partner: match.name, action: 'linked', refId: loose.id });
+      return reply({ ok: true, oppId, partner: match.name, action: 'linked', refId: loose.id, refreshed: Object.keys(fields) });
     }
-    if (prior.length) return reply({ ok: true, oppId, partner: match.name, action: 'unchanged', note: 'already saved under another contact', refId: prior[0].id });
+    if (prior.length) {
+      const row = prior[0];
+      const fields = referralFieldPatch(row, { amount, date: dated, jobName: cust });
+      const patch = { ...fields };
+      const cur = RANK[String(row.status || '').toLowerCase()] || 0;
+      const nw = RANK[stage] || 0;
+      if (nw > cur) { patch.status = stage; patch.notes = (row.notes || '') + ' | live->' + stage; }
+      if (Object.keys(patch).length) await db.update('referrals', `id=eq.${row.id}`, patch);
+      // No emitJob: this branch never alerted, and payout webhooks are not deduped.
+      const action = nw > cur ? 'advance' : (Object.keys(fields).length ? 'refresh' : 'unchanged');
+      return reply({ ok: true, oppId, partner: match.name, action, note: 'matched existing row by opportunity or job id', refId: row.id, refreshed: Object.keys(fields) });
+    }
   } catch (_) { /* fall through to a normal save */ }
   try {
     await db.insert('referrals', {
