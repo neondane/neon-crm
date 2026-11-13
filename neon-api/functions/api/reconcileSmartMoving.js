@@ -4,16 +4,20 @@
  *  exactly how Andrew Sale's ~$15k SF job (opp 32468) went uncredited.
  *
  *  Reuses the live webhook's proven logic (partnerOf / matchContact / classifyStage), writes
- *  DIRECTLY to Supabase via sb(), dedupes by the [SM:<oppId>] tag, only ADVANCES status,
+ *  DIRECTLY to Supabase via sb(), dedupes by the opp id or any job id in notes, only ADVANCES
+ *  status, refreshes amount / service date / placeholder job name from the final invoice,
  *  and NEVER sends money. Idempotent: safe to run repeatedly.
  *
  *  Two modes:
  *    { "ids": ["<oppId>", ...], "dry": true|false }   ← WORKS NOW via the proven single-opp GET.
  *                                                        Use this to fix known-missing jobs today.
- *    { "open": true, "batch": 35, "dry": true }       ← HOURLY (Oct 2026): re-checks our own open referrals,
+ *    { "open": true, "batch": 35, "dry": true }       ← HOURLY (Oct 2026): re-checks referrals,
  *                                                        a batch per run, rotating (cursor in app_settings).
+ *        referred + booked use the 120-day service-date window. completed uses 365 days.
+ *        Every uuid in notes is tried (legacy rows store job ids). A 400 is flagged, not fatal.
  *        Moves forward on its own (referred -> booked -> completed). Lost in SmartMoving is only
  *        reported, unless "applyLost": true (Dane confirms first).
+ *        Booked + past + invoiced + paid in full is listed under needsCloseOut and NOT completed.
  *    { "auto": true, "sinceDays": 180, "dry": true }  ← daily self-heal. Enumerates recent opps.
  *        listRecentOpportunities() must be pointed at the correct SmartMoving LIST endpoint.
  *        Until confirmed it returns [] (no-op) — so auto mode can never write bad data.
@@ -23,6 +27,7 @@
 import { endpoint, preflight, sb } from '../_shared.js';
 import { matchContact, loadAliases } from '../_match.js';
 import { emitEvent } from '../_push.js';
+import { loadOpp, moneyOf, needsSmartMovingCloseOut, oppNoteIds, notesContainId, referralIdFilter, referralFieldPatch, uuidsInNotes } from '../_smopp.js';
 
 const SM_BASE = 'https://api-public.smartmoving.com/v1';
 const GENERIC = /google|yelp|\bweb\b|website|online|bing|drive.?by|signage|sign\b|past customer|return(ing)? customer|repeat customer|former customer|facebook|instagram|social|yard sign|billboard|angi|thumbtack|home.?advisor|walk.?in|truck|wrap|\bnone\b|^n\/?a$|^other$|unknown|search engine|chat ?gpt|openai|\bclaude\b|perplexity|gemini|copilot|\bai\b/i;
@@ -90,54 +95,129 @@ async function listRecentOpportunities(env, sinceDays) {
 }
 
 let ALIASES = {};
-async function reconcileOne(db, oppId, contacts, refsByContact, key, dry, applyLost, env, alerts) {
-  const g = await smGet(key, '/api/opportunities/' + encodeURIComponent(oppId));
-  if (!g.ok) return { id: oppId, skip: 'fetch-failed', detail: g.status || g.err };
-  const opp = g.body;
-  const partner = partnerOf(opp);
-  if (!partner) return { id: oppId, skip: 'no-affiliate' };
-  const match = matchContact(partner, contacts, ALIASES);
-  if (!match) return { id: oppId, unmatched: partner };
-  const stage = classifyStage(opp);
+
+function rowMatches(r, ids, oppId) {
+  return notesContainId(r && r.notes, ids) || (oppId && String((r && r.jobName) || '').indexOf(String(oppId)) >= 0);
+}
+
+async function findReferral(db, refsByContact, ids, oppId, preferContactId) {
+  const mine = refsByContact[String(preferContactId)] || [];
+  let existing = mine.find((r) => rowMatches(r, ids, oppId));
+  if (!existing) {
+    const lists = Object.keys(refsByContact).map((k) => refsByContact[k]);
+    for (let i = 0; i < lists.length && !existing; i++) existing = (lists[i] || []).find((r) => rowMatches(r, ids, oppId));
+  }
+  if (!existing) {
+    const filter = referralIdFilter(ids);
+    if (filter) {
+      try {
+        const rows = (await db.select('referrals?' + filter + '&status=neq.duplicate&select=id,contactId,status,notes,jobName,amount,date&order=id.asc&limit=5')) || [];
+        existing = rows[0] || null;
+        if (existing) {
+          const k = String(existing.contactId || '');
+          (refsByContact[k] = refsByContact[k] || []).push(existing);
+        }
+      } catch (_) { /* in-memory list still stands */ }
+    }
+  }
+  return existing || null;
+}
+
+async function reconcileOne(db, oppId, contacts, refsByContact, key, dry, applyLost, env, alerts, seen) {
+  const loaded = await loadOpp(key, oppId);
+  if (!loaded.ok) {
+    if (loaded.flagged) return { id: oppId, skip: 'not-opportunity', flagged: true, detail: loaded.status || 400 };
+    return { id: oppId, skip: 'fetch-failed', detail: loaded.status || loaded.err };
+  }
+  const opp = loaded.opp || {};
+  const resolved = String(opp.id || loaded.id || oppId).toLowerCase();
+  if (seen) {
+    if (seen.has(resolved)) return { id: oppId, skip: 'duplicate-opp', oppId: loaded.id, mappedFrom: loaded.mappedFrom };
+    seen.add(resolved);
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const closeOut = needsSmartMovingCloseOut(opp, today);
+  let stage = classifyStage(opp);
+  // Invoiced and paid, but SmartMoving still says Booked. Do not auto-mark completed.
+  if (closeOut && stage === 'completed') stage = 'booked';
   const cust = (opp.customer && (opp.customer.name || opp.customer.fullName)) || 'SmartMoving job';
-  const amount = Number((opp.estimatedTotal && (opp.estimatedTotal.finalTotal || opp.estimatedTotal.subtotal)) || 0) || 0;
+  const amount = moneyOf(opp, stage);
   const date = fmtDate(opp.serviceDate);
+  const dated = opp.serviceDate ? date : '';
+  const ids = oppNoteIds(opp, oppId);
+  const stamp = (result, refreshed) => {
+    if (loaded.mappedFrom) result.mappedFrom = loaded.mappedFrom;
+    result.oppId = opp.id || loaded.id || oppId;
+    if (refreshed && refreshed.length) result.refreshed = refreshed;
+    if (closeOut) {
+      result.needsCloseOut = {
+        id: String(opp.id || loaded.id || oppId), requestedId: String(oppId),
+        partner: result.partner || null, customer: cust, amount, serviceDate: dated || null,
+        smStatus: opp.status, reason: 'Needs close-out in SmartMoving',
+      };
+    }
+    return result;
+  };
+  const partner = partnerOf(opp);
+  if (!partner) return stamp({ id: oppId, skip: 'no-affiliate' });
+  const match = matchContact(partner, contacts, ALIASES);
+  if (!match) return stamp({ id: oppId, unmatched: partner });
   const lead = opp.leadStatus || stage;
-  const tag = String(oppId);
-  const mine = refsByContact[String(match.id)] || [];
-  const existing = mine.find((r) => (String(r.notes || '') + ' ' + String(r.jobName || '')).indexOf(tag) >= 0);
+  const existing = await findReferral(db, refsByContact, ids, oppId, match.id);
   if (existing) {
+    const fromStatus = existing.status;
+    const fields = referralFieldPatch(existing, { amount, date: dated, jobName: cust });
+    const refreshed = Object.keys(fields);
+    const patch = { ...fields };
+    if (!String(existing.contactId || '').trim()) {
+      patch.contactId = String(match.id);
+      patch.contactName = match.name;
+    }
     if (stage === 'lost') {
       // Never demote on our own: report it, and only write when Dane has said yes (applyLost).
-      if (applyLost && String(existing.status || '').toLowerCase() !== 'lost') {
-        if (!dry) await db.update('referrals', `id=eq.${existing.id}`, { status: 'lost', notes: (existing.notes || '') + ' | reconcile->lost' });
-        return { id: oppId, partner: match.name, cust, action: 'lost', from: existing.status, dry: !!dry };
+      if (applyLost && String(fromStatus || '').toLowerCase() !== 'lost') {
+        patch.status = 'lost';
+        patch.notes = (existing.notes || '') + ' | reconcile->lost';
+        if (!dry) await db.update('referrals', `id=eq.${existing.id}`, patch);
+        Object.assign(existing, patch);
+        return stamp({ id: oppId, partner: match.name, cust, action: 'lost', from: fromStatus, dry: !!dry }, refreshed);
       }
-      return { id: oppId, partner: match.name, cust, action: 'lost_in_sm', status: existing.status, smStatus: opp.status };
+      if (Object.keys(patch).length && !dry) await db.update('referrals', `id=eq.${existing.id}`, patch);
+      if (Object.keys(patch).length) Object.assign(existing, patch);
+      return stamp({ id: oppId, partner: match.name, cust, action: 'lost_in_sm', status: fromStatus, smStatus: opp.status }, refreshed);
     }
-    const cur = RANK[String(existing.status || '').toLowerCase()] || 0; const nw = RANK[stage] || 0;
+    const cur = RANK[String(fromStatus || '').toLowerCase()] || 0; const nw = RANK[stage] || 0;
     if (nw > cur) {
-      if (!dry) await db.update('referrals', `id=eq.${existing.id}`, { status: stage, notes: (existing.notes || '') + ' | reconcile->' + stage });
+      patch.status = stage;
+      patch.notes = (existing.notes || '') + ' | reconcile->' + stage;
+      if (!dry) await db.update('referrals', `id=eq.${existing.id}`, patch);
+      Object.assign(existing, patch);
       // Alert only for CURRENT jobs (a missed webhook), never for old history being cleaned up.
       // Same source_key as the live webhook, so a job can never alert twice.
-      const today = new Date().toISOString().slice(0, 10), ago = (d) => new Date(Date.now() - d * 864e5).toISOString().slice(0, 10);
+      // Amount / date / name refreshes do not alert and do not pay out.
+      const ago = (d) => new Date(Date.now() - d * 864e5).toISOString().slice(0, 10);
       if (!dry && alerts && ((stage === 'booked' && date >= ago(1)) || (stage === 'completed' && date >= ago(3) && date <= today))) {
         await emitEvent(env, { event: stage === 'booked' ? 'job_booked' : 'job_completed', title: (stage === 'booked' ? 'Booked: ' : 'Completed: ') + cust,
           body: 'Referred by ' + match.name + (stage === 'completed' ? '. Their payout may be due.' : '.'), url: stage === 'completed' ? '/app/#payouts' : '/app/#referrals',
-          source_key: 'job:' + oppId + ':' + stage }).catch(() => {});
+          source_key: 'job:' + (opp.id || oppId) + ':' + stage }).catch(() => {});
       }
-      return { id: oppId, partner: match.name, cust, action: 'advance', from: existing.status, to: stage, amount, dry: !!dry };
+      return stamp({ id: oppId, partner: match.name, cust, action: 'advance', from: fromStatus, to: stage, amount, dry: !!dry }, refreshed);
     }
-    return { id: oppId, partner: match.name, action: 'unchanged', status: existing.status };
+    if (Object.keys(patch).length) {
+      if (!dry) await db.update('referrals', `id=eq.${existing.id}`, patch);
+      Object.assign(existing, patch);
+      return stamp({ id: oppId, partner: match.name, cust, action: 'refresh', status: fromStatus, amount, dry: !!dry }, refreshed);
+    }
+    return stamp({ id: oppId, partner: match.name, action: 'unchanged', status: fromStatus });
   }
-  if (stage === 'lost') return { id: oppId, partner: match.name, cust, action: 'skip_lost' };
+  if (stage === 'lost') return stamp({ id: oppId, partner: match.name, cust, action: 'skip_lost' });
   if (!dry) {
     await db.insert('referrals', {
       contactId: String(match.id), contactName: match.name, jobName: cust, status: stage,
-      date: date, amount: String(amount), enteredBy: 'SmartMoving Reconcile', notes: '[SM:' + oppId + '] reconciled · ' + lead,
+      date: date, amount: String(amount), enteredBy: 'SmartMoving Reconcile', notes: '[SM:' + String(opp.id || oppId) + '] reconciled · ' + lead,
     });
   }
-  return { id: oppId, partner: match.name, action: 'create', stage, cust, amount, dry: !!dry };
+  return stamp({ id: oppId, partner: match.name, action: 'create', stage, cust, amount, dry: !!dry });
 }
 
 const handler = endpoint(async ({ env, body, reply }) => {
@@ -150,11 +230,27 @@ const handler = endpoint(async ({ env, body, reply }) => {
   let enumerated = 0, openTotal = 0, cursorFrom = null, cursorNext = null;
   if (body.auto) { const list = await listRecentOpportunities(env, +body.sinceDays || 180); enumerated = list.length; ids = ids.concat(list); }
   if (body.open) {
-    // Re-check our own OPEN referrals (referred / booked, tied to a partner, move date within the
-    // last 120 days or later), a batch per run, rotating so every one gets checked several times a day.
-    const since = new Date(Date.now() - 120 * 864e5).toISOString().slice(0, 10);
-    const open = (await db.select('referrals?select=id,notes&status=in.(referred,booked)&notes=like.*%5BSM:*&contactId=neq.&date=gte.' + since + '&order=id.asc&limit=1000')) || [];
-    const oppIds = open.map((r) => (String(r.notes || '').match(/\[SM:([0-9a-f-]{36})\]/) || [])[1]).filter(Boolean);
+    // referred / booked: stored service date within 120 days (unchanged window).
+    // completed: 365-day window, so a finished job is rechecked against the final invoice
+    // instead of being frozen on the estimate. Legacy notes store a comma-separated list of
+    // JOB ids, so every uuid is collected — not only the first [SM:<opp>] tag.
+    const since120 = new Date(Date.now() - 120 * 864e5).toISOString().slice(0, 10);
+    const since365 = new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10);
+    // [SM:…] tags and legacy "SmartMoving Sync" rows (job ids in a comma list).
+    // Filtering here keeps unrelated referrals from crowding the 1000-row cap.
+    const smNotes = 'or=(notes.ilike.*%5BSM:*,notes.ilike.*SmartMoving*,enteredBy.ilike.*SmartMoving*)';
+    const openRows = (await db.select('referrals?select=id,notes&status=in.(referred,booked)&contactId=neq.&date=gte.' + since120 + '&' + smNotes + '&order=id.asc&limit=1000')) || [];
+    const doneRows = (await db.select('referrals?select=id,notes&status=eq.completed&contactId=neq.&date=gte.' + since365 + '&' + smNotes + '&order=id.asc&limit=1000')) || [];
+    const oppIds = [];
+    const seenU = new Set();
+    openRows.concat(doneRows).forEach((r) => {
+      uuidsInNotes(r.notes).forEach((u) => {
+        const k = String(u).toLowerCase();
+        if (seenU.has(k)) return;
+        seenU.add(k);
+        oppIds.push(u);
+      });
+    });
     openTotal = oppIds.length;
     const batch = Math.max(1, Math.min(+body.batch || 35, 60));
     let off = 0;
@@ -162,24 +258,30 @@ const handler = endpoint(async ({ env, body, reply }) => {
     if (off >= openTotal) off = 0;
     cursorFrom = off; ids = ids.concat(oppIds.slice(off, off + batch)); cursorNext = off + batch >= openTotal ? 0 : off + batch;
   }
-  ids = Array.from(new Set(ids));
+  const seenId = new Set();
+  ids = ids.filter((id) => { const k = String(id).toLowerCase(); if (seenId.has(k)) return false; seenId.add(k); return true; });
   if (!ids.length) return reply({ ok: true, note: body.auto ? 'auto enumeration returned 0 — confirm the SmartMoving list endpoint in listRecentOpportunities()' : 'no ids provided', enumerated });
   let contacts = [], refs = []; ALIASES = await loadAliases(db);
   try { contacts = (await db.select('contacts?select=id,name,business,portalActivatedAt')) || []; } catch (e) { return reply({ ok: false, error: 'contacts_load_failed', message: e.message }, 500); }
-  try { refs = (await db.select('referrals?select=id,contactId,status,notes,jobName&limit=2000')) || []; } catch (e) {}
+  try { refs = (await db.select('referrals?select=id,contactId,status,notes,jobName,amount,date&limit=2000')) || []; } catch (e) {}
   const refsByContact = {}; refs.forEach((r) => { const k = String(r.contactId); (refsByContact[k] = refsByContact[k] || []).push(r); });
   const out = [];
-  for (const id of ids) { try { out.push(await reconcileOne(db, id, contacts, refsByContact, key, dry, applyLost, env, !!body.alerts)); } catch (e) { out.push({ id, error: String(e && e.message || e) }); } }
+  const seenOpp = new Set();
+  for (const id of ids) { try { out.push(await reconcileOne(db, id, contacts, refsByContact, key, dry, applyLost, env, !!body.alerts, seenOpp)); } catch (e) { out.push({ id, error: String(e && e.message || e) }); } }
   if (body.open && !dry && cursorNext !== null) {
     try { await db.update('app_settings', 'key=eq.sm_reconcile', { value: { offset: cursorNext, at: new Date().toISOString() } }); } catch (_) {}
   }
   const tally = (a) => out.filter((o) => o.action === a).length;
+  const needsCloseOut = out.map((o) => o.needsCloseOut).filter(Boolean);
+  const flaggedJobIds = out.filter((o) => o.flagged).map((o) => ({ id: o.id, detail: o.detail || 400, skip: o.skip || 'not-opportunity' }));
   return reply({
     ok: true, dry, scanned: ids.length, enumerated,
     created: tally('create'), advanced: tally('advance'), unchanged: tally('unchanged'),
+    refreshed: out.filter((o) => o.refreshed && o.refreshed.length).length,
     lostInSmartMoving: tally('lost_in_sm'), markedLost: tally('lost'), fetchFailed: out.filter((o) => o.skip === 'fetch-failed').length,
+    flaggedJobIds, needsCloseOut,
     unmatched: out.filter((o) => o.unmatched).length, openTotal, cursorFrom, cursorNext,
-    results: out.filter((o) => o.action !== 'unchanged').slice(0, 80),
+    results: out.filter((o) => o.action !== 'unchanged' && o.skip !== 'duplicate-opp').slice(0, 80),
   });
 });
 
