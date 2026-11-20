@@ -148,6 +148,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);display:flex
 .lbbar{flex:1;height:9px;background:var(--surface2);border-radius:999px;overflow:hidden}
 .lbfill{height:100%;background:linear-gradient(90deg,var(--pink),var(--cyan));border-radius:999px}
 .lbv{font-size:11.5px;color:var(--text-muted);white-space:nowrap;min-width:70px;text-align:right;flex:none}
+.lbup{display:block;margin-top:2px;font-size:10px;font-weight:700;letter-spacing:.2px;color:var(--text-muted)}
 .pipebar{display:flex;height:26px;border-radius:8px;overflow:hidden;background:var(--surface2)}
 .pipelegs{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px}
 .pipeleg{font-size:11.5px;color:var(--text-muted);display:flex;align-items:center;gap:6px;font-weight:600}
@@ -465,6 +466,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);display:flex
   <nav class="sidebar" id="sidebar"></nav>
   <div class="view" id="view"></div>
 </div>
+<script src="partnerRank.js"></script>
 <script>
 'use strict';
 var SB_URL="https://aoyfieswynhgqyrveqnp.supabase.co";
@@ -1849,7 +1851,7 @@ function spinPage(title){ document.getElementById("view").innerHTML='<div class=
 function stat(big,lbl,color){ return '<div class="stat"><div class="big"'+(color?' style="color:'+color+'"':'')+'>'+big+'</div><div class="lbl">'+esc(lbl)+'</div></div>'; }
 async function ensureData(cb){
   if(DATA.refs&&DATA.leads&&DATA.paid){ cb&&cb(); return; }
-  try{DATA.refs=await sb("referrals?select=id,contactId,contactName,jobName,status,date,amount&order=date.desc");}catch(e){DATA.refs=DATA.refs||[];}
+  try{DATA.refs=await sb("referrals?select=id,contactId,contactName,jobName,status,date,amount,notes&order=date.desc");}catch(e){DATA.refs=DATA.refs||[];}
   try{DATA.leads=await sb("portal_leads?select=id,customerName,realtorName,realtorId,status,moveDate,submittedAt,fromAddress,toAddress&order=id.desc");}catch(e){DATA.leads=DATA.leads||[];}
   try{DATA.paid=await sb("paid_referrals?select=key,paid_at");}catch(e){DATA.paid=DATA.paid||[];}
   try{var sd=await sb("sms_messages?select=created_at,contact_id,direction");var ed=await sb("email_messages?select=created_at,contact_id,direction");DATA.msgRows=sd.map(function(m){return {t:m.created_at,cid:m.contact_id,dir:m.direction,kind:"text"};}).concat(ed.map(function(m){return {t:m.created_at,cid:m.contact_id,dir:m.direction,kind:"email"};})).filter(function(m){return m.t;});DATA.msgDates=DATA.msgRows.map(function(m){return m.t;});}catch(e){DATA.msgDates=DATA.msgDates||[];}
@@ -1888,9 +1890,11 @@ function dxContact(id){
   return DX._byId[String(id)]||null;
 }
 function dxIsPartnerRef(r){
+  var c=dxContact(r.contactId);
+  if(window.PartnerRank) return PartnerRank.isPartnerReferral(r, c);
   var n=String(r.contactName||"").trim();
   if(!n||/^portal\b/i.test(n)||DX_NOT_PARTNER.test(n)||DX_GENERIC.test(n))return false;
-  var c=dxContact(r.contactId); if(c&&/@neongiantmoving\.com$/i.test(c.email||""))return false;
+  if(!c||/@neongiantmoving\.com$/i.test(c.email||""))return false;
   return true;
 }
 function dxPKey(r){return (r.contactId!=null&&String(r.contactId)!=="")?"c"+r.contactId:"n"+encodeURIComponent(String(r.contactName||"").trim().toLowerCase());}
@@ -1908,6 +1912,7 @@ function dxPartners(p,type){
   var by={};
   dxRefs().forEach(function(r){
     if(!dxIsPartnerRef(r)||!dxInPeriod(r,p))return;
+    if(window.PartnerRank&&PartnerRank.isTestReferral(r))return;
     var k=dxPKey(r);(by[k]||(by[k]=[])).push(r);
   });
   var arr=Object.keys(by).map(function(k){
@@ -1965,9 +1970,10 @@ function svgBars(items,fmt,gid,dk){
   return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="display:block"><defs><linearGradient id="'+id+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF1493"/><stop offset="1" stop-color="#22BFE7"/></linearGradient></defs>'+bars+'</svg>';
 }
 function chartTopPartners(){
-  var arr=dxSortP(dxPartners("12m","all").filter(function(o){return o.comp+o.book>0;}),"rev").slice(0,6);
-  var max=Math.max.apply(null,arr.map(function(a){return a.comp+a.book;}).concat([1]));
-  return arr.length?arr.map(function(a){return '<div class="lbrow" data-dk="p:'+esc(a.key)+'"><div class="lbn">'+esc(a.name)+'</div><div class="lbbar"><div class="lbfill" style="width:'+((a.comp+a.book)/max*100)+'%"></div></div><div class="lbv">'+kfmt(a.comp+a.book)+' · '+a.n+'</div></div>';}).join("")+'<div class="dxnote">Completed + booked, last 12 months. Lead sources and staff left out.</div>':'<div class="noact">No partner referrals in the last 12 months.</div>';
+  if(!window.PartnerRank) return '<div class="noact">No partner referrals in the last 12 months.</div>';
+  var ranked=PartnerRank.rankReferringPartners({refs:DATA.refs||[],contacts:ALL||[],today:new Date().toISOString().slice(0,10),period:"12m",limit:6,nameOf:function(c){return cName(c);}});
+  var arr=ranked.partners;
+  return arr.length?arr.map(function(a){var up=a.upcoming>0?'<div class="lbup">upcoming '+kfmt(a.upcoming)+'</div>':'';return '<div class="lbrow" data-dk="p:'+esc(a.key)+'"><div class="lbn">'+esc(a.name)+'</div><div class="lbbar"><div class="lbfill" style="width:'+a.bar.toFixed(1)+'%"></div></div><div class="lbv">'+kfmt(a.earned)+' · '+a.jobs+up+'</div></div>';}).join("")+'<div class="dxnote">Earned = completed + booked through today, last 12 months. Upcoming booked is separate. Lead sources, tests, and staff are left out.</div>':'<div class="noact">No partner referrals in the last 12 months.</div>';
 }
 function chartPipeline(refs){
   var s={referred:{n:0,a:0},booked:{n:0,a:0},completed:{n:0,a:0}};refs.forEach(function(r){var k=dxSt(r);if(s[k]){s[k].n++;s[k].a+=dxAmt(r);}});
@@ -2023,7 +2029,7 @@ function drawDashboard(){
 /* ---- hover previews ---- */
 function dxTl(l,v){return '<div class="tl"><span>'+l+'</span><b>'+v+'</b></div>';}
 function dxTopIn(refs,k){
-  var by={};refs.forEach(function(r){if(!dxIsPartnerRef(r))return;var s=dxSt(r);if(s!=="completed"&&s!=="booked")return;var key=dxPartnerName(r);by[key]=(by[key]||0)+dxAmt(r);});
+  var by={};refs.forEach(function(r){if(!dxIsPartnerRef(r))return;if(window.PartnerRank&&PartnerRank.isTestReferral(r))return;var s=dxSt(r);if(s!=="completed"&&s!=="booked")return;var key=dxPartnerName(r);by[key]=(by[key]||0)+dxAmt(r);});
   return Object.keys(by).map(function(n){return [n,by[n]];}).sort(function(a,b){return b[1]-a[1];}).slice(0,k||3);
 }
 function dxTip(key){
@@ -3292,7 +3298,7 @@ async function liveMsgCheck(seedOnly){
 }
 /* ---- Live refresh: keep notifications + dashboard current without a reload ---- */
 async function refreshLive(){
-  try{ DATA.refs=await sb("referrals?select=id,contactId,contactName,jobName,status,date,amount&order=date.desc"); }catch(e){}
+  try{ DATA.refs=await sb("referrals?select=id,contactId,contactName,jobName,status,date,amount,notes&order=date.desc"); }catch(e){}
   try{ DATA.leads=await sb("portal_leads?select=id,customerName,realtorName,realtorId,status,moveDate,submittedAt,fromAddress,toAddress&order=id.desc"); }catch(e){}
   try{ DATA.paid=await sb("paid_referrals?select=key,paid_at"); }catch(e){}
   try{ var sd=await sb("sms_messages?select=created_at");var ed=await sb("email_messages?select=created_at");DATA.msgDates=sd.map(function(m){return m.created_at;}).concat(ed.map(function(m){return m.created_at;})).filter(Boolean); }catch(e){}

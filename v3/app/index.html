@@ -184,6 +184,7 @@ textarea.input{min-height:90px;resize:vertical}
 .lb .v{font-size:13px;color:var(--muted);text-align:right}
 .lb .bar{grid-column:1/3;height:8px;border-radius:5px;background:var(--card2);overflow:hidden}
 .lb .bar i{display:block;height:100%;border-radius:5px;background:var(--grad)}
+.lb .up{grid-column:1/3;font-size:11px;font-weight:700;color:var(--muted);margin-top:-2px}
 .pipe{display:flex;height:16px;border-radius:9px;overflow:hidden;margin:6px 0 10px}
 .legend{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:13.5px;color:var(--muted)}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
@@ -203,6 +204,7 @@ textarea.input{min-height:90px;resize:vertical}
   <a href="#partners" data-tab="partners"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>Partners</a>
   <a href="#alerts" data-tab="alerts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>Alerts<span class="badge hidden" id="alertBadge">!</span></a>
 </nav>
+<script src="../partnerRank.js"></script>
 <script>
 'use strict';
 /* ============ Neon CRM phone app (crm3 /app) ============
@@ -998,7 +1000,7 @@ function barsSvg(items, fmt, gid) {
 }
 async function statsHtml() {
   const [refs, , msgDates] = await Promise.all([
-    sb('referrals?select=id,contactId,contactName,jobName,status,date,amount&order=date.desc'),
+    sb('referrals?select=id,contactId,contactName,jobName,status,date,amount,notes&order=date.desc'),
     loadPortal(true),
     Promise.all([sb('sms_messages?select=created_at'), sb('email_messages?select=created_at')]).then(([a, b]) => a.concat(b).map((m) => m.created_at).filter(Boolean)).catch(() => []),
     loadContacts(),
@@ -1016,10 +1018,9 @@ async function statsHtml() {
   const mi = {}; months.forEach((m, i) => { mi[m.key] = i; });
   refs.forEach((r) => { const k = String(r.date || '').slice(0, 7); if (mi[k] != null) months[mi[k]].v += (+r.amount || 0); });
   const yr = String(now.getFullYear()); const ytd = refs.filter((r) => String(r.date || '').slice(0, 4) === yr).reduce((t, r) => t + (+r.amount || 0), 0);
-  // top partners (referrals with an amount), pipeline, tiers, outreach
-  const by = {}; refs.filter((r) => (+r.amount || 0) > 0).forEach((r) => { const k = r.contactName || 'Unknown'; (by[k] = by[k] || { n: 0, amt: 0 }).n++; by[k].amt += (+r.amount || 0); });
-  const top = Object.keys(by).map((k) => ({ name: k, n: by[k].n, amt: by[k].amt })).sort((a, b) => b.n - a.n || b.amt - a.amt).slice(0, 6);
-  const topMax = Math.max(1, ...top.map((a) => a.n));
+  // top partners — same earned total as the desktop card (completed + booked through today)
+  const ranked = window.PartnerRank ? PartnerRank.rankReferringPartners({ refs, contacts: all, today: new Date().toISOString().slice(0, 10), period: '12m', limit: 6, nameOf: nm }) : { partners: [] };
+  const top = ranked.partners;
   const pl = { referred: 0, booked: 0, completed: 0 }; refs.forEach((r) => { const k = String(r.status || '').toLowerCase(); if (pl[k] != null) pl[k]++; });
   const plTot = pl.referred + pl.booked + pl.completed || 1;
   const seg = [['Referred', pl.referred, '#22BFE7'], ['Booked', pl.booked, '#9B5DE5'], ['Completed', pl.completed, '#FF1493']];
@@ -1032,7 +1033,7 @@ async function statsHtml() {
   const statTile = (id, icon, title, sub, body, open) => '<div class="tile' + (open ? ' open' : '') + '" data-tile="' + id + '"><button class="tile-head"><div class="tile-ic">' + icon + '</div><div><div style="font-weight:800;font-size:16px">' + title + '</div><div class="tile-lbl">' + sub + '</div></div><span class="tile-chev">' + ICON.chev + '</span></button><div class="tile-body"><div><div class="tile-inner">' + body + '</div></div></div></div>';
   let h = '<div class="kpis">' + kpi(all.length, 'Contacts') + kpi(realtors.length, 'Realtors') + kpi(activeP, 'Active partners', 'var(--green)') + kpi(money(due), 'Payouts due', 'var(--amber)') + kpi(S.portal.leads.length, 'Portal leads') + kpi(refsMonth, 'Referrals this month', 'var(--pink)') + '</div>';
   h += statTile('rev', ICON.money, 'Referral revenue', kfmt(ytd) + ' so far in ' + yr + ' · ' + kfmt(months[11].v) + ' this month', barsSvg(months, kfmt, 'grev'), true);
-  h += statTile('top', ICON.star, 'Top referring partners', top.length ? top[0].name + ' leads with ' + top[0].n : 'No paid referrals yet', top.map((a) => '<div class="lb"><span class="n">' + esc(a.name) + '</span><span class="v">' + a.n + ' · ' + kfmt(a.amt) + '</span><span class="bar"><i style="width:' + (a.n / topMax * 100).toFixed(1) + '%"></i></span></div>').join('') || '<div class="empty">No referrals yet.</div>');
+  h += statTile('top', ICON.star, 'Top referring partners', top.length ? top[0].name + ' · ' + kfmt(top[0].earned) : 'No earned referrals yet', (top.map((a) => '<div class="lb"><span class="n">' + esc(a.name) + '</span><span class="v">' + kfmt(a.earned) + ' · ' + a.jobs + '</span><span class="bar"><i style="width:' + a.bar.toFixed(1) + '%"></i></span>' + (a.upcoming > 0 ? '<span class="up">upcoming ' + kfmt(a.upcoming) + '</span>' : '') + '</div>').join('') || '<div class="empty">No partner referrals in the last 12 months.</div>') + '<div class="muted small" style="margin-top:8px">Earned = completed + booked through today, last 12 months. Upcoming booked is separate.</div>');
   h += statTile('pipe', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 4h18l-7 8v6l-4 2v-8z"/></svg>', 'Referral pipeline', pl.referred + ' referred · ' + pl.booked + ' booked · ' + pl.completed + ' completed',
     '<div class="pipe">' + seg.filter((x) => x[1]).map((x) => '<div style="width:' + (x[1] / plTot * 100) + '%;background:' + x[2] + '"></div>').join('') + '</div><div class="legend">' + seg.map((x) => '<span><i style="background:' + x[2] + '"></i>' + x[0] + ' ' + x[1] + '</span>').join('') + '</div>' +
     '<div class="owed"><div><b style="color:var(--amber)">' + money(due) + '</b><span class="muted small">Payouts owed</span></div><div><b style="color:var(--green)">' + money(paidTot) + '</b><span class="muted small">Paid to date</span></div></div>');
