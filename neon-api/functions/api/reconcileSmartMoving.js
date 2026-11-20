@@ -6,7 +6,9 @@
  *  Reuses the live webhook's proven logic (partnerOf / matchContact / classifyStage), writes
  *  DIRECTLY to Supabase via sb(), dedupes by the opp id or any job id in notes, only ADVANCES
  *  status, refreshes amount / service date / placeholder job name from the final invoice,
- *  and NEVER sends money. Idempotent: safe to run repeatedly.
+ *  and NEVER sends money. Duplicate and lost referrals are not moved back to completed.
+ *  Idempotent: safe to run repeatedly.
+ *  job_completed alerts still use the 3-day window below, and also have to pass the payout gate.
  *
  *  Two modes:
  *    { "ids": ["<oppId>", ...], "dry": true|false }   ← WORKS NOW via the proven single-opp GET.
@@ -28,10 +30,26 @@ import { endpoint, preflight, sb } from '../_shared.js';
 import { matchContact, loadAliases } from '../_match.js';
 import { emitEvent } from '../_push.js';
 import { loadOpp, moneyOf, needsSmartMovingCloseOut, oppNoteIds, notesContainId, referralIdFilter, referralFieldPatch, uuidsInNotes } from '../_smopp.js';
+import { appendHistoricalNote, payoutAlertLookup } from '../_payoutGate.js';
 
 const SM_BASE = 'https://api-public.smartmoving.com/v1';
 const GENERIC = /google|yelp|\bweb\b|website|online|bing|drive.?by|signage|sign\b|past customer|return(ing)? customer|repeat customer|former customer|facebook|instagram|social|yard sign|billboard|angi|thumbtack|home.?advisor|walk.?in|truck|wrap|\bnone\b|^n\/?a$|^other$|unknown|search engine|chat ?gpt|openai|\bclaude\b|perplexity|gemini|copilot|\bai\b/i;
 const RANK = { referred: 1, booked: 2, completed: 3 };
+const TERMINAL = new Set(['duplicate', 'lost']);
+const terminalStatus = (status) => TERMINAL.has(String(status || '').toLowerCase());
+function pickReferral(rows) {
+  const list = rows || [];
+  return list.find((r) => !terminalStatus(r.status)) || list[0] || null;
+}
+function notesForStage(base, stage, serviceDate) {
+  if (stage !== 'completed') return base;
+  return appendHistoricalNote(base, serviceDate);
+}
+function statusAdvance(row, stage, tag, serviceDate) {
+  if (!row || terminalStatus(row.status)) return null;
+  if ((RANK[stage] || 0) <= (RANK[String(row.status || '').toLowerCase()] || 0)) return null;
+  return { status: stage, notes: notesForStage((row.notes || '') + ' | ' + tag + stage, stage, serviceDate) };
+}
 const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
 function fmtDate(d) {
@@ -101,18 +119,21 @@ function rowMatches(r, ids, oppId) {
 }
 
 async function findReferral(db, refsByContact, ids, oppId, preferContactId) {
-  const mine = refsByContact[String(preferContactId)] || [];
-  let existing = mine.find((r) => rowMatches(r, ids, oppId));
-  if (!existing) {
+  const mine = (refsByContact[String(preferContactId)] || []).filter((r) => rowMatches(r, ids, oppId));
+  let hits = mine;
+  if (!hits.length) {
     const lists = Object.keys(refsByContact).map((k) => refsByContact[k]);
-    for (let i = 0; i < lists.length && !existing; i++) existing = (lists[i] || []).find((r) => rowMatches(r, ids, oppId));
+    for (let i = 0; i < lists.length && !hits.length; i++) hits = (lists[i] || []).filter((r) => rowMatches(r, ids, oppId));
   }
+  let existing = pickReferral(hits);
   if (!existing) {
     const filter = referralIdFilter(ids);
     if (filter) {
       try {
-        const rows = (await db.select('referrals?' + filter + '&status=neq.duplicate&select=id,contactId,status,notes,jobName,amount,date&order=id.asc&limit=5')) || [];
-        existing = rows[0] || null;
+        const cols = 'select=id,contactId,status,notes,jobName,amount,date&order=id.asc&limit=5';
+        let rows = (await db.select('referrals?' + filter + '&status=not.in.(duplicate,lost)&' + cols)) || [];
+        if (!rows.length) rows = (await db.select('referrals?' + filter + '&' + cols)) || [];
+        existing = pickReferral(rows);
         if (existing) {
           const k = String(existing.contactId || '');
           (refsByContact[k] = refsByContact[k] || []).push(existing);
@@ -168,6 +189,11 @@ async function reconcileOne(db, oppId, contacts, refsByContact, key, dry, applyL
     const fromStatus = existing.status;
     const fields = referralFieldPatch(existing, { amount, date: dated, jobName: cust });
     const refreshed = Object.keys(fields);
+    if (terminalStatus(fromStatus)) {
+      if (refreshed.length && !dry) await db.update('referrals', `id=eq.${existing.id}`, fields);
+      if (refreshed.length) Object.assign(existing, fields);
+      return stamp({ id: oppId, partner: match.name, cust, action: 'unchanged', status: fromStatus, note: 'duplicate or lost left alone' }, refreshed);
+    }
     const patch = { ...fields };
     if (!String(existing.contactId || '').trim()) {
       patch.contactId = String(match.id);
@@ -186,20 +212,32 @@ async function reconcileOne(db, oppId, contacts, refsByContact, key, dry, applyL
       if (Object.keys(patch).length) Object.assign(existing, patch);
       return stamp({ id: oppId, partner: match.name, cust, action: 'lost_in_sm', status: fromStatus, smStatus: opp.status }, refreshed);
     }
-    const cur = RANK[String(fromStatus || '').toLowerCase()] || 0; const nw = RANK[stage] || 0;
-    if (nw > cur) {
-      patch.status = stage;
-      patch.notes = (existing.notes || '') + ' | reconcile->' + stage;
+    const adv = statusAdvance(existing, stage, 'reconcile->', dated);
+    if (adv) {
+      Object.assign(patch, adv);
       if (!dry) await db.update('referrals', `id=eq.${existing.id}`, patch);
       Object.assign(existing, patch);
       // Alert only for CURRENT jobs (a missed webhook), never for old history being cleaned up.
+      // Completed alerts keep this 3-day window and also have to pass the payout gate.
       // Same source_key as the live webhook, so a job can never alert twice.
       // Amount / date / name refreshes do not alert and do not pay out.
       const ago = (d) => new Date(Date.now() - d * 864e5).toISOString().slice(0, 10);
-      if (!dry && alerts && ((stage === 'booked' && date >= ago(1)) || (stage === 'completed' && date >= ago(3) && date <= today))) {
-        await emitEvent(env, { event: stage === 'booked' ? 'job_booked' : 'job_completed', title: (stage === 'booked' ? 'Booked: ' : 'Completed: ') + cust,
-          body: 'Referred by ' + match.name + (stage === 'completed' ? '. Their payout may be due.' : '.'), url: stage === 'completed' ? '/app/#payouts' : '/app/#referrals',
-          source_key: 'job:' + (opp.id || oppId) + ':' + stage }).catch(() => {});
+      const recent = (stage === 'booked' && date >= ago(1)) || (stage === 'completed' && date >= ago(3) && date <= today);
+      if (!dry && alerts && recent) {
+        let send = stage !== 'completed';
+        if (stage === 'completed') {
+          try {
+            const decision = await payoutAlertLookup(db, {
+              date: dated, amount, partner: match.name, contactId: match.id, referralId: existing.id,
+            });
+            send = decision.ok === true;
+          } catch (_) { send = false; }
+        }
+        if (send) {
+          await emitEvent(env, { event: stage === 'booked' ? 'job_booked' : 'job_completed', title: (stage === 'booked' ? 'Booked: ' : 'Completed: ') + cust,
+            body: 'Referred by ' + match.name + (stage === 'completed' ? '. Their payout may be due.' : '.'), url: stage === 'completed' ? '/app/#payouts' : '/app/#referrals',
+            source_key: 'job:' + (opp.id || oppId) + ':' + stage }).catch(() => {});
+        }
       }
       return stamp({ id: oppId, partner: match.name, cust, action: 'advance', from: fromStatus, to: stage, amount, dry: !!dry }, refreshed);
     }
@@ -214,7 +252,8 @@ async function reconcileOne(db, oppId, contacts, refsByContact, key, dry, applyL
   if (!dry) {
     await db.insert('referrals', {
       contactId: String(match.id), contactName: match.name, jobName: cust, status: stage,
-      date: date, amount: String(amount), enteredBy: 'SmartMoving Reconcile', notes: '[SM:' + String(opp.id || oppId) + '] reconciled · ' + lead,
+      date: date, amount: String(amount), enteredBy: 'SmartMoving Reconcile',
+      notes: notesForStage('[SM:' + String(opp.id || oppId) + '] reconciled · ' + lead, stage, dated),
     });
   }
   return stamp({ id: oppId, partner: match.name, action: 'create', stage, cust, amount, dry: !!dry });
