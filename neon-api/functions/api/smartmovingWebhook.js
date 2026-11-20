@@ -7,8 +7,10 @@
  *      CRM contact and create/advance a row in `referrals` (deduped by opp id or any job id in notes).
  *    - No affiliate → advance a matching `portal_leads` row by customer name/phone.
  *  Never sends money; payouts stay human-initiated in the CRM. Status only ever advances.
+ *  A referral already marked duplicate or lost is left there (not moved back to completed).
  *  Amount, service date, and a placeholder job name are refreshed from the opportunity
  *  (final invoice once there is one) without firing payouts.
+ *  job_completed alerts fire only when the payout gate says the partner is actually due.
  *
  *  Env: SUPABASE_URL, SUPABASE_KEY, SMARTMOVING_API_KEY, SMARTMOVING_WEBHOOK_SECRET? */
 import { endpoint, preflight, sb } from '../_shared.js';
@@ -16,10 +18,27 @@ import { matchContact, loadAliases } from '../_match.js';
 import { dispatch } from '../_webhooks.js';
 import { emitEvent } from '../_push.js';
 import { smOpp, moneyOf, needsSmartMovingCloseOut, oppNoteIds, notesContainId, referralIdFilter, referralFieldPatch } from '../_smopp.js';
+import { appendHistoricalNote, payoutAlertLookup } from '../_payoutGate.js';
 
 const GENERIC = /google|yelp|\bweb\b|website|online|bing|drive.?by|signage|sign\b|past customer|return(ing)? customer|repeat customer|former customer|facebook|instagram|social|yard sign|billboard|angi|thumbtack|home.?advisor|walk.?in|truck|wrap|\bnone\b|^n\/?a$|^other$|unknown|search engine|chat ?gpt|openai|\bclaude\b|perplexity|gemini|copilot|\bai\b/i;
 const RANK = { referred: 1, booked: 2, completed: 3 };
 const PRANK = { 'new': 0, contacted: 1, booked: 2, completed: 3, lost: 0 };
+const TERMINAL = new Set(['duplicate', 'lost']);
+function terminalStatus(status) { return TERMINAL.has(String(status || '').toLowerCase()); }
+function pickReferral(rows) {
+  const list = rows || [];
+  return list.find((r) => !terminalStatus(r.status)) || list[0] || null;
+}
+function notesForStage(base, stage, serviceDate) {
+  if (stage !== 'completed') return base;
+  return appendHistoricalNote(base, serviceDate);
+}
+function statusAdvance(row, stage, tag, serviceDate) {
+  if (!row || terminalStatus(row.status)) return null;
+  const from = String(row.status || '').toLowerCase();
+  if ((RANK[stage] || 0) <= (RANK[from] || 0)) return null;
+  return { status: stage, notes: notesForStage((row.notes || '') + ' | ' + tag + stage, stage, serviceDate) };
+}
 
 const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 function fmtDate(d) {
@@ -57,7 +76,12 @@ function partnerOf(o) {
 async function rowsMatchingIds(db, ids) {
   const filter = referralIdFilter(ids);
   if (!filter) return [];
-  return (await db.select('referrals?' + filter + '&status=neq.duplicate&select=id,contactId,status,notes,jobName,amount,date&order=id.asc&limit=5')) || [];
+  const cols = 'select=id,contactId,status,notes,jobName,amount,date&order=id.asc&limit=5';
+  // Prefer a live row. A duplicate or lost row is returned only when it is the
+  // only match, so the job is left alone instead of inserted again as completed.
+  const open = (await db.select('referrals?' + filter + '&status=not.in.(duplicate,lost)&' + cols)) || [];
+  if (open.length) return open;
+  return (await db.select('referrals?' + filter + '&' + cols)) || [];
 }
 
 // Fire outbound webhooks + owner SMS when a job actually advances. Best-effort and
@@ -85,6 +109,22 @@ async function emitJob(env, waitUntil, stage, data) {
   if (stage !== 'booked' && stage !== 'completed') return;
   const fire = async () => {
     try {
+      // Booked alerts stay as they were. Completion alerts wait for the payout gate
+      // (recent move, real partner, unpaid). A no is quiet: status was already saved.
+      if (stage === 'completed') {
+        let decision = { ok: false };
+        try {
+          decision = await payoutAlertLookup(sb(env), {
+            date: Object.prototype.hasOwnProperty.call(data, 'serviceDate') ? data.serviceDate : data.date,
+            amount: data.amount,
+            partner: data.partner,
+            contactId: data.contactId,
+            referralId: data.refId,
+            leadId: data.leadId,
+          });
+        } catch (_) { decision = { ok: false }; }
+        if (decision.ok !== true) return;
+      }
       await dispatch(env, 'job.' + stage, data);
       if (stage === 'completed') await dispatch(env, 'payout.due', data);
       // One alert per job + stage, ever (source_key), so SmartMoving's burst of webhooks can't double-alert.
@@ -131,7 +171,7 @@ const handler = endpoint(async ({ request, env, body, reply, waitUntil }) => {
   // --- No affiliate: advance a matching portal lead by name/phone ---
   if (!partner) {
     try {
-      const leads = await db.select('portal_leads?select=id,customerName,customerPhone,status,realtorName');
+      const leads = await db.select('portal_leads?select=id,customerName,customerPhone,status,realtorName,realtorId');
       const nc = norm(cust);
       const cands = (leads || []).filter((l) => {
         const ln = norm(l.customerName); const lp = String(l.customerPhone || '').replace(/\D/g, '');
@@ -146,7 +186,7 @@ const handler = endpoint(async ({ request, env, body, reply, waitUntil }) => {
       if (nw <= cur) return reply({ ok: true, oppId, portal: 'unchanged', status: L.status });
       const patch = { status: stage }; if (stage === 'completed') patch.completedAt = new Date().toISOString();
       await db.update('portal_leads', `id=eq.${L.id}`, patch);
-      await emitJob(env, waitUntil, stage, { source: 'portal_lead', oppId, leadId: L.id, customer: cust, partner: L.realtorName || null, stage, amount, date });
+      await emitJob(env, waitUntil, stage, { source: 'portal_lead', oppId, leadId: L.id, contactId: L.realtorId || '', customer: cust, partner: L.realtorName || null, stage, amount, date, serviceDate: dated });
       return reply({ ok: true, oppId, portal: 'advanced', leadId: L.id, to: stage, realtor: L.realtorName });
     } catch (e) { return reply({ ok: false, error: 'portal_sync_failed', message: e.message }, 500); }
   }
@@ -159,21 +199,22 @@ const handler = endpoint(async ({ request, env, body, reply, waitUntil }) => {
     // contactId so the CRM still surfaces + chimes it, and Dane can add/link "<affiliate>".
     try {
       const dup = await rowsMatchingIds(db, ids);
-      if (!dup.length) {
+      const row = pickReferral(dup);
+      if (!row) {
         const ins = await db.insert('referrals', {
           contactId: '', contactName: partner, jobName: cust, status: stage,
           date: date, amount: String(amount), enteredBy: 'SmartMoving Webhook',
-          notes: '[SM:' + oppId + '] UNMATCHED affiliate "' + partner + '" · ' + lead,
+          notes: notesForStage('[SM:' + oppId + '] UNMATCHED affiliate "' + partner + '" · ' + lead, stage, dated),
         });
         const refId = ins && ins[0] && ins[0].id;
         emitWhoReferred(env, waitUntil, opp, { oppId, partner, customer: cust, refId });
-      } else {
-        const row = dup[0];
+      } else if (terminalStatus(row.status)) {
         const fields = referralFieldPatch(row, { amount, date: dated, jobName: cust });
-        const patch = { ...fields };
-        const cur = RANK[String(row.status || '').toLowerCase()] || 0;
-        const nw = RANK[stage] || 0;
-        if (nw > cur) { patch.status = stage; patch.notes = (row.notes || '') + ' | live->' + stage; }
+        if (Object.keys(fields).length) await db.update('referrals', `id=eq.${row.id}`, fields);
+      } else {
+        const fields = referralFieldPatch(row, { amount, date: dated, jobName: cust });
+        const adv = statusAdvance(row, stage, 'live->', dated);
+        const patch = { ...fields, ...(adv || {}) };
         if (Object.keys(patch).length) await db.update('referrals', `id=eq.${row.id}`, patch);
       }
     } catch (e) { return reply({ ok: false, error: 'unmatched_record_failed', message: e.message }, 500); }
@@ -182,19 +223,18 @@ const handler = endpoint(async ({ request, env, body, reply, waitUntil }) => {
 
   let referrals = [];
   try { referrals = (await db.select(`referrals?contactId=eq.${encodeURIComponent(match.id)}&select=id,status,notes,jobName,amount,date`)) || []; } catch (e) {}
-  const existing = referrals.find((r) => notesContainId(r.notes, ids) || String(r.jobName || '').indexOf(String(oppId)) >= 0);
+  const hits = referrals.filter((r) => notesContainId(r.notes, ids) || String(r.jobName || '').indexOf(String(oppId)) >= 0);
+  const existing = pickReferral(hits);
   if (existing) {
     const fields = referralFieldPatch(existing, { amount, date: dated, jobName: cust });
-    const cur = RANK[String(existing.status || '').toLowerCase()] || 0;
-    const nw = RANK[stage] || 0;
-    const patch = { ...fields };
-    if (nw > cur) { patch.status = stage; patch.notes = (existing.notes || '') + ' | live->' + stage; }
+    const adv = statusAdvance(existing, stage, 'live->', dated);
+    const patch = { ...fields, ...(adv || {}) };
     if (Object.keys(patch).length) {
       try { await db.update('referrals', `id=eq.${existing.id}`, patch); }
       catch (e) { return reply({ ok: false, error: 'update_failed', message: e.message }, 500); }
     }
-    if (nw > cur) {
-      await emitJob(env, waitUntil, stage, { source: 'referral', oppId, refId: existing.id, customer: cust, partner: match.name, stage, amount, date });
+    if (adv) {
+      await emitJob(env, waitUntil, stage, { source: 'referral', oppId, refId: existing.id, contactId: match.id, customer: cust, partner: match.name, stage, amount, date, serviceDate: dated });
       return reply({ ok: true, oppId, partner: match.name, action: 'advance', from: existing.status, to: stage, refId: existing.id, refreshed: Object.keys(fields) });
     }
     if (Object.keys(fields).length) return reply({ ok: true, oppId, partner: match.name, action: 'refresh', refId: existing.id, refreshed: Object.keys(fields) });
@@ -204,36 +244,42 @@ const handler = endpoint(async ({ request, env, body, reply, waitUntil }) => {
   // inserting a second copy. Legacy "SmartMoving Sync" rows store job ids, not the opp id.
   try {
     const prior = await rowsMatchingIds(db, ids);
-    const loose = prior.find((r) => !String(r.contactId || '').trim());
+    const open = (prior || []).filter((r) => !terminalStatus(r.status));
+    if (!open.length && (prior || []).length) {
+      return reply({ ok: true, oppId, partner: match.name, action: 'unchanged', status: prior[0].status, note: 'duplicate or lost left alone' });
+    }
+    const loose = open.find((r) => !String(r.contactId || '').trim());
     if (loose) {
       const fields = referralFieldPatch(loose, { amount, date: dated, jobName: cust });
-      const up = { ...fields, contactId: String(match.id), contactName: match.name, notes: (loose.notes || '') + ' | linked to ' + match.name };
-      if ((RANK[stage] || 0) > (RANK[String(loose.status || '').toLowerCase()] || 0)) up.status = stage;
+      const adv = statusAdvance(loose, stage, 'live->', dated);
+      const up = { ...fields, contactId: String(match.id), contactName: match.name, notes: notesForStage((loose.notes || '') + ' | linked to ' + match.name, adv ? stage : '', dated) };
+      if (adv) up.status = adv.status;
       await db.update('referrals', `id=eq.${loose.id}`, up);
-      if (up.status) await emitJob(env, waitUntil, stage, { source: 'referral', oppId, refId: loose.id, customer: cust, partner: match.name, stage, amount, date });
+      if (adv) await emitJob(env, waitUntil, stage, { source: 'referral', oppId, refId: loose.id, contactId: match.id, customer: cust, partner: match.name, stage, amount, date, serviceDate: dated });
       return reply({ ok: true, oppId, partner: match.name, action: 'linked', refId: loose.id, refreshed: Object.keys(fields) });
     }
-    if (prior.length) {
-      const row = prior[0];
+    if (open.length) {
+      const row = open[0];
       const fields = referralFieldPatch(row, { amount, date: dated, jobName: cust });
-      const patch = { ...fields };
-      const cur = RANK[String(row.status || '').toLowerCase()] || 0;
-      const nw = RANK[stage] || 0;
-      if (nw > cur) { patch.status = stage; patch.notes = (row.notes || '') + ' | live->' + stage; }
+      const adv = statusAdvance(row, stage, 'live->', dated);
+      const patch = { ...fields, ...(adv || {}) };
       if (Object.keys(patch).length) await db.update('referrals', `id=eq.${row.id}`, patch);
       // No emitJob: this branch never alerted, and payout webhooks are not deduped.
-      const action = nw > cur ? 'advance' : (Object.keys(fields).length ? 'refresh' : 'unchanged');
+      const action = adv ? 'advance' : (Object.keys(fields).length ? 'refresh' : 'unchanged');
       return reply({ ok: true, oppId, partner: match.name, action, note: 'matched existing row by opportunity or job id', refId: row.id, refreshed: Object.keys(fields) });
     }
   } catch (_) { /* fall through to a normal save */ }
+  let inserted = null;
   try {
-    await db.insert('referrals', {
+    inserted = await db.insert('referrals', {
       contactId: String(match.id), contactName: match.name, jobName: cust, status: stage,
-      date: date, amount: String(amount), enteredBy: 'SmartMoving Webhook', notes: '[SM:' + oppId + '] live · ' + lead,
+      date: date, amount: String(amount), enteredBy: 'SmartMoving Webhook',
+      notes: notesForStage('[SM:' + oppId + '] live · ' + lead, stage, dated),
     });
   } catch (e) { return reply({ ok: false, error: 'insert_failed', message: e.message }, 500); }
+  const refId = inserted && inserted[0] && inserted[0].id;
   if (stage === 'referred') emitNewReferral(env, waitUntil, opp, { oppId, partner: match.name, customer: cust, matchedId: match.id });
-  await emitJob(env, waitUntil, stage, { source: 'referral', oppId, customer: cust, partner: match.name, stage, amount, date });
+  await emitJob(env, waitUntil, stage, { source: 'referral', oppId, refId, contactId: match.id, customer: cust, partner: match.name, stage, amount, date, serviceDate: dated });
   return reply({ ok: true, oppId, partner: match.name, action: 'create', stage, cust, amount });
 });
 
